@@ -685,6 +685,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   void FreeShutdownObserver();
   void FreeLocalesChangedObserver();
 
+  bool IsPIPWindow() const { return mIsPIPWindow; };
+
   nsIWidgetListener* mWidgetListener;
   nsIWidgetListener* mAttachedWidgetListener;
   nsIWidgetListener* mPreviouslyAttachedWidgetListener;
@@ -731,6 +733,9 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   // scrolling. It is reset to false once a new gesture starts (as indicated by
   // a PANGESTURE_(MAY)START event).
   bool mCurrentPanGestureBelongsToSwipe;
+
+  // It's PictureInPicture window.
+  bool mIsPIPWindow : 1;
 
   struct InitialZoomConstraints {
     InitialZoomConstraints(const uint32_t& aPresShellID,

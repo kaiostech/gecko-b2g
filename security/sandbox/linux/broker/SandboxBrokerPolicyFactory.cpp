@@ -1104,6 +1104,9 @@ SandboxBrokerPolicyFactory::GetUtilityProcessPolicy(int aPid) {
   policy->AddDir(rdonly, "/usr/share");
   policy->AddDir(rdonly, "/usr/local/share");
   policy->AddDir(rdonly, "/etc");
+  // Required to make sure ffmpeg loads properly, this is already existing on
+  // Content and RDD
+  policy->AddDir(rdonly, "/nix/store");
 
   // glibc will try to stat64("/") while populating nsswitch database
   // https://sourceware.org/git/?p=glibc.git;a=blob;f=nss/nss_database.c;h=cf0306adc47f12d9bc761ab1b013629f4482b7e6;hb=9826b03b747b841f5fc6de2054bf1ef3f5c4bdf3#l396
@@ -1111,6 +1114,7 @@ SandboxBrokerPolicyFactory::GetUtilityProcessPolicy(int aPid) {
   policy->AddDir(access, "/");
 
   AddLdconfigPaths(policy.get());
+  AddLdLibraryEnvPaths(policy.get());
 
   // Utility process sandbox needs to allow shmem in order to support
   // profiling.  See Bug 1626385.

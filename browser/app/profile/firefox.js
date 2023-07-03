@@ -832,6 +832,7 @@ pref("browser.tabs.tooltipsShowPidAndActiveness", false);
 #endif
 
 pref("browser.tabs.firefox-view", true);
+pref("browser.tabs.firefox-view-next", false);
 pref("browser.tabs.firefox-view.logLevel", "Warn");
 pref("browser.tabs.firefox-view.notify-for-tabs", false);
 
@@ -1814,23 +1815,14 @@ pref("media.videocontrols.picture-in-picture.video-toggle.visibility-threshold",
 pref("media.videocontrols.picture-in-picture.keyboard-controls.enabled", true);
 pref("media.videocontrols.picture-in-picture.urlbar-button.enabled", true);
 
-// Preferences for the older translation service backed by external services. This is
-// planned to be replaced with an integration of the Firefox Translations service.
-// The prefs for the new service are located under "browser.translations" in
-// modules/libpref/init/all.js
-//
-// See Bug 971044.
-pref("browser.translation.detectLanguage", false);
+// TODO (Bug 1817084) - This pref is used for managing translation preferences
+// in the Firefox Translations addon. It should be removed when the addon is
+// removed.
 pref("browser.translation.neverForLanguages", "");
-// Show the older translation UI that uses external services. This includes UI such as
-// the info bar, notification icon and preferences.
-pref("browser.translation.ui.show", false);
-// Allows to define the translation engine. Google is default, Bing or Yandex are other options.
-pref("browser.translation.engine", "Google");
 
 // Enable Firefox translations powered by the Bergamot translations
-// engine https://browser.mt/. See Bug 971044.
-#if defined(EARLY_BETA_OR_EARLIER)
+// engine https://browser.mt/.
+#ifdef NIGHTLY_BUILD
 pref("browser.translations.enable", true);
 #endif
 
@@ -1874,6 +1866,7 @@ pref("privacy.trackingprotection.cryptomining.enabled", true);
 pref("browser.contentblocking.database.enabled", true);
 
 pref("dom.storage_access.enabled", true);
+pref("dom.storage_access.frame_only", true);
 
 // Enable URL query stripping and strip on share in Nightly.
 #ifdef NIGHTLY_BUILD
@@ -2067,6 +2060,11 @@ pref("privacy.webrtc.sharedTabWarning", false);
 // before navigating to the actual meeting room page. Doesn't survive tab close.
 pref("privacy.webrtc.deviceGracePeriodTimeoutMs", 3600000);
 
+// Enable Fingerprinting Protection in private windows in Nightly.
+#ifdef NIGHTLY_BUILD
+pref("privacy.fingerprintingProtection.pbmode", true);
+#endif
+
 // Start the browser in e10s mode
 pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.desktopbehavior", true);
@@ -2176,8 +2174,10 @@ pref("browser.migrate.history.maxAgeInDays", 180);
 // another browser. We also attempt to transfer these preferences
 // across profile resets.
 pref("browser.migrate.interactions.bookmarks", false);
+pref("browser.migrate.interactions.csvpasswords", false);
 pref("browser.migrate.interactions.history", false);
 pref("browser.migrate.interactions.passwords", false);
+
 pref("browser.migrate.preferences-entrypoint.enabled", true);
 
 pref("browser.device-migration.help-menu.hidden", false);
@@ -2514,8 +2514,6 @@ pref("devtools.netmonitor.features.requestBlocking", true);
 pref("devtools.application.enabled", true);
 
 // Enable the custom formatters feature
-// TODO remove once the custom formatters feature is stable (see bug 1734614)
-pref("devtools.custom-formatters", false);
 // This preference represents the user's choice to enable the custom formatters feature.
 // While the preference above will be removed once the feature is stable, this one is menat to stay.
 pref("devtools.custom-formatters.enabled", false);
@@ -2833,4 +2831,8 @@ pref("cookiebanners.ui.desktop.cfrVariant", 0);
 // Trigger FOG's Artifact Build support on artifact builds.
 #ifdef MOZ_ARTIFACT_BUILDS
   pref("telemetry.fog.artifact_build", true);
+#endif
+
+#ifdef NIGHTLY_BUILD
+  pref("dom.security.credentialmanagement.identity.enabled", true);
 #endif

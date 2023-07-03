@@ -287,24 +287,24 @@ static inline bool ShouldMarkCrossCompartment(GCMarker* marker, JSObject* src,
     }
 
     return dstZone->isGCMarking();
-  } else {
-    // Check our sweep groups are correct as above.
-    MOZ_ASSERT_IF(!dst.isMarkedAny(), !dstZone->isGCSweeping());
-
-    if (dstZone->isGCMarkingBlackOnly()) {
-      /*
-       * The destination compartment is being not being marked gray now,
-       * but it will be later, so record the cell so it can be marked gray
-       * at the appropriate time.
-       */
-      if (!dst.isMarkedAny()) {
-        DelayCrossCompartmentGrayMarking(marker, src);
-      }
-      return false;
-    }
-
-    return dstZone->isGCMarkingBlackAndGray();
   }
+
+  // Check our sweep groups are correct as above.
+  MOZ_ASSERT_IF(!dst.isMarkedAny(), !dstZone->isGCSweeping());
+
+  if (dstZone->isGCMarkingBlackOnly()) {
+    /*
+     * The destination compartment is being not being marked gray now,
+     * but it will be later, so record the cell so it can be marked gray
+     * at the appropriate time.
+     */
+    if (!dst.isMarkedAny()) {
+      DelayCrossCompartmentGrayMarking(marker, src);
+    }
+    return false;
+  }
+
+  return dstZone->isGCMarkingBlackAndGray();
 }
 
 static bool ShouldTraceCrossCompartment(JSTracer* trc, JSObject* src,
@@ -394,8 +394,7 @@ DEFINE_UNSAFE_TRACE_ROOT_FUNCTION(SavedFrame*)
 
 #undef DEFINE_UNSAFE_TRACE_ROOT_FUNCTION
 
-namespace js {
-namespace gc {
+namespace js::gc {
 
 #define INSTANTIATE_INTERNAL_TRACE_FUNCTIONS(type)                     \
   template void TraceRangeInternal<type>(JSTracer*, size_t len, type*, \
@@ -411,8 +410,7 @@ INSTANTIATE_INTERNAL_TRACE_FUNCTIONS(TaggedProto)
 #undef INSTANTIATE_INTERNAL_TRACE_FUNCTIONS_FROM_TRACEKIND
 #undef INSTANTIATE_INTERNAL_TRACE_FUNCTIONS
 
-}  // namespace gc
-}  // namespace js
+}  // namespace js::gc
 
 // In debug builds, makes a note of the current compartment before calling a
 // trace hook or traceChildren() method on a GC thing.
@@ -584,11 +582,11 @@ void js::TraceManuallyBarrieredGenericPointerEdge(JSTracer* trc, Cell** thingp,
     return;
   }
 
-  auto traced = MapGCThingTyped(thing, thing->getTraceKind(),
-                                [trc, name](auto t) -> Cell* {
-                                  TraceManuallyBarrieredEdge(trc, &t, name);
-                                  return t;
-                                });
+  auto* traced = MapGCThingTyped(thing, thing->getTraceKind(),
+                                 [trc, name](auto t) -> Cell* {
+                                   TraceManuallyBarrieredEdge(trc, &t, name);
+                                   return t;
+                                 });
   if (traced != thing) {
     *thingp = traced;
   }
@@ -1201,8 +1199,8 @@ void js::GCMarker::markAndTraverseEdge(S source, T* target) {
 }
 
 template <uint32_t opts, typename S, typename T>
-void js::GCMarker::markAndTraverseEdge(S source, const T& thing) {
-  ApplyGCThingTyped(thing, [this, source](auto t) {
+void js::GCMarker::markAndTraverseEdge(S source, const T& target) {
+  ApplyGCThingTyped(target, [this, source](auto t) {
     this->markAndTraverseEdge<opts>(source, t);
   });
 }
@@ -1678,7 +1676,7 @@ MarkStack& MarkStack::operator=(const MarkStack& other) {
   return *this;
 }
 
-MarkStack::MarkStack(MarkStack&& other)
+MarkStack::MarkStack(MarkStack&& other) noexcept
     : stack_(std::move(other.stack_.ref())),
       topIndex_(other.topIndex_.ref())
 #ifdef JS_GC_ZEAL
@@ -1689,7 +1687,7 @@ MarkStack::MarkStack(MarkStack&& other)
   other.topIndex_ = 0;
 }
 
-MarkStack& MarkStack::operator=(MarkStack&& other) {
+MarkStack& MarkStack::operator=(MarkStack&& other) noexcept {
   new (this) MarkStack(std::move(other));
   return *this;
 }
@@ -2489,8 +2487,7 @@ inline void SweepingTracer::onEdge(T** thingp, const char* name) {
   }
 }
 
-namespace js {
-namespace gc {
+namespace js::gc {
 
 template <typename T>
 JS_PUBLIC_API bool TraceWeakEdge(JSTracer* trc, JS::Heap<T>* thingp) {
@@ -2536,8 +2533,7 @@ JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(
 #undef INSTANTIATE_INTERNAL_MARKING_FUNCTIONS_FROM_TRACEKIND
 #undef INSTANTIATE_IATBF_FUNCTION_FOR_TAGGED_POINTER
 
-} /* namespace gc */
-} /* namespace js */
+}  // namespace js::gc
 
 /*** Cycle Collector Barrier Implementation *********************************/
 
@@ -2724,8 +2720,7 @@ bool js::UnmarkGrayShapeRecursively(Shape* shape) {
 Cell* js::gc::UninlinedForwarded(const Cell* cell) { return Forwarded(cell); }
 #endif
 
-namespace js {
-namespace debug {
+namespace js::debug {
 
 MarkInfo GetMarkInfo(Cell* rawCell) {
   if (!rawCell->isTenured()) {
@@ -2770,5 +2765,4 @@ uintptr_t GetMarkMask(Cell* cell, uint32_t colorBit) {
   return mask;
 }
 
-}  // namespace debug
-}  // namespace js
+}  // namespace js::debug

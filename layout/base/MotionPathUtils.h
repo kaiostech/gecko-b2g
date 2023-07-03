@@ -34,74 +34,65 @@ struct ResolvedMotionPathData {
   gfx::Point mShift;
 };
 
-struct RayReferenceData {
-  // The current position of this transfromed box in the coordinate system of
-  // its containing block.
-  CSSPoint mInitialPosition;
-  // The rect of the containing block.
-  CSSRect mContainingBlockRect;
-  // The size of its border-box in CSS Layout. If it's in SVG layout, this is
-  // the size of view box.
-  CSSSize mBorderBoxSize;
-
-  RayReferenceData() = default;
-  explicit RayReferenceData(const nsIFrame* aFrame);
-
-  bool operator==(const RayReferenceData& aOther) const {
-    return mInitialPosition == aOther.mInitialPosition &&
-           mContainingBlockRect == aOther.mContainingBlockRect &&
-           mBorderBoxSize == aOther.mBorderBoxSize;
-  }
-};
-
 // The collected information for offset-path. We preprocess the value of
 // offset-path and use this data for resolving motion path.
 struct OffsetPathData {
   enum class Type : uint8_t {
     None,
-    Path,
+    Shape,
     Ray,
   };
 
-  struct PathData {
+  struct ShapeData {
     RefPtr<gfx::Path> mGfxPath;
+    // The current position of this transfromed box in the coordinate system of
+    // its containing block.
+    nsPoint mCurrentPosition;
     bool mIsClosedIntervals;
   };
 
   struct RayData {
     const StyleRayFunction* mRay;
-    RayReferenceData mData;
+    // The coord box of the containing block.
+    nsRect mCoordBox;
+    // The current position of this transfromed box in the coordinate system of
+    // its containing block.
+    nsPoint mCurrentPosition;
+    // The reference length for computing ray(contain).
+    CSSCoord mContainReferenceLength;
   };
 
   Type mType;
   union {
-    PathData mPath;
+    ShapeData mShape;
     RayData mRay;
   };
 
   static OffsetPathData None() { return OffsetPathData(); }
-  static OffsetPathData Path(const StyleSVGPathData& aPath,
-                             already_AddRefed<gfx::Path>&& aGfxPath) {
-    const auto& path = aPath._0.AsSpan();
-    return OffsetPathData(std::move(aGfxPath),
-                          !path.empty() && path.rbegin()->IsClosePath());
+  static OffsetPathData Shape(already_AddRefed<gfx::Path>&& aGfxPath,
+                              nsPoint&& aCurrentPosition, bool aIsClosedPath) {
+    return OffsetPathData(std::move(aGfxPath), std::move(aCurrentPosition),
+                          aIsClosedPath);
+  }
+  static OffsetPathData Ray(const StyleRayFunction& aRay, nsRect&& aCoordBox,
+                            nsPoint&& aPosition,
+                            CSSCoord&& aContainReferenceLength) {
+    return OffsetPathData(&aRay, std::move(aCoordBox), std::move(aPosition),
+                          std::move(aContainReferenceLength));
   }
   static OffsetPathData Ray(const StyleRayFunction& aRay,
-                            const RayReferenceData& aData) {
-    return OffsetPathData(&aRay, aData);
-  }
-  static OffsetPathData Ray(const StyleRayFunction& aRay,
-                            RayReferenceData&& aData) {
-    return OffsetPathData(&aRay, std::move(aData));
+                            const nsRect& aCoordBox, const nsPoint& aPosition,
+                            const CSSCoord& aContainReferenceLength) {
+    return OffsetPathData(&aRay, aCoordBox, aPosition, aContainReferenceLength);
   }
 
   bool IsNone() const { return mType == Type::None; }
-  bool IsPath() const { return mType == Type::Path; }
+  bool IsShape() const { return mType == Type::Shape; }
   bool IsRay() const { return mType == Type::Ray; }
 
-  const PathData& AsPath() const {
-    MOZ_ASSERT(IsPath());
-    return mPath;
+  const ShapeData& AsShape() const {
+    MOZ_ASSERT(IsShape());
+    return mShape;
   }
 
   const RayData& AsRay() const {
@@ -111,8 +102,8 @@ struct OffsetPathData {
 
   ~OffsetPathData() {
     switch (mType) {
-      case Type::Path:
-        mPath.~PathData();
+      case Type::Shape:
+        mShape.~ShapeData();
         break;
       case Type::Ray:
         mRay.~RayData();
@@ -124,8 +115,8 @@ struct OffsetPathData {
 
   OffsetPathData(const OffsetPathData& aOther) : mType(aOther.mType) {
     switch (mType) {
-      case Type::Path:
-        mPath = aOther.mPath;
+      case Type::Shape:
+        mShape = aOther.mShape;
         break;
       case Type::Ray:
         mRay = aOther.mRay;
@@ -137,8 +128,8 @@ struct OffsetPathData {
 
   OffsetPathData(OffsetPathData&& aOther) : mType(aOther.mType) {
     switch (mType) {
-      case Type::Path:
-        mPath = std::move(aOther.mPath);
+      case Type::Shape:
+        mShape = std::move(aOther.mShape);
         break;
       case Type::Ray:
         mRay = std::move(aOther.mRay);
@@ -150,12 +141,20 @@ struct OffsetPathData {
 
  private:
   OffsetPathData() : mType(Type::None) {}
-  OffsetPathData(already_AddRefed<gfx::Path>&& aPath, bool aIsClosed)
-      : mType(Type::Path), mPath{std::move(aPath), aIsClosed} {}
-  OffsetPathData(const StyleRayFunction* aRay, RayReferenceData&& aRef)
-      : mType(Type::Ray), mRay{aRay, std::move(aRef)} {}
-  OffsetPathData(const StyleRayFunction* aRay, const RayReferenceData& aRef)
-      : mType(Type::Ray), mRay{aRay, aRef} {}
+  OffsetPathData(already_AddRefed<gfx::Path>&& aPath,
+                 nsPoint&& aCurrentPosition, bool aIsClosed)
+      : mType(Type::Shape),
+        mShape{std::move(aPath), std::move(aCurrentPosition), aIsClosed} {}
+  OffsetPathData(const StyleRayFunction* aRay, nsRect&& aCoordBox,
+                 nsPoint&& aPosition, CSSCoord&& aContainReferenceLength)
+      : mType(Type::Ray),
+        mRay{aRay, std::move(aCoordBox), std::move(aPosition),
+             std::move(aContainReferenceLength)} {}
+  OffsetPathData(const StyleRayFunction* aRay, const nsRect& aCoordBox,
+                 const nsPoint& aPosition,
+                 const CSSCoord& aContainReferenceLength)
+      : mType(Type::Ray),
+        mRay{aRay, aCoordBox, aPosition, aContainReferenceLength} {}
   OffsetPathData& operator=(const OffsetPathData&) = delete;
   OffsetPathData& operator=(OffsetPathData&&) = delete;
 };
@@ -167,13 +166,39 @@ class MotionPathUtils final {
   using TransformReferenceBox = nsStyleTransformMatrix::TransformReferenceBox;
 
  public:
-  // SVG frames (unlike other frames) have a reference box that can be (and
-  // typically is) offset from the TopLeft() of the frame.
-  //
-  // In motion path, we have to make sure the object is aligned with offset-path
-  // when using content area, so we should tweak the anchor point by a given
-  // offset.
+  /**
+   * SVG frames (unlike other frames) have a reference box that can be (and
+   * typically is) offset from the TopLeft() of the frame.
+   *
+   * In motion path, we have to make sure the object is aligned with offset-path
+   * when using content area, so we should tweak the anchor point by a given
+   * offset.
+   */
   static CSSPoint ComputeAnchorPointAdjustment(const nsIFrame& aFrame);
+
+  /**
+   * In CSS context, this returns the the box being referenced from the element
+   * that establishes the containing block for this element.
+   * In SVG context, we always use view-box.
+   * https://drafts.fxtf.org/motion-1/#valdef-offset-path-coord-box
+   */
+  static const nsIFrame* GetOffsetPathReferenceBox(const nsIFrame* aFrame,
+                                                   nsRect& aOutputRect);
+
+  /**
+   * Return the width or the height of the element’s border box, whichever is
+   * larger. This is for computing the ray() with "contain" keyword.
+   */
+  static CSSCoord GetRayContainReferenceSize(nsIFrame* aFrame);
+
+  /**
+   * Get the resolved radius for inset(0 round X), where X is the parameter of
+   * |aRadius|.
+   * This returns an empty array if we cannot compute the radii; otherwise, it
+   * returns an array with 8 elements.
+   */
+  static nsTArray<nscoord> ComputeBorderRadii(
+      const StyleBorderRadius& aBorderRadius, const nsRect& aCoordBox);
 
   /**
    * Generate the motion path transform result. This function may be called on
@@ -205,11 +230,26 @@ class MotionPathUtils final {
       TransformReferenceBox&, gfx::Path* aCachedMotionPath);
 
   /**
-   * Build a gfx::Path from the computed svg path. We should give it a path
-   * builder. If |aPathBuilder| is nullptr, we return null path.
-   * */
-  static already_AddRefed<gfx::Path> BuildPath(const StyleSVGPathData& aPath,
-                                               gfx::PathBuilder* aPathBuilder);
+   * Build a gfx::Path from the svg path data. We should give it a path builder.
+   * If |aPathBuilder| is nullptr, we return null path.
+   * This can be used on the main thread or on the compositor thread.
+   */
+  static already_AddRefed<gfx::Path> BuildSVGPath(
+      const StyleSVGPathData& aPath, gfx::PathBuilder* aPathBuilder);
+
+  /**
+   * Build a gfx::Path from the computed basic shape.
+   */
+  static already_AddRefed<gfx::Path> BuildPath(const StyleBasicShape&,
+                                               const StyleOffsetPosition&,
+                                               const nsRect& aCoordBox,
+                                               const nsPoint& aCurrentPosition,
+                                               gfx::PathBuilder*);
+
+  /**
+   * Get a path builder for motion path on the main thread.
+   */
+  static already_AddRefed<gfx::PathBuilder> GetPathBuilder();
 
   /**
    * Get a path builder for compositor.

@@ -11,8 +11,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.sys.mjs",
   BrowserUIUtils: "resource:///modules/BrowserUIUtils.sys.mjs",
-  CONTEXTUAL_SERVICES_PING_TYPES:
-    "resource:///modules/PartnerLinkAttribution.sys.mjs",
   ExtensionSearchHandler:
     "resource://gre/modules/ExtensionSearchHandler.sys.mjs",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.sys.mjs",
@@ -469,7 +467,7 @@ export class UrlbarInput {
 
     this.value = value;
     this.valueIsTyped = !valid;
-    this.removeAttribute("usertyping");
+    this.toggleAttribute("usertyping", !valid && value);
 
     if (this.focused && value != previousUntrimmedValue) {
       if (
@@ -1259,16 +1257,6 @@ export class UrlbarInput {
           SCALAR_CATEGORY_TOPSITES,
           `urlbar_${position}`,
           1
-        );
-        lazy.PartnerLinkAttribution.sendContextualServicesPing(
-          {
-            position,
-            source: "urlbar",
-            tile_id: result.payload.sponsoredTileId || -1,
-            reporting_url: result.payload.sponsoredClickUrl,
-            advertiser: result.payload.title.toLocaleLowerCase(),
-          },
-          lazy.CONTEXTUAL_SERVICES_PING_TYPES.TOPSITES_SELECTION
         );
       }
     }
@@ -2164,6 +2152,7 @@ export class UrlbarInput {
     }
     this._gotFocusChange = this._gotTabSelect = false;
 
+    this.formatValue();
     this._resetSearchState();
 
     // Switching tabs doesn't always change urlbar focus, so we must try to
@@ -3213,17 +3202,25 @@ export class UrlbarInput {
     this._isHandoffSession = false;
     this.removeAttribute("focused");
 
-    if (this._autofillPlaceholder && this.window.gBrowser.userTypedValue) {
+    if (this._revertOnBlurValue == this.value) {
+      this.handleRevert();
+    } else if (
+      this._autofillPlaceholder &&
+      this.window.gBrowser.userTypedValue
+    ) {
       // If we were autofilling, remove the autofilled portion, by restoring
       // the value to the last typed one.
       this.value = this.window.gBrowser.userTypedValue;
     } else if (this.value == this._focusUntrimmedValue) {
       // If the value was untrimmed by _on_focus and didn't change, trim it.
       this.value = this._focusUntrimmedValue;
+    } else {
+      // We're not updating the value, so just format it.
+      this.formatValue();
     }
     this._focusUntrimmedValue = null;
+    this._revertOnBlurValue = null;
 
-    this.formatValue();
     this._resetSearchState();
 
     // In certain cases, like holding an override key and confirming an entry,
@@ -3242,11 +3239,6 @@ export class UrlbarInput {
     if (!lazy.UrlbarPrefs.get("ui.popup.disable_autohide")) {
       this.view.close();
     }
-
-    if (this._revertOnBlurValue == this.value) {
-      this.handleRevert();
-    }
-    this._revertOnBlurValue = null;
 
     // If there were search terms shown in the URL bar and the user
     // didn't end up modifying the userTypedValue while it was
@@ -3483,11 +3475,7 @@ export class UrlbarInput {
       this._compositionClosedPopup = false;
     }
 
-    if (value) {
-      this.setAttribute("usertyping", "true");
-    } else {
-      this.removeAttribute("usertyping");
-    }
+    this.toggleAttribute("usertyping", value);
     this.removeAttribute("actiontype");
 
     if (
@@ -3633,11 +3621,16 @@ export class UrlbarInput {
 
     let pasteData;
     if (keywordAsSent) {
-      // For only keywords, replace any white spaces including line break with
-      // white space.
-      pasteData = originalPasteData.replace(/\s/g, " ");
+      // For performance reasons, we don't want to beautify a long string.
+      if (originalPasteData.length < 500) {
+        // For only keywords, replace any white spaces including line break
+        // with white space.
+        pasteData = originalPasteData.replace(/\s/g, " ");
+      } else {
+        pasteData = originalPasteData;
+      }
     } else if (
-      fixedURI?.scheme === "data" &&
+      fixedURI?.scheme == "data" &&
       !fixedURI.spec.match(/^data:.+;base64,/)
     ) {
       // For data url without base64, replace line break with white space.
@@ -3660,11 +3653,7 @@ export class UrlbarInput {
       this._setValue(value);
       this.window.gBrowser.userTypedValue = value;
 
-      if (this._untrimmedValue) {
-        this.setAttribute("usertyping", "true");
-      } else {
-        this.removeAttribute("usertyping");
-      }
+      this.toggleAttribute("usertyping", this._untrimmedValue);
 
       // Fix up cursor/selection:
       let newCursorPos = oldStart.length + pasteData.length;

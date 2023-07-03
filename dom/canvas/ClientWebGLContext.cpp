@@ -541,14 +541,23 @@ Maybe<layers::SurfaceDescriptor> ClientWebGLContext::GetFrontBuffer(
   const auto& textureId = fb ? fb->mLastRemoteTextureId : mLastRemoteTextureId;
   auto& needsSync = fb ? fb->mNeedsRemoteTextureSync : mNeedsRemoteTextureSync;
   if (ownerId && textureId) {
-    const auto tooManyFlushes = 10;
-    auto info = child->GetFlushedCmdInfo();
-    // If there are many Flushed Cmds, force synchronous IPC to avoid too many
-    // pending ipc messages.
-    if ((info.flushes - mLastFlushes) > tooManyFlushes) {
-      needsSync = true;
+    auto& info = child->GetFlushedCmdInfo();
+    if (!gfx::gfxVars::WebglOopAsyncPresentForceSync() &&
+        info.flushesSinceLastCongestionCheck.isNothing()) {
+      // Enabling checking of increase of flush cmds.
+      info.flushesSinceLastCongestionCheck = Some(0);
     }
-    mLastFlushes = info.flushes;
+    const auto tooManyFlushes = 10;
+    if (info.flushesSinceLastCongestionCheck.isSome()) {
+      // If there are many flushed cmds, force synchronous IPC to avoid too many
+      // pending ipc messages.
+      if (info.flushesSinceLastCongestionCheck.ref() > tooManyFlushes) {
+        needsSync = true;
+      }
+      // Reset flushesSinceLastCongestionCheck
+      info.flushesSinceLastCongestionCheck = Some(0);
+      info.congestionCheckGeneration++;
+    }
     if (XRE_IsParentProcess() ||
         gfx::gfxVars::WebglOopAsyncPresentForceSync() || needsSync) {
       needsSync = false;
@@ -807,7 +816,8 @@ bool ClientWebGLContext::CreateHostContext(const uvec2& requestedSize) {
       }
     }
 
-    const bool resistFingerprinting = ShouldResistFingerprinting();
+    const bool resistFingerprinting =
+        ShouldResistFingerprinting(RFPTarget::WebGLRenderCapability);
     const auto principalKey = GetPrincipalHashValue();
     const auto initDesc = webgl::InitContextDesc{
         mIsWebGL2, resistFingerprinting, requestedSize, options, principalKey};
@@ -978,7 +988,8 @@ ClientWebGLContext::SetContextOptions(JSContext* cx,
   newOpts.enableDebugRendererInfo =
       StaticPrefs::webgl_enable_debug_renderer_info();
   MOZ_ASSERT(mCanvasElement || mOffscreenCanvas);
-  newOpts.shouldResistFingerprinting = ShouldResistFingerprinting();
+  newOpts.shouldResistFingerprinting =
+      ShouldResistFingerprinting(RFPTarget::WebGLRenderCapability);
 
   if (attributes.mAlpha.WasPassed()) {
     newOpts.alpha = attributes.mAlpha.Value();
@@ -2283,7 +2294,7 @@ void ClientWebGLContext::GetParameter(JSContext* cx, GLenum pname,
 
       case LOCAL_GL_RENDERER: {
         bool allowRenderer = StaticPrefs::webgl_enable_renderer_query();
-        if (ShouldResistFingerprinting()) {
+        if (ShouldResistFingerprinting(RFPTarget::WebGLRenderInfo)) {
           allowRenderer = false;
         }
         if (allowRenderer) {
@@ -5720,11 +5731,11 @@ bool ClientWebGLContext::IsExtensionForbiddenForCaller(
       return true;
 
     case WebGLExtensionID::WEBGL_debug_renderer_info:
-      return ShouldResistFingerprinting() ||
+      return ShouldResistFingerprinting(RFPTarget::WebGLRenderInfo) ||
              !StaticPrefs::webgl_enable_debug_renderer_info();
 
     case WebGLExtensionID::WEBGL_debug_shaders:
-      return ShouldResistFingerprinting();
+      return ShouldResistFingerprinting(RFPTarget::WebGLRenderInfo);
 
     default:
       return false;

@@ -31,32 +31,43 @@ class FileSystemDatabaseManagerVersion002
   static Result<Usage, QMResult> GetFileUsage(
       const FileSystemConnection& aConnection);
 
-  virtual Result<EntryId, QMResult> GetEntryId(
-      const FileSystemChildMetadata& aHandle) const override;
+  nsresult GetFile(const EntryId& aEntryId, const FileId& aFileId,
+                   const FileMode& aMode, ContentType& aType,
+                   TimeStamp& lastModifiedMilliSeconds, Path& aPath,
+                   nsCOMPtr<nsIFile>& aFile) const override;
 
-  virtual nsresult EnsureFileId(const EntryId& aEntryId) override;
+  Result<EntryId, QMResult> RenameEntry(const FileSystemEntryMetadata& aHandle,
+                                        const Name& aNewName) override;
 
-  virtual Result<FileId, QMResult> GetFileId(
-      const EntryId& aEntryId) const override;
-
-  virtual Result<EntryId, QMResult> MoveEntry(
+  Result<EntryId, QMResult> MoveEntry(
       const FileSystemEntryMetadata& aHandle,
       const FileSystemChildMetadata& aNewDesignation) override;
 
-  virtual Result<EntryId, QMResult> RenameEntry(
-      const FileSystemEntryMetadata& aHandle, const Name& aNewName) override;
+  Result<EntryId, QMResult> GetEntryId(
+      const FileSystemChildMetadata& aHandle) const override;
+
+  Result<EntryId, QMResult> GetEntryId(const FileId& aFileId) const override;
+
+  Result<FileId, QMResult> EnsureFileId(const EntryId& aEntryId) override;
+
+  Result<FileId, QMResult> EnsureTemporaryFileId(
+      const EntryId& aEntryId) override;
+
+  Result<FileId, QMResult> GetFileId(const EntryId& aEntryId) const override;
+
+  nsresult MergeFileId(const EntryId& aEntryId, const FileId& aFileId,
+                       bool aAbort) override;
 
  protected:
-  virtual Result<Usage, QMResult> GetUsagesOfDescendants(
+  Result<bool, QMResult> DoesFileIdExist(const FileId& aFileId) const override;
+
+  nsresult RemoveFileId(const FileId& aFileId) override;
+
+  Result<Usage, QMResult> GetUsagesOfDescendants(
       const EntryId& aEntryId) const override;
 
-  virtual Result<nsTArray<FileId>, QMResult> FindDescendants(
+  Result<nsTArray<FileId>, QMResult> FindFilesUnderEntry(
       const EntryId& aEntryId) const override;
-
-  virtual Result<bool, QMResult> DoesFileIdExist(
-      const FileId& aFileId) const override;
-
-  virtual nsresult RemoveFileId(const FileId& aFileId) override;
 };
 
 }  // namespace mozilla::dom::fs::data

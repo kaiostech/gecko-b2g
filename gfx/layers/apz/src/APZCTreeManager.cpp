@@ -3657,8 +3657,8 @@ void APZCTreeManager::SendSubtreeTransformsToChromeMainThread(
 void APZCTreeManager::SetFixedLayerMargins(ScreenIntCoord aTop,
                                            ScreenIntCoord aBottom) {
   MutexAutoLock lock(mMapLock);
-  mCompositorFixedLayerMargins.top = aTop;
-  mCompositorFixedLayerMargins.bottom = aBottom;
+  mCompositorFixedLayerMargins.top = ScreenCoord(aTop);
+  mCompositorFixedLayerMargins.bottom = ScreenCoord(aBottom);
 }
 
 /*static*/

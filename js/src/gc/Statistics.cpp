@@ -243,8 +243,8 @@ inline auto AllPhases() {
 }
 
 void Statistics::gcDuration(TimeDuration* total, TimeDuration* maxPause) const {
-  *total = *maxPause = 0;
-  for (auto& slice : slices_) {
+  *total = *maxPause = TimeDuration::Zero();
+  for (const auto& slice : slices_) {
     *total += slice.duration();
     if (slice.duration() > *maxPause) {
       *maxPause = slice.duration();
@@ -257,14 +257,14 @@ void Statistics::gcDuration(TimeDuration* total, TimeDuration* maxPause) const {
 
 void Statistics::sccDurations(TimeDuration* total,
                               TimeDuration* maxPause) const {
-  *total = *maxPause = 0;
-  for (size_t i = 0; i < sccTimes.length(); i++) {
-    *total += sccTimes[i];
-    *maxPause = std::max(*maxPause, sccTimes[i]);
+  *total = *maxPause = TimeDuration::Zero();
+  for (const auto& duration : sccTimes) {
+    *total += duration;
+    *maxPause = std::max(*maxPause, duration);
   }
 }
 
-typedef Vector<UniqueChars, 8, SystemAllocPolicy> FragmentVector;
+using FragmentVector = Vector<UniqueChars, 8, SystemAllocPolicy>;
 
 static UniqueChars Join(const FragmentVector& fragments,
                         const char* separator = "") {
@@ -302,7 +302,7 @@ static UniqueChars Join(const FragmentVector& fragments,
 
 static TimeDuration SumChildTimes(Phase phase,
                                   const Statistics::PhaseTimes& phaseTimes) {
-  TimeDuration total = 0;
+  TimeDuration total;
   for (phase = phases[phase].firstChild; phase != Phase::NONE;
        phase = phases[phase].nextSibling) {
     total += phaseTimes[phase];
@@ -368,7 +368,7 @@ UniqueChars Statistics::formatCompactSummaryMessage() const {
   }
 
   SprintfLiteral(buffer,
-                 "Zones: %d of %d (-%d); Compartments: %d of %d (-%d); "
+                 "Zones: %zu of %zu (-%zu); Compartments: %zu of %zu (-%zu); "
                  "HeapSize: %.3f MiB; "
                  "HeapChange (abs): %+d (%u); ",
                  zoneStats.collectedZoneCount, zoneStats.zoneCount,
@@ -739,7 +739,8 @@ void Statistics::formatJsonSliceDescription(unsigned i, const SliceData& slice,
     json.property("trigger_amount", trigger.amount);
     json.property("trigger_threshold", trigger.threshold);
   }
-  int64_t numFaults = slice.endFaults - slice.startFaults;
+  MOZ_ASSERT(slice.endFaults >= slice.startFaults);
+  size_t numFaults = slice.endFaults - slice.startFaults;
   if (numFaults != 0) {
     json.property("page_faults", numFaults);
   }
@@ -770,7 +771,6 @@ Statistics::Statistics(GCRuntime* gc)
       startingMinorGCNumber(0),
       startingMajorGCNumber(0),
       startingSliceNumber(0),
-      maxPauseInInterval(0),
       sliceCallback(nullptr),
       nurseryCollectionCallback(nullptr),
       aborted(false),
@@ -872,7 +872,7 @@ JS::GCNurseryCollectionCallback Statistics::setNurseryCollectionCallback(
 
 TimeDuration Statistics::clearMaxGCPauseAccumulator() {
   TimeDuration prior = maxPauseInInterval;
-  maxPauseInInterval = 0;
+  maxPauseInInterval = TimeDuration::Zero();
   return prior;
 }
 
@@ -991,7 +991,7 @@ void Statistics::beginGC(JS::GCOptions options, const TimeStamp& currentTime) {
     timeSinceLastGC = currentTime - gc->lastGCEndTime();
   }
 
-  totalGCTime_ = TimeDuration();
+  totalGCTime_ = TimeDuration::Zero();
 }
 
 void Statistics::measureInitialHeapSize() {
@@ -1037,7 +1037,7 @@ void Statistics::sendGCTelemetry() {
   TimeDuration markGrayTotal = markGrayNotWeak + markGrayWeak;
   TimeDuration markNotGrayOrWeak = markTotal - markGrayNotWeak - markWeakTotal;
   if (markNotGrayOrWeak < TimeDuration::FromMilliseconds(0)) {
-    markNotGrayOrWeak = TimeDuration();
+    markNotGrayOrWeak = TimeDuration::Zero();
   }
 
   size_t markCount = getCount(COUNT_CELLS_MARKED);
@@ -1080,7 +1080,7 @@ void Statistics::sendGCTelemetry() {
   runtime->metrics().GC_MAX_PAUSE_MS_2(longest);
 
   const double mmu50 = computeMMU(TimeDuration::FromMilliseconds(50));
-  runtime->metrics().GC_MMU_50(mmu50 * 100);
+  runtime->metrics().GC_MMU_50(mmu50 * 100.0);
 
   // Record scheduling telemetry for the main runtime but not for workers, which
   // are scheduled differently.
@@ -1102,7 +1102,7 @@ void Statistics::sendGCTelemetry() {
     MOZ_ASSERT(preCollectedHeapBytes >= bytesSurvived);
     double survivalRate =
         100.0 * double(bytesSurvived) / double(preCollectedHeapBytes);
-    runtime->metrics().GC_TENURED_SURVIVAL_RATE(uint32_t(survivalRate));
+    runtime->metrics().GC_TENURED_SURVIVAL_RATE(survivalRate);
 
     // Calculate 'effectiveness' in MB / second, on main thread only for now.
     if (!runtime->parentRuntime) {
@@ -1129,7 +1129,7 @@ void Statistics::sendGCTelemetry() {
       double utilization = parallelRunTime / (wallTime * threadCount);
       runtime->metrics().GC_PARALLEL_MARK_SPEEDUP(uint32_t(speedup * 100.0));
       runtime->metrics().GC_PARALLEL_MARK_UTILIZATION(
-          std::clamp<uint32_t>(utilization * 100.0, 0, 100));
+          std::clamp(utilization * 100.0, 0.0, 100.0));
       runtime->metrics().GC_PARALLEL_MARK_INTERRUPTIONS(
           getCount(COUNT_PARALLEL_MARK_INTERRUPTIONS));
     }
@@ -1350,9 +1350,9 @@ bool Statistics::startTimingMutator() {
 
   MOZ_ASSERT(suspendedPhases.empty());
 
-  timedGCTime = 0;
+  timedGCTime = TimeDuration::Zero();
   phaseStartTimes[Phase::MUTATOR] = TimeStamp();
-  phaseTimes[Phase::MUTATOR] = 0;
+  phaseTimes[Phase::MUTATOR] = TimeDuration::Zero();
   timedGCStart = TimeStamp();
 
   beginPhase(PhaseKind::MUTATOR);
@@ -1558,8 +1558,8 @@ double Statistics::computeMMU(TimeDuration window) const {
 
   int startIndex = 0;
   for (size_t endIndex = 1; endIndex < slices_.length(); endIndex++) {
-    auto* startSlice = &slices_[startIndex];
-    auto& endSlice = slices_[endIndex];
+    const auto* startSlice = &slices_[startIndex];
+    const auto& endSlice = slices_[endIndex];
     gc += endSlice.end - endSlice.start;
 
     while (endSlice.end - startSlice->end >= window) {

@@ -91,6 +91,7 @@
 #endif
 
 #include "mozilla/ipc/UtilityProcessHost.h"
+#include "mozilla/ipc/UtilityProcessSandboxing.h"
 
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
@@ -198,10 +199,9 @@ class BaseProcessLauncher {
 
   // Overrideable hooks. If superclass behavior is invoked, it's always at the
   // top of the override.
-  virtual bool SetChannel(IPC::Channel*) = 0;
   virtual Result<Ok, LaunchError> DoSetup();
   virtual RefPtr<ProcessHandlePromise> DoLaunch() = 0;
-  virtual Result<Ok, LaunchError> DoFinishLaunch() { return Ok(); };
+  virtual Result<Ok, LaunchError> DoFinishLaunch();
 
   void MapChildLogging();
 
@@ -243,7 +243,7 @@ class BaseProcessLauncher {
   char mInitialChannelIdString[NSID_LENGTH];
 
   // Set during launch.
-  IPC::Channel::ChannelId mChannelId;
+  IPC::Channel::ChannelHandle mClientChannelHandle;
   nsCOMPtr<nsIFile> mAppDir;
 };
 
@@ -257,7 +257,6 @@ class WindowsProcessLauncher : public BaseProcessLauncher {
         mWerDataPointer(&(aHost->mWerData)) {}
 
  protected:
-  bool SetChannel(IPC::Channel*) override { return true; }
   virtual Result<Ok, LaunchError> DoSetup() override;
   virtual RefPtr<ProcessHandlePromise> DoLaunch() override;
   virtual Result<Ok, LaunchError> DoFinishLaunch() override;
@@ -278,35 +277,15 @@ class PosixProcessLauncher : public BaseProcessLauncher {
                        std::vector<std::string>&& aExtraOpts)
       : BaseProcessLauncher(aHost, std::move(aExtraOpts)),
         mProfileDir(aHost->mProfileDir),
-        mChannelDstFd(-1) {}
+        mChannelDstFd(IPC::Channel::GetClientChannelHandle()) {}
 
  protected:
-  bool SetChannel(IPC::Channel* aChannel) override {
-    // The source fd is owned by the channel; take ownership by
-    // dup()ing it and closing the channel's copy.  The destination fd
-    // is with respect to the not-yet-launched child process, so for
-    // this purpose it's just a number.
-    int origSrcFd;
-    aChannel->GetClientFileDescriptorMapping(&origSrcFd, &mChannelDstFd);
-#  ifndef MOZ_WIDGET_ANDROID
-    MOZ_ASSERT(mChannelDstFd >= 0);
-#  endif
-    mChannelSrcFd.reset(dup(origSrcFd));
-    if (NS_WARN_IF(!mChannelSrcFd)) {
-      return false;
-    }
-    aChannel->CloseClientFileDescriptor();
-    return true;
-  }
-
   virtual Result<Ok, LaunchError> DoSetup() override;
   virtual RefPtr<ProcessHandlePromise> DoLaunch() override;
-  virtual Result<Ok, LaunchError> DoFinishLaunch() override;
 
   nsCOMPtr<nsIFile> mProfileDir;
 
   std::vector<std::string> mChildArgv;
-  UniqueFileHandle mChannelSrcFd;
   int mChannelDstFd;
 };
 
@@ -634,7 +613,7 @@ void GeckoChildProcessHost::PrepareLaunch() {
   }
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
-  SandboxLaunchPrepare(mProcessType, mLaunchOptions.get());
+  SandboxLaunchPrepare(mProcessType, mLaunchOptions.get(), mSandbox);
 #endif
 
 #ifdef XP_WIN
@@ -892,14 +871,20 @@ bool GeckoChildProcessHost::LaunchAndWaitForProcessHandle(
 }
 
 void GeckoChildProcessHost::InitializeChannel(
-    const std::function<void(IPC::Channel*)>& aChannelReady) {
-  CreateChannel();
-
-  aChannelReady(GetChannel());
+    IPC::Channel::ChannelHandle&& aServerHandle) {
+  // Create the IPC channel which will be used for communication with this
+  // process.
+  mozilla::UniquePtr<IPC::Channel> channel = MakeUnique<IPC::Channel>(
+      std::move(aServerHandle), IPC::Channel::MODE_SERVER);
+#if defined(XP_WIN)
+  channel->StartAcceptingHandles(IPC::Channel::MODE_SERVER);
+#elif defined(XP_DARWIN)
+  channel->StartAcceptingMachPorts(IPC::Channel::MODE_SERVER);
+#endif
 
   mNodeController = NodeController::GetSingleton();
   std::tie(mInitialPort, mNodeChannel) =
-      mNodeController->InviteChildProcess(TakeChannel());
+      mNodeController->InviteChildProcess(std::move(channel), this);
 
   MonitorAutoLock lock(mMonitor);
   mProcessState = CHANNEL_INITIALIZED;
@@ -1133,6 +1118,16 @@ void BaseProcessLauncher::MapChildLogging() {
   }
 }
 
+Result<Ok, LaunchError> BaseProcessLauncher::DoFinishLaunch() {
+  // We're in the parent and the child was launched. Close the child channel
+  // handle in the parent as soon as possible, which will allow the parent to
+  // detect when the child closes its handle (either due to normal exit or due
+  // to crash).
+  mClientChannelHandle = nullptr;
+
+  return Ok();
+}
+
 #if defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_GONK)
 Result<Ok, LaunchError> LinuxProcessLauncher::DoSetup() {
   Result<Ok, LaunchError> aError = PosixProcessLauncher::DoSetup();
@@ -1234,11 +1229,11 @@ Result<Ok, LaunchError> PosixProcessLauncher::DoSetup() {
     // On Android mChannelDstFd is uninitialised and the launching code uses
     // only the first of each pair.
     mLaunchOptions->fds_to_remap.push_back(
-        std::pair<int, int>(mChannelSrcFd.get(), -1));
+        std::pair<int, int>(mClientChannelHandle.get(), -1));
 #  else
     MOZ_ASSERT(mChannelDstFd >= 0);
     mLaunchOptions->fds_to_remap.push_back(
-        std::pair<int, int>(mChannelSrcFd.get(), mChannelDstFd));
+        std::pair<int, int>(mClientChannelHandle.get(), mChannelDstFd));
 #  endif
   }
 
@@ -1337,20 +1332,6 @@ RefPtr<ProcessHandlePromise> PosixProcessLauncher::DoLaunch() {
   }
   return ProcessHandlePromise::CreateAndResolve(handle, __func__);
 }
-
-Result<Ok, LaunchError> PosixProcessLauncher::DoFinishLaunch() {
-  Result<Ok, LaunchError> aError = BaseProcessLauncher::DoFinishLaunch();
-  if (aError.isErr()) {
-    return aError;
-  }
-
-  // We're in the parent and the child was launched. Close the child FD in the
-  // parent as soon as possible, which will allow the parent to detect when the
-  // child closes its FD (either due to normal exit or due to crash).
-  mChannelSrcFd = nullptr;
-
-  return Ok();
-}
 #endif  // XP_UNIX
 
 #ifdef XP_MACOSX
@@ -1443,7 +1424,12 @@ Result<Ok, LaunchError> WindowsProcessLauncher::DoSetup() {
   }
 #  endif  // HAS_DLL_BLOCKLIST
 
-  mCmdLine->AppendSwitchWithValue(switches::kProcessChannelID, mChannelId);
+  // Inherit the initial client channel handle into the child process.
+  std::wstring processChannelID =
+      std::to_wstring(uint32_t(uintptr_t(mClientChannelHandle.get())));
+  mLaunchOptions->handles_to_inherit.push_back(mClientChannelHandle.get());
+  mCmdLine->AppendSwitchWithValue(switches::kProcessChannelID,
+                                  processChannelID);
 
   for (std::vector<std::string>::iterator it = mExtraOpts.begin();
        it != mExtraOpts.end(); ++it) {
@@ -1524,7 +1510,7 @@ Result<Ok, LaunchError> WindowsProcessLauncher::DoSetup() {
       }
       break;
     case GeckoProcessType_Utility:
-      if (!PR_GetEnv("MOZ_DISABLE_UTILITY_SANDBOX")) {
+      if (IsUtilitySandboxEnabled(mSandbox)) {
         if (!mResults.mSandboxBroker->SetSecurityLevelForUtilityProcess(
                 mSandbox)) {
           return Err(LaunchError("SetSecurityLevelForUtilityProcess"));
@@ -1688,36 +1674,9 @@ void GeckoChildProcessHost::OnChannelConnected(base::ProcessId peer_pid) {
   lock.Notify();
 }
 
-void GeckoChildProcessHost::OnMessageReceived(UniquePtr<IPC::Message> aMsg) {
-  // We never process messages ourself, just save them up for the next
-  // listener.
-  mQueue.push(std::move(aMsg));
-}
-
-void GeckoChildProcessHost::OnChannelError() {
-  // Update the process state to an error state if we have a channel
-  // error before we're connected. This fixes certain failures,
-  // but does not address the full range of possible issues described
-  // in the FIXME comment below.
-  MonitorAutoLock lock(mMonitor);
-  if (mProcessState < PROCESS_CONNECTED) {
-    mProcessState = PROCESS_ERROR;
-    lock.Notify();
-  }
-  // FIXME/bug 773925: save up this error for the next listener.
-}
-
 RefPtr<ProcessHandlePromise> GeckoChildProcessHost::WhenProcessHandleReady() {
   MOZ_ASSERT(mHandlePromise != nullptr);
   return mHandlePromise;
-}
-
-void GeckoChildProcessHost::GetQueuedMessages(
-    std::queue<UniquePtr<IPC::Message>>& queue) {
-  // If this is called off the IO thread, bad things will happen.
-  DCHECK(MessageLoopForIO::current());
-  swap(queue, mQueue);
-  // We expect the next listener to take over processing of our queue.
 }
 
 #ifdef MOZ_WIDGET_ANDROID
@@ -1845,25 +1804,12 @@ RefPtr<ProcessLaunchPromise> BaseProcessLauncher::Launch(
   // The ForkServer doesn't use IPC::Channel for communication, so we can skip
   // initializing it.
   if (mProcessType != GeckoProcessType_ForkServer) {
-    // Initializing the channel needs to happen on the I/O thread, but
-    // everything else can run on the launcher thread (or pool), to avoid
-    // blocking IPC messages.
-    //
-    // We avoid passing the host to the launcher thread to reduce the chances of
-    // data races with the IO thread (where e.g. OnChannelConnected may run
-    // concurrently). The pool currently needs access to the channel, which is
-    // not great.
-    bool failed = false;
-    aHost->InitializeChannel([&](IPC::Channel* channel) {
-      if (NS_WARN_IF(!channel || !SetChannel(channel))) {
-        failed = true;
-      }
-    });
-    if (failed) {
-      return ProcessLaunchPromise::CreateAndReject(LaunchError("SetChannel"),
+    IPC::Channel::ChannelHandle serverHandle;
+    if (!IPC::Channel::CreateRawPipe(&serverHandle, &mClientChannelHandle)) {
+      return ProcessLaunchPromise::CreateAndReject(LaunchError("CreateRawPipe"),
                                                    __func__);
     }
-    mChannelId = aHost->GetChannelId();
+    aHost->InitializeChannel(std::move(serverHandle));
   }
 
   return InvokeAsync(mLaunchThread, this, __func__,

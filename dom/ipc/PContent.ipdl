@@ -1980,7 +1980,8 @@ parent:
                                                   nullable nsIPrincipal aTrackingPrincipal,
                                                   nsCString aTrackingOrigin,
                                                   int aAllowMode,
-                                                  StorageAccessPermissionGrantedReason? aReason)
+                                                  StorageAccessPermissionGrantedReason? aReason,
+                                                  bool aFrameOnly)
           returns (bool unused);
 
     async CompleteAllowAccessFor(MaybeDiscardedBrowsingContext aParentContext,

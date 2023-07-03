@@ -34,6 +34,7 @@ struct OriginMetadata;
 namespace fs {
 
 struct FileId;
+enum class FileMode;
 class FileSystemChildMetadata;
 class FileSystemEntryMetadata;
 class FileSystemDirectoryListing;
@@ -98,7 +99,8 @@ class FileSystemDatabaseManager {
   /**
    * @brief Returns the properties of a file corresponding to a file handle
    */
-  virtual nsresult GetFile(const EntryId& aEntryId, ContentType& aType,
+  virtual nsresult GetFile(const EntryId& aEntryId, const FileId& aFileId,
+                           const FileMode& aMode, ContentType& aType,
                            TimeStamp& lastModifiedMilliSeconds, Path& aPath,
                            nsCOMPtr<nsIFile>& aFile) const = 0;
 
@@ -163,19 +165,43 @@ class FileSystemDatabaseManager {
       const FileSystemChildMetadata& aHandle) const = 0;
 
   /**
-   * @brief Make sure EntryId maps to a FileId. This method should be called
-   * before locking is attempted.
+   * @brief To check if a file under a directory is locked, we need to map
+   * fileId's to entries.
+   *
+   * @param aFileId a FileId
+   * @return Result<EntryId, QMResult> Entry id of a temporary or main file
    */
-  virtual nsresult EnsureFileId(const EntryId& aEntryId) = 0;
+  virtual Result<EntryId, QMResult> GetEntryId(const FileId& aFileId) const = 0;
+
+  /**
+   * @brief Make sure EntryId maps to a FileId. This method should be called
+   * before exclusive locking is attempted.
+   */
+  virtual Result<FileId, QMResult> EnsureFileId(const EntryId& aEntryId) = 0;
+
+  /**
+   * @brief Make sure EntryId maps to a temporary FileId. This method should be
+   * called before shared locking is attempted.
+   */
+  virtual Result<FileId, QMResult> EnsureTemporaryFileId(
+      const EntryId& aEntryId) = 0;
 
   /**
    * @brief To support moves in metadata, the actual files on disk are tagged
    * with file id's which are mapped to entry id's which represent paths.
+   * This function returns the main file corresponding to an entry.
    *
-   * @param aEntryId Metadata reference to a path
-   * @return Result<EntryId, QMResult> Persistent reference to a file or error
+   * @param aEntryId An id of an entry
+   * @return Result<EntryId, QMResult> Main file id, used by exclusive locks
    */
   virtual Result<FileId, QMResult> GetFileId(const EntryId& aEntryId) const = 0;
+
+  /**
+   * @brief Flag aFileId as the main file for aEntryId or abort. Removes the
+   * file which did not get flagged as the main file.
+   */
+  virtual nsresult MergeFileId(const EntryId& aEntryId, const FileId& aFileId,
+                               bool aAbort) = 0;
 
   /**
    * @brief Close database connection.

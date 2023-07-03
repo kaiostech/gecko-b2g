@@ -62,6 +62,33 @@ ITEM_VALUE(AudioSampleRate,             1llu << 38)
 ITEM_VALUE(NavigatorConnection,         1llu << 39)
 ITEM_VALUE(WindowDevicePixelRatio,      1llu << 40)
 ITEM_VALUE(MouseEventScreenPoint,       1llu << 41)
+// Visibility level of font families available to CSS font-matching
+ITEM_VALUE(FontVisibilityBaseSystem,    1llu << 42)
+ITEM_VALUE(FontVisibilityLangPack,      1llu << 43)
+ITEM_VALUE(DeviceSensors,               1llu << 44)
+ITEM_VALUE(FrameRate,                   1llu << 45)
+ITEM_VALUE(RoundWindowSize,             1llu << 46)
+ITEM_VALUE(UseStandinsForNativeColors,  1llu << 47)
+ITEM_VALUE(AudioContext,                1llu << 48)
+ITEM_VALUE(MediaError,                  1llu << 49)
+ITEM_VALUE(DOMStyleOsxFontSmoothing,    1llu << 50)
+// `device-height`/`device-width` CSS media features
+ITEM_VALUE(CSSDeviceSize,               1llu << 51)
+// `color`/`color-gamut` CSS media features
+ITEM_VALUE(CSSColorInfo,                1llu << 52)
+// `resolution` CSS media feature
+ITEM_VALUE(CSSResolution,               1llu << 53)
+// `prefers-reduced-transparency` CSS media feature
+ITEM_VALUE(CSSPrefersReducedTransparency, 1llu << 54)
+// `inverted-colors` CSS media feature
+ITEM_VALUE(CSSInvertedColors,           1llu << 55)
+// `video-dynamic-range` CSS media feature
+ITEM_VALUE(CSSVideoDynamicRange,        1llu << 56)
+ITEM_VALUE(CSSPointerCapabilities,      1llu << 57)
+// WebGL
+ITEM_VALUE(WebGLRenderCapability,       1llu << 58)
+ITEM_VALUE(WebGLRenderInfo,             1llu << 59)
+ITEM_VALUE(SiteSpecificZoom,            1llu << 60)
 
 // !!! Don't forget to update kDefaultFingerintingProtections in nsRFPService.cpp
 // if necessary.
@@ -76,10 +103,3 @@ ITEM_VALUE(MouseEventScreenPoint,       1llu << 41)
  * this value in the overrides pref is undefined behavior and may do anything.)
  */
 ITEM_VALUE(IsAlwaysEnabledForPrecompute, 0)
-
-/*
- * This value is the default argument value, to allow all callsites to ShouldRFP
- * continue working. We will eventually remove the default argument, and then also
- * remove this enum value.
- */
-ITEM_VALUE(Unknown, 0xffffffff'ffffffff)

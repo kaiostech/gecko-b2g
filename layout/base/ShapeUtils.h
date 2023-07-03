@@ -16,6 +16,11 @@ struct nsPoint;
 struct nsRect;
 
 namespace mozilla {
+namespace gfx {
+class Path;
+class PathBuilder;
+}  // namespace gfx
+
 // ShapeUtils is a namespace class containing utility functions related to
 // processing basic shapes in the CSS Shapes Module.
 // https://drafts.csswg.org/css-shapes/#basic-shape-functions
@@ -72,6 +77,8 @@ struct ShapeUtils final {
   // @param aRefBox the reference box of the inset.
   // @return The inset rect in app units.
   static nsRect ComputeInsetRect(const StyleBasicShape&, const nsRect& aRefBox);
+  static nsRect ComputeInsetRect(const StyleRect<LengthPercentage>& aStyleRect,
+                                 const nsRect& aRefBox);
 
   // Compute the radii for an inset.
   // @param aRefBox the reference box of the inset.
@@ -87,6 +94,56 @@ struct ShapeUtils final {
   //         as aRefBox.
   static nsTArray<nsPoint> ComputePolygonVertices(const StyleBasicShape&,
                                                   const nsRect& aRefBox);
+
+  // Compute a gfx::path from a circle.
+  // @param aRefBox the reference box of the circle.
+  // @param aCenter the center point of the circle.
+  // @return The gfx::Path of this circle.
+  static already_AddRefed<gfx::Path> BuildCirclePath(const StyleBasicShape&,
+                                                     const nsRect& aRefBox,
+                                                     const nsPoint& aCenter,
+                                                     nscoord aAppUnitsPerPixel,
+                                                     gfx::PathBuilder*);
+
+  // Compute a gfx::path from an ellipse.
+  // @param aRefBox the reference box of the ellipse.
+  // @param aCenter the center point of the ellipse.
+  // @return The gfx::Path of this ellipse.
+  static already_AddRefed<gfx::Path> BuildEllipsePath(const StyleBasicShape&,
+                                                      const nsRect& aRefBox,
+                                                      const nsPoint& aCenter,
+                                                      nscoord aAppUnitsPerPixel,
+                                                      gfx::PathBuilder*);
+
+  // Compute a gfx::path from a polygon.
+  // @param aRefBox the reference box of the polygon.
+  // @return The gfx::Path of this polygon.
+  static already_AddRefed<gfx::Path> BuildPolygonPath(const StyleBasicShape&,
+                                                      const nsRect& aRefBox,
+                                                      nscoord aAppUnitsPerPixel,
+                                                      gfx::PathBuilder*);
+
+  // Compute a gfx::path from a StyleBasicShape which is an inset.
+  // @param aRefBox the reference box of the inset.
+  // @return The gfx::Path of this inset.
+  static already_AddRefed<gfx::Path> BuildInsetPath(const StyleBasicShape&,
+                                                    const nsRect& aRefBox,
+                                                    nscoord aAppUnitsPerPixel,
+                                                    gfx::PathBuilder*);
+
+  // Compute a gfx::path from an inset rect and the round radii.
+  // @param aRadii the radii of the inset. It should be an array with length 8.
+  //               If it's nullptr, we don't have the valid radii.
+  // @param aRefBox the reference box of the inset.
+  // @return The gfx::Path of this inset.
+  //
+  // Note: we use nsTArray<nscoord> for radii because we use this type in layers
+  // message as well.
+  static already_AddRefed<gfx::Path> BuildInsetPath(const nsRect& aInsetRect,
+                                                    const nscoord aRadii[8],
+                                                    const nsRect& aRefBox,
+                                                    nscoord aAppUnitsPerPixel,
+                                                    gfx::PathBuilder*);
 };
 
 }  // namespace mozilla

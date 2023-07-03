@@ -424,6 +424,12 @@ class GAtomic {
 
   static void SetAllocDelay(Delay aAllocDelay) { sAllocDelay = aAllocDelay; }
 
+  static bool AllocDelayHasWrapped() {
+    // Delay is unsigned so we can't test for less that zero.  Instead test if
+    // it has wrapped around by comparing with the maximum value we ever use.
+    return sAllocDelay > 2 * std::max(kAvgAllocDelay, kAvgFirstAllocDelay);
+  }
+
  private:
   // The current time. Relaxed semantics because it's primarily used for
   // determining if an allocation can be recycled yet and therefore it doesn't
@@ -431,8 +437,8 @@ class GAtomic {
   static Atomic<Time, Relaxed> sNow;
 
   // Delay until the next attempt at a page allocation. See the comment in
-  // MaybePageAlloc() for an explanation of why it is a signed integer, and why
-  // it uses ReleaseAcquire semantics.
+  // MaybePageAlloc() for an explanation of why it uses ReleaseAcquire
+  // semantics.
   static Atomic<Delay, ReleaseAcquire> sAllocDelay;
 };
 
@@ -493,105 +499,6 @@ class GConst {
 };
 
 static GConst* gConst;
-
-// On MacOS, the first __thread/thread_local access calls malloc, which leads
-// to an infinite loop. So we use pthread-based TLS instead, which somehow
-// doesn't have this problem.
-#if !defined(XP_DARWIN)
-#  define PHC_THREAD_LOCAL(T) MOZ_THREAD_LOCAL(T)
-#else
-#  define PHC_THREAD_LOCAL(T) \
-    detail::ThreadLocal<T, detail::ThreadLocalKeyStorage>
-#endif
-
-// Thread-local state.
-class GTls {
-  GTls(const GTls&) = delete;
-
-  const GTls& operator=(const GTls&) = delete;
-
-  // When true, PHC does as little as possible.
-  //
-  // (a) It does not allocate any new page allocations.
-  //
-  // (b) It avoids doing any operations that might call malloc/free/etc., which
-  //     would cause re-entry into PHC. (In practice, MozStackWalk() is the
-  //     only such operation.) Note that calls to the functions in sMallocTable
-  //     are ok.
-  //
-  // For example, replace_malloc() will just fall back to mozjemalloc. However,
-  // operations involving existing allocations are more complex, because those
-  // existing allocations may be page allocations. For example, if
-  // replace_free() is passed a page allocation on a PHC-disabled thread, it
-  // will free the page allocation in the usual way, but it will get a dummy
-  // freeStack in order to avoid calling MozStackWalk(), as per (b) above.
-  //
-  // This single disabling mechanism has two distinct uses.
-  //
-  // - It's used to prevent re-entry into PHC, which can cause correctness
-  //   problems. For example, consider this sequence.
-  //
-  //   1. enter replace_free()
-  //   2. which calls PageFree()
-  //   3. which calls MozStackWalk()
-  //   4. which locks a mutex M, and then calls malloc
-  //   5. enter replace_malloc()
-  //   6. which calls MaybePageAlloc()
-  //   7. which calls MozStackWalk()
-  //   8. which (re)locks a mutex M --> deadlock
-  //
-  //   We avoid this sequence by "disabling" the thread in PageFree() (at step
-  //   2), which causes MaybePageAlloc() to fail, avoiding the call to
-  //   MozStackWalk() (at step 7).
-  //
-  //   In practice, realloc or free of a PHC allocation is unlikely on a thread
-  //   that is disabled because of this use: MozStackWalk() will probably only
-  //   realloc/free allocations that it allocated itself, but those won't be
-  //   page allocations because PHC is disabled before calling MozStackWalk().
-  //
-  //   (Note that MaybePageAlloc() could safely do a page allocation so long as
-  //   it avoided calling MozStackWalk() by getting a dummy allocStack. But it
-  //   wouldn't be useful, and it would prevent the second use below.)
-  //
-  // - It's used to prevent PHC allocations in some tests that rely on
-  //   mozjemalloc's exact allocation behaviour, which PHC does not replicate
-  //   exactly. (Note that (b) isn't necessary for this use -- MozStackWalk()
-  //   could be safely called -- but it is necessary for the first use above.)
-  //
-  static PHC_THREAD_LOCAL(bool) tlsIsDisabled;
-
- public:
-  static void Init() {
-    if (!tlsIsDisabled.init()) {
-      MOZ_CRASH();
-    }
-  }
-
-  static void DisableOnCurrentThread() {
-    MOZ_ASSERT(!GTls::tlsIsDisabled.get());
-    tlsIsDisabled.set(true);
-  }
-
-  static void EnableOnCurrentThread() {
-    MOZ_ASSERT(GTls::tlsIsDisabled.get());
-    tlsIsDisabled.set(false);
-  }
-
-  static bool IsDisabledOnCurrentThread() { return tlsIsDisabled.get(); }
-};
-
-PHC_THREAD_LOCAL(bool) GTls::tlsIsDisabled;
-
-class AutoDisableOnCurrentThread {
-  AutoDisableOnCurrentThread(const AutoDisableOnCurrentThread&) = delete;
-
-  const AutoDisableOnCurrentThread& operator=(
-      const AutoDisableOnCurrentThread&) = delete;
-
- public:
-  explicit AutoDisableOnCurrentThread() { GTls::DisableOnCurrentThread(); }
-  ~AutoDisableOnCurrentThread() { GTls::EnableOnCurrentThread(); }
-};
 
 // This type is used as a proof-of-lock token, to make it clear which functions
 // require sMutex to be locked.
@@ -1005,6 +912,115 @@ Mutex GMut::sMutex;
 
 static GMut* gMut;
 
+// On MacOS, the first __thread/thread_local access calls malloc, which leads
+// to an infinite loop. So we use pthread-based TLS instead, which somehow
+// doesn't have this problem.
+#if !defined(XP_DARWIN)
+#  define PHC_THREAD_LOCAL(T) MOZ_THREAD_LOCAL(T)
+#else
+#  define PHC_THREAD_LOCAL(T) \
+    detail::ThreadLocal<T, detail::ThreadLocalKeyStorage>
+#endif
+
+// Thread-local state.
+class GTls {
+ public:
+  GTls(const GTls&) = delete;
+
+  const GTls& operator=(const GTls&) = delete;
+
+  // When true, PHC does as little as possible.
+  //
+  // (a) It does not allocate any new page allocations.
+  //
+  // (b) It avoids doing any operations that might call malloc/free/etc., which
+  //     would cause re-entry into PHC. (In practice, MozStackWalk() is the
+  //     only such operation.) Note that calls to the functions in sMallocTable
+  //     are ok.
+  //
+  // For example, replace_malloc() will just fall back to mozjemalloc. However,
+  // operations involving existing allocations are more complex, because those
+  // existing allocations may be page allocations. For example, if
+  // replace_free() is passed a page allocation on a PHC-disabled thread, it
+  // will free the page allocation in the usual way, but it will get a dummy
+  // freeStack in order to avoid calling MozStackWalk(), as per (b) above.
+  //
+  // This single disabling mechanism has two distinct uses.
+  //
+  // - It's used to prevent re-entry into PHC, which can cause correctness
+  //   problems. For example, consider this sequence.
+  //
+  //   1. enter replace_free()
+  //   2. which calls PageFree()
+  //   3. which calls MozStackWalk()
+  //   4. which locks a mutex M, and then calls malloc
+  //   5. enter replace_malloc()
+  //   6. which calls MaybePageAlloc()
+  //   7. which calls MozStackWalk()
+  //   8. which (re)locks a mutex M --> deadlock
+  //
+  //   We avoid this sequence by "disabling" the thread in PageFree() (at step
+  //   2), which causes MaybePageAlloc() to fail, avoiding the call to
+  //   MozStackWalk() (at step 7).
+  //
+  //   In practice, realloc or free of a PHC allocation is unlikely on a thread
+  //   that is disabled because of this use: MozStackWalk() will probably only
+  //   realloc/free allocations that it allocated itself, but those won't be
+  //   page allocations because PHC is disabled before calling MozStackWalk().
+  //
+  //   (Note that MaybePageAlloc() could safely do a page allocation so long as
+  //   it avoided calling MozStackWalk() by getting a dummy allocStack. But it
+  //   wouldn't be useful, and it would prevent the second use below.)
+  //
+  // - It's used to prevent PHC allocations in some tests that rely on
+  //   mozjemalloc's exact allocation behaviour, which PHC does not replicate
+  //   exactly. (Note that (b) isn't necessary for this use -- MozStackWalk()
+  //   could be safely called -- but it is necessary for the first use above.)
+  //
+
+  static void Init() {
+    if (!tlsIsDisabled.init()) {
+      MOZ_CRASH();
+    }
+  }
+
+  static void DisableOnCurrentThread() {
+    MOZ_ASSERT(!GTls::tlsIsDisabled.get());
+    tlsIsDisabled.set(true);
+  }
+
+  static void EnableOnCurrentThread() {
+    MOZ_ASSERT(GTls::tlsIsDisabled.get());
+    uint64_t rand;
+    if (GAtomic::AllocDelayHasWrapped()) {
+      {
+        MutexAutoLock lock(GMut::sMutex);
+        rand = gMut->Random64(lock);
+      }
+      GAtomic::SetAllocDelay(Rnd64ToDelay<kAvgAllocDelay>(rand));
+    }
+    tlsIsDisabled.set(false);
+  }
+
+  static bool IsDisabledOnCurrentThread() { return tlsIsDisabled.get(); }
+
+ private:
+  static PHC_THREAD_LOCAL(bool) tlsIsDisabled;
+};
+
+PHC_THREAD_LOCAL(bool) GTls::tlsIsDisabled;
+
+class AutoDisableOnCurrentThread {
+ public:
+  AutoDisableOnCurrentThread(const AutoDisableOnCurrentThread&) = delete;
+
+  const AutoDisableOnCurrentThread& operator=(
+      const AutoDisableOnCurrentThread&) = delete;
+
+  explicit AutoDisableOnCurrentThread() { GTls::DisableOnCurrentThread(); }
+  ~AutoDisableOnCurrentThread() { GTls::EnableOnCurrentThread(); }
+};
+
 //---------------------------------------------------------------------------
 // Page allocation operations
 //---------------------------------------------------------------------------
@@ -1039,9 +1055,9 @@ static void* MaybePageAlloc(const Maybe<arena_id_t>& aArenaId, size_t aReqSize,
   // guarantees that exactly one thread will see sAllocDelay have the value 0.
   // (Relaxed semantics wouldn't guarantee that.)
   //
-  // It's also nice that sAllocDelay is signed, given that we can decrement to
-  // below zero. (Strictly speaking, an unsigned integer would also work due
-  // to wrapping, but a signed integer is conceptually cleaner.)
+  // Note that sAllocDelay is unsigned and we expect that it will wrap after
+  // being decremented "below" zero. It must be unsigned so that IsPowerOfTwo()
+  // can work on some Delay values.
   //
   // Finally, note that the decrements that occur between (a) and (e) above are
   // effectively ignored, because (e) clobbers them. This shouldn't be a

@@ -20,9 +20,14 @@ add_task(async function test_about_translations_translations() {
       const { document, window } = content;
       Cu.waiveXrays(window).DEBOUNCE_DELAY = 5; // Make the timer run faster for tests.
 
-      await ContentTaskUtils.waitForCondition(() => {
-        return document.body.hasAttribute("ready");
-      }, "Waiting for the document to be ready.");
+      await ContentTaskUtils.waitForCondition(
+        () => {
+          return document.body.hasAttribute("ready");
+        },
+        "Waiting for the document to be ready.",
+        100,
+        200
+      );
 
       /** @type {HTMLSelectElement} */
       const fromSelect = document.querySelector(selectors.fromLanguageSelect);
@@ -41,7 +46,9 @@ add_task(async function test_about_translations_translations() {
         try {
           await ContentTaskUtils.waitForCondition(
             () => translation === translationResult.innerText,
-            `Waiting for: "${translation}"`
+            `Waiting for: "${translation}"`,
+            100,
+            200
           );
         } catch (error) {
           // The result wasn't found, but the assertion below will report the error.
@@ -109,9 +116,14 @@ add_task(async function test_about_translations_html() {
       const { document, window } = content;
       Cu.waiveXrays(window).DEBOUNCE_DELAY = 5; // Make the timer run faster for tests.
 
-      await ContentTaskUtils.waitForCondition(() => {
-        return document.body.hasAttribute("ready");
-      }, "Waiting for the document to be ready.");
+      await ContentTaskUtils.waitForCondition(
+        () => {
+          return document.body.hasAttribute("ready");
+        },
+        "Waiting for the document to be ready.",
+        100,
+        200
+      );
 
       /** @type {HTMLSelectElement} */
       const fromSelect = document.querySelector(selectors.fromLanguageSelect);
@@ -130,7 +142,9 @@ add_task(async function test_about_translations_html() {
         try {
           await ContentTaskUtils.waitForCondition(
             () => translation === translationResult.innerText,
-            `Waiting for: "${translation}"`
+            `Waiting for: "${translation}"`,
+            100,
+            200
           );
         } catch (error) {
           // The result wasn't found, but the assertion below will report the error.
@@ -165,13 +179,19 @@ add_task(async function test_about_translations_language_identification() {
       { fromLang: "en", toLang: "fr", isBeta: false },
       { fromLang: "fr", toLang: "en", isBeta: false },
     ],
+    prefs: [["browser.translations.languageIdentification.useFastText", true]],
     runInPage: async ({ selectors }) => {
       const { document, window } = content;
       Cu.waiveXrays(window).DEBOUNCE_DELAY = 5; // Make the timer run faster for tests.
 
-      await ContentTaskUtils.waitForCondition(() => {
-        return document.body.hasAttribute("ready");
-      }, "Waiting for the document to be ready.");
+      await ContentTaskUtils.waitForCondition(
+        () => {
+          return document.body.hasAttribute("ready");
+        },
+        "Waiting for the document to be ready.",
+        100,
+        200
+      );
 
       /** @type {HTMLSelectElement} */
       const fromSelect = document.querySelector(selectors.fromLanguageSelect);
@@ -190,7 +210,9 @@ add_task(async function test_about_translations_language_identification() {
         try {
           await ContentTaskUtils.waitForCondition(
             () => translation === translationResult.innerText,
-            `Waiting for: "${translation}"`
+            `Waiting for: "${translation}"`,
+            100,
+            200
           );
         } catch (error) {
           // The result wasn't found, but the assertion below will report the error.
@@ -218,13 +240,18 @@ add_task(async function test_about_translations_language_identification() {
       toSelect.value = "fr";
       toSelect.dispatchEvent(new Event("input"));
 
-      await ContentTaskUtils.waitForCondition(() => {
-        const element = document.querySelector(
-          selectors.translationResultBlank
-        );
-        const { visibility } = window.getComputedStyle(element);
-        return visibility === "hidden";
-      }, `Waiting for placeholder text to be visible."`);
+      await ContentTaskUtils.waitForCondition(
+        () => {
+          const element = document.querySelector(
+            selectors.translationResultBlank
+          );
+          const { visibility } = window.getComputedStyle(element);
+          return visibility === "hidden";
+        },
+        `Waiting for placeholder text to be visible."`,
+        100,
+        200
+      );
 
       const fromSelectFinalValue = fromSelect.value;
       is(

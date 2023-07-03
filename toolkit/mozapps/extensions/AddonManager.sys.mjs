@@ -694,6 +694,11 @@ var AddonManagerInternal = {
       // Watch for language changes, refresh the addon cache when it changes.
       Services.obs.addObserver(this, INTL_LOCALES_CHANGED);
 
+      // Watch for changes in the `AMBrowserExtensionsImport` singleton.
+      Services.obs.addObserver(this, AMBrowserExtensionsImport.TOPIC_CANCELLED);
+      Services.obs.addObserver(this, AMBrowserExtensionsImport.TOPIC_COMPLETE);
+      Services.obs.addObserver(this, AMBrowserExtensionsImport.TOPIC_PENDING);
+
       // Ensure all default providers have had a chance to register themselves
       ({ XPIProvider: gXPIProvider } = ChromeUtils.import(
         "resource://gre/modules/addons/XPIProvider.jsm"
@@ -979,6 +984,13 @@ var AddonManagerInternal = {
 
     Services.obs.removeObserver(this, INTL_LOCALES_CHANGED);
 
+    Services.obs.removeObserver(
+      this,
+      AMBrowserExtensionsImport.TOPIC_CANCELLED
+    );
+    Services.obs.removeObserver(this, AMBrowserExtensionsImport.TOPIC_COMPLETE);
+    Services.obs.removeObserver(this, AMBrowserExtensionsImport.TOPIC_PENDING);
+
     AMRemoteSettings.shutdown();
 
     let savedError = null;
@@ -1042,6 +1054,12 @@ var AddonManagerInternal = {
         lazy.AddonRepository.backgroundUpdateCheck();
         return;
       }
+
+      case AMBrowserExtensionsImport.TOPIC_CANCELLED:
+      case AMBrowserExtensionsImport.TOPIC_COMPLETE:
+      case AMBrowserExtensionsImport.TOPIC_PENDING:
+        this.callManagerListeners("onBrowserExtensionsImportChanged");
+        return;
     }
 
     switch (aData) {
@@ -5231,6 +5249,9 @@ AMTelemetry = {
  */
 AMBrowserExtensionsImport = {
   TELEMETRY_SOURCE: "browser-import",
+  TOPIC_CANCELLED: "webextension-imported-addons-cancelled",
+  TOPIC_COMPLETE: "webextension-imported-addons-complete",
+  TOPIC_PENDING: "webextension-imported-addons-pending",
 
   // AddonId => AddonInstall
   _pendingInstallsMap: new Map(),
@@ -5240,6 +5261,8 @@ AMBrowserExtensionsImport = {
   // (which currently makes sure we are not prompting for permissions when the
   // imported addons are being downloaded, staged and then installed).
   _installPromptHandler: () => {},
+  // Optionally override the `AddonRepository`, mainly for testing purposes.
+  _addonRepository: null,
 
   get hasPendingImportedAddons() {
     return !!this._pendingInstallsMap.size;
@@ -5253,24 +5276,21 @@ AMBrowserExtensionsImport = {
     return this._canCompleteOrCancelInstalls && this.hasPendingImportedAddons;
   },
 
+  get addonRepository() {
+    return this._addonRepository || lazy.AddonRepository;
+  },
+
   /**
    * Stage an install for each add-on mapped to a browser extension ID in the
    * list of IDs passed to this method.
    *
    * @param {string} browserId A browser identifier.
    * @param {Array<string} extensionIDs A list of non-Firefox extension IDs.
-   * @param {AddonRepository} addonRepository Optionally pass the AddonRepository
-   *                                          to use, which is mainly used for
-   *                                          testing purposes.
    * @returns {Promise<object>} The return value is an object with data for
    *                            the caller.
    * @throws {Error} When there are pending imported add-ons.
    */
-  async stageInstalls(
-    browserId,
-    extensionIDs,
-    addonRepository = lazy.AddonRepository
-  ) {
+  async stageInstalls(browserId, extensionIDs) {
     // In case we have an import in progress, we throw so that the caller knows
     // that there is already an import in progress, which it may want to either
     // cancel or complete.
@@ -5288,7 +5308,7 @@ AMBrowserExtensionsImport = {
     // might not have as many mapped add-ons as extension IDs because not all
     // browser extensions will be mapped to Firefox add-ons.
     try {
-      importedAddons = await addonRepository.getMappedAddons(
+      importedAddons = await this.addonRepository.getMappedAddons(
         browserId,
         extensionIDs
       );
@@ -5359,10 +5379,7 @@ AMBrowserExtensionsImport = {
     this._importInProgress = !!importedAddonIDs.length;
 
     if (importedAddonIDs.length) {
-      Services.obs.notifyObservers(
-        null,
-        "webextension-imported-addons-pending"
-      );
+      Services.obs.notifyObservers(null, this.TOPIC_PENDING);
     }
 
     return { importedAddonIDs };
@@ -5387,7 +5404,7 @@ AMBrowserExtensionsImport = {
     this._reportErrors(results);
     this._clearInternalState();
 
-    Services.obs.notifyObservers(null, "webextension-imported-addons-complete");
+    Services.obs.notifyObservers(null, this.TOPIC_COMPLETE);
   },
 
   /**
@@ -5409,10 +5426,7 @@ AMBrowserExtensionsImport = {
     this._reportErrors(results);
     this._clearInternalState();
 
-    Services.obs.notifyObservers(
-      null,
-      "webextension-imported-addons-cancelled"
-    );
+    Services.obs.notifyObservers(null, this.TOPIC_CANCELLED);
   },
 
   _reportErrors(results) {

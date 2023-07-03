@@ -108,9 +108,9 @@ jobs:
         parent: debian11-base
     valgrind-build:
         symbol: I(vb)
-        parent: debian11-amd64-build
+        parent: debian12-amd64-build
         packages:
-            - deb11-valgrind
+            - deb12-valgrind
     lint:
         symbol: I(lnt)
         parent: debian11-base
@@ -120,9 +120,9 @@ jobs:
         symbol: I(deb11-raw)
         definition: debian-raw
         args:
-            BASE_IMAGE: debian:bullseye-20221205
+            BASE_IMAGE: debian:bullseye-20230612
             DIST: bullseye
-            SNAPSHOT: '20221204T212138Z'
+            SNAPSHOT: '20230611T210420Z'
     debian11-packages:
         symbol: I(deb11-pkg)
         definition: debian-packages
@@ -186,7 +186,7 @@ jobs:
         definition: toolchain-build
     android-build:
         symbol: I(agb)
-        parent: debian11-base
+        parent: debian12-base
     fetch:
         symbol: I(fetch)
         parent: debian11-raw
@@ -194,10 +194,10 @@ jobs:
             - deb11-python-zstandard
     static-analysis-build:
         symbol: I(static-analysis-build)
-        parent: debian11-base
+        parent: debian12-base
     gdb-test:
         symbol: I(gdb)
-        parent: debian11-amd64-build
+        parent: debian12-amd64-build
         definition: gdb-test
     index-task:
         symbol: I(idx)

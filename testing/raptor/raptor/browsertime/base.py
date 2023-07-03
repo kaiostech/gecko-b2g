@@ -118,7 +118,7 @@ class Browsertime(Perftest):
 
         if test.get("type") == "benchmark":
             # benchmark-type tests require the benchmark test to be served out
-            self.benchmark = Benchmark(self.config, test)
+            self.benchmark = Benchmark(self.config, test, debug_mode=self.debug_mode)
             test["test_url"] = test["test_url"].replace("<host>", self.benchmark.host)
             test["test_url"] = test["test_url"].replace("<port>", self.benchmark.port)
 
@@ -172,10 +172,14 @@ class Browsertime(Perftest):
     def run_test_teardown(self, test):
         super(Browsertime, self).run_test_teardown(test)
 
-        # if we were using a playback tool, stop it
+        # If we were using a playback tool, stop it
         if self.playback is not None:
             self.playback.stop()
             self.playback = None
+
+        # Stop the benchmark server if we're running a benchmark test
+        if self.benchmark:
+            self.benchmark.stop_http_server()
 
     def check_for_crashes(self):
         super(Browsertime, self).check_for_crashes()
@@ -220,43 +224,43 @@ class Browsertime(Perftest):
                 browsertime_path,
                 "browsertime_benchmark.js",
             )
+        elif (
+            test.get("name", "") == "browsertime"
+        ):  # Custom scripts are treated as pageload tests for now
+            # Check for either a script or a url from the
+            # --browsertime-arg options
+            browsertime_script = None
+            for option in self.browsertime_user_args:
+                arg, val = option.split("=", 1)
+                if arg in ("test_script", "url"):
+                    browsertime_script = val
+            if browsertime_script is None:
+                raise Exception(
+                    "You must provide a path to the test script or the url like so: "
+                    "`--browsertime-arg test_script=PATH/TO/SCRIPT`, or "
+                    "`--browsertime-arg url=https://www.sitespeed.io`"
+                )
+
+            # Make it simple to use our builtin test scripts
+            if browsertime_script == "pageload":
+                browsertime_script = os.path.join(
+                    browsertime_path, "browsertime_pageload.js"
+                )
+            elif browsertime_script == "interactive":
+                browsertime_script = os.path.join(
+                    browsertime_path, "browsertime_interactive.js"
+                )
+
+        elif test.get("interactive", False):
+            browsertime_script = os.path.join(
+                browsertime_path,
+                "browsertime_interactive.js",
+            )
         else:
-            # Custom scripts are treated as pageload tests for now
-            if test.get("name", "") == "browsertime":
-                # Check for either a script or a url from the
-                # --browsertime-arg options
-                browsertime_script = None
-                for option in self.browsertime_user_args:
-                    arg, val = option.split("=", 1)
-                    if arg in ("test_script", "url"):
-                        browsertime_script = val
-                if browsertime_script is None:
-                    raise Exception(
-                        "You must provide a path to the test script or the url like so: "
-                        "`--browsertime-arg test_script=PATH/TO/SCRIPT`, or "
-                        "`--browsertime-arg url=https://www.sitespeed.io`"
-                    )
-
-                # Make it simple to use our builtin test scripts
-                if browsertime_script == "pageload":
-                    browsertime_script = os.path.join(
-                        browsertime_path, "browsertime_pageload.js"
-                    )
-                elif browsertime_script == "interactive":
-                    browsertime_script = os.path.join(
-                        browsertime_path, "browsertime_interactive.js"
-                    )
-
-            elif test.get("interactive", False):
-                browsertime_script = os.path.join(
-                    browsertime_path,
-                    "browsertime_interactive.js",
-                )
-            else:
-                browsertime_script = os.path.join(
-                    browsertime_path,
-                    test.get("test_script", "browsertime_pageload.js"),
-                )
+            browsertime_script = os.path.join(
+                browsertime_path,
+                test.get("test_script", "browsertime_pageload.js"),
+            )
 
         page_cycle_delay = "1000"
         if self.config["live_sites"]:
@@ -316,8 +320,6 @@ class Browsertime(Perftest):
             else str(self.post_startup_delay),
             "--iterations",
             str(browser_cycles),
-            "--videoParams.androidVideoWaitTime",
-            "20000",
             # running browsertime test in chimera mode
             "--browsertime.chimera",
             "true" if self.config["chimera"] else "false",
@@ -718,7 +720,6 @@ class Browsertime(Perftest):
             LOG.info("Failed during the extra profiler run: " + str(e))
 
     def run_test(self, test, timeout):
-        global BROWSERTIME_PAGELOAD_OUTPUT_TIMEOUT
 
         self.run_test_setup(test)
         # timeout is a single page-load timeout value (ms) from the test INI

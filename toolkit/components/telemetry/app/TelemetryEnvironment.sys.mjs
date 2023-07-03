@@ -227,6 +227,7 @@ const DEFAULT_ENVIRONMENT_PREFS = new Map([
   ["browser.formfill.enable", { what: RECORD_PREF_VALUE }],
   ["browser.fixup.alternate.enabled", { what: RECORD_DEFAULTPREF_VALUE }],
   ["browser.migrate.interactions.bookmarks", { what: RECORD_PREF_VALUE }],
+  ["browser.migrate.interactions.csvpasswords", { what: RECORD_PREF_VALUE }],
   ["browser.migrate.interactions.history", { what: RECORD_PREF_VALUE }],
   ["browser.migrate.interactions.passwords", { what: RECORD_PREF_VALUE }],
   ["browser.newtabpage.enabled", { what: RECORD_PREF_VALUE }],
@@ -301,7 +302,6 @@ const DEFAULT_ENVIRONMENT_PREFS = new Map([
   ["gfx.direct2d.disabled", { what: RECORD_PREF_VALUE }],
   ["gfx.direct2d.force-enabled", { what: RECORD_PREF_VALUE }],
   ["gfx.webrender.all", { what: RECORD_PREF_VALUE }],
-  ["gfx.webrender.all.qualified", { what: RECORD_PREF_VALUE }],
   ["layers.acceleration.disabled", { what: RECORD_PREF_VALUE }],
   ["layers.acceleration.force-enabled", { what: RECORD_PREF_VALUE }],
   ["layers.async-pan-zoom.enabled", { what: RECORD_PREF_VALUE }],
@@ -653,6 +653,17 @@ EnvironmentAddonBuilder.prototype = {
   onUninstalled(addon) {
     this._onAddonChange(addon);
   },
+  onPropertyChanged(addon, propertiesChanged) {
+    // Avoid to update the telemetry environment for onPropertyChanged
+    // calls that we are not actually interested in (and quarantineIgnoredByApp
+    // is not expected to change at runtime, unless the entire active addons
+    // entry is also replaced, e.g. on the extension being uninstalled and
+    // installed again).
+    if (!propertiesChanged.includes("quarantineIgnoredByUser")) {
+      return;
+    }
+    this._onAddonChange(addon);
+  },
 
   _onAddonChange(addon) {
     if (addon && addon.isBuiltin && !addon.isSystem) {
@@ -826,6 +837,12 @@ EnvironmentAddonBuilder.prototype = {
             hasBinaryComponents: false,
             installDay: Utils.millisecondsToDays(installDate.getTime()),
             signedState: addon.signedState,
+            quarantineIgnoredByApp: enforceBoolean(
+              addon.quarantineIgnoredByApp
+            ),
+            quarantineIgnoredByUser: enforceBoolean(
+              addon.quarantineIgnoredByUser
+            ),
           });
         }
       } catch (ex) {

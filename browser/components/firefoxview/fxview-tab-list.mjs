@@ -195,7 +195,10 @@ export default class FxviewTabList extends MozLitElement {
     : "chrome://browser/content/firefoxview/fxview-tab-list.css";
 
   render() {
-    this.tabItems = this.tabItems.slice(0, this.maxTabsLength);
+    if (this.maxTabsLength > 0) {
+      // Can set maxTabsLength to -1 to have no max
+      this.tabItems = this.tabItems.slice(0, this.maxTabsLength);
+    }
     const {
       activeIndex,
       currentActiveElementId,
@@ -228,6 +231,7 @@ export default class FxviewTabList extends MozLitElement {
                 .secondaryL10nId=${tabItem.secondaryL10nId}
                 .secondaryL10nArgs=${ifDefined(tabItem.secondaryL10nArgs)}
                 .tabid=${ifDefined(tabItem.tabid || tabItem.closedId)}
+                .tabElement=${ifDefined(tabItem.tabElement)}
                 .time=${(tabItem.time || tabItem.closedAt).toString().length ===
                 16
                   ? (tabItem.time || tabItem.closedAt) / 1000
@@ -260,6 +264,7 @@ customElements.define("fxview-tab-list", FxviewTabList);
  * @property {string} primaryL10nArgs - The l10n args used for the primary action element
  * @property {string} secondaryL10nId - The l10n id used for the secondary action button
  * @property {string} secondaryL10nArgs - The l10n args used for the secondary action element
+ * @property {object} tabElement - The MozTabbrowserTab element for the tab item.
  * @property {number} time - The timestamp for when the tab was last accessed.
  * @property {string} title - The title for the tab item.
  * @property {string} url - The url for the tab item.
@@ -284,6 +289,7 @@ export class FxviewTabRow extends MozLitElement {
     secondaryL10nId: { type: String },
     secondaryL10nArgs: { type: String },
     tabid: { type: Number },
+    tabElement: { type: Object },
     time: { type: Number },
     title: { type: String },
     timeMsPref: { type: Number },

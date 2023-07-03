@@ -25,6 +25,7 @@
 
 namespace mozilla::ipc {
 
+class GeckoChildProcessHost;
 class NodeController;
 
 // Represents a live connection between our Node and a remote process. This
@@ -73,7 +74,8 @@ class NodeChannel final : public IPC::Channel::Listener {
 
   NodeChannel(const NodeName& aName, UniquePtr<IPC::Channel> aChannel,
               Listener* aListener,
-              base::ProcessId aPid = base::kInvalidProcessId);
+              base::ProcessId aPid = base::kInvalidProcessId,
+              GeckoChildProcessHost* aChildProcessHost = nullptr);
 
   // Send the given message over this peer channel link. May be called from any
   // thread.
@@ -97,7 +99,7 @@ class NodeChannel final : public IPC::Channel::Listener {
 
   // Start communicating with the remote process using this NodeChannel. MUST BE
   // CALLED FROM THE IO THREAD.
-  void Start(bool aCallConnect = true);
+  void Start();
 
   // Stop communicating with the remote process using this NodeChannel, MUST BE
   // CALLED FROM THE IO THREAD.
@@ -167,7 +169,7 @@ class NodeChannel final : public IPC::Channel::Listener {
 #endif
 
   // WARNING: Must only be accessed on the IO thread.
-  WeakPtr<IPC::Channel::Listener> mExistingListener;
+  WeakPtr<mozilla::ipc::GeckoChildProcessHost> mChildProcessHost;
 };
 
 }  // namespace mozilla::ipc

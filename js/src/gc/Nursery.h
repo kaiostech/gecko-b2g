@@ -106,7 +106,7 @@ class alignas(TypicalCacheLineSize) Nursery {
   // slower than IsInsideNursery(Cell*), but works on all types of pointers.
   MOZ_ALWAYS_INLINE bool isInside(gc::Cell* cellp) const = delete;
   MOZ_ALWAYS_INLINE bool isInside(const void* p) const {
-    for (auto chunk : chunks_) {
+    for (auto* chunk : chunks_) {
       if (uintptr_t(p) - uintptr_t(chunk) < gc::ChunkSize) {
         return true;
       }
@@ -145,7 +145,7 @@ class alignas(TypicalCacheLineSize) Nursery {
     // Update the allocation site. This code is also inlined in
     // MacroAssembler::updateAllocSite.
     uint32_t allocCount = site->incAllocCount();
-    if (allocCount == 1) {
+    if (MOZ_UNLIKELY(allocCount == 1)) {
       pretenuringNursery.insertIntoAllocatedList(site);
     }
     MOZ_ASSERT_IF(site->isNormal(), site->isInAllocatedList());
@@ -439,8 +439,9 @@ class alignas(TypicalCacheLineSize) Nursery {
   mozilla::TimeDuration timeInChunkAlloc_;
 
   // Report minor collections taking at least this long, if enabled.
-  bool enableProfiling_;
-  bool profileWorkers_;
+  bool enableProfiling_ = false;
+  bool profileWorkers_ = false;
+
   mozilla::TimeDuration profileThreshold_;
 
   // Whether we will nursery-allocate strings.
@@ -529,8 +530,8 @@ class alignas(TypicalCacheLineSize) Nursery {
   // for buffers whose length is less than pointer width, or when different
   // buffers might overlap each other. For these, an entry in the following
   // table is used.
-  typedef HashMap<void*, void*, PointerHasher<void*>, SystemAllocPolicy>
-      ForwardedBufferMap;
+  using ForwardedBufferMap =
+      HashMap<void*, void*, PointerHasher<void*>, SystemAllocPolicy>;
   ForwardedBufferMap forwardedBuffers;
 
   // When we assign a unique id to cell in the nursery, that almost always

@@ -39,6 +39,12 @@ loader.lazyRequireGetter(
   "resource://devtools/client/shared/redux/subscriber.js",
   true
 );
+loader.lazyRequireGetter(
+  this,
+  "getMappedExpression",
+  "resource://devtools/client/debugger/src/actions/expressions.js",
+  true
+);
 
 const DBG_STRINGS_URI = [
   "devtools/client/locales/debugger.properties",
@@ -190,7 +196,11 @@ class DebuggerPanel {
   }
 
   getMappedExpression(expression) {
-    return this._actions.getMappedExpression(expression);
+    const thread = this._selectors.getCurrentThread(this._getState());
+    return getMappedExpression(expression, thread, {
+      getState: this._store.getState,
+      parserWorker: this.toolbox.parserWorker,
+    });
   }
 
   /**
@@ -329,8 +339,7 @@ class DebuggerPanel {
   }
 
   selectThread(threadActorID) {
-    const cx = this._selectors.getContext(this._getState());
-    this._actions.selectThread(cx, threadActorID);
+    this._actions.selectThread(threadActorID);
   }
 
   toggleJavascriptTracing() {

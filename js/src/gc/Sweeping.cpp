@@ -347,7 +347,7 @@ void GCRuntime::sweepBackgroundThings(ZoneList& zones) {
 
     // We must finalize thing kinds in the order specified by
     // BackgroundFinalizePhases.
-    for (auto phase : BackgroundFinalizePhases) {
+    for (const auto& phase : BackgroundFinalizePhases) {
       for (auto kind : phase.kinds) {
         backgroundFinalize(gcx, zone, kind, &emptyArenas);
       }
@@ -687,8 +687,7 @@ bool GCRuntime::addEdgesForMarkQueue() {
   // follow the sweep group ordering. These objects will wait until their sweep
   // group comes up, or will be skipped if their sweep group is already past.
   JS::Zone* prevZone = nullptr;
-  for (size_t i = 0; i < testMarkQueue.length(); i++) {
-    Value val = testMarkQueue[i].get();
+  for (Value val : testMarkQueue) {
     if (!val.isObject()) {
       continue;
     }
@@ -1177,8 +1176,6 @@ class ImmediateSweepWeakCacheTask : public GCParallelTask {
   Zone* zone;
   JS::detail::WeakCacheBase& cache;
 
-  ImmediateSweepWeakCacheTask(const ImmediateSweepWeakCacheTask&) = delete;
-
  public:
   ImmediateSweepWeakCacheTask(GCRuntime* gc, Zone* zone,
                               JS::detail::WeakCacheBase& wc)
@@ -1186,10 +1183,12 @@ class ImmediateSweepWeakCacheTask : public GCParallelTask {
         zone(zone),
         cache(wc) {}
 
-  ImmediateSweepWeakCacheTask(ImmediateSweepWeakCacheTask&& other)
+  ImmediateSweepWeakCacheTask(ImmediateSweepWeakCacheTask&& other) noexcept
       : GCParallelTask(std::move(other)),
         zone(other.zone),
         cache(other.cache) {}
+
+  ImmediateSweepWeakCacheTask(const ImmediateSweepWeakCacheTask&) = delete;
 
   void run(AutoLockHelperThreadState& lock) override {
     AutoUnlockHelperThreadState unlock(lock);
@@ -1503,7 +1502,7 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
   }
 
 #ifdef DEBUG
-  for (auto cell : cellsToAssertNotGray.ref()) {
+  for (const auto* cell : cellsToAssertNotGray.ref()) {
     JS::AssertCellIsNotGray(cell);
   }
   cellsToAssertNotGray.ref().clearAndFree();

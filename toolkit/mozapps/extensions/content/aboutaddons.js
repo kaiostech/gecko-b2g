@@ -10,6 +10,7 @@
 "use strict";
 
 ChromeUtils.defineESModuleGetters(this, {
+  AMBrowserExtensionsImport: "resource://gre/modules/AddonManager.sys.mjs",
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   AddonRepository: "resource://gre/modules/addons/AddonRepository.sys.mjs",
   BuiltInThemes: "resource:///modules/BuiltInThemes.sys.mjs",
@@ -751,6 +752,8 @@ class GlobalWarnings extends MessageBarStackElement {
       this.setWarning("update-security", { action: true });
     } else if (!AddonManager.checkCompatibility) {
       this.setWarning("check-compatibility", { action: true });
+    } else if (AMBrowserExtensionsImport.canCompleteOrCancelInstalls) {
+      this.setWarning("imported-addons", { action: true });
     } else {
       this.removeWarning();
     }
@@ -798,6 +801,9 @@ class GlobalWarnings extends MessageBarStackElement {
         case "check-compatibility":
           AddonManager.checkCompatibility = true;
           break;
+        case "imported-addons":
+          AMBrowserExtensionsImport.completeInstalls();
+          break;
       }
     }
   }
@@ -811,6 +817,10 @@ class GlobalWarnings extends MessageBarStackElement {
   }
 
   onCheckUpdateSecurityChanged() {
+    this.refresh();
+  }
+
+  onBrowserExtensionsImportChanged() {
     this.refresh();
   }
 }
@@ -2172,6 +2182,23 @@ class AddonDetails extends HTMLElement {
     });
   }
 
+  updateQuarantinedDomainsUserAllowed() {
+    const { addon } = this;
+    let quarantinedDomainsUserAllowedRow = this.querySelector(
+      ".addon-detail-row-quarantined-domains"
+    );
+    if (addon.canChangeQuarantineIgnored) {
+      quarantinedDomainsUserAllowedRow.hidden = false;
+      quarantinedDomainsUserAllowedRow.nextElementSibling.hidden = false;
+      quarantinedDomainsUserAllowedRow.querySelector(
+        `[value="${addon.quarantineIgnoredByUser ? 1 : 0}"]`
+      ).checked = true;
+    } else {
+      quarantinedDomainsUserAllowedRow.hidden = true;
+      quarantinedDomainsUserAllowedRow.nextElementSibling.hidden = true;
+    }
+  }
+
   async render() {
     let { addon } = this;
     if (!addon) {
@@ -2234,6 +2261,8 @@ class AddonDetails extends HTMLElement {
       let isAllowed = await isAllowedInPrivateBrowsing(addon);
       pbRow.querySelector(`[value="${isAllowed ? 1 : 0}"]`).checked = true;
     }
+
+    this.updateQuarantinedDomainsUserAllowed();
 
     // Author.
     let creatorRow = this.querySelector(".addon-detail-row-author");
@@ -2571,34 +2600,43 @@ class AddonCard extends HTMLElement {
       this.setAddonPermission(permission, type, fname);
     } else if (e.type == "change") {
       let { name } = e.target;
-      if (name == "autoupdate") {
-        addon.applyBackgroundUpdates = e.target.value;
-      } else if (name == "private-browsing") {
-        let policy = WebExtensionPolicy.getByID(addon.id);
-        let extension = policy && policy.extension;
-
-        if (e.target.value == "1") {
-          await ExtensionPermissions.add(
-            addon.id,
-            PRIVATE_BROWSING_PERMS,
-            extension
-          );
-        } else {
-          await ExtensionPermissions.remove(
-            addon.id,
-            PRIVATE_BROWSING_PERMS,
-            extension
-          );
+      switch (name) {
+        case "autoupdate": {
+          addon.applyBackgroundUpdates = e.target.value;
+          break;
         }
-        // Reload the extension if it is already enabled. This ensures any
-        // change on the private browsing permission is properly handled.
-        if (addon.isActive) {
-          this.reloading = true;
-          // Reloading will trigger an enable and update the card.
-          addon.reload();
-        } else {
-          // Update the card if the add-on isn't active.
-          this.update();
+        case "private-browsing": {
+          let policy = WebExtensionPolicy.getByID(addon.id);
+          let extension = policy && policy.extension;
+
+          if (e.target.value == "1") {
+            await ExtensionPermissions.add(
+              addon.id,
+              PRIVATE_BROWSING_PERMS,
+              extension
+            );
+          } else {
+            await ExtensionPermissions.remove(
+              addon.id,
+              PRIVATE_BROWSING_PERMS,
+              extension
+            );
+          }
+          // Reload the extension if it is already enabled. This ensures any
+          // change on the private browsing permission is properly handled.
+          if (addon.isActive) {
+            this.reloading = true;
+            // Reloading will trigger an enable and update the card.
+            addon.reload();
+          } else {
+            // Update the card if the add-on isn't active.
+            this.update();
+          }
+          break;
+        }
+        case "quarantined-domains-user-allowed": {
+          addon.quarantineIgnoredByUser = e.target.value == "1";
+          break;
         }
       }
     } else if (e.type == "mousedown") {
@@ -2932,6 +2970,10 @@ class AddonCard extends HTMLElement {
       this.details.update();
     } else if (addon.type == "plugin" && changed.includes("userDisabled")) {
       this.update();
+    }
+
+    if (this.details && changed.includes("quarantineIgnoredByUser")) {
+      this.details.updateQuarantinedDomainsUserAllowed();
     }
   }
 

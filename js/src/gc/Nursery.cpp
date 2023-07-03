@@ -219,9 +219,7 @@ js::Nursery::Nursery(GCRuntime* gc)
       currentStartChunk_(0),
       currentStartPosition_(0),
       capacity_(0),
-      timeInChunkAlloc_(0),
       enableProfiling_(false),
-      profileThreshold_(0),
       canAllocateStrings_(true),
       canAllocateBigInts_(true),
       reportDeduplications_(false),
@@ -1034,7 +1032,7 @@ void js::Nursery::printTotalProfileTimes() {
 
 void js::Nursery::maybeClearProfileDurations() {
   for (auto& duration : profileDurations_) {
-    duration = mozilla::TimeDuration();
+    duration = mozilla::TimeDuration::Zero();
   }
 }
 
@@ -1242,7 +1240,7 @@ void js::Nursery::collect(JS::GCOptions options, JS::GCReason reason) {
   stats().endNurseryCollection(reason);  // Calls GCNurseryCollectionCallback.
   gcprobes::MinorGCEnd();
 
-  timeInChunkAlloc_ = mozilla::TimeDuration();
+  timeInChunkAlloc_ = mozilla::TimeDuration::Zero();
 
   js::StringStats prevStats = gc->stringStats;
   js::StringStats& currStats = gc->stringStats;
@@ -1383,7 +1381,7 @@ void js::Nursery::freeTrailerBlocks(void) {
   // Discard blocks from the cache at 0.05% per megabyte of nursery capacity,
   // that is, 0.8% of blocks for a 16-megabyte nursery.  This allows the cache
   // to gradually discard unneeded blocks in long running applications.
-  mallocedBlockCache_.preen(0.05 * float(capacity() / (1024 * 1024)));
+  mallocedBlockCache_.preen(0.05 * double(capacity()) / (1024.0 * 1024.0));
 }
 
 size_t Nursery::sizeOfTrailerBlockSets(
@@ -2055,14 +2053,14 @@ bool js::Nursery::isSubChunkMode() const {
 }
 
 void js::Nursery::sweepMapAndSetObjects() {
-  auto gcx = runtime()->gcContext();
+  auto* gcx = runtime()->gcContext();
 
-  for (auto mapobj : mapsWithNurseryMemory_) {
+  for (auto* mapobj : mapsWithNurseryMemory_) {
     MapObject::sweepAfterMinorGC(gcx, mapobj);
   }
   mapsWithNurseryMemory_.clearAndFree();
 
-  for (auto setobj : setsWithNurseryMemory_) {
+  for (auto* setobj : setsWithNurseryMemory_) {
     SetObject::sweepAfterMinorGC(gcx, setobj);
   }
   setsWithNurseryMemory_.clearAndFree();

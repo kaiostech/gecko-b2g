@@ -1687,7 +1687,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     }
 
     // A loop always is playing
-    if (mOwner->HasAttr(kNameSpaceID_None, nsGkAtoms::loop)) {
+    if (mOwner->HasAttr(nsGkAtoms::loop)) {
       return true;
     }
 
@@ -2562,10 +2562,9 @@ void HTMLMediaElement::Load() {
        "handlingInput=%d hasAutoplayAttr=%d AllowedToPlay=%d "
        "ownerDoc=%p (%s) ownerDocUserActivated=%d "
        "muted=%d volume=%f",
-       this, !!mSrcAttrStream, HasAttr(kNameSpaceID_None, nsGkAtoms::src),
-       HasSourceChildren(this), UserActivation::IsHandlingUserInput(),
-       HasAttr(nsGkAtoms::autoplay), AllowedToPlay(), OwnerDoc(),
-       DocumentOrigin(OwnerDoc()).get(),
+       this, !!mSrcAttrStream, HasAttr(nsGkAtoms::src), HasSourceChildren(this),
+       UserActivation::IsHandlingUserInput(), HasAttr(nsGkAtoms::autoplay),
+       AllowedToPlay(), OwnerDoc(), DocumentOrigin(OwnerDoc()).get(),
        OwnerDoc()->HasBeenUserGestureActivated(), mMuted, mVolume));
 
   if (mIsRunningLoadMethod) {
@@ -2641,8 +2640,7 @@ void HTMLMediaElement::SelectResourceWrapper() {
 }
 
 void HTMLMediaElement::SelectResource() {
-  if (!mSrcAttrStream && !HasAttr(kNameSpaceID_None, nsGkAtoms::src) &&
-      !HasSourceChildren(this)) {
+  if (!mSrcAttrStream && !HasAttr(nsGkAtoms::src) && !HasSourceChildren(this)) {
     // The media element has neither a src attribute nor any source
     // element children, abort the load.
     ChangeNetworkState(NETWORK_EMPTY);
@@ -2665,7 +2663,7 @@ void HTMLMediaElement::SelectResource() {
   nsAutoString src;
   if (mSrcAttrStream) {
     SetupSrcMediaStreamPlayback(mSrcAttrStream);
-  } else if (GetAttr(kNameSpaceID_None, nsGkAtoms::src, src)) {
+  } else if (GetAttr(nsGkAtoms::src, src)) {
     nsCOMPtr<nsIURI> uri;
     MediaResult rv = NewURIFromString(src, getter_AddRefs(uri));
     if (NS_SUCCEEDED(rv)) {
@@ -2890,7 +2888,7 @@ void HTMLMediaElement::LoadFromSourceChildren() {
 
     // Must have src attribute.
     nsAutoString src;
-    if (!child->GetAttr(kNameSpaceID_None, nsGkAtoms::src, src)) {
+    if (!child->GetAttr(nsGkAtoms::src, src)) {
       ReportLoadError("MediaLoadSourceMissingSrc");
       DealWithFailedElement(child);
       return;
@@ -2898,8 +2896,7 @@ void HTMLMediaElement::LoadFromSourceChildren() {
 
     // If we have a type attribute, it must be a supported type.
     nsAutoString type;
-    if (child->GetAttr(kNameSpaceID_None, nsGkAtoms::type, type) &&
-        !type.IsEmpty()) {
+    if (child->GetAttr(nsGkAtoms::type, type) && !type.IsEmpty()) {
       DecoderDoctorDiagnostics diagnostics;
       CanPlayStatus canPlay = GetCanPlay(type, &diagnostics);
       diagnostics.StoreFormatDiagnostics(OwnerDoc(), type,
@@ -3120,7 +3117,7 @@ MediaResult HTMLMediaElement::LoadResource() {
         this, this, mAudioChannel, mMuted ? 0.0 : mVolume, mPreservesPitch,
         ClampPlaybackRate(mPlaybackRate),
         mPreloadAction == HTMLMediaElement::PRELOAD_METADATA, mHasSuspendTaint,
-        HasAttr(kNameSpaceID_None, nsGkAtoms::loop),
+        HasAttr(nsGkAtoms::loop),
         MediaContainerType(MEDIAMIMETYPE("application/x.mediasource")));
 
     RefPtr<MediaSourceDecoder> decoder = new MediaSourceDecoder(decoderInit);
@@ -4884,7 +4881,7 @@ bool HTMLMediaElement::CheckAudioChannelPermissions(AudioChannel aValue) {
 }
 
 void HTMLMediaElement::DoneCreatingElement() {
-  if (HasAttr(kNameSpaceID_None, nsGkAtoms::muted)) {
+  if (HasAttr(nsGkAtoms::muted)) {
     mMuted |= MUTED_BY_CONTENT;
   }
 }
@@ -5126,7 +5123,7 @@ nsresult HTMLMediaElement::InitializeDecoderAsClone(
       this, this, mAudioChannel, mMuted ? 0.0 : mVolume, mPreservesPitch,
       ClampPlaybackRate(mPlaybackRate),
       mPreloadAction == HTMLMediaElement::PRELOAD_METADATA, mHasSuspendTaint,
-      HasAttr(kNameSpaceID_None, nsGkAtoms::loop), aOriginal->ContainerType());
+      HasAttr(nsGkAtoms::loop), aOriginal->ContainerType());
 
   RefPtr<ChannelMediaDecoder> decoder = aOriginal->Clone(decoderInit);
   if (!decoder) return NS_ERROR_FAILURE;
@@ -5203,7 +5200,7 @@ nsresult HTMLMediaElement::InitializeDecoderForChannel(
       this, this, mAudioChannel, mMuted ? 0.0 : mVolume, mPreservesPitch,
       ClampPlaybackRate(mPlaybackRate),
       mPreloadAction == HTMLMediaElement::PRELOAD_METADATA, mHasSuspendTaint,
-      HasAttr(kNameSpaceID_None, nsGkAtoms::loop), *containerType);
+      HasAttr(nsGkAtoms::loop), *containerType);
 
 #ifdef MOZ_ANDROID_HLS_SUPPORT
   if (HLSDecoder::IsSupportedType(*containerType)) {
@@ -5245,16 +5242,7 @@ nsresult HTMLMediaElement::FinishDecoderSetup(MediaDecoder* aDecoder) {
 
   // Set sink device if we have one. Otherwise the default is used.
   if (mSink.second) {
-    mDecoder
-        ->SetSink(mSink.second)
-#ifdef DEBUG
-        ->Then(mAbstractMainThread, __func__,
-               [](const GenericPromise::ResolveOrRejectValue& aValue) {
-                 MOZ_ASSERT(aValue.IsResolve() && !aValue.ResolveValue());
-               });
-#else
-        ;
-#endif
+    mDecoder->SetSink(mSink.second);
   }
 
   if (mMediaKeys) {
@@ -5664,7 +5652,7 @@ void HTMLMediaElement::FirstFrameLoaded() {
   ChangeDelayLoadStatus(false);
 
   if (mDecoder && mAllowSuspendAfterFirstFrame && mPaused &&
-      !HasAttr(kNameSpaceID_None, nsGkAtoms::autoplay) &&
+      !HasAttr(nsGkAtoms::autoplay) &&
       mPreloadAction == HTMLMediaElement::PRELOAD_METADATA) {
     mSuspendedAfterFirstFrame = true;
     mDecoder->Suspend();
@@ -5742,7 +5730,7 @@ void HTMLMediaElement::PlaybackEnded() {
     // mediacapture-main:
     // Setting the loop attribute has no effect since a MediaStream has no
     // defined end and therefore cannot be looped.
-    if (HasAttr(kNameSpaceID_None, nsGkAtoms::loop)) {
+    if (HasAttr(nsGkAtoms::loop)) {
       SetCurrentTime(0);
       return;
     }
@@ -6260,7 +6248,7 @@ bool HTMLMediaElement::IsEligibleForAutoplay() {
   // download is controlled by the script and there is no way to evaluate
   // MediaDecoder::CanPlayThrough().
 
-  if (!HasAttr(kNameSpaceID_None, nsGkAtoms::autoplay)) {
+  if (!HasAttr(nsGkAtoms::autoplay)) {
     return false;
   }
 
@@ -6817,8 +6805,7 @@ void HTMLMediaElement::NotifyAddedSource() {
   // that has no src attribute and whose networkState has the value
   // NETWORK_EMPTY, the user agent must invoke the media element's
   // resource selection algorithm.
-  if (!HasAttr(kNameSpaceID_None, nsGkAtoms::src) &&
-      mNetworkState == NETWORK_EMPTY) {
+  if (!HasAttr(nsGkAtoms::src) && mNetworkState == NETWORK_EMPTY) {
     AssertReadyStateIsNothing();
     QueueSelectResourceTask();
   }

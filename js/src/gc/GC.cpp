@@ -474,7 +474,7 @@ GCRuntime::GCRuntime(JSRuntime* rt)
 using CharRange = mozilla::Range<const char>;
 using CharRangeVector = Vector<CharRange, 0, SystemAllocPolicy>;
 
-static bool SplitStringBy(CharRange text, char delimiter,
+static bool SplitStringBy(const CharRange& text, char delimiter,
                           CharRangeVector* result) {
   auto start = text.begin();
   for (auto ptr = start; ptr != text.end(); ptr++) {
@@ -489,10 +489,12 @@ static bool SplitStringBy(CharRange text, char delimiter,
   return result->emplaceBack(start, text.end());
 }
 
-static bool ParseTimeDuration(CharRange text, TimeDuration* durationOut) {
+static bool ParseTimeDuration(const CharRange& text,
+                              TimeDuration* durationOut) {
   const char* str = text.begin().get();
   char* end;
-  *durationOut = TimeDuration::FromMilliseconds(strtol(str, &end, 10));
+  long millis = strtol(str, &end, 10);
+  *durationOut = TimeDuration::FromMilliseconds(double(millis));
   return str != end && end == text.end().get();
 }
 
@@ -507,7 +509,7 @@ void js::gc::ReadProfileEnv(const char* envName, const char* helpText,
                             TimeDuration* thresholdOut) {
   *enableOut = false;
   *workersOut = false;
-  *thresholdOut = TimeDuration();
+  *thresholdOut = TimeDuration::Zero();
 
   const char* env = getenv(envName);
   if (!env) {
@@ -697,7 +699,7 @@ void GCRuntime::unsetZeal(uint8_t zeal) {
 
 void GCRuntime::setNextScheduled(uint32_t count) { nextScheduled = count; }
 
-static bool ParseZealModeName(CharRange text, uint32_t* modeOut) {
+static bool ParseZealModeName(const CharRange& text, uint32_t* modeOut) {
   struct ModeInfo {
     const char* name;
     size_t length;
@@ -721,7 +723,8 @@ static bool ParseZealModeName(CharRange text, uint32_t* modeOut) {
   return false;
 }
 
-static bool ParseZealModeNumericParam(CharRange text, uint32_t* paramOut) {
+static bool ParseZealModeNumericParam(const CharRange& text,
+                                      uint32_t* paramOut) {
   if (text.length() == 0) {
     return false;
   }
@@ -1279,9 +1282,10 @@ void GCRuntime::updateHelperThreadCount() {
   }
 
   // Calculate the target thread count for GC parallel tasks.
-  double cpuCount = GetHelperThreadCPUCount();
-  helperThreadCount = std::clamp(size_t(cpuCount * helperThreadRatio.ref()),
-                                 size_t(1), maxHelperThreads.ref());
+  size_t cpuCount = GetHelperThreadCPUCount();
+  helperThreadCount =
+      std::clamp(size_t(double(cpuCount) * helperThreadRatio.ref()), size_t(1),
+                 maxHelperThreads.ref());
 
   // Calculate the overall target thread count taking into account the separate
   // parameter for parallel marking threads. Add spare threads to avoid blocking
@@ -1324,7 +1328,7 @@ size_t GCRuntime::markingWorkerCount() const {
 
 #ifdef DEBUG
 void GCRuntime::assertNoMarkingWork() const {
-  for (auto& marker : markers) {
+  for (const auto& marker : markers) {
     MOZ_ASSERT(marker->isDrained());
   }
   MOZ_ASSERT(!hasDelayedMarking());
@@ -1447,7 +1451,7 @@ void GCRuntime::removeFinalizeCallback(JSFinalizeCallback callback) {
 
 void GCRuntime::callFinalizeCallbacks(JS::GCContext* gcx,
                                       JSFinalizeStatus status) const {
-  for (auto& p : finalizeCallbacks.ref()) {
+  for (const auto& p : finalizeCallbacks.ref()) {
     p.op(gcx, status, p.data);
   }
 }
@@ -1605,20 +1609,22 @@ SliceBudget::SliceBudget(WorkBudget work)
 int SliceBudget::describe(char* buffer, size_t maxlen) const {
   if (isUnlimited()) {
     return snprintf(buffer, maxlen, "unlimited");
-  } else if (isWorkBudget()) {
-    return snprintf(buffer, maxlen, "work(%" PRId64 ")", workBudget());
-  } else {
-    const char* interruptStr = "";
-    if (interruptRequested) {
-      interruptStr = interrupted ? "INTERRUPTED " : "interruptible ";
-    }
-    const char* extra = "";
-    if (idle) {
-      extra = extended ? " (started idle but extended)" : " (idle)";
-    }
-    return snprintf(buffer, maxlen, "%s%" PRId64 "ms%s", interruptStr,
-                    timeBudget(), extra);
   }
+
+  if (isWorkBudget()) {
+    return snprintf(buffer, maxlen, "work(%" PRId64 ")", workBudget());
+  }
+
+  const char* interruptStr = "";
+  if (interruptRequested) {
+    interruptStr = interrupted ? "INTERRUPTED " : "interruptible ";
+  }
+  const char* extra = "";
+  if (idle) {
+    extra = extended ? " (started idle but extended)" : " (idle)";
+  }
+  return snprintf(buffer, maxlen, "%s%" PRId64 "ms%s", interruptStr,
+                  timeBudget(), extra);
 }
 
 bool SliceBudget::checkOverBudget() {
@@ -1817,9 +1823,9 @@ JS::GCReason GCRuntime::wantMajorGC(bool eagerOk) {
 
 bool GCRuntime::checkEagerAllocTrigger(const HeapSize& size,
                                        const HeapThreshold& threshold) {
-  double thresholdBytes =
+  size_t thresholdBytes =
       threshold.eagerAllocTrigger(schedulingState.inHighFrequencyGCMode());
-  double usedBytes = size.bytes();
+  size_t usedBytes = size.bytes();
   if (usedBytes <= 1024 * 1024 || usedBytes < thresholdBytes) {
     return false;
   }
@@ -2278,15 +2284,12 @@ class CompartmentCheckTracer final : public JS::CallbackTracer {
  public:
   explicit CompartmentCheckTracer(JSRuntime* rt)
       : JS::CallbackTracer(rt, JS::TracerKind::CompartmentCheck,
-                           JS::WeakEdgeTraceAction::Skip),
-        src(nullptr),
-        zone(nullptr),
-        compartment(nullptr) {}
+                           JS::WeakEdgeTraceAction::Skip) {}
 
-  Cell* src;
-  JS::TraceKind srcKind;
-  Zone* zone;
-  Compartment* compartment;
+  Cell* src = nullptr;
+  JS::TraceKind srcKind = JS::TraceKind::Null;
+  Zone* zone = nullptr;
+  Compartment* compartment = nullptr;
 };
 
 static bool InCrossCompartmentMap(JSRuntime* rt, JSObject* src,
@@ -3107,8 +3110,10 @@ GCRuntime::MarkQueueProgress GCRuntime::processTestMarkQueue() {
       JSLinearString* str = &val.toString()->asLinear();
       if (js::StringEqualsLiteral(str, "yield") && isIncrementalGc()) {
         return QueueYielded;
-      } else if (js::StringEqualsLiteral(str, "enter-weak-marking-mode") ||
-                 js::StringEqualsLiteral(str, "abort-weak-marking-mode")) {
+      }
+
+      if (js::StringEqualsLiteral(str, "enter-weak-marking-mode") ||
+          js::StringEqualsLiteral(str, "abort-weak-marking-mode")) {
         if (marker().isRegularMarking()) {
           // We can't enter weak marking mode at just any time, so instead
           // we'll stop processing the queue and continue on with the GC. Once
@@ -3275,7 +3280,7 @@ void GCRuntime::updateAllocationRates() {
   }
 
   lastAllocRateUpdateTime = currentTime;
-  collectorTimeSinceAllocRateUpdate = TimeDuration();
+  collectorTimeSinceAllocRateUpdate = TimeDuration::Zero();
 }
 
 static const char* GCHeapStateToLabel(JS::HeapState heapState) {
@@ -3936,13 +3941,13 @@ bool GCRuntime::maybeIncreaseSliceBudget(SliceBudget& budget) {
 
 // Return true if the budget is actually extended after rounding.
 static bool ExtendBudget(SliceBudget& budget, double newDuration) {
-  long newDurationMS = lround(newDuration);
-  if (newDurationMS <= budget.timeBudget()) {
+  long millis = lround(newDuration);
+  if (millis <= budget.timeBudget()) {
     return false;
   }
 
   bool idleTriggered = budget.idle;
-  budget = SliceBudget(TimeBudget(newDuration), nullptr);  // Uninterruptible.
+  budget = SliceBudget(TimeBudget(millis), nullptr);  // Uninterruptible.
   budget.idle = idleTriggered;
   budget.extended = true;
   return true;
@@ -4992,7 +4997,7 @@ JS_PUBLIC_API bool js::gc::detail::CanCheckGrayBits(const TenuredCell* cell) {
 
   MOZ_ASSERT(cell);
 
-  auto runtime = cell->runtimeFromAnyThread();
+  auto* runtime = cell->runtimeFromAnyThread();
   MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime));
 
   if (!runtime->gc.areGrayBitsValid()) {
@@ -5031,7 +5036,7 @@ JS_PUBLIC_API void js::gc::detail::AssertCellIsNotGray(const Cell* cell) {
   // of cells that will be marked black by the next GC slice in an incremental
   // GC. For performance reasons we don't do this in CellIsMarkedGrayIfKnown.
 
-  auto tc = &cell->asTenured();
+  const auto* tc = &cell->asTenured();
   if (!tc->isMarkedGray() || !CanCheckGrayBits(tc)) {
     return;
   }

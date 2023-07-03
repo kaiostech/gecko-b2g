@@ -611,7 +611,7 @@ void NodeController::OnIntroduce(const NodeName& aFromNode,
   }
 
   auto channel = MakeUnique<IPC::Channel>(std::move(aIntroduction.mHandle),
-                                          aIntroduction.mMode, nullptr);
+                                          aIntroduction.mMode);
   auto nodeChannel = MakeRefPtr<NodeChannel>(
       aIntroduction.mName, std::move(channel), this, aIntroduction.mOtherPid);
 
@@ -752,7 +752,8 @@ static mojo::core::ports::NodeName RandomNodeName() {
 }
 
 std::tuple<ScopedPort, RefPtr<NodeChannel>> NodeController::InviteChildProcess(
-    UniquePtr<IPC::Channel> aChannel) {
+    UniquePtr<IPC::Channel> aChannel,
+    GeckoChildProcessHost* aChildProcessHost) {
   MOZ_ASSERT(IsBroker());
   AssertIOThread();
 
@@ -762,7 +763,8 @@ std::tuple<ScopedPort, RefPtr<NodeChannel>> NodeController::InviteChildProcess(
   auto ports = CreatePortPair();
   auto inviteName = RandomNodeName();
   auto nodeChannel =
-      MakeRefPtr<NodeChannel>(inviteName, std::move(aChannel), this);
+      MakeRefPtr<NodeChannel>(inviteName, std::move(aChannel), this,
+                              base::kInvalidProcessId, aChildProcessHost);
   {
     auto state = mState.Lock();
     MOZ_DIAGNOSTIC_ASSERT(!state->mPeers.Contains(inviteName),
@@ -773,7 +775,7 @@ std::tuple<ScopedPort, RefPtr<NodeChannel>> NodeController::InviteChildProcess(
                                    Invite{nodeChannel, ports.second.Release()});
   }
 
-  nodeChannel->Start(/* aCallConnect */ false);
+  nodeChannel->Start();
   return std::tuple{std::move(ports.first), std::move(nodeChannel)};
 }
 
@@ -805,7 +807,7 @@ ScopedPort NodeController::InitChildProcess(UniquePtr<IPC::Channel> aChannel,
         .AppendElement(toMerge);
   }
 
-  nodeChannel->Start(/* aCallConnect */ true);
+  nodeChannel->Start();
   nodeChannel->AcceptInvite(nodeName, toMerge.name());
   return std::move(ports.first);
 }

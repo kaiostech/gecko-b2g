@@ -90,6 +90,14 @@ function update(state = initialPauseState(), action) {
 
   switch (action.type) {
     case "SELECT_THREAD": {
+      // Ignore the action if the related thread doesn't exist.
+      if (!state.threads[action.thread]) {
+        console.warn(
+          `Trying to select a destroyed or non-existent thread '${action.thread}'`
+        );
+        return state;
+      }
+
       return {
         ...state,
         threadcx: {
@@ -114,9 +122,20 @@ function update(state = initialPauseState(), action) {
             thread: action.newThread.actor,
             pauseCounter: state.threadcx.pauseCounter + 1,
           },
+          threads: {
+            ...state.threads,
+            [action.newThread.actor]: createInitialPauseState(),
+          },
         };
       }
-      break;
+
+      return {
+        ...state,
+        threads: {
+          ...state.threads,
+          [action.newThread.actor]: createInitialPauseState(),
+        },
+      };
     }
 
     case "REMOVE_THREAD": {
@@ -162,9 +181,11 @@ function update(state = initialPauseState(), action) {
 
       return updateThreadState({
         isWaitingOnBreak: false,
-        selectedFrameId: frame ? frame.id : undefined,
+        selectedFrameId: frame.id,
         isPaused: true,
-        frames: frame ? [frame] : undefined,
+        // On pause, we only receive the top frame, all subsequent ones
+        // will be asynchronously populated via `fetchFrames` action
+        frames: [frame],
         framesLoading: true,
         frameScopes: { ...resumedPauseState.frameScopes },
         why,

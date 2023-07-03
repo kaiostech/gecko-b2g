@@ -317,6 +317,15 @@ mingw-w64:
         repo: https://git.code.sf.net/p/mingw-w64/mingw-w64
         revision: f9500e2d85b9400c0982518663660a127e1dc61a
 
+mingw-w64-trunk:
+    description: mingw-w64 master branch source code
+    attributes:
+        cached_task: false
+    fetch:
+        type: git
+        repo: https://git.code.sf.net/p/mingw-w64/mingw-w64
+        branch: master
+
 llvm-mingw:
     description: llvm-mingw source code
     fetch:
@@ -604,7 +613,7 @@ symbol-scrapers:
     fetch:
         type: git
         repo: http://github.com/mozilla/symbol-scrapers
-        revision: 3c3c7a93c0f707824bb245a4c87cd4a9cbb64417
+        revision: 91cb0fb5f4a4eb5f64f255d54cd287123758c0f1
 
 cpython-3.8.10:
     description: cpython 3.8.10 source code

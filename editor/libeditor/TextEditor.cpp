@@ -43,6 +43,7 @@
 #include "nsDebug.h"
 #include "nsDependentSubstring.h"
 #include "nsError.h"
+#include "nsFocusManager.h"
 #include "nsGkAtoms.h"
 #include "nsIClipboard.h"
 #include "nsIContent.h"
@@ -73,6 +74,11 @@ using namespace dom;
 
 using LeafNodeType = HTMLEditUtils::LeafNodeType;
 using LeafNodeTypes = HTMLEditUtils::LeafNodeTypes;
+
+template EditorDOMPoint TextEditor::FindBetterInsertionPoint(
+    const EditorDOMPoint& aPoint) const;
+template EditorRawDOMPoint TextEditor::FindBetterInsertionPoint(
+    const EditorRawDOMPoint& aPoint) const;
 
 TextEditor::TextEditor() : EditorBase(EditorBase::EditorType::Text) {
   // printf("Size of TextEditor: %zu\n", sizeof(TextEditor));
@@ -742,6 +748,19 @@ nsresult TextEditor::OnFocus(const nsINode& aOriginalEventTargetNode) {
 }
 
 nsresult TextEditor::OnBlur(const EventTarget* aEventTarget) {
+  // check if something else is focused. If another element is focused, then
+  // we should not change the selection.
+  nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+  if (MOZ_UNLIKELY(!focusManager)) {
+    return NS_OK;
+  }
+
+  // If another element already has focus, we should not maintain the selection
+  // because we may not have the rights doing it.
+  if (focusManager->GetFocusedElement()) {
+    return NS_OK;
+  }
+
   nsresult rv = FinalizeSelection();
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "EditorBase::FinalizeSelection() failed");
@@ -789,6 +808,61 @@ nsresult TextEditor::RemoveAttributeOrEquivalent(Element* aElement,
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "EditorBase::RemoveAttributeWithTransaction() failed");
   return EditorBase::ToGenericNSResult(rv);
+}
+
+template <typename EditorDOMPointType>
+EditorDOMPointType TextEditor::FindBetterInsertionPoint(
+    const EditorDOMPointType& aPoint) const {
+  if (MOZ_UNLIKELY(NS_WARN_IF(!aPoint.IsInContentNode()))) {
+    return aPoint;
+  }
+
+  MOZ_ASSERT(aPoint.IsSetAndValid());
+
+  Element* const anonymousDivElement = GetRoot();
+  if (aPoint.GetContainer() == anonymousDivElement) {
+    // In some cases, aPoint points start of the anonymous <div>.  To avoid
+    // injecting unneeded text nodes, we first look to see if we have one
+    // available.  In that case, we'll just adjust node and offset accordingly.
+    if (aPoint.IsStartOfContainer()) {
+      if (aPoint.GetContainer()->HasChildren() &&
+          aPoint.GetContainer()->GetFirstChild()->IsText()) {
+        return EditorDOMPointType(aPoint.GetContainer()->GetFirstChild(), 0u);
+      }
+    }
+    // In some other cases, aPoint points the terminating padding <br> element
+    // for empty last line in the anonymous <div>.  In that case, we'll adjust
+    // aInOutNode and aInOutOffset to the preceding text node, if any.
+    else {
+      nsIContent* child = aPoint.GetContainer()->GetLastChild();
+      while (child) {
+        if (child->IsText()) {
+          return EditorDOMPointType::AtEndOf(*child);
+        }
+        child = child->GetPreviousSibling();
+      }
+    }
+  }
+
+  // Sometimes, aPoint points the padding <br> element.  In that case, we'll
+  // adjust the insertion point to the previous text node, if one exists, or to
+  // the parent anonymous DIV.
+  if (EditorUtils::IsPaddingBRElementForEmptyLastLine(
+          *aPoint.template ContainerAs<nsIContent>()) &&
+      aPoint.IsStartOfContainer()) {
+    nsIContent* previousSibling = aPoint.GetContainer()->GetPreviousSibling();
+    if (previousSibling && previousSibling->IsText()) {
+      return EditorDOMPointType::AtEndOf(*previousSibling);
+    }
+
+    nsINode* parentOfContainer = aPoint.GetContainerParent();
+    if (parentOfContainer && parentOfContainer == anonymousDivElement) {
+      return EditorDOMPointType(parentOfContainer,
+                                aPoint.template ContainerAs<nsIContent>(), 0u);
+    }
+  }
+
+  return aPoint;
 }
 
 // static

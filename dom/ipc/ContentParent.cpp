@@ -204,6 +204,7 @@
 #include "nsFocusManager.h"
 #include "nsFrameLoader.h"
 #include "nsFrameMessageManager.h"
+#include "nsGlobalWindowOuter.h"
 #include "nsHashPropertyBag.h"
 #include "nsHyphenationManager.h"
 #include "nsIAlertsService.h"
@@ -219,7 +220,6 @@
 #include "nsICookie.h"
 #include "nsICrashService.h"
 #include "nsICycleCollectorListener.h"
-#include "nsIDOMChromeWindow.h"
 #include "nsIDocShell.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIDragService.h"
@@ -6292,9 +6292,9 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
       return IPC_OK();
     }
 
-    nsCOMPtr<nsIDOMChromeWindow> rootChromeWin = do_QueryInterface(outerWin);
-    if (rootChromeWin) {
-      rootChromeWin->GetBrowserDOMWindow(getter_AddRefs(browserDOMWin));
+    if (nsGlobalWindowOuter::Cast(outerWin)->IsChromeWindow()) {
+      browserDOMWin =
+          nsGlobalWindowOuter::Cast(outerWin)->GetBrowserDOMWindow();
     }
   }
 
@@ -7486,6 +7486,7 @@ ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
     const int& aAllowMode,
     const Maybe<ContentBlockingNotifier::StorageAccessPermissionGrantedReason>&
         aReason,
+    const bool& aFrameOnly,
     StorageAccessPermissionGrantedForOriginResolver&& aResolver) {
   if (aParentContext.IsNullOrDiscarded()) {
     return IPC_OK();
@@ -7506,7 +7507,7 @@ ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
 
   StorageAccessAPIHelper::SaveAccessForOriginOnParentProcess(
       aTopLevelWindowId, aParentContext.get_canonical(), aTrackingPrincipal,
-      aAllowMode)
+      aAllowMode, aFrameOnly)
       ->Then(GetCurrentSerialEventTarget(), __func__,
              [aResolver = std::move(aResolver)](
                  StorageAccessAPIHelper::ParentAccessGrantPromise::

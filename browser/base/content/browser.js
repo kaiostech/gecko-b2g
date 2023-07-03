@@ -99,7 +99,6 @@ ChromeUtils.defineESModuleGetters(this, {
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   CFRPageActions: "resource://activity-stream/lib/CFRPageActions.jsm",
-  Translation: "resource:///modules/translation/TranslationParent.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(this, "fxAccounts", () => {
@@ -690,6 +689,7 @@ var gInitialPages = [
   "about:blank",
   "about:home",
   "about:firefoxview",
+  "about:firefoxview-next",
   "about:newtab",
   "about:privatebrowsing",
   "about:sessionrestore",
@@ -1509,7 +1509,7 @@ var gBrowserInit = {
     );
 
     // Set a sane starting width/height for all resolutions on new profiles.
-    if (Services.prefs.getBoolPref("privacy.resistFingerprinting")) {
+    if (ChromeUtils.shouldResistFingerprinting("RoundWindowSize")) {
       // When the fingerprinting resistance is enabled, making sure that we don't
       // have a maximum window to interfere with generating rounded window dimensions.
       document.documentElement.setAttribute("sizemode", "normal");
@@ -1651,6 +1651,10 @@ var gBrowserInit = {
       "TranslationsParent:LanguageState",
       TranslationsPanel
     );
+    gBrowser.addEventListener(
+      "TranslationsParent:OfferTranslation",
+      TranslationsPanel
+    );
 
     window.addEventListener("AppCommand", HandleAppCommandEvent, true);
 
@@ -1735,7 +1739,7 @@ var gBrowserInit = {
       };
       if (tabToAdopt.linkedBrowser.isRemoteBrowser) {
         // For remote browsers, wait for the paint event, otherwise the tabs
-        //  are not yet ready and focus gets confused because the browser swaps
+        // are not yet ready and focus gets confused because the browser swaps
         // out while tabs are switching.
         addEventListener("MozAfterPaint", swapBrowsers, { once: true });
       } else {
@@ -9853,6 +9857,7 @@ var FirefoxViewHandler = {
     this._updateEnabledState = this._updateEnabledState.bind(this);
     this._updateEnabledState();
     NimbusFeatures.majorRelease2022.onUpdate(this._updateEnabledState);
+    NimbusFeatures.firefoxViewNext.onUpdate(this._updateEnabledState);
 
     if (this._enabled) {
       this._toggleNotificationDot(
@@ -9868,9 +9873,12 @@ var FirefoxViewHandler = {
     CustomizableUI.removeListener(this);
     Services.obs.removeObserver(this, "firefoxview-notification-dot-update");
     NimbusFeatures.majorRelease2022.offUpdate(this._updateEnabledState);
+    NimbusFeatures.firefoxViewNext.offUpdate(this._updateEnabledState);
   },
   _updateEnabledState() {
-    this._enabled = NimbusFeatures.majorRelease2022.getVariable("firefoxView");
+    this._enabled =
+      NimbusFeatures.majorRelease2022.getVariable("firefoxView") ||
+      NimbusFeatures.firefoxViewNext.getVariable("enabled");
     // We use a root attribute because there's no guarantee the button is in the
     // DOM, and visibility changes need to take effect even if it isn't in the DOM
     // right now.
@@ -9901,8 +9909,15 @@ var FirefoxViewHandler = {
         CustomizableUI.getPlacementOfWidget("tabbrowser-tabs").position
       );
     }
+    const viewURL = NimbusFeatures.firefoxViewNext.getVariable("enabled")
+      ? "about:firefoxview-next"
+      : "about:firefoxview";
+    if (this.tab && this.tab.linkedBrowser.currentURI.spec != viewURL) {
+      gBrowser.removeTab(this.tab);
+      this.tab = null;
+    }
     if (!this.tab) {
-      this.tab = gBrowser.addTrustedTab("about:firefoxview");
+      this.tab = gBrowser.addTrustedTab(viewURL);
       this.tab.addEventListener("TabClose", this, { once: true });
       gBrowser.tabContainer.addEventListener("TabSelect", this);
       window.addEventListener("activate", this);

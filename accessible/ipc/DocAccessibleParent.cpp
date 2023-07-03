@@ -498,16 +498,6 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvTextChangeEvent(
   return IPC_OK();
 }
 
-#if defined(XP_WIN)
-
-mozilla::ipc::IPCResult DocAccessibleParent::RecvSyncTextChangeEvent(
-    const uint64_t& aID, const nsAString& aStr, const int32_t& aStart,
-    const uint32_t& aLen, const bool& aIsInsert, const bool& aFromUser) {
-  return RecvTextChangeEvent(aID, aStr, aStart, aLen, aIsInsert, aFromUser);
-}
-
-#endif  // defined(XP_WIN)
-
 mozilla::ipc::IPCResult DocAccessibleParent::RecvSelectionEvent(
     const uint64_t& aID, const uint64_t& aWidgetID, const uint32_t& aType) {
   ACQUIRE_ANDROID_LOCK
@@ -1186,7 +1176,7 @@ Relation DocAccessibleParent::RelationByType(RelationType aType) const {
     return Relation(Parent());
   }
 
-  return RemoteAccessibleBase<RemoteAccessible>::RelationByType(aType);
+  return RemoteAccessible::RelationByType(aType);
 }
 
 DocAccessibleParent* DocAccessibleParent::GetFrom(
@@ -1218,7 +1208,7 @@ DocAccessibleParent* DocAccessibleParent::GetFrom(
 size_t DocAccessibleParent::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) {
   size_t size = 0;
 
-  size += RemoteAccessibleBase::SizeOfExcludingThis(aMallocSizeOf);
+  size += RemoteAccessible::SizeOfExcludingThis(aMallocSizeOf);
 
   size += mReverseRelations.ShallowSizeOfExcludingThis(aMallocSizeOf);
   for (auto i = mReverseRelations.Iter(); !i.Done(); i.Next()) {

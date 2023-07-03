@@ -1388,18 +1388,10 @@ void nsIFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
   const StyleOffsetPath& newPath = StyleDisplay()->mOffsetPath;
   if (!oldPath || *oldPath != newPath) {
     // FIXME: Bug 1837042. Cache all basic shapes.
-    if (newPath.IsOffsetPath() && newPath.AsOffsetPath().path->IsShape() &&
-        newPath.AsOffsetPath().path->AsShape().IsPath()) {
-      // Here we only need to build a valid path for motion path, so
-      // using the default values of stroke-width, stoke-linecap, and fill-rule
-      // is fine for now because what we want is to get the point and its normal
-      // vector along the path, instead of rendering it.
-      RefPtr<gfx::PathBuilder> builder =
-          gfxPlatform::GetPlatform()
-              ->ScreenReferenceDrawTarget()
-              ->CreatePathBuilder(gfx::FillRule::FILL_WINDING);
-      RefPtr<gfx::Path> path = MotionPathUtils::BuildPath(
-          newPath.AsOffsetPath().path->AsShape().AsPath().path, builder);
+    if (newPath.IsPath()) {
+      RefPtr<gfx::PathBuilder> builder = MotionPathUtils::GetPathBuilder();
+      RefPtr<gfx::Path> path =
+          MotionPathUtils::BuildSVGPath(newPath.AsSVGPathData(), builder);
       if (path) {
         // The newPath could be path('') (i.e. empty path), so its gfx path
         // could be nullptr, and so we only set property for a non-empty path.
@@ -8313,7 +8305,7 @@ nsresult nsIFrame::MakeFrameName(const nsAString& aType,
     }
     if (IsSubDocumentFrame()) {
       nsAutoString src;
-      mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::src, src);
+      mContent->AsElement()->GetAttr(nsGkAtoms::src, src);
       buf.AppendLiteral(" src=");
       buf.Append(src);
     }

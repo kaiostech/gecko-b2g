@@ -3601,8 +3601,7 @@ nsresult nsFocusManager::DetermineElementToMoveFocus(
   if (forDocumentNavigation && nsContentUtils::IsChromeDoc(doc)) {
     nsAutoString retarget;
 
-    if (rootElement->GetAttr(kNameSpaceID_None,
-                             nsGkAtoms::retargetdocumentfocus, retarget)) {
+    if (rootElement->GetAttr(nsGkAtoms::retargetdocumentfocus, retarget)) {
       nsIContent* retargetElement = doc->GetElementById(retarget);
       // The common case here is the urlbar where focus is on the anonymous
       // input inside the textbox, but the retargetdocumentfocus attribute
@@ -4424,8 +4423,7 @@ nsresult nsFocusManager::GetNextTabbableContent(
                      "IsFocusable set a tabindex for a frame with no content");
         if (!aForDocumentNavigation &&
             currentContent->IsHTMLElement(nsGkAtoms::img) &&
-            currentContent->AsElement()->HasAttr(kNameSpaceID_None,
-                                                 nsGkAtoms::usemap)) {
+            currentContent->AsElement()->HasAttr(nsGkAtoms::usemap)) {
           // This is an image with a map. Image map areas are not traversed by
           // nsIFrameTraversal so look for the next or previous area element.
           nsIContent* areaContent = GetNextTabbableMapArea(
@@ -4679,8 +4677,7 @@ int32_t nsFocusManager::GetNextTabIndex(nsIContent* aParent,
 
       nsAutoString tabIndexStr;
       if (child->IsElement()) {
-        child->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::tabindex,
-                                    tabIndexStr);
+        child->AsElement()->GetAttr(nsGkAtoms::tabindex, tabIndexStr);
       }
       nsresult ec;
       int32_t val = tabIndexStr.ToInteger(&ec);
@@ -4704,8 +4701,7 @@ int32_t nsFocusManager::GetNextTabIndex(nsIContent* aParent,
 
       nsAutoString tabIndexStr;
       if (child->IsElement()) {
-        child->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::tabindex,
-                                    tabIndexStr);
+        child->AsElement()->GetAttr(nsGkAtoms::tabindex, tabIndexStr);
       }
       nsresult ec;
       int32_t val = tabIndexStr.ToInteger(&ec);
@@ -4735,8 +4731,7 @@ nsresult nsFocusManager::FocusFirst(Element* aRootElement,
       // urlbar during document navigation.
       nsAutoString retarget;
 
-      if (aRootElement->GetAttr(kNameSpaceID_None,
-                                nsGkAtoms::retargetdocumentfocus, retarget)) {
+      if (aRootElement->GetAttr(nsGkAtoms::retargetdocumentfocus, retarget)) {
         RefPtr<Element> element = doc->GetElementById(retarget);
         nsCOMPtr<nsIContent> retargetElement =
             FlushAndCheckIfFocusable(element, 0);

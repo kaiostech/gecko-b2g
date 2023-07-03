@@ -2622,8 +2622,7 @@ void gfxPlatform::InitWebRenderConfig() {
   bool prefEnabled = WebRenderPrefEnabled();
   bool envvarEnabled = WebRenderEnvvarEnabled();
 
-  // WR? WR+   => means WR was enabled via gfx.webrender.all.qualified on
-  //              qualified hardware
+  // WR? WR+   => means WR was enabled on qualified hardware
   // WR! WR+   => means WR was enabled via gfx.webrender.{all,enabled} or
   //              envvar, possibly on unqualified hardware
   // In all cases WR- means WR was not enabled, for one of many possible
@@ -3369,7 +3368,7 @@ bool gfxPlatform::IsInLayoutAsapMode() {
 static int LayoutFrameRateFromPrefs() {
   auto val = StaticPrefs::layout_frame_rate();
   if (nsContentUtils::ShouldResistFingerprinting(
-          "The frame rate is a global property.", RFPTarget::Unknown)) {
+          "The frame rate is a global property.", RFPTarget::FrameRate)) {
     val = 60;
   }
   return val;

@@ -39,18 +39,16 @@ LockManager::LockManager(nsIGlobalObject* aGlobal) : mOwner(aGlobal) {
     return;
   }
 
-  const mozilla::ipc::PrincipalInfo& principalInfo =
-      clientInfo->PrincipalInfo();
-
-  if (principalInfo.type() !=
-      mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) {
+  nsCOMPtr<nsIPrincipal> principal =
+      clientInfo->GetPrincipal().unwrapOr(nullptr);
+  if (!principal || !principal->GetIsContentPrincipal()) {
     return;
   }
 
   mozilla::ipc::PBackgroundChild* backgroundActor =
       mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
   mActor = new locks::LockManagerChild(aGlobal);
-  backgroundActor->SendPLockManagerConstructor(mActor, principalInfo,
+  backgroundActor->SendPLockManagerConstructor(mActor, WrapNotNull(principal),
                                                clientInfo->Id());
 
   if (!NS_IsMainThread()) {
@@ -133,7 +131,13 @@ already_AddRefed<Promise> LockManager::Request(const nsAString& aName,
     return nullptr;
   }
 
-  if (mOwner->GetStorageAccess() <= StorageAccess::eDeny) {
+  const StorageAccess access = mOwner->GetStorageAccess();
+  bool allowed =
+      access > StorageAccess::eDeny ||
+      (StaticPrefs::
+           privacy_partition_always_partition_third_party_non_cookie_storage() &&
+       ShouldPartitionStorage(access));
+  if (!allowed) {
     // Step 4: If origin is an opaque origin, then return a promise rejected
     // with a "SecurityError" DOMException.
     // But per https://wicg.github.io/web-locks/#lock-managers this really means

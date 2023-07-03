@@ -35,25 +35,13 @@ class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING_WITH_DELETE_ON_EVENT_TARGET(
       ChannelImpl, IOThread().GetEventTarget());
 
-  using ChannelId = Channel::ChannelId;
-
   // Mirror methods of Channel, see ipc_channel.h for description.
-  ChannelImpl(const ChannelId& channel_id, Mode mode, Listener* listener);
-  ChannelImpl(ChannelHandle pipe, Mode mode, Listener* listener);
-  bool Connect() MOZ_EXCLUDES(SendMutex());
+  ChannelImpl(ChannelHandle pipe, Mode mode);
+  bool Connect(Listener* listener) MOZ_EXCLUDES(SendMutex());
   void Close() MOZ_EXCLUDES(SendMutex());
-  Listener* set_listener(Listener* listener) {
-    IOThread().AssertOnCurrentThread();
-    chan_cap_.NoteOnIOThread();
-    Listener* old = listener_;
-    listener_ = listener;
-    return old;
-  }
+
   // NOTE: `Send` may be called on threads other than the I/O thread.
   bool Send(mozilla::UniquePtr<Message> message) MOZ_EXCLUDES(SendMutex());
-  void GetClientFileDescriptorMapping(int* src_fd, int* dest_fd) const;
-
-  void CloseClientFileDescriptor();
 
   int32_t OtherPid() {
     IOThread().AssertOnCurrentThread();
@@ -78,9 +66,7 @@ class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
  private:
   ~ChannelImpl() { Close(); }
 
-  void Init(Mode mode, Listener* listener)
-      MOZ_REQUIRES(SendMutex(), IOThread());
-  bool CreatePipe(Mode mode) MOZ_REQUIRES(SendMutex(), IOThread());
+  void Init(Mode mode) MOZ_REQUIRES(SendMutex(), IOThread());
   void SetPipe(int fd) MOZ_REQUIRES(SendMutex(), IOThread());
   void SetOtherPid(int other_pid) MOZ_REQUIRES(IOThread())
       MOZ_EXCLUDES(SendMutex()) {
@@ -91,7 +77,7 @@ class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
   bool PipeBufHasSpaceAfter(size_t already_written)
       MOZ_REQUIRES_SHARED(chan_cap_);
   bool EnqueueHelloMessage() MOZ_REQUIRES(SendMutex(), IOThread());
-  bool ConnectLocked() MOZ_REQUIRES(SendMutex(), IOThread());
+  bool ContinueConnect() MOZ_REQUIRES(SendMutex(), IOThread());
   void CloseLocked() MOZ_REQUIRES(SendMutex(), IOThread());
 
   bool ProcessIncomingMessages() MOZ_REQUIRES(IOThread());
@@ -150,8 +136,6 @@ class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
   mozilla::Maybe<PartialWrite> partial_write_ MOZ_GUARDED_BY(SendMutex());
 
   int pipe_ MOZ_GUARDED_BY(chan_cap_);
-  // The client end of our socketpair().
-  int client_pipe_ MOZ_GUARDED_BY(IOThread());
   // The SO_SNDBUF value of pipe_, or 0 if unknown.
   unsigned pipe_buf_len_ MOZ_GUARDED_BY(chan_cap_);
 

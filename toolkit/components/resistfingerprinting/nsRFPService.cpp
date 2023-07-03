@@ -24,6 +24,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Casting.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/HashFunctions.h"
 #include "mozilla/HelperMacros.h"
 #include "mozilla/Likely.h"
@@ -181,11 +182,6 @@ bool nsRFPService::IsRFPEnabledFor(RFPTarget aTarget) {
     if (aTarget == RFPTarget::IsAlwaysEnabledForPrecompute) {
       return true;
     }
-    // All not yet explicitly defined targets are disabled by default (no
-    // fingerprinting protection).
-    if (aTarget == RFPTarget::Unknown) {
-      return false;
-    }
     return sEnabledFingerintingProtections & uint32_t(aTarget);
   }
 
@@ -208,8 +204,7 @@ void nsRFPService::UpdateFPPOverrideList() {
         nsRFPService::TextToRFPTarget(Substring(each, 1, each.Length() - 1));
     if (mappedValue.isSome()) {
       RFPTarget target = mappedValue.value();
-      if (target == RFPTarget::IsAlwaysEnabledForPrecompute ||
-          target == RFPTarget::Unknown) {
+      if (target == RFPTarget::IsAlwaysEnabledForPrecompute) {
         MOZ_LOG(gResistFingerprintingLog, LogLevel::Warning,
                 ("RFPTarget::%s is not a valid value",
                  NS_ConvertUTF16toUTF8(each).get()));
@@ -1296,10 +1291,17 @@ nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
     return NS_OK;
   }
 
+  auto timerId =
+      glean::fingerprinting_protection::canvas_noise_calculate_time.Start();
+
   nsTArray<uint8_t> canvasKey;
   nsresult rv = GenerateCanvasKeyFromImageData(aCookieJarSettings, aData, aSize,
                                                canvasKey);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    glean::fingerprinting_protection::canvas_noise_calculate_time.Cancel(
+        std::move(timerId));
+    return rv;
+  }
 
   // Calculate the number of pixels based on the given data size. One pixel uses
   // 4 bytes that contains ARGB information.
@@ -1351,6 +1353,9 @@ nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
 
     aData[idx] = aData[idx] ^ (bit & 0x1);
   }
+
+  glean::fingerprinting_protection::canvas_noise_calculate_time
+      .StopAndAccumulate(std::move(timerId));
 
   return NS_OK;
 }

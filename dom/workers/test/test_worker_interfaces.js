@@ -184,6 +184,8 @@ let interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "DOMStringList", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "EncodedVideoChunk", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ErrorEvent", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Event", insecureContext: true },
@@ -345,6 +347,8 @@ let interfaceNamesInGlobalScope = [
   { name: "URLSearchParams", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "VideoColorSpace", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "VideoDecoder", nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "VideoFrame", insecureContext: true, nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!

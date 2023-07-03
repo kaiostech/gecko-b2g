@@ -37,7 +37,7 @@ Zone* const Zone::NotOnList = reinterpret_cast<Zone*>(1);
 
 ZoneAllocator::ZoneAllocator(JSRuntime* rt, Kind kind)
     : JS::shadow::Zone(rt, rt->gc.marker().tracer(), kind),
-      jitHeapThreshold(jit::MaxCodeBytesPerProcess * 0.8) {}
+      jitHeapThreshold(size_t(jit::MaxCodeBytesPerProcess * 0.8)) {}
 
 ZoneAllocator::~ZoneAllocator() {
 #ifdef DEBUG
@@ -58,7 +58,7 @@ void js::ZoneAllocator::updateSchedulingStateOnGCStart() {
   gcHeapSize.updateOnGCStart();
   mallocHeapSize.updateOnGCStart();
   jitHeapSize.updateOnGCStart();
-  perZoneGCTime = mozilla::TimeDuration();
+  perZoneGCTime = mozilla::TimeDuration::Zero();
 }
 
 void js::ZoneAllocator::updateGCStartThresholds(GCRuntime& gc) {

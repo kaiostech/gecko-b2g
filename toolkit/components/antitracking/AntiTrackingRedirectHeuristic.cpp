@@ -388,7 +388,7 @@ void FinishAntiTrackingRedirectHeuristic(nsIChannel* aNewChannel,
   }
 
   nsAutoCString newOrigin;
-  rv = nsContentUtils::GetASCIIOrigin(aNewURI, newOrigin);
+  rv = nsContentUtils::GetWebExposedOriginSerialization(aNewURI, newOrigin);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     LOG(("Can't get the origin from the URI"));
     return;
@@ -426,7 +426,7 @@ void FinishAntiTrackingRedirectHeuristic(nsIChannel* aNewChannel,
   RefPtr<StorageAccessAPIHelper::ParentAccessGrantPromise> promise =
       StorageAccessAPIHelper::SaveAccessForOriginOnParentProcess(
           newPrincipal, oldPrincipal,
-          StorageAccessAPIHelper::StorageAccessPromptChoices::eAllow,
+          StorageAccessAPIHelper::StorageAccessPromptChoices::eAllow, false,
           StaticPrefs::privacy_restrict3rdpartystorage_expiration_redirect());
   Unused << promise;
 }

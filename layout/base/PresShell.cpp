@@ -202,6 +202,7 @@
 #include "mozilla/dom/ImageTracker.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsClassHashtable.h"
+#include "nsGlobalWindowOuter.h"
 #include "nsHashKeys.h"
 #include "ScrollSnap.h"
 #include "VisualViewport.h"
@@ -9257,9 +9258,8 @@ void PresShell::DidPaintWindow() {
     nsCOMPtr<nsIObserverService> obsvc = services::GetObserverService();
     if (obsvc && mDocument) {
       nsPIDOMWindowOuter* window = mDocument->GetWindow();
-      nsCOMPtr<nsIDOMChromeWindow> chromeWin(do_QueryInterface(window));
-      if (chromeWin) {
-        obsvc->NotifyObservers(chromeWin, "widget-first-paint", nullptr);
+      if (window && nsGlobalWindowOuter::Cast(window)->IsChromeWindow()) {
+        obsvc->NotifyObservers(window, "widget-first-paint", nullptr);
       }
     }
   }

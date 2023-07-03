@@ -237,7 +237,6 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
       mFullZoom(1.0),
       mLastFontInflationScreenSize(gfxSize(-1.0, -1.0)),
       mCurAppUnitsPerDevPixel(0),
-      mAutoQualityMinFontSizePixelsPref(0),
       mDynamicToolbarMaxHeight(0),
       mDynamicToolbarHeight(0),
       mPageSize(-1, -1),
@@ -423,9 +422,6 @@ void nsPresContext::GetUserPreferences() {
     // get a presshell.
     return;
   }
-
-  mAutoQualityMinFontSizePixelsPref =
-      Preferences::GetInt("browser.display.auto_quality_min_font_size");
 
   PreferenceSheet::EnsureInitialized();
 
@@ -708,8 +704,7 @@ nsresult nsPresContext::Init(nsDeviceContext* aDeviceContext) {
       if (browsingContext && !browsingContext->IsTop()) {
         Element* containingElement = mDocument->GetEmbedderElement();
         if (!containingElement->IsXULElement() ||
-            !containingElement->HasAttr(kNameSpaceID_None,
-                                        nsGkAtoms::forceOwnRefreshDriver)) {
+            !containingElement->HasAttr(nsGkAtoms::forceOwnRefreshDriver)) {
           mRefreshDriver = parent->GetPresContext()->RefreshDriver();
         }
       }
@@ -769,8 +764,12 @@ bool nsPresContext::UpdateFontVisibility() {
   // Read the relevant pref depending on RFP/trackingProtection state
   // to determine the visibility level to use.
   int32_t level;
-  if (mDocument->ShouldResistFingerprinting(RFPTarget::Unknown)) {
-    level = StaticPrefs::layout_css_font_visibility_resistFingerprinting();
+  if (mDocument->ShouldResistFingerprinting(
+          RFPTarget::FontVisibilityBaseSystem)) {
+    level = int32_t(FontVisibility::Base);
+  } else if (mDocument->ShouldResistFingerprinting(
+                 RFPTarget::FontVisibilityLangPack)) {
+    level = int32_t(FontVisibility::LangPack);
   } else if (StaticPrefs::privacy_trackingprotection_enabled() ||
              (isPrivate &&
               StaticPrefs::privacy_trackingprotection_pbmode_enabled())) {

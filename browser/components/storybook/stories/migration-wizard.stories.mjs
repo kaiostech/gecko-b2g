@@ -319,7 +319,8 @@ ExtensionsPartialSuccess.args = {
         value: MigrationWizardConstants.PROGRESS_VALUE.INFO,
         message: "5 of 10 extensions",
         linkText: "Learn how Firefox matches extensions",
-        linkURL: "https://support.mozilla.org/",
+        linkURL:
+          "https://support.mozilla.org/kb/import-data-another-browser#w_import-extensions-from-chrome/",
       },
       [MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.FORMDATA]: {
         value: MigrationWizardConstants.PROGRESS_VALUE.SUCCESS,
@@ -353,7 +354,7 @@ ExtensionsImportFailure.args = {
         message: "From the last 180 days",
       },
       [MigrationWizardConstants.DISPLAYED_RESOURCE_TYPES.EXTENSIONS]: {
-        value: MigrationWizardConstants.PROGRESS_VALUE.ERROR,
+        value: MigrationWizardConstants.PROGRESS_VALUE.WARNING,
         message: "No matching extensions",
         linkText: "Browse extensions for Firefox",
         linkURL: "https://addons.mozilla.org/",

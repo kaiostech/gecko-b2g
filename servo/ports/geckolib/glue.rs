@@ -117,12 +117,12 @@ use style::stylesheets::import_rule::{ImportLayer, ImportSheet};
 use style::stylesheets::keyframes_rule::{Keyframe, KeyframeSelector, KeyframesStepValue};
 use style::stylesheets::supports_rule::parse_condition_or_declaration;
 use style::stylesheets::{
-    AllowImportRules, ContainerRule, CounterStyleRule, CssRule, CssRuleType, CssRules,
-    CssRulesHelpers, DocumentRule, FontFaceRule, FontFeatureValuesRule, FontPaletteValuesRule,
-    ImportRule, KeyframesRule, LayerBlockRule, LayerStatementRule, MediaRule, NamespaceRule,
-    Origin, OriginSet, PageRule, PagePseudoClassFlags, PropertyRule, SanitizationData,
-    SanitizationKind, StyleRule, StylesheetContents, StylesheetLoader as StyleStylesheetLoader,
-    SupportsRule, UrlExtraData,
+    AllowImportRules, ContainerRule, CounterStyleRule, CssRule, CssRuleType, CssRuleTypes,
+    CssRules, CssRulesHelpers, DocumentRule, FontFaceRule, FontFeatureValuesRule,
+    FontPaletteValuesRule, ImportRule, KeyframesRule, LayerBlockRule, LayerStatementRule,
+    MediaRule, NamespaceRule, Origin, OriginSet, PagePseudoClassFlags, PageRule, PropertyRule,
+    SanitizationData, SanitizationKind, StyleRule, StylesheetContents, StylesheetLoader as
+    StyleStylesheetLoader, SupportsRule, UrlExtraData,
 };
 use style::stylist::{add_size_of_ua_cache, AuthorStylesEnabled, RuleInclusion, Stylist};
 use style::thread_state;
@@ -2082,7 +2082,7 @@ pub extern "C" fn Servo_CssRules_InsertRule(
     contents: &StylesheetContents,
     rule: &nsACString,
     index: u32,
-    nested: bool,
+    containing_rule_types: u32,
     loader: *mut Loader,
     allow_import_rules: AllowImportRules,
     gecko_stylesheet: *mut DomStyleSheet,
@@ -2109,7 +2109,7 @@ pub extern "C" fn Servo_CssRules_InsertRule(
         rule,
         contents,
         index as usize,
-        nested,
+        CssRuleTypes::from_bits(containing_rule_types),
         loader,
         allow_import_rules,
     );
@@ -7816,4 +7816,84 @@ pub extern "C" fn Servo_ParseAbsoluteLength(len: &nsACString, out: &mut f32) -> 
         },
         Err(..) => false,
     }
+}
+
+#[repr(u8)]
+pub enum RegisterCustomPropertyResult {
+    SuccessfullyRegistered,
+    InvalidName,
+    AlreadyRegistered,
+    InvalidSyntax,
+    NoInitialValue,
+    InvalidInitialValue,
+    InitialValueNotComputationallyIndependent,
+}
+
+/// https://drafts.css-houdini.org/css-properties-values-api-1/#the-registerproperty-function
+#[no_mangle]
+pub extern "C" fn Servo_RegisterCustomProperty(
+    per_doc_data: &PerDocumentStyleData,
+    name: &nsACString,
+    syntax: &nsACString,
+    inherits: bool,
+    initial_value: Option<&nsACString>,
+) -> RegisterCustomPropertyResult {
+    use self::RegisterCustomPropertyResult::*;
+    use style::custom_properties::SpecifiedValue;
+    use style::properties_and_values::registry::PropertyRegistration;
+    use style::properties_and_values::rule::{PropertyRuleData, ToRegistrationError};
+    use style::properties_and_values::syntax::Descriptor;
+
+    let mut per_doc_data = per_doc_data.borrow_mut();
+    let name = unsafe { name.as_str_unchecked() };
+    let syntax = unsafe { syntax.as_str_unchecked() };
+    let initial_value = initial_value.map(|v| unsafe { v.as_str_unchecked() });
+
+    // If name is not a custom property name string, throw a SyntaxError and exit this algorithm.
+    let name = match style::custom_properties::parse_name(name) {
+        Ok(n) => Atom::from(n),
+        Err(()) => return InvalidName,
+    };
+
+    // If property set already contains an entry with name as its property name (compared
+    // codepoint-wise), throw an InvalidModificationError and exit this algorithm.
+    if per_doc_data.stylist.custom_property_script_registry().get(&name).is_some() {
+        return AlreadyRegistered
+    }
+    // Attempt to consume a syntax definition from syntax. If it returns failure, throw a
+    // SyntaxError. Otherwise, let syntax definition be the returned syntax definition.
+    let Ok(syntax) = Descriptor::from_str(syntax) else { return InvalidSyntax };
+
+    let initial_value = match initial_value {
+        Some(v) => {
+            let mut input = ParserInput::new(v);
+            let parsed = Parser::new(&mut input).parse_entirely(|input| {
+                input.skip_whitespace();
+                SpecifiedValue::parse(input)
+            }).ok();
+            if parsed.is_none() {
+                return InvalidInitialValue
+            }
+            parsed
+        }
+        None => None,
+    };
+
+    if let Err(error) = PropertyRuleData::validate_initial_value(&syntax, initial_value.as_ref()) {
+        return match error {
+            ToRegistrationError::MissingInherits |
+            ToRegistrationError::MissingSyntax => unreachable!(),
+            ToRegistrationError::InitialValueNotComputationallyIndependent => InitialValueNotComputationallyIndependent,
+            ToRegistrationError::InvalidInitialValue => InvalidInitialValue,
+            ToRegistrationError::NoInitialValue=> NoInitialValue,
+        }
+    }
+
+    per_doc_data.stylist.custom_property_script_registry_mut().register(name, PropertyRegistration {
+        syntax,
+        inherits,
+        initial_value,
+    });
+
+    SuccessfullyRegistered
 }

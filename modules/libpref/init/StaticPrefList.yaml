@@ -1146,6 +1146,12 @@
   value: 32
   mirror: always
 
+# Min font device pixel size at which to turn on high quality.
+- name: browser.display.auto_quality_min_font_size
+  type: RelaxedAtomicUint32
+  value: 20
+  mirror: always
+
 - name: browser.display.background_color
   type: String
   value: "#FFFFFF"
@@ -2677,7 +2683,7 @@
 # If true, event is first captured then bubbled on target element
 - name: dom.events.phases.correctOrderOnTarget
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # This pref controls whether or not the `protected` dataTransfer state is
@@ -4230,6 +4236,11 @@
   value: 5
   mirror: always
 
+- name: dom.storage_access.frame_only
+  type: bool
+  value: false
+  mirror: always
+
 # Whether the Storage API is enabled.
 - name: dom.storageManager.enabled
   type: RelaxedAtomicBool
@@ -4384,7 +4395,7 @@
 
 - name: dom.textMetrics.baselines.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.textMetrics.emHeight.enabled
@@ -6615,10 +6626,6 @@
 # The first enables WR+additional features, and the second just enables WR.
 # For developer convenience, building with --enable-webrender=true or just
 # --enable-webrender will set gfx.webrender.enabled to true by default.
-#
-# We also have a pref gfx.webrender.all.qualified which is not exposed via
-# about:config. That pref enables WR but only on qualified hardware. This is
-# the pref we'll eventually flip to deploy WebRender to the target population.
 - name: gfx.webrender.all
   type: bool
   value: false
@@ -8026,7 +8033,7 @@
 # isolated web content processes, where we don't need these mitigations.
 - name: javascript.options.spectre.disable_for_isolated_content
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether the W^X policy is enforced to mark JIT code pages as either writable
@@ -8823,12 +8830,6 @@
   value: 3
   mirror: always
 
-# font-visibility setting when Resist Fingerprinting is enabled
-- name: layout.css.font-visibility.resistFingerprinting
-  type: int32_t
-  value: 1
-  mirror: always
-
 # Max font-visibility setting for Private Browsing contexts
 # (The actual value used in a private-browsing context will be the lesser of
 # the appropriate standard/trackingprotection/RFP value from above, and the
@@ -8847,6 +8848,13 @@
   type: bool
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
+
+# Is support for (linear|radial|conic)-gradient color interpolation methods enabled?
+- name: layout.css.gradient-color-interpolation-method.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # Is support for caching an grid item's block axis measurement enabled?
 - name: layout.css.grid-item-baxis-measurement.enabled
@@ -9025,7 +9033,7 @@
 # Whether Properties and Values is enabled
 - name: layout.css.properties-and-values.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -11162,14 +11170,13 @@
   value: true
   mirror: always
 
-# setSinkId will be enabled in bug 1498512. Till then the
-# implementation will remain hidden behind this pref (Bug 1152401, Bug 934425).
+# Is the Audio Output Devices API enabled?
 - name: media.setsinkid.enabled
   type: bool
 #if defined(MOZ_WIDGET_ANDROID)
   value: false # bug 1473346
 #else
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #endif
   mirror: always
 
@@ -11704,6 +11711,15 @@
   value: true
   mirror: always
 
+# Whether to allow truncated brotli with empty output. This also fixes
+# throwing an erroring when receiving highly compressed brotli files when
+# no content type is specified (Bug 1715401). This pref can be removed after
+# some time (Bug 1841061)
+- name: network.compress.allow_truncated_empty_brotli
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # See the full list of values in nsICookieService.idl.
 - name: network.cookie.cookieBehavior
   type: RelaxedAtomicInt32
@@ -12155,8 +12171,7 @@
   mirror: always
 
 # Enables `<link rel="modulepreload">` tag and `Link: rel=modulepreload`
-# response header handling. The latter is not yet implemented, see:
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1773056.
+# response header handling.
 - name: network.modulepreload
   type: RelaxedAtomicBool
   value: true
@@ -12890,6 +12905,19 @@
   value: false
   mirror: always
 
+# When a Http/3 connection failed, whether to retry with a different IP address.
+- name: network.http.http3.retry_different_ip_family
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# This is for testing purpose. When true, nsUDPSocket::SendWithAddress will
+# return NS_ERROR_CONNECTION_REFUSED for address "::1".
+- name: network.http.http3.block_loopback_ipv6_addr
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
 - name: network.dns.upgrade_with_https_rr
@@ -12978,6 +13006,18 @@
   value: false
   mirror: always
 
+# This preference can be used to turn off IPv6 name lookups. See bug 68796.
+- name: network.dns.disableIPv6
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether to add additional record IPs to the cache
+- name: network.trr.add_additional_records
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # When this pref is true, AddStorageEntry will return an error if the
 # OPEN_READONLY & OPEN_SECRETLY flags are passed and no entry exists.
 # If no regressions occur this pref should be removed.
@@ -13031,6 +13071,13 @@
 - name: network.jar.max_available_size
   type: RelaxedAtomicUint32
   value: 256*1024*1024 # 256 Mb
+  mirror: always
+
+# Whether JAR entries that defate to a different size than RealSize/orglen
+# are considered corrupted or not
+- name: network.jar.require_size_match
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # When this pref is true we clear the Content-Encoding header for
@@ -14841,6 +14888,11 @@
   value: false
   mirror: always
 
+- name: toolkit.scrollbox.smoothScroll
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: toolkit.scrollbox.horizontalScrollDistance
   type: RelaxedAtomicInt32
   value: 5
@@ -16046,6 +16098,16 @@
   type: bool
   value: true
   mirror: once
+
+# Whether the clipboard cached are used while getting system clipboard data.
+- name: widget.clipboard.use-cached-data.enabled
+  type: bool
+#if defined(XP_MACOSX)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "zoom."

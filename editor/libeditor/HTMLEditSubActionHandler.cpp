@@ -164,7 +164,7 @@ nsresult HTMLEditor::InitEditorContentAndSelection() {
     }
   }
 
-  if (IsInPlaintextMode()) {
+  if (IsPlaintextMailComposer()) {
     // XXX Should we do this in HTMLEditor?  It's odd to guarantee that last
     //     empty line is visible only when it's in the plain text mode.
     nsresult rv = EnsurePaddingBRElementInMultilineEditor();
@@ -1258,7 +1258,7 @@ Result<EditActionResult, nsresult> HTMLEditor::HandleInsertText(
     // for efficiency, break out the pre case separately.  This is because
     // its a lot cheaper to search the input string for only newlines than
     // it is to search for both tabs and newlines.
-    if (!isWhiteSpaceCollapsible || IsInPlaintextMode()) {
+    if (!isWhiteSpaceCollapsible || IsPlaintextMailComposer()) {
       while (pos != -1 &&
              pos < AssertedCast<int32_t>(aInsertionString.Length())) {
         int32_t oldPos = pos;
@@ -2169,7 +2169,7 @@ Result<CreateElementResult, nsresult> HTMLEditor::HandleInsertBRElement(
 
   // First, insert a <br> element.
   RefPtr<Element> brElement;
-  if (IsInPlaintextMode()) {
+  if (IsPlaintextMailComposer()) {
     Result<CreateElementResult, nsresult> insertBRElementResult =
         InsertBRElement(WithTransaction::Yes, aPointToBreak);
     if (MOZ_UNLIKELY(insertBRElementResult.isErr())) {
@@ -9492,7 +9492,7 @@ nsresult HTMLEditor::JoinNearestEditableNodesWithTransaction(
 Element* HTMLEditor::GetMostDistantAncestorMailCiteElement(
     const nsINode& aNode) const {
   Element* mailCiteElement = nullptr;
-  const bool isPlaintextEditor = IsInPlaintextMode();
+  const bool isPlaintextEditor = IsPlaintextMailComposer();
   for (Element* element : aNode.InclusiveAncestorsOfType<Element>()) {
     if ((isPlaintextEditor && element->IsHTMLElement(nsGkAtoms::pre)) ||
         HTMLEditUtils::IsMailCite(*element)) {
@@ -9573,7 +9573,7 @@ nsresult HTMLEditor::GetInlineStyles(
       }
       if (inclusiveAncestor->IsHTMLElement(nsGkAtoms::font)) {
         if (NeedToAppend(*nsGkAtoms::font, nsGkAtoms::face)) {
-          inclusiveAncestor->GetAttr(kNameSpaceID_None, nsGkAtoms::face, value);
+          inclusiveAncestor->GetAttr(nsGkAtoms::face, value);
           if (!value.IsEmpty()) {
             aPendingStyleCacheArray.AppendElement(
                 PendingStyleCache(*nsGkAtoms::font, nsGkAtoms::face, value));
@@ -9581,7 +9581,7 @@ nsresult HTMLEditor::GetInlineStyles(
           }
         }
         if (NeedToAppend(*nsGkAtoms::font, nsGkAtoms::size)) {
-          inclusiveAncestor->GetAttr(kNameSpaceID_None, nsGkAtoms::size, value);
+          inclusiveAncestor->GetAttr(nsGkAtoms::size, value);
           if (!value.IsEmpty()) {
             aPendingStyleCacheArray.AppendElement(
                 PendingStyleCache(*nsGkAtoms::font, nsGkAtoms::size, value));
@@ -9589,8 +9589,7 @@ nsresult HTMLEditor::GetInlineStyles(
           }
         }
         if (NeedToAppend(*nsGkAtoms::font, nsGkAtoms::color)) {
-          inclusiveAncestor->GetAttr(kNameSpaceID_None, nsGkAtoms::color,
-                                     value);
+          inclusiveAncestor->GetAttr(nsGkAtoms::color, value);
           if (!value.IsEmpty()) {
             aPendingStyleCacheArray.AppendElement(
                 PendingStyleCache(*nsGkAtoms::font, nsGkAtoms::color, value));

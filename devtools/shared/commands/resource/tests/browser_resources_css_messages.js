@@ -15,7 +15,9 @@ httpServer.registerPathHandler(`/test_css_messages.html`, (req, res) => {
   res.write(`<meta charset=utf8>
     <style>
       html {
-        color: bloup;
+        body {
+          color: bloup;
+        }
       }
     </style>Test CSS Messages`);
 });
@@ -23,6 +25,7 @@ httpServer.registerPathHandler(`/test_css_messages.html`, (req, res) => {
 const TEST_URI = `http://localhost:${httpServer.identity.primaryPort}/test_css_messages.html`;
 
 add_task(async function () {
+  await pushPref("layout.css.nesting.enabled", true);
   await testWatchingCssMessages();
   await testWatchingCachedCssMessages();
 });
@@ -138,7 +141,7 @@ function setupOnAvailableFunction(
         error: false,
         warning: true,
       },
-      cssSelectors: "html",
+      cssSelectors: ":is(html) body",
       isAlreadyExistingResource,
     },
     {

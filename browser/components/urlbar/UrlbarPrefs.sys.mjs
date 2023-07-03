@@ -59,10 +59,6 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // 30 days since user input it as the default.
   ["autoFill.adaptiveHistory.useCountThreshold", [0.47, "float"]],
 
-  // If true, the domains of the user's installed search engines will be
-  // autofilled even if the user hasn't actually visited them.
-  ["autoFill.searchEngines", false],
-
   // Affects the frecency threshold of the autofill algorithm.  The threshold is
   // the mean of all origin frecencies plus one standard deviation multiplied by
   // this value.  See UrlbarProviderPlaces.
@@ -533,7 +529,6 @@ function makeResultGroups({ showSearchSuggestionsFirst }) {
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_ENGINE_ALIAS },
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_BOOKMARK_KEYWORD },
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_AUTOFILL },
-          { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_PRELOADED },
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_TOKEN_ALIAS_ENGINE },
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_HISTORY_URL },
           { group: lazy.UrlbarUtils.RESULT_GROUP.HEURISTIC_FALLBACK },
@@ -597,10 +592,6 @@ function makeResultGroups({ showSearchSuggestionsFirst }) {
                 // only added for queries starting with "about:".
                 flex: 2,
                 group: lazy.UrlbarUtils.RESULT_GROUP.ABOUT_PAGES,
-              },
-              {
-                flex: 1,
-                group: lazy.UrlbarUtils.RESULT_GROUP.PRELOADED,
               },
             ],
           },

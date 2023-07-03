@@ -778,6 +778,9 @@ password-autocomplete:
     directMigrateSingleProfile:
       type: boolean
       description: Enable direct migration?
+    firefoxRelayIntegration:
+      type: boolean
+      description: Can show Firefox Relay integration offer?
 
 shellService:
   description: "Interface with OS, e.g., pinning and set default"
@@ -1082,7 +1085,7 @@ glean:
     gleanMetricConfiguration:
       type: json
       description: >-
-        "A map of metric base-identifiers to booleans representing the state of the 'disabled' flag for that metric"
+        A map of metric base-identifiers to booleans representing the state of the 'enabled' flag for that metric.
 
 majorRelease2022:
   description: Major Release 2022
@@ -1267,6 +1270,14 @@ networking:
       description: Whether Early Hints preconnect is enabled
       type: boolean
       setPref: "network.early-hints.preconnect.enabled"
+    dnsMaxPriorityThreads:
+      description: The maximum number of high priority DNS threads that can be created.
+      type: int
+      setPref: "network.dns.max_high_priority_threads"
+    dnsMaxAnyPriorityThreads:
+      description: The maximum number of DNS threads that can be created to handle any priority DNS requests.
+      type: int
+      setPref: "network.dns.max_any_priority_threads"
 
 pingsender:
   description: "In-product usage of the pingsender telemetry reporter."
@@ -1634,3 +1645,14 @@ powerSaver:
       setPref: "dom.timeout.background_budget_regeneration_rate"
       description: >-
         Limit how quickly the background tab timer budget regenerates.
+
+firefoxViewNext:
+  description: Next Iteration of Firefox View
+  owner: firefoxview@mozilla.com
+  hasExposure: false
+  isEarlyStartup: true
+  variables:
+    enabled:
+      type: boolean
+      fallbackPref: "browser.tabs.firefox-view-next"
+      description: "Whether or not to enable the new Firefox View"

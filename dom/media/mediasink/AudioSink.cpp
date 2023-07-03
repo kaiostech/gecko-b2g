@@ -276,7 +276,10 @@ void AudioSink::ReenqueueUnplayedAudioDataIfNeeded() {
         "the audio queue at pts %lf",
         packetFrameCount, 1000 * static_cast<float>(packetFrameCount) / rate,
         time.ToSeconds());
-    mAudioQueue.PushFront(packet);
+    // The audio data's timestamp would be adjusted already if we're in looping,
+    // so we don't want to adjust them again.
+    mAudioQueue.PushFront(packet,
+                          MediaQueue<AudioData>::TimestampAdjustment::Disable);
   }
 }
 
@@ -525,6 +528,9 @@ void AudioSink::NotifyAudioNeeded() {
       // we pushed to the audio hardware. We must push silence into the audio
       // hardware so that the next audio packet begins playback at the correct
       // time. But don't push more than the ring buffer can receive.
+      SINK_LOG("Sample time %" PRId64 " > frames parsed %" PRId64,
+               sampleTime.value(), mFramesParsed);
+
       missingFrames = std::min<int64_t>(
           std::min<int64_t>(INT32_MAX, missingFrames.value()),
           SampleToFrame(mProcessedSPSCQueue->AvailableWrite()));

@@ -316,6 +316,8 @@ let interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CSSPageRule", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "CSSPropertyRule", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CSSPseudoElement", insecureContext: true, disabled: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "CSSRule", insecureContext: true },
@@ -409,6 +411,8 @@ let interfaceNamesInGlobalScope = [
   { name: "Element", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ElementInternals", insecureContext: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "EncodedVideoChunk", insecureContext: true, nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ErrorEvent", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -737,6 +741,8 @@ let interfaceNamesInGlobalScope = [
   { name: "IDBTransaction", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "IDBVersionChangeEvent", insecureContext: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "IdentityCredential", nightly: true, desktop: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "IIRFilterNode", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -1398,6 +1404,8 @@ let interfaceNamesInGlobalScope = [
   { name: "ValidityState", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "VideoColorSpace", insecureContext: true, nightly: true },
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "VideoDecoder", nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "VideoFrame", insecureContext: true, nightly: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!

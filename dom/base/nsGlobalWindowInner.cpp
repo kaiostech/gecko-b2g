@@ -1322,7 +1322,6 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsGlobalWindowInner)
   NS_INTERFACE_MAP_ENTRY(mozilla::dom::EventTarget)
   NS_INTERFACE_MAP_ENTRY(nsPIDOMWindowInner)
   NS_INTERFACE_MAP_ENTRY(mozIDOMWindow)
-  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIDOMChromeWindow, IsChromeWindow())
   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
   NS_INTERFACE_MAP_ENTRY(nsIInterfaceRequestor)
 NS_INTERFACE_MAP_END
@@ -4154,7 +4153,7 @@ bool nsGlobalWindowInner::Find(const nsAString& aString, bool aCaseSensitive,
 }
 
 void nsGlobalWindowInner::GetOrigin(nsAString& aOrigin) {
-  nsContentUtils::GetUTFOrigin(GetPrincipal(), aOrigin);
+  nsContentUtils::GetWebExposedOriginSerialization(GetPrincipal(), aOrigin);
 }
 
 // See also AutoJSAPI::ReportException
@@ -7198,18 +7197,9 @@ void nsGlobalWindowInner::SetCursor(const nsACString& aCursor,
   FORWARD_TO_OUTER_OR_THROW(SetCursorOuter, (aCursor, aError), aError, );
 }
 
-NS_IMETHODIMP
-nsGlobalWindowInner::GetBrowserDOMWindow(nsIBrowserDOMWindow** aBrowserWindow) {
-  MOZ_RELEASE_ASSERT(IsChromeWindow());
-
-  ErrorResult rv;
-  NS_IF_ADDREF(*aBrowserWindow = GetBrowserDOMWindow(rv));
-  return rv.StealNSResult();
-}
-
 nsIBrowserDOMWindow* nsGlobalWindowInner::GetBrowserDOMWindow(
     ErrorResult& aError) {
-  FORWARD_TO_OUTER_OR_THROW(GetBrowserDOMWindowOuter, (), aError, nullptr);
+  FORWARD_TO_OUTER_OR_THROW(GetBrowserDOMWindow, (), aError, nullptr);
 }
 
 void nsGlobalWindowInner::SetBrowserDOMWindow(

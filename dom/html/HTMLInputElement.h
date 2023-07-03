@@ -158,7 +158,6 @@ class HTMLInputElement final : public TextControlElement,
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   NS_IMETHOD Reset() override;
   NS_IMETHOD SubmitNamesValues(FormData* aFormData) override;
-  bool AllowDrop() override;
 
   void FieldSetDisabledChanged(bool aNotify) override;
 
@@ -462,9 +461,7 @@ class HTMLInputElement final : public TextControlElement,
     SetHTMLAttr(nsGkAtoms::capture, aValue, aRv);
   }
 
-  bool DefaultChecked() const {
-    return HasAttr(kNameSpaceID_None, nsGkAtoms::checked);
-  }
+  bool DefaultChecked() const { return HasAttr(nsGkAtoms::checked); }
 
   void SetDefaultChecked(bool aValue, ErrorResult& aRv) {
     SetHTMLBoolAttr(nsGkAtoms::checked, aValue, aRv);
@@ -709,7 +706,7 @@ class HTMLInputElement final : public TextControlElement,
   void ShowPicker(ErrorResult& aRv);
 
   bool WebkitDirectoryAttr() const {
-    return HasAttr(kNameSpaceID_None, nsGkAtoms::webkitdirectory);
+    return HasAttr(nsGkAtoms::webkitdirectory);
   }
 
   void SetWebkitDirectoryAttr(bool aValue, ErrorResult& aRv) {

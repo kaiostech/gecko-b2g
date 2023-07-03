@@ -74,6 +74,7 @@
 #include "mozilla/CallState.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/Components.h"
+#include "mozilla/ContentBlockingAllowList.h"
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/DebugOnly.h"
@@ -150,6 +151,7 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/CustomElementRegistry.h"
 #include "mozilla/dom/CustomElementRegistryBinding.h"
+#include "mozilla/dom/CustomElementTypes.h"
 #include "mozilla/dom/DOMArena.h"
 #include "mozilla/dom/DOMException.h"
 #include "mozilla/dom/DOMExceptionBinding.h"
@@ -168,8 +170,10 @@
 #include "mozilla/dom/FileBlobImpl.h"
 #include "mozilla/dom/FileSystemSecurity.h"
 #include "mozilla/dom/FilteredNodeIterator.h"
+#include "mozilla/dom/FormData.h"
 #include "mozilla/dom/FragmentOrElement.h"
 #include "mozilla/dom/FromParser.h"
+#include "mozilla/dom/HTMLElement.h"
 #include "mozilla/dom/HTMLFormElement.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"
@@ -1866,7 +1870,7 @@ void nsContentUtils::GetOfflineAppManifest(Document* aDocument, nsIURI** aURI) {
   }
 
   nsAutoString manifestSpec;
-  docElement->GetAttr(kNameSpaceID_None, nsGkAtoms::manifest, manifestSpec);
+  docElement->GetAttr(nsGkAtoms::manifest, manifestSpec);
 
   // Manifest URIs can't have fragment identifiers.
   if (manifestSpec.IsEmpty() || manifestSpec.Contains('#')) {
@@ -2192,6 +2196,7 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIGlobalObject* aGlobalObject,
 }
 
 // Newer Should RFP Functions ----------------------------------
+// Utilities ---------------------------------------------------
 
 inline void LogDomainAndPrefList(const char* exemptedDomainsPrefName,
                                  nsAutoCString& url, bool isExemptDomain) {
@@ -2203,11 +2208,8 @@ inline void LogDomainAndPrefList(const char* exemptedDomainsPrefName,
            PromiseFlatCString(list).get()));
 }
 
-inline bool CookieJarSettingsSaysShouldResistFingerprinting(
+inline already_AddRefed<nsICookieJarSettings> GetCookieJarSettings(
     nsILoadInfo* aLoadInfo) {
-  // If the loadinfo's CookieJarSettings says that we _should_ resist
-  // fingerprinting we can always believe it. (This is the (*) rule from
-  // CookieJarSettings.h)
   nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
   nsresult rv =
       aLoadInfo->GetCookieJarSettings(getter_AddRefs(cookieJarSettings));
@@ -2215,19 +2217,91 @@ inline bool CookieJarSettingsSaysShouldResistFingerprinting(
     // The TRRLoadInfo in particular does not implement this method
     // In that instance.  We will return false and let other code decide if
     // we shouldRFP for this connection
-    return false;
+    return nullptr;
   }
   if (NS_WARN_IF(NS_FAILED(rv))) {
     MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Info,
             ("Called CookieJarSettingsSaysShouldResistFingerprinting but the "
              "loadinfo's CookieJarSettings couldn't be retrieved"));
+    return nullptr;
+  }
+
+  MOZ_ASSERT(cookieJarSettings);
+  return cookieJarSettings.forget();
+}
+
+bool ETPSaysShouldNotResistFingerprinting(nsIChannel* aChannel,
+                                          nsILoadInfo* aLoadInfo) {
+  // A positive return from this function should always be obeyed.
+  // A negative return means we should keep checking things.
+
+  // We do not want this check to apply to RFP, only to FPP
+  // There is one problematic combination of prefs; however:
+  // If RFP is enabled in PBMode only and FPP is enabled globally
+  // (so, in non-PBM mode) - we need to know if we're in PBMode or not.
+  // But that's kind of expensive and we'd like to avoid it if we
+  // don't have to, so special-case that scenario
+  if (StaticPrefs::privacy_fingerprintingProtection_DoNotUseDirectly() &&
+      !StaticPrefs::privacy_resistFingerprinting_DoNotUseDirectly() &&
+      StaticPrefs::privacy_resistFingerprinting_pbmode_DoNotUseDirectly()) {
+    if (NS_UsePrivateBrowsing(aChannel)) {
+      // In PBM (where RFP is enabled) do not exempt based on the ETP toggle
+      return false;
+    }
+  } else if (StaticPrefs::privacy_resistFingerprinting_DoNotUseDirectly() ||
+             StaticPrefs::
+                 privacy_resistFingerprinting_pbmode_DoNotUseDirectly()) {
+    // In RFP, never use the ETP toggle to exempt.
+    // We can safely return false here even if we are not in PBM mode
+    // and RFP_pbmode is enabled because we will later see that and
+    // return false from the ShouldRFP function entirely.
+    return false;
+  }
+
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings =
+      GetCookieJarSettings(aLoadInfo);
+  if (!cookieJarSettings) {
+    return false;
+  }
+
+  return ContentBlockingAllowList::Check(cookieJarSettings);
+}
+
+inline bool CookieJarSettingsSaysShouldResistFingerprinting(
+    nsILoadInfo* aLoadInfo) {
+  // A positive return from this function should always be obeyed.
+  // A negative return means we should keep checking things.
+
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings =
+      GetCookieJarSettings(aLoadInfo);
+  if (!cookieJarSettings) {
     return false;
   }
   return cookieJarSettings->GetShouldResistFingerprinting();
 }
 
+inline bool SchemeSaysShouldNotResistFingerprinting(nsIURI* aURI) {
+  return aURI->SchemeIs("chrome") || aURI->SchemeIs("resource") ||
+         aURI->SchemeIs("view-source") || aURI->SchemeIs("moz-extension") ||
+         (aURI->SchemeIs("about") && !NS_IsContentAccessibleAboutURI(aURI));
+}
+
+inline bool SchemeSaysShouldNotResistFingerprinting(nsIPrincipal* aPrincipal) {
+  if (aPrincipal->SchemeIs("chrome") || aPrincipal->SchemeIs("resource") ||
+      aPrincipal->SchemeIs("view-source") ||
+      aPrincipal->SchemeIs("moz-extension")) {
+    return true;
+  }
+
+  bool isSpecialAboutURI;
+  Unused << aPrincipal->IsContentAccessibleAboutURI(&isSpecialAboutURI);
+  return isSpecialAboutURI;
+}
+
 const char* kExemptedDomainsPrefName =
     "privacy.resistFingerprinting.exemptedDomains";
+
+// Functions ---------------------------------------------------
 
 /* static */
 bool nsContentUtils::ShouldResistFingerprinting(const char* aJustification,
@@ -2288,20 +2362,24 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel,
     return false;
   }
 
+  if (ETPSaysShouldNotResistFingerprinting(aChannel, loadInfo)) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting(nsIChannel*)"
+             " ETPSaysShouldNotResistFingerprinting said false"));
+    return false;
+  }
+
+  if (CookieJarSettingsSaysShouldResistFingerprinting(loadInfo)) {
+    return true;
+  }
+
   // Document types have no loading principal.  Subdocument types do have a
-  // loading principal, but it is the loading principal of the parent document;
-  // not the subdocument.
+  // loading principal, but it is the loading principal of the parent
+  // document; not the subdocument.
   auto contentType = loadInfo->GetExternalContentPolicyType();
+  // Case 1: Document or Subdocument load
   if (contentType == ExtContentPolicy::TYPE_DOCUMENT ||
       contentType == ExtContentPolicy::TYPE_SUBDOCUMENT) {
-    // This cookie jar check is relevant to both document and non-document
-    // cases. but it will be performed inside the ShouldRFP(nsILoadInfo) as
-    // well, so we put into this conditional to avoid doing it twice in that
-    // case.
-    if (CookieJarSettingsSaysShouldResistFingerprinting(loadInfo)) {
-      return true;
-    }
-
     nsCOMPtr<nsIURI> channelURI;
     nsresult rv = NS_GetFinalChannelURI(aChannel, getter_AddRefs(channelURI));
     MOZ_ASSERT(
@@ -2342,7 +2420,16 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel,
   }
 
   // Case 2: Subresource Load
-  return ShouldResistFingerprinting(loadInfo, aTarget);
+  // Because this code is only used for subresource loads, this
+  // will check the parent's principal
+  nsIPrincipal* principal = loadInfo->GetLoadingPrincipal();
+
+  MOZ_ASSERT_IF(principal && !principal->IsSystemPrincipal() &&
+                    !principal->GetIsAddonOrExpandedAddonPrincipal(),
+                BasePrincipal::Cast(principal)->OriginAttributesRef() ==
+                    loadInfo->GetOriginAttributes());
+  return ShouldResistFingerprinting_dangerous(principal, "Internal Call",
+                                              aTarget);
 }
 
 /* static */
@@ -2366,9 +2453,7 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
   }
 
   // Exclude internal schemes and web extensions
-  if (aURI->SchemeIs("about") || aURI->SchemeIs("chrome") ||
-      aURI->SchemeIs("resource") || aURI->SchemeIs("view-source") ||
-      aURI->SchemeIs("moz-extension")) {
+  if (SchemeSaysShouldNotResistFingerprinting(aURI)) {
     return false;
   }
 
@@ -2386,35 +2471,6 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
   }
 
   return !isExemptDomain;
-}
-
-/* static */
-bool nsContentUtils::ShouldResistFingerprinting(nsILoadInfo* aLoadInfo,
-                                                RFPTarget aTarget) {
-  MOZ_ASSERT(aLoadInfo->GetExternalContentPolicyType() !=
-                 ExtContentPolicy::TYPE_DOCUMENT &&
-             aLoadInfo->GetExternalContentPolicyType() !=
-                 ExtContentPolicy::TYPE_SUBDOCUMENT);
-
-  // With this check, we can ensure that the prefs and target say yes, so only
-  // an exemption would cause us to return false.
-  if (!ShouldResistFingerprinting("Positive return check", aTarget)) {
-    return false;
-  }
-
-  if (CookieJarSettingsSaysShouldResistFingerprinting(aLoadInfo)) {
-    return true;
-  }
-
-  // Because this function is only used for subresource loads, this
-  // will check the parent's principal
-  nsIPrincipal* principal = aLoadInfo->GetLoadingPrincipal();
-
-  MOZ_ASSERT_IF(principal && !principal->IsSystemPrincipal(),
-                BasePrincipal::Cast(principal)->OriginAttributesRef() ==
-                    aLoadInfo->GetOriginAttributes());
-  return ShouldResistFingerprinting_dangerous(principal, "Internal Call",
-                                              aTarget);
 }
 
 /* static */
@@ -2449,9 +2505,8 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
     }
   }
 
-  // Exclude internal schemes
-  if (aPrincipal->SchemeIs("about") || aPrincipal->SchemeIs("chrome") ||
-      aPrincipal->SchemeIs("resource") || aPrincipal->SchemeIs("view-source")) {
+  // Exclude internal schemes and web extensions
+  if (SchemeSaysShouldNotResistFingerprinting(aPrincipal)) {
     return false;
   }
 
@@ -2466,7 +2521,7 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
   if (MOZ_LOG_TEST(nsContentUtils::ResistFingerprintingLog(),
                    mozilla::LogLevel::Debug)) {
     nsAutoCString origin;
-    aPrincipal->GetAsciiOrigin(origin);
+    aPrincipal->GetWebExposedOriginSerialization(origin);
     LogDomainAndPrefList(kExemptedDomainsPrefName, origin, isExemptDomain);
   }
 
@@ -2479,18 +2534,18 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
   // So perform this last-ditch check for that scenario.
   // We arbitrarily use https as the scheme, but it doesn't matter.
   nsCOMPtr<nsIURI> uri;
-  nsresult rv;
   if (isExemptDomain && StaticPrefs::privacy_firstparty_isolate() &&
       !originAttributes.mFirstPartyDomain.IsEmpty()) {
-    rv = NS_NewURI(getter_AddRefs(uri),
-                   u"https://"_ns + originAttributes.mFirstPartyDomain);
+    nsresult rv =
+        NS_NewURI(getter_AddRefs(uri),
+                  u"https://"_ns + originAttributes.mFirstPartyDomain);
     if (!NS_FAILED(rv)) {
       isExemptDomain =
           nsContentUtils::IsURIInPrefList(uri, kExemptedDomainsPrefName);
     }
   } else if (isExemptDomain && !originAttributes.mPartitionKey.IsEmpty()) {
-    rv = NS_NewURI(getter_AddRefs(uri),
-                   u"https://"_ns + originAttributes.mPartitionKey);
+    nsresult rv = NS_NewURI(getter_AddRefs(uri),
+                            u"https://"_ns + originAttributes.mPartitionKey);
     if (!NS_FAILED(rv)) {
       isExemptDomain =
           nsContentUtils::IsURIInPrefList(uri, kExemptedDomainsPrefName);
@@ -2499,6 +2554,8 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
 
   return !isExemptDomain;
 }
+
+// --------------------------------------------------------------------
 
 /* static */
 void nsContentUtils::CalcRoundedWindowSizeForResistingFingerprinting(
@@ -3363,7 +3420,7 @@ void nsContentUtils::GenerateStateKey(nsIContent* aContent, Document* aDocument,
 
         // Append the form name
         nsAutoString formName;
-        formElement->GetAttr(kNameSpaceID_None, nsGkAtoms::name, formName);
+        formElement->GetAttr(nsGkAtoms::name, formName);
         KeyAppendString(formName, aKey);
       } else {
         // Not in a form.  Append the control number, if this is a parser
@@ -3385,8 +3442,7 @@ void nsContentUtils::GenerateStateKey(nsIContent* aContent, Document* aDocument,
 
         // Append the control name
         nsAutoString name;
-        aContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::name,
-                                       name);
+        aContent->AsElement()->GetAttr(nsGkAtoms::name, name);
         KeyAppendString(name, aKey);
       }
     }
@@ -5918,8 +5974,7 @@ void nsContentUtils::TriggerLink(nsIContent* aContent, nsIURI* aLinkURI,
     if ((!aContent->IsHTMLElement(nsGkAtoms::a) &&
          !aContent->IsHTMLElement(nsGkAtoms::area) &&
          !aContent->IsSVGElement(nsGkAtoms::a)) ||
-        !aContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::download,
-                                        fileName) ||
+        !aContent->AsElement()->GetAttr(nsGkAtoms::download, fileName) ||
         NS_FAILED(aContent->NodePrincipal()->CheckMayLoad(aLinkURI, true))) {
       fileName.SetIsVoid(true);  // No actionable download attribute was found.
     }
@@ -6524,7 +6579,8 @@ SameOriginCheckerImpl::GetInterface(const nsIID& aIID, void** aResult) {
 }
 
 /* static */
-nsresult nsContentUtils::GetASCIIOrigin(nsIURI* aURI, nsACString& aOrigin) {
+nsresult nsContentUtils::GetWebExposedOriginSerialization(nsIURI* aURI,
+                                                          nsACString& aOrigin) {
   MOZ_ASSERT(aURI, "missing uri");
 
   // For Blob URI, the path is the URL of the owning page.
@@ -6540,7 +6596,7 @@ nsresult nsContentUtils::GetASCIIOrigin(nsIURI* aURI, nsACString& aOrigin) {
       return NS_OK;
     }
 
-    return GetASCIIOrigin(uri, aOrigin);
+    return GetWebExposedOriginSerialization(uri, aOrigin);
   }
 
   aOrigin.Truncate();
@@ -6573,24 +6629,26 @@ nsresult nsContentUtils::GetASCIIOrigin(nsIURI* aURI, nsACString& aOrigin) {
 }
 
 /* static */
-nsresult nsContentUtils::GetUTFOrigin(nsIPrincipal* aPrincipal,
-                                      nsAString& aOrigin) {
+nsresult nsContentUtils::GetWebExposedOriginSerialization(
+    nsIPrincipal* aPrincipal, nsAString& aOrigin) {
   MOZ_ASSERT(aPrincipal, "missing principal");
 
   aOrigin.Truncate();
-  nsAutoCString asciiOrigin;
+  nsAutoCString webExposedOriginSerialization;
 
-  nsresult rv = aPrincipal->GetAsciiOrigin(asciiOrigin);
+  nsresult rv = aPrincipal->GetWebExposedOriginSerialization(
+      webExposedOriginSerialization);
   if (NS_FAILED(rv)) {
-    asciiOrigin.AssignLiteral("null");
+    webExposedOriginSerialization.AssignLiteral("null");
   }
 
-  CopyUTF8toUTF16(asciiOrigin, aOrigin);
+  CopyUTF8toUTF16(webExposedOriginSerialization, aOrigin);
   return NS_OK;
 }
 
 /* static */
-nsresult nsContentUtils::GetUTFOrigin(nsIURI* aURI, nsAString& aOrigin) {
+nsresult nsContentUtils::GetWebExposedOriginSerialization(nsIURI* aURI,
+                                                          nsAString& aOrigin) {
   MOZ_ASSERT(aURI, "missing uri");
   nsresult rv;
 
@@ -6603,15 +6661,15 @@ nsresult nsContentUtils::GetUTFOrigin(nsIURI* aURI, nsAString& aOrigin) {
     rv = uriWithSpecialOrigin->GetOrigin(getter_AddRefs(origin));
     NS_ENSURE_SUCCESS(rv, rv);
 
-    return GetUTFOrigin(origin, aOrigin);
+    return GetWebExposedOriginSerialization(origin, aOrigin);
   }
 #endif
 
-  nsAutoCString asciiOrigin;
-  rv = GetASCIIOrigin(aURI, asciiOrigin);
+  nsAutoCString webExposedOriginSerialization;
+  rv = GetWebExposedOriginSerialization(aURI, webExposedOriginSerialization);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  CopyUTF8toUTF16(asciiOrigin, aOrigin);
+  CopyUTF8toUTF16(webExposedOriginSerialization, aOrigin);
   return NS_OK;
 }
 
@@ -9649,7 +9707,7 @@ MOZ_CAN_RUN_SCRIPT
 static void DoCustomElementCreate(Element** aElement, JSContext* aCx,
                                   Document* aDoc, NodeInfo* aNodeInfo,
                                   CustomElementConstructor* aConstructor,
-                                  ErrorResult& aRv) {
+                                  ErrorResult& aRv, FromParser aFromParser) {
   JS::Rooted<JS::Value> constructResult(aCx);
   aConstructor->Construct(&constructResult, aRv, "Custom Element Create",
                           CallbackFunction::eRethrowExceptions);
@@ -9682,6 +9740,11 @@ static void DoCustomElementCreate(Element** aElement, JSContext* aCx,
       element->NodeInfo()->NameAtom() != localName) {
     aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
     return;
+  }
+
+  if (element->IsHTMLElement()) {
+    static_cast<HTMLElement*>(&*element)->InhibitRestoration(
+        !(aFromParser & FROM_PARSER_NETWORK));
   }
 
   element.forget(aElement);
@@ -9821,7 +9884,8 @@ nsresult nsContentUtils::NewXULOrHTMLElement(
       definition->mPrefixStack.AppendElement(nodeInfo->GetPrefixAtom());
       RefPtr<Document> doc = nodeInfo->GetDocument();
       DoCustomElementCreate(aResult, cx, doc, nodeInfo,
-                            MOZ_KnownLive(definition->mConstructor), rv);
+                            MOZ_KnownLive(definition->mConstructor), rv,
+                            aFromParser);
       if (rv.MaybeSetPendingException(cx)) {
         if (nodeInfo->NamespaceEquals(kNameSpaceID_XHTML)) {
           NS_IF_ADDREF(*aResult = NS_NewHTMLUnknownElement(nodeInfo.forget(),
@@ -9970,6 +10034,78 @@ void nsContentUtils::EnqueueLifecycleCallback(
 
   CustomElementRegistry::EnqueueLifecycleCallback(aType, aCustomElement, aArgs,
                                                   aDefinition);
+}
+
+/* static */
+CustomElementFormValue nsContentUtils::ConvertToCustomElementFormValue(
+    const Nullable<OwningFileOrUSVStringOrFormData>& aState) {
+  if (aState.IsNull()) {
+    return void_t{};
+  }
+  const auto& state = aState.Value();
+  if (state.IsFile()) {
+    RefPtr<BlobImpl> impl = state.GetAsFile()->Impl();
+    return {std::move(impl)};
+  }
+  if (state.IsUSVString()) {
+    return state.GetAsUSVString();
+  }
+  return state.GetAsFormData()->ConvertToCustomElementFormValue();
+}
+
+/* static */
+Nullable<OwningFileOrUSVStringOrFormData>
+nsContentUtils::ExtractFormAssociatedCustomElementValue(
+    nsIGlobalObject* aGlobal,
+    const mozilla::dom::CustomElementFormValue& aCEValue) {
+  MOZ_ASSERT(aGlobal);
+
+  OwningFileOrUSVStringOrFormData value;
+  switch (aCEValue.type()) {
+    case CustomElementFormValue::TBlobImpl: {
+      RefPtr<File> file = File::Create(aGlobal, aCEValue.get_BlobImpl());
+      if (NS_WARN_IF(!file)) {
+        return {};
+      }
+      value.SetAsFile() = file;
+    } break;
+
+    case CustomElementFormValue::TnsString:
+      value.SetAsUSVString() = aCEValue.get_nsString();
+      break;
+
+    case CustomElementFormValue::TArrayOfFormDataTuple: {
+      const auto& array = aCEValue.get_ArrayOfFormDataTuple();
+      auto formData = MakeRefPtr<FormData>();
+
+      for (auto i = 0ul; i < array.Length(); ++i) {
+        const auto& item = array.ElementAt(i);
+        switch (item.value().type()) {
+          case FormDataValue::TnsString:
+            formData->AddNameValuePair(item.name(),
+                                       item.value().get_nsString());
+            break;
+
+          case FormDataValue::TBlobImpl: {
+            auto blobImpl = item.value().get_BlobImpl();
+            auto* blob = Blob::Create(aGlobal, blobImpl);
+            formData->AddNameBlobPair(item.name(), blob);
+          } break;
+
+          default:
+            continue;
+        }
+      }
+
+      value.SetAsFormData() = formData;
+    } break;
+    case CustomElementFormValue::Tvoid_t:
+      return {};
+    default:
+      NS_WARNING("Invalid CustomElementContentData type!");
+      return {};
+  }
+  return value;
 }
 
 /* static */

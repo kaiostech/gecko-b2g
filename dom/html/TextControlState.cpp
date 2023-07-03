@@ -1721,17 +1721,17 @@ nsresult TextControlState::PrepareEditor(const nsAString* aValue) {
   PresShell* presShell = presContext->GetPresShell();
 
   // Setup the editor flags
-  uint32_t editorFlags = nsIEditor::eEditorPlaintextMask;
+
+  // Spell check is diabled at creation time. It is enabled once
+  // the editor comes into focus.
+  uint32_t editorFlags = nsIEditor::eEditorSkipSpellCheck;
+
   if (IsSingleLineTextControl()) {
     editorFlags |= nsIEditor::eEditorSingleLineMask;
   }
   if (IsPasswordTextControl()) {
     editorFlags |= nsIEditor::eEditorPasswordMask;
   }
-
-  // Spell check is diabled at creation time. It is enabled once
-  // the editor comes into focus.
-  editorFlags |= nsIEditor::eEditorSkipSpellCheck;
 
   bool shouldInitializeEditor = false;
   RefPtr<TextEditor> newTextEditor;  // the editor that we might create
@@ -1889,8 +1889,8 @@ nsresult TextControlState::PrepareEditor(const nsAString* aValue) {
   // Check if the readonly attribute is set.
   //
   // TODO: Should probably call IsDisabled(), as it is cheaper.
-  if (mTextCtrlElement->HasAttr(kNameSpaceID_None, nsGkAtoms::readonly) ||
-      mTextCtrlElement->HasAttr(kNameSpaceID_None, nsGkAtoms::disabled)) {
+  if (mTextCtrlElement->HasAttr(nsGkAtoms::readonly) ||
+      mTextCtrlElement->HasAttr(nsGkAtoms::disabled)) {
     editorFlags |= nsIEditor::eEditorReadonlyMask;
   }
 

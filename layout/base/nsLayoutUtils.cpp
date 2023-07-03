@@ -83,6 +83,7 @@
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/ServoStyleSetInlines.h"
 #include "mozilla/StaticPrefs_apz.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_font.h"
 #include "mozilla/StaticPrefs_general.h"
@@ -2360,13 +2361,9 @@ static Rect TransformGfxRectToAncestor(
   }
   const nsIFrame* ancestor = aOutAncestor ? *aOutAncestor : aAncestor.mFrame;
   float factor = ancestor->PresContext()->AppUnitsPerDevPixel();
-  // Caller is expected to properly clamp if the result is to be converted to
-  // app units. Technically, the clipping bound here is infinite, but that
-  // causes clipping to become unpredictable due to floating point errors.
-  const auto boundsAppUnits = Rect::MaxIntRect();
   Rect maxBounds =
-      Rect(boundsAppUnits.x / factor, boundsAppUnits.y / factor,
-           boundsAppUnits.width / factor, boundsAppUnits.height / factor);
+      Rect(float(nscoord_MIN) / factor * 0.5, float(nscoord_MIN) / factor * 0.5,
+           float(nscoord_MAX) / factor, float(nscoord_MAX) / factor);
   return ctm.TransformAndClipBounds(aRect, maxBounds);
 }
 
@@ -7039,8 +7036,10 @@ nsIFrame* nsLayoutUtils::GetReferenceFrame(nsIFrame* aFrame) {
       result |= gfx::ShapedTextFlags::TEXT_OPTIMIZE_SPEED;
       break;
     case StyleTextRendering::Auto:
-      if (aPresContext && aStyleFont->mFont.size.ToCSSPixels() <
-                              aPresContext->GetAutoQualityMinFontSize()) {
+      if (aPresContext &&
+          aStyleFont->mFont.size.ToCSSPixels() <
+              aPresContext->DevPixelsToFloatCSSPixels(
+                  StaticPrefs::browser_display_auto_quality_min_font_size())) {
         result |= gfx::ShapedTextFlags::TEXT_OPTIMIZE_SPEED;
       }
       break;
@@ -8851,11 +8850,11 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
         // compositor.
         if (presContext->GetDynamicToolbarState() ==
             DynamicToolbarState::Collapsed) {
-          metrics.SetFixedLayerMargins(
-              ScreenMargin(0, 0,
-                           presContext->GetDynamicToolbarHeight() -
-                               presContext->GetDynamicToolbarMaxHeight(),
-                           0));
+          metrics.SetFixedLayerMargins(ScreenMargin(
+              0, 0,
+              ScreenCoord(presContext->GetDynamicToolbarHeight() -
+                          presContext->GetDynamicToolbarMaxHeight()),
+              0));
         }
       }
     }

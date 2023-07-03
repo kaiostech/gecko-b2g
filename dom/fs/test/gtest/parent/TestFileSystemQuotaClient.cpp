@@ -130,14 +130,16 @@ class TestFileSystemQuotaClient
   static void WriteDataToFile(
       data::FileSystemDatabaseManager* const aDatabaseManager,
       const EntryId& aEntryId, const nsCString& aData) {
-    ASSERT_NSEQ(NS_OK, aDatabaseManager->EnsureFileId(aEntryId));
+    TEST_TRY_UNWRAP(FileId fileId, aDatabaseManager->EnsureFileId(aEntryId));
+    ASSERT_FALSE(fileId.IsEmpty());
 
     ContentType type;
     TimeStamp lastModMilliS = 0;
     Path path;
     nsCOMPtr<nsIFile> fileObj;
-    ASSERT_NSEQ(NS_OK, aDatabaseManager->GetFile(aEntryId, type, lastModMilliS,
-                                                 path, fileObj));
+    ASSERT_NSEQ(NS_OK,
+                aDatabaseManager->GetFile(aEntryId, fileId, FileMode::EXCLUSIVE,
+                                          type, lastModMilliS, path, fileObj));
 
     uint32_t written = 0;
     ASSERT_NE(written, aData.Length());
@@ -426,11 +428,9 @@ TEST_F(TestFileSystemQuotaClient, TrackedFilesOnInitOriginShouldCauseRescan) {
     PerformOnIOThread(std::move(fileCreation),
                       rdm->MutableDatabaseManagerPtr());
 
-    ASSERT_NSEQ(NS_OK,
-                rdm->MutableDatabaseManagerPtr()->EnsureFileId(*testFileId));
-
     // This should force a rescan
-    ASSERT_NSEQ(NS_OK, rdm->LockExclusive(*testFileId));
+    TEST_TRY_UNWRAP(FileId fileId, rdm->LockExclusive(*testFileId));
+    ASSERT_FALSE(fileId.IsEmpty());
     PerformOnIOThread(std::move(writingToFile), std::move(quotaClient),
                       rdm->MutableDatabaseManagerPtr());
   };

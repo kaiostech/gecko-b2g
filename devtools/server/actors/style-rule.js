@@ -170,25 +170,42 @@ class StyleRuleActor extends Actor {
   get metadata() {
     const data = {};
     data.id = this.actorID;
-    // Collect information about the rule's ancestors (@media, @supports, @keyframes).
+    // Collect information about the rule's ancestors (@media, @supports, @keyframes, parent rules).
     // Used to show context for this change in the UI and to match the rule for undo/redo.
     data.ancestors = this.ancestorRules.map(rule => {
-      return {
+      const ancestorData = {
         id: rule.actorID,
-        // Rule type as number defined by CSSRule.type (ex: 4, 7, 12)
-        // @see https://developer.mozilla.org/en-US/docs/Web/API/CSSRule
-        type: rule.rawRule.type,
-        // Rule type as human-readable string (ex: "@media", "@supports", "@keyframes")
-        typeName: SharedCssLogic.getCSSAtRuleTypeName(rule.rawRule),
-        // Conditions of @container, @media and @supports rules (ex: "min-width: 1em")
-        conditionText: rule.rawRule.conditionText,
-        // Name of @keyframes rule; refrenced by the animation-name CSS property.
-        name: rule.rawRule.name,
-        // Selector of individual @keyframe rule within a @keyframes rule (ex: 0%, 100%).
-        keyText: rule.rawRule.keyText,
         // Array with the indexes of this rule and its ancestors within the CSS rule tree.
         ruleIndex: rule._ruleIndex,
       };
+
+      // Rule type as human-readable string (ex: "@media", "@supports", "@keyframes")
+      const typeName = SharedCssLogic.getCSSAtRuleTypeName(rule.rawRule);
+      if (typeName) {
+        ancestorData.typeName = typeName;
+      }
+
+      // Conditions of @container, @media and @supports rules (ex: "min-width: 1em")
+      if (rule.rawRule.conditionText !== undefined) {
+        ancestorData.conditionText = rule.rawRule.conditionText;
+      }
+
+      // Name of @keyframes rule; referenced by the animation-name CSS property.
+      if (rule.rawRule.name !== undefined) {
+        ancestorData.name = rule.rawRule.name;
+      }
+
+      // Selector of individual @keyframe rule within a @keyframes rule (ex: 0%, 100%).
+      if (rule.rawRule.keyText !== undefined) {
+        ancestorData.keyText = rule.rawRule.keyText;
+      }
+
+      // Selector of the rule; might be useful in case for nested rules
+      if (rule.rawRule.selectorText !== undefined) {
+        ancestorData.selectorText = rule.rawRule.selectorText;
+      }
+
+      return ancestorData;
     });
 
     // For changes in element style attributes, generate a unique selector.
@@ -271,6 +288,9 @@ class StyleRuleActor extends Actor {
       },
     };
 
+    // Flag that will be set to true if the rule has a non-at-rule parent rule
+    let computeDesugaredSelector = false;
+
     // Go through all ancestor so we can build an array of all the media queries and
     // layers this rule is in.
     for (const ancestorRule of this.ancestorRules) {
@@ -309,6 +329,7 @@ class StyleRuleActor extends Actor {
           type,
           selectorText: rawRule.selectorText,
         });
+        computeDesugaredSelector = true;
       }
     }
 
@@ -361,6 +382,17 @@ class StyleRuleActor extends Actor {
     switch (this.type) {
       case CSSRule.STYLE_RULE:
         form.selectors = CssLogic.getSelectors(this.rawRule);
+        if (computeDesugaredSelector) {
+          // When a rule is nested in another non-at-rule (aka CSS Nesting), the client
+          // will need its desugared selector, i.e. the full selector, which includes ancestor
+          // selectors, that is computed by the platform when applying the rule.
+          // To compute it, the parent selector (&) is recursively replaced by the parent
+          // rule selector wrapped in `:is()`.
+          // For example, with the following nested rule: `body { & > main {} }`,
+          // the desugared selector will be `:is(body) > main`.
+          // See https://www.w3.org/TR/css-nesting-1/#nest-selector for more information.
+          form.desugaredSelectors = CssLogic.getSelectors(this.rawRule, true);
+        }
         form.cssText = this.rawStyle.cssText || "";
         break;
       case ELEMENT_STYLE:
@@ -729,7 +761,8 @@ class StyleRuleActor extends Actor {
     }
 
     this.authoredText = newText;
-    this.pageStyle.refreshObservedRules();
+    await this.updateAncestorRulesAuthoredText();
+    this.pageStyle.refreshObservedRules(this.ancestorRules);
 
     // Add processed modifications to the _pendingDeclarationChanges array,
     // they will be emitted as CSS_CHANGE resources once `declarations` have
@@ -739,6 +772,18 @@ class StyleRuleActor extends Actor {
     // Returning this updated actor over the protocol will update its corresponding front
     // and any references to it.
     return this;
+  }
+
+  /**
+   * Update the authored text of the ancestor rules. This should be called when setting
+   * the authored text of a (nested) rule, so all the references are properly updated.
+   */
+  async updateAncestorRulesAuthoredText() {
+    const promises = [];
+    for (const ancestorRule of this.ancestorRules) {
+      promises.push(ancestorRule.getAuthoredCssText(true));
+    }
+    await Promise.all(promises);
   }
 
   /**
@@ -763,7 +808,6 @@ class StyleRuleActor extends Actor {
     // Use a fresh element for each call to this function to prevent side
     // effects that pop up based on property values that were already set on the
     // element.
-
     let document;
     if (this.rawNode) {
       document = this.rawNode.ownerDocument;
@@ -791,7 +835,7 @@ class StyleRuleActor extends Actor {
       }
     }
 
-    this.pageStyle.refreshObservedRules();
+    this.pageStyle.refreshObservedRules(this.ancestorRules);
 
     // Add processed modifications to the _pendingDeclarationChanges array,
     // they will be emitted as CSS_CHANGE resources once `declarations` have
@@ -855,7 +899,12 @@ class StyleRuleActor extends Actor {
         { kind: UPDATE_PRESERVING_RULES }
       );
     } else {
-      const cssRules = parentStyleSheet.cssRules;
+      // We retrieve the parent of the rule, which can be a regular stylesheet, but also
+      // another rule, in case the underlying rule is nested.
+      // If the rule is nested in another rule, we need to use its parent rule to "edit" it.
+      // If the rule has no parent rules, we can simply use the stylesheet.
+      const parent = this.rawRule.parentRule || parentStyleSheet;
+      const cssRules = parent.cssRules;
       const cssText = rule.cssText;
       const selectorText = rule.selectorText;
 
@@ -865,8 +914,8 @@ class StyleRuleActor extends Actor {
             // Inserts the new style rule into the current style sheet and
             // delete the current rule
             const ruleText = cssText.slice(selectorText.length).trim();
-            parentStyleSheet.insertRule(value + " " + ruleText, i);
-            parentStyleSheet.deleteRule(i + 1);
+            parent.insertRule(value + " " + ruleText, i);
+            parent.deleteRule(i + 1);
             break;
           } catch (e) {
             // The selector could be invalid, or the rule could fail to insert.
@@ -875,6 +924,8 @@ class StyleRuleActor extends Actor {
         }
       }
     }
+
+    await this.updateAncestorRulesAuthoredText();
 
     return this._getRuleFromIndex(parentStyleSheet);
   }
@@ -1057,7 +1108,7 @@ class StyleRuleActor extends Actor {
         }
 
         isMatching = ruleProps.entries.some(
-          ruleProp => !!ruleProp.matchedSelectors.length
+          ruleProp => !!ruleProp.matchedDesugaredSelectors.length
         );
       }
 
@@ -1112,9 +1163,13 @@ class StyleRuleActor extends Actor {
    *
    * If any have changed their used/unused state, potentially as a result of changes in
    * another rule, fire a "rule-updated" event with this rule actor in its latest state.
+   *
+   * @param {Boolean} forceRefresh: Set to true to emit "rule-updated", even if the state
+   *        of the declarations didn't change.
    */
-  refresh() {
+  maybeRefresh(forceRefresh) {
     let hasChanged = false;
+
     const el = this.pageStyle.selectedElement;
     const style = CssLogic.getComputedStyle(el);
 
@@ -1128,7 +1183,7 @@ class StyleRuleActor extends Actor {
       }
     }
 
-    if (hasChanged) {
+    if (hasChanged || forceRefresh) {
       // ⚠️ IMPORTANT ⚠️
       // When an event is emitted via the protocol with the StyleRuleActor as payload, the
       // corresponding StyleRuleFront will be automatically updated under the hood.

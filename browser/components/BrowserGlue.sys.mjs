@@ -88,6 +88,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   WebChannel: "resource://gre/modules/WebChannel.sys.mjs",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
+  WindowsGPOParser: "resource://gre/modules/policies/WindowsGPOParser.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -771,22 +772,6 @@ let JSWINDOWACTORS = {
     allFrames: true,
   },
 
-  // The older translations feature backed by external services.
-  // This is being replaced by a newer ML-backed translation service. See Bug 971044.
-  Translation: {
-    parent: {
-      moduleURI: "resource:///modules/translation/TranslationParent.jsm",
-    },
-    child: {
-      moduleURI: "resource:///modules/translation/TranslationChild.jsm",
-      events: {
-        pageshow: {},
-        load: { mozSystemGroup: true, capture: true },
-      },
-    },
-    enablePreference: "browser.translation.detectLanguage",
-  },
-
   UITour: {
     parent: {
       esModuleURI: "resource:///modules/UITourParent.sys.mjs",
@@ -835,6 +820,21 @@ XPCOMUtils.defineLazyGetter(lazy, "gBrowserBundle", function () {
   return Services.strings.createBundle(
     "chrome://browser/locale/browser.properties"
   );
+});
+
+XPCOMUtils.defineLazyGetter(lazy, "log", () => {
+  let { ConsoleAPI } = ChromeUtils.importESModule(
+    "resource://gre/modules/Console.sys.mjs"
+  );
+  let consoleOptions = {
+    // tip: set maxLogLevel to "debug" and use lazy.log.debug() to create
+    // detailed messages during development. See LOG_LEVELS in Console.sys.mjs
+    // for details.
+    maxLogLevel: "error",
+    maxLogLevelPref: "browser.policies.loglevel",
+    prefix: "BrowserGlue.sys.mjs",
+  };
+  return new ConsoleAPI(consoleOptions);
 });
 
 const listeners = {
@@ -912,6 +912,77 @@ export function BrowserGlue() {
   );
 
   this._init();
+}
+
+function WindowsRegPoliciesGetter(wrk, root, regLocation) {
+  wrk.open(root, regLocation, wrk.ACCESS_READ);
+  let policies;
+  if (wrk.hasChild("Mozilla\\" + Services.appinfo.name)) {
+    policies = lazy.WindowsGPOParser.readPolicies(wrk, policies);
+  }
+  wrk.close();
+  return policies;
+}
+
+function isPrivateBrowsingAllowedInRegistry() {
+  // If there is an attempt to open Private Browsing before
+  // EnterprisePolicies are initialized the Windows registry
+  // can be checked to determine if it is enabled
+  if (Services.policies.status > Ci.nsIEnterprisePolicies.UNINITIALIZED) {
+    // Yield to policies engine if initialized
+    let privateAllowed = Services.policies.isAllowed("privatebrowsing");
+    lazy.log.debug(
+      `Yield to initialized policies engine: Private Browsing Allowed = ${privateAllowed}`
+    );
+    return privateAllowed;
+  }
+  if (AppConstants.platform !== "win") {
+    // Not using Windows so no registry, return true
+    lazy.log.debug(
+      "AppConstants.platform is not 'win': Private Browsing allowed"
+    );
+    return true;
+  }
+  // If all other checks fail only then do we check registry
+  let wrk = Cc["@mozilla.org/windows-registry-key;1"].createInstance(
+    Ci.nsIWindowsRegKey
+  );
+  let regLocation = "SOFTWARE\\Policies";
+  let userPolicies, machinePolicies;
+  // Only check HKEY_LOCAL_MACHINE if not in testing
+  if (!Cu.isInAutomation) {
+    machinePolicies = WindowsRegPoliciesGetter(
+      wrk,
+      wrk.ROOT_KEY_LOCAL_MACHINE,
+      regLocation
+    );
+  }
+  // Check machine policies before checking user policies
+  // HKEY_LOCAL_MACHINE supersedes HKEY_CURRENT_USER so only check
+  // HKEY_CURRENT_USER if the registry key is not present in
+  // HKEY_LOCAL_MACHINE at all
+  if (machinePolicies && "DisablePrivateBrowsing" in machinePolicies) {
+    lazy.log.debug(
+      `DisablePrivateBrowsing in HKEY_LOCAL_MACHINE is ${machinePolicies.DisablePrivateBrowsing}`
+    );
+    return !(machinePolicies.DisablePrivateBrowsing === 1);
+  }
+  userPolicies = WindowsRegPoliciesGetter(
+    wrk,
+    wrk.ROOT_KEY_CURRENT_USER,
+    regLocation
+  );
+  if (userPolicies && "DisablePrivateBrowsing" in userPolicies) {
+    lazy.log.debug(
+      `DisablePrivateBrowsing in HKEY_CURRENT_USER is ${userPolicies.DisablePrivateBrowsing}`
+    );
+    return !(userPolicies.DisablePrivateBrowsing === 1);
+  }
+  // Private browsing allowed if no registry entry exists
+  lazy.log.debug(
+    "No DisablePrivateBrowsing registry entry: Private Browsing allowed"
+  );
+  return true;
 }
 
 BrowserGlue.prototype = {
@@ -1495,7 +1566,9 @@ BrowserGlue.prototype = {
     // will show up under the regular Firefox taskbar icon first, and then switch
     // to the Private Browsing icon shortly thereafter.
     if (cmdLine.findFlag("private-window", false) != -1) {
-      browserWindowFeatures += ",private";
+      if (isPrivateBrowsingAllowedInRegistry()) {
+        browserWindowFeatures += ",private";
+      }
     }
     let win = Services.ww.openWindow(
       null,

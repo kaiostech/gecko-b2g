@@ -75,24 +75,25 @@ enum Stat {
 
 struct ZoneGCStats {
   /* Number of zones collected in this GC. */
-  int collectedZoneCount = 0;
+  size_t collectedZoneCount = 0;
 
   /* Total number of zones in the Runtime at the start of this GC. */
-  int zoneCount = 0;
+  size_t zoneCount = 0;
 
   /* Number of zones swept in this GC. */
-  int sweptZoneCount = 0;
+  size_t sweptZoneCount = 0;
 
   /* Total number of compartments in all zones collected. */
-  int collectedCompartmentCount = 0;
+  size_t collectedCompartmentCount = 0;
 
   /* Total number of compartments in the Runtime at the start of this GC. */
-  int compartmentCount = 0;
+  size_t compartmentCount = 0;
 
   /* Total number of compartments swept by this GC. */
-  int sweptCompartmentCount = 0;
+  size_t sweptCompartmentCount = 0;
 
-  int realmCount = 0;
+  /* Total number of realms in the Runtime at the start of this GC. */
+  size_t realmCount = 0;
 
   ZoneGCStats() = default;
 };
@@ -276,7 +277,7 @@ struct Statistics {
     bool wasReset() const { return resetReason != GCAbortReason::None; }
   };
 
-  typedef Vector<SliceData, 8, SystemAllocPolicy> SliceDataVector;
+  using SliceDataVector = Vector<SliceData, 8, SystemAllocPolicy>;
 
   const SliceDataVector& slices() const { return slices_; }
 
@@ -343,7 +344,7 @@ struct Statistics {
 
   ZoneGCStats zoneStats;
 
-  JS::GCOptions gcOptions;
+  JS::GCOptions gcOptions = JS::GCOptions::Normal;
 
   GCAbortReason nonincrementalReason_;
 
@@ -443,8 +444,8 @@ struct Statistics {
   using ProfileDurations =
       EnumeratedArray<ProfileKey, ProfileKey::KeyCount, TimeDuration>;
 
-  bool enableProfiling_;
-  bool profileWorkers_;
+  bool enableProfiling_ = false;
+  bool profileWorkers_ = false;
   TimeDuration profileThreshold_;
   ProfileDurations totalTimes_;
   uint64_t sliceCount_;
@@ -489,7 +490,7 @@ struct Statistics {
   void formatJsonPhaseTimes(const PhaseTimes& phaseTimes, JSONPrinter&) const;
   void formatJsonSlice(size_t sliceNum, JSONPrinter&) const;
 
-  double computeMMU(TimeDuration resolution) const;
+  double computeMMU(TimeDuration window) const;
 
   void printSliceProfile();
   ProfileDurations getProfileTimes(const SliceData& slice) const;

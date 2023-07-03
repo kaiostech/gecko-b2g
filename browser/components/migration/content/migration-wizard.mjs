@@ -36,7 +36,7 @@ export class MigrationWizard extends HTMLElement {
         <link rel="stylesheet" href="chrome://browser/skin/migration/migration-wizard.css">
         <named-deck id="wizard-deck" selected-view="page-loading" aria-busy="true" part="deck">
           <div name="page-loading">
-            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
+            <h1 data-l10n-id="migration-wizard-selection-header" part="header"></h1>
             <div class="loading-block large"></div>
             <div class="loading-block small"></div>
             <div class="loading-block small"></div>
@@ -49,7 +49,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-selection">
-            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
+            <h1 data-l10n-id="migration-wizard-selection-header" part="header"></h1>
             <button id="browser-profile-selector" aria-haspopup="menu" aria-labelledby="migrator-name profile-name">
               <span class="migrator-icon" role="img"></span>
               <div class="migrator-description" role="presentation">
@@ -107,7 +107,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-progress">
-            <h1 id="progress-header" data-l10n-id="migration-wizard-progress-header"></h1>
+            <h1 id="progress-header" data-l10n-id="migration-wizard-progress-header" part="header"></h1>
             <div class="resource-progress">
               <div data-resource-type="BOOKMARKS" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
@@ -181,7 +181,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-file-import-progress">
-            <h1 id="file-import-progress-header"></h1>
+            <h1 id="file-import-progress-header"part="header"></h1>
             <div class="resource-progress">
               <div data-resource-type="PASSWORDS_FROM_FILE" class="resource-progress-group">
                 <span class="progress-icon-parent"><span class="progress-icon" role="img"></span></span>
@@ -215,7 +215,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-safari-password-permission">
-            <h1 data-l10n-id="migration-safari-password-import-header"></h1>
+            <h1 data-l10n-id="migration-safari-password-import-header" part="header"></h1>
             <span data-l10n-id="migration-safari-password-import-steps-header"></span>
             <ol>
               <li data-l10n-id="migration-safari-password-import-step1"></li>
@@ -233,7 +233,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-safari-permission">
-            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
+            <h1 data-l10n-id="migration-wizard-selection-header" part="header"></h1>
             <div data-l10n-id="migration-wizard-safari-permissions-sub-header"></div>
             <ol>
               <li data-l10n-id="migration-wizard-safari-instructions-continue"></li>
@@ -246,7 +246,7 @@ export class MigrationWizard extends HTMLElement {
           </div>
 
           <div name="page-no-browsers-found">
-            <h1 data-l10n-id="migration-wizard-selection-header"></h1>
+            <h1 data-l10n-id="migration-wizard-selection-header" part="header"></h1>
             <div class="no-browsers-found error-message">
               <span class="error-icon" role="img"></span>
               <div class="no-browsers-found-message" data-l10n-id="migration-wizard-import-browser-no-browsers"></div>
@@ -704,7 +704,6 @@ export class MigrationWizard extends HTMLElement {
           );
         }
       }
-      progressIcon.classList.remove("completed", "error");
       successText.textContent = "";
       if (extensionsSuccessLink) {
         extensionsSuccessLink.textContent = "";
@@ -721,7 +720,7 @@ export class MigrationWizard extends HTMLElement {
             progressIcon,
             "migration-wizard-progress-icon-in-progress"
           );
-          progressIcon.classList.remove("completed");
+          progressIcon.setAttribute("state", "loading");
           successText.textContent = "";
           if (extensionsSuccessLink) {
             extensionsSuccessLink.textContent = "";
@@ -739,7 +738,7 @@ export class MigrationWizard extends HTMLElement {
             progressIcon,
             "migration-wizard-progress-icon-completed"
           );
-          progressIcon.classList.add("completed");
+          progressIcon.setAttribute("state", "success");
           successText.textContent = state.progress[resourceType].message;
           if (
             resourceType ==
@@ -753,13 +752,12 @@ export class MigrationWizard extends HTMLElement {
           remainingProgressGroups--;
           break;
         }
-        case MigrationWizardConstants.PROGRESS_VALUE.ERROR: {
+        case MigrationWizardConstants.PROGRESS_VALUE.WARNING: {
           document.l10n.setAttributes(
             progressIcon,
             "migration-wizard-progress-icon-completed"
           );
-          progressIcon.classList.add("completed");
-          progressIcon.classList.add("error-icon");
+          progressIcon.setAttribute("state", "warning");
           successText.textContent = state.progress[resourceType].message;
           supportLink.textContent = state.progress[resourceType].linkText;
           supportLink.href = state.progress[resourceType].linkURL;
@@ -771,7 +769,7 @@ export class MigrationWizard extends HTMLElement {
             progressIcon,
             "migration-wizard-progress-icon-completed"
           );
-          progressIcon.classList.add("completed");
+          progressIcon.setAttribute("state", "info");
           successText.textContent = state.progress[resourceType].message;
           supportLink.textContent = state.progress[resourceType].linkText;
           supportLink.href = state.progress[resourceType].linkURL;
@@ -863,7 +861,7 @@ export class MigrationWizard extends HTMLElement {
             progressIcon,
             "migration-wizard-progress-icon-in-progress"
           );
-          progressIcon.classList.remove("completed");
+          progressIcon.setAttribute("state", "loading");
           successText.textContent = "";
           // With no status text, we re-insert the &nbsp; so that the status
           // text area does not fully collapse.
@@ -875,21 +873,26 @@ export class MigrationWizard extends HTMLElement {
             progressIcon,
             "migration-wizard-progress-icon-completed"
           );
-          progressIcon.classList.add("completed");
+          progressIcon.setAttribute("state", "success");
           successText.textContent = state.progress[resourceType].message;
           remainingProgressGroups--;
           break;
         }
-        case MigrationWizardConstants.PROGRESS_VALUE.ERROR: {
+        case MigrationWizardConstants.PROGRESS_VALUE.WARNING: {
           document.l10n.setAttributes(
             progressIcon,
             "migration-wizard-progress-icon-completed"
           );
-          progressIcon.classList.add("completed");
-          progressIcon.classList.add("error-icon");
+          progressIcon.setAttribute("state", "warning");
           successText.textContent = state.progress[resourceType].message;
           remainingProgressGroups--;
           break;
+        }
+        default: {
+          console.error(
+            "Unrecognized state for file migration: ",
+            progressValue
+          );
         }
       }
     }
@@ -938,10 +941,10 @@ export class MigrationWizard extends HTMLElement {
     // progress elements as custom parts that the MigrationWizard story
     // can style on its own.
     this.#shadowRoot.querySelectorAll(".progress-icon").forEach(progressEl => {
-      if (progressEl.classList.contains("completed")) {
-        progressEl.removeAttribute("part");
-      } else {
+      if (progressEl.getAttribute("state") == "loading") {
         progressEl.setAttribute("part", "progress-spinner");
+      } else {
+        progressEl.removeAttribute("part");
       }
     });
   }

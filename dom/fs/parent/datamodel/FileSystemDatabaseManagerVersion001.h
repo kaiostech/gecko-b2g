@@ -55,63 +55,71 @@ class FileSystemDatabaseManagerVersion001 : public FileSystemDatabaseManager {
   static Result<Usage, QMResult> GetFileUsage(
       const FileSystemConnection& aConnection);
 
-  virtual nsresult UpdateUsage(const FileId& aFileId) override;
+  nsresult UpdateUsage(const FileId& aFileId) override;
 
-  virtual Result<EntryId, QMResult> GetOrCreateDirectory(
+  Result<EntryId, QMResult> GetOrCreateDirectory(
       const FileSystemChildMetadata& aHandle, bool aCreate) override;
 
-  virtual Result<EntryId, QMResult> GetOrCreateFile(
+  Result<EntryId, QMResult> GetOrCreateFile(
       const FileSystemChildMetadata& aHandle, bool aCreate) override;
 
-  virtual nsresult GetFile(const EntryId& aEntryId, ContentType& aType,
-                           TimeStamp& lastModifiedMilliSeconds, Path& aPath,
-                           nsCOMPtr<nsIFile>& aFile) const override;
+  nsresult GetFile(const EntryId& aEntryId, const FileId& aFileId,
+                   const FileMode& aMode, ContentType& aType,
+                   TimeStamp& lastModifiedMilliSeconds, Path& aPath,
+                   nsCOMPtr<nsIFile>& aFile) const override;
 
-  virtual Result<FileSystemDirectoryListing, QMResult> GetDirectoryEntries(
+  Result<FileSystemDirectoryListing, QMResult> GetDirectoryEntries(
       const EntryId& aParent, PageNumber aPage) const override;
 
-  virtual Result<EntryId, QMResult> RenameEntry(
-      const FileSystemEntryMetadata& aHandle, const Name& aNewName) override;
+  Result<bool, QMResult> RemoveDirectory(const FileSystemChildMetadata& aHandle,
+                                         bool aRecursive) override;
 
-  virtual Result<EntryId, QMResult> MoveEntry(
+  Result<bool, QMResult> RemoveFile(
+      const FileSystemChildMetadata& aHandle) override;
+
+  Result<EntryId, QMResult> RenameEntry(const FileSystemEntryMetadata& aHandle,
+                                        const Name& aNewName) override;
+
+  Result<EntryId, QMResult> MoveEntry(
       const FileSystemEntryMetadata& aHandle,
       const FileSystemChildMetadata& aNewDesignation) override;
 
-  virtual Result<bool, QMResult> RemoveDirectory(
-      const FileSystemChildMetadata& aHandle, bool aRecursive) override;
-
-  virtual Result<bool, QMResult> RemoveFile(
-      const FileSystemChildMetadata& aHandle) override;
-
-  virtual Result<Path, QMResult> Resolve(
+  Result<Path, QMResult> Resolve(
       const FileSystemEntryPair& aEndpoints) const override;
 
-  virtual Result<EntryId, QMResult> GetEntryId(
+  Result<EntryId, QMResult> GetEntryId(
       const FileSystemChildMetadata& aHandle) const override;
 
-  virtual nsresult EnsureFileId(const EntryId& aEntryId) override;
+  Result<EntryId, QMResult> GetEntryId(const FileId& aFileId) const override;
 
-  virtual Result<FileId, QMResult> GetFileId(
-      const EntryId& aEntryId) const override;
+  Result<FileId, QMResult> EnsureFileId(const EntryId& aEntryId) override;
 
-  virtual void Close() override;
+  Result<FileId, QMResult> EnsureTemporaryFileId(
+      const EntryId& aEntryId) override;
 
-  virtual nsresult BeginUsageTracking(const FileId& aFileId) override;
+  Result<FileId, QMResult> GetFileId(const EntryId& aEntryId) const override;
 
-  virtual nsresult EndUsageTracking(const FileId& aFileId) override;
+  nsresult MergeFileId(const EntryId& aEntryId, const FileId& aFileId,
+                       bool aAbort) override;
+
+  void Close() override;
+
+  nsresult BeginUsageTracking(const FileId& aFileId) override;
+
+  nsresult EndUsageTracking(const FileId& aFileId) override;
 
   virtual ~FileSystemDatabaseManagerVersion001() = default;
 
  protected:
   virtual Result<bool, QMResult> DoesFileIdExist(const FileId& aFileId) const;
 
+  virtual nsresult RemoveFileId(const FileId& aFileId);
+
   virtual Result<Usage, QMResult> GetUsagesOfDescendants(
       const EntryId& aEntryId) const;
 
-  virtual Result<nsTArray<FileId>, QMResult> FindDescendants(
+  virtual Result<nsTArray<FileId>, QMResult> FindFilesUnderEntry(
       const EntryId& aEntryId) const;
-
-  virtual nsresult RemoveFileId(const FileId& aFileId);
 
   nsresult SetUsageTracking(const FileId& aFileId, bool aTracked);
 
@@ -130,16 +138,16 @@ class FileSystemDatabaseManagerVersion001 : public FileSystemDatabaseManager {
       const FileSystemEntryMetadata& aHandle,
       const FileSystemChildMetadata& aNewDesignation);
 
+  nsresult PrepareRenameEntry(const FileSystemConnection& aConnection,
+                              const FileSystemDataManager* const aDataManager,
+                              const FileSystemEntryMetadata& aHandle,
+                              const Name& aNewName, bool aIsFile);
+
   nsresult PrepareMoveEntry(const FileSystemConnection& aConnection,
                             const FileSystemDataManager* const aDataManager,
                             const FileSystemEntryMetadata& aHandle,
                             const FileSystemChildMetadata& aNewDesignation,
                             bool aIsFile);
-
-  nsresult PrepareRenameEntry(const FileSystemConnection& aConnection,
-                              const FileSystemDataManager* const aDataManager,
-                              const FileSystemEntryMetadata& aHandle,
-                              const Name& aNewName, bool aIsFile);
 
   // This is a raw pointer since we're owned by the FileSystemDataManager.
   FileSystemDataManager* MOZ_NON_OWNING_REF mDataManager;
@@ -182,6 +190,13 @@ Result<bool, QMResult> IsSame(const FileSystemConnection& aConnection,
                               const FileSystemEntryMetadata& aHandle,
                               const FileSystemChildMetadata& aNewHandle,
                               bool aIsFile);
+
+Result<Path, QMResult> ResolveReversedPath(
+    const FileSystemConnection& aConnection,
+    const FileSystemEntryPair& aEndpoints);
+
+nsresult GetFileAttributes(const FileSystemConnection& aConnection,
+                           const EntryId& aEntryId, ContentType& aType);
 
 void TryRemoveDuringIdleMaintenance(const nsTArray<FileId>& aItemToRemove);
 

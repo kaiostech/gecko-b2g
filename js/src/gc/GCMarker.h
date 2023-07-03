@@ -150,8 +150,8 @@ class MarkStack {
   explicit MarkStack(const MarkStack& other);
   MarkStack& operator=(const MarkStack& other);
 
-  MarkStack(MarkStack&& other);
-  MarkStack& operator=(MarkStack&& other);
+  MarkStack(MarkStack&& other) noexcept;
+  MarkStack& operator=(MarkStack&& other) noexcept;
 
   // The unit for MarkStack::capacity() is mark stack words.
   size_t capacity() { return stack().length(); }
@@ -177,7 +177,7 @@ class MarkStack {
 
   // GCMarker::eagerlyMarkChildren uses unused marking stack as temporary
   // storage to hold rope pointers.
-  [[nodiscard]] bool pushTempRope(JSRope* ptr);
+  [[nodiscard]] bool pushTempRope(JSRope* rope);
 
   bool isEmpty() const { return position() == 0; }
   bool hasEntries() const { return !isEmpty(); }
@@ -477,7 +477,7 @@ class alignas(TypicalCacheLineSize) GCMarker {
   inline void repush(JSObject* obj);
 
   template <typename T>
-  void markImplicitEdgesHelper(T oldThing);
+  void markImplicitEdgesHelper(T markedThing);
 
   // Mark through edges whose target color depends on the colors of two source
   // entities (eg a WeakMap and one of its keys), and push the target onto the

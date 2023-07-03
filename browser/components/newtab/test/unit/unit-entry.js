@@ -620,6 +620,9 @@ const TEST_GLOBAL = {
       blockedSponsors: {
         set() {},
       },
+      sovAllocation: {
+        set() {},
+      },
     },
     newtabSearch: {
       enabled: {
@@ -666,9 +669,35 @@ const TEST_GLOBAL = {
         set() {},
       },
     },
+    topSites: {
+      pingType: {
+        set() {},
+      },
+      position: {
+        set() {},
+      },
+      source: {
+        set() {},
+      },
+      tileId: {
+        set() {},
+      },
+      reportingUrl: {
+        set() {},
+      },
+      advertiser: {
+        set() {},
+      },
+      contextId: {
+        set() {},
+      },
+    },
   },
   GleanPings: {
     newtab: {
+      submit() {},
+    },
+    topSites: {
       submit() {},
     },
   },

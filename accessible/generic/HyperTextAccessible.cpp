@@ -7,7 +7,6 @@
 #include "HyperTextAccessible-inl.h"
 
 #include "nsAccessibilityService.h"
-#include "nsAccessiblePivot.h"
 #include "nsIAccessibleTypes.h"
 #include "AccAttributes.h"
 #include "DocAccessible.h"
@@ -1019,7 +1018,7 @@ void HyperTextAccessible::PasteText(int32_t aPosition) {
 ENameValueFlag HyperTextAccessible::NativeName(nsString& aName) const {
   // Check @alt attribute for invalid img elements.
   if (mContent->IsHTMLElement(nsGkAtoms::img)) {
-    mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::alt, aName);
+    mContent->AsElement()->GetAttr(nsGkAtoms::alt, aName);
     if (!aName.IsEmpty()) return eNameOK;
   }
 

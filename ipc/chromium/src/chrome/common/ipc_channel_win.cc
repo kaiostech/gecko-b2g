@@ -42,41 +42,22 @@ Channel::ChannelImpl::State::~State() {
 
 //------------------------------------------------------------------------------
 
-Channel::ChannelImpl::ChannelImpl(const ChannelId& channel_id, Mode mode,
-                                  Listener* listener)
+Channel::ChannelImpl::ChannelImpl(ChannelHandle pipe, Mode mode)
     : chan_cap_("ChannelImpl::SendMutex",
                 MessageLoopForIO::current()->SerialEventTarget()),
       ALLOW_THIS_IN_INITIALIZER_LIST(input_state_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(output_state_(this)) {
-  Init(mode, listener);
-
-  if (!CreatePipe(channel_id, mode)) {
-    // The pipe may have been closed already.
-    CHROMIUM_LOG(WARNING) << "Unable to create pipe named \"" << channel_id
-                          << "\" in " << (mode == 0 ? "server" : "client")
-                          << " mode.";
-  }
-}
-
-Channel::ChannelImpl::ChannelImpl(ChannelHandle pipe, Mode mode,
-                                  Listener* listener)
-    : chan_cap_("ChannelImpl::SendMutex",
-                MessageLoopForIO::current()->SerialEventTarget()),
-      ALLOW_THIS_IN_INITIALIZER_LIST(input_state_(this)),
-      ALLOW_THIS_IN_INITIALIZER_LIST(output_state_(this)) {
-  Init(mode, listener);
+  Init(mode);
 
   if (!pipe) {
     return;
   }
 
-  shared_secret_ = 0;
-  waiting_for_shared_secret_ = false;
   pipe_ = pipe.release();
   EnqueueHelloMessage();
 }
 
-void Channel::ChannelImpl::Init(Mode mode, Listener* listener) {
+void Channel::ChannelImpl::Init(Mode mode) {
   // Verify that we fit in a "quantum-spaced" jemalloc bucket.
   static_assert(sizeof(*this) <= 512, "Exceeded expected size class");
 
@@ -84,7 +65,6 @@ void Channel::ChannelImpl::Init(Mode mode, Listener* listener) {
 
   mode_ = mode;
   pipe_ = INVALID_HANDLE_VALUE;
-  listener_ = listener;
   waiting_connect_ = true;
   processing_incoming_ = false;
   input_buf_offset_ = 0;
@@ -114,11 +94,6 @@ void Channel::ChannelImpl::Close() {
 
 void Channel::ChannelImpl::CloseLocked() {
   chan_cap_.NoteExclusiveAccess();
-
-  if (connect_timeout_) {
-    connect_timeout_->Cancel();
-    connect_timeout_ = nullptr;
-  }
 
   // If we still have pending I/O, cancel it. The references inside
   // `input_state_` and `output_state_` will keep the buffers alive until they
@@ -188,72 +163,13 @@ bool Channel::ChannelImpl::Send(mozilla::UniquePtr<Message> message) {
   return true;
 }
 
-const Channel::ChannelId Channel::ChannelImpl::PipeName(
-    const ChannelId& channel_id, int32_t* secret) const {
-  MOZ_ASSERT(secret);
-
-  std::wostringstream ss;
-  ss << L"\\\\.\\pipe\\chrome.";
-
-  // Prevent the shared secret from ending up in the pipe name.
-  size_t index = channel_id.find_first_of(L'\\');
-  if (index != std::string::npos) {
-    StringToInt(channel_id.substr(index + 1), secret);
-    ss << channel_id.substr(0, index - 1);
-  } else {
-    // This case is here to support predictable named pipes in tests.
-    *secret = 0;
-    ss << channel_id;
-  }
-  return ss.str();
-}
-
-bool Channel::ChannelImpl::CreatePipe(const ChannelId& channel_id, Mode mode) {
-  chan_cap_.NoteExclusiveAccess();
-
-  DCHECK(pipe_ == INVALID_HANDLE_VALUE);
-  const ChannelId pipe_name = PipeName(channel_id, &shared_secret_);
-  if (mode == MODE_SERVER) {
-    waiting_for_shared_secret_ = !!shared_secret_;
-    pipe_ = CreateNamedPipeW(pipe_name.c_str(),
-                             PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED |
-                                 FILE_FLAG_FIRST_PIPE_INSTANCE,
-                             PIPE_TYPE_BYTE | PIPE_READMODE_BYTE,
-                             1,  // number of pipe instances
-                             // output buffer size (XXX tune)
-                             Channel::kReadBufferSize,
-                             // input buffer size (XXX tune)
-                             Channel::kReadBufferSize,
-                             5000,  // timeout in milliseconds (XXX tune)
-                             NULL);
-  } else {
-    pipe_ = CreateFileW(
-        pipe_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
-        SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION | FILE_FLAG_OVERLAPPED,
-        NULL);
-  }
-  if (pipe_ == INVALID_HANDLE_VALUE) {
-    // If this process is being closed, the pipe may be gone already.
-    CHROMIUM_LOG(WARNING) << "failed to create pipe: " << GetLastError();
-    return false;
-  }
-
-  // Create the Hello message to be sent when Connect is called
-  return EnqueueHelloMessage();
-}
-
 bool Channel::ChannelImpl::EnqueueHelloMessage() {
   chan_cap_.NoteExclusiveAccess();
 
   auto m = mozilla::MakeUnique<Message>(MSG_ROUTING_NONE, HELLO_MESSAGE_TYPE);
 
-  // If we're waiting for our shared secret from the other end's hello message
-  // then don't give the game away by sending it in ours.
-  int32_t secret = waiting_for_shared_secret_ ? 0 : shared_secret_;
-
   // Also, don't send if the value is zero (for IPC backwards compatability).
-  if (!m->WriteInt(GetCurrentProcessId()) ||
-      (secret && !m->WriteUInt32(secret))) {
+  if (!m->WriteInt(GetCurrentProcessId())) {
     CloseHandle(pipe_);
     pipe_ = INVALID_HANDLE_VALUE;
     return false;
@@ -263,96 +179,31 @@ bool Channel::ChannelImpl::EnqueueHelloMessage() {
   return true;
 }
 
-bool Channel::ChannelImpl::Connect() {
+bool Channel::ChannelImpl::Connect(Listener* listener) {
   IOThread().AssertOnCurrentThread();
   mozilla::MutexAutoLock lock(SendMutex());
   chan_cap_.NoteExclusiveAccess();
 
   if (pipe_ == INVALID_HANDLE_VALUE) return false;
 
+  listener_ = listener;
+
   MessageLoopForIO::current()->RegisterIOHandler(pipe_, this);
-
-  // Check to see if there is a client connected to our pipe...
-  if (mode_ == MODE_SERVER) {
-    DCHECK(!input_state_.is_pending);
-    if (!ProcessConnection()) {
-      return false;
-    }
-  } else {
-    waiting_connect_ = false;
-  }
-
-  if (!input_state_.is_pending) {
-    // Complete setup asynchronously. By not setting input_state_.is_pending
-    // to `this`, we indicate to OnIOCompleted that this is the special
-    // initialization signal, while keeping a reference through the
-    // `RunnableMethod`.
-    IOThread().Dispatch(
-        mozilla::NewRunnableMethod<MessageLoopForIO::IOContext*, DWORD, DWORD>(
-            "ContinueConnect", this, &ChannelImpl::OnIOCompleted,
-            &input_state_.context, 0, 0));
-  }
-
-  if (!waiting_connect_) {
-    DCHECK(!output_state_.is_pending);
-    ProcessOutgoingMessages(NULL, 0, false);
-  }
-  return true;
-}
-
-bool Channel::ChannelImpl::ProcessConnection() {
-  chan_cap_.NoteExclusiveAccess();
+  waiting_connect_ = false;
 
   DCHECK(!input_state_.is_pending);
 
-  // Do we have a client connected to our pipe?
-  if (INVALID_HANDLE_VALUE == pipe_) return false;
+  // Complete setup asynchronously. By not setting input_state_.is_pending
+  // to `this`, we indicate to OnIOCompleted that this is the special
+  // initialization signal, while keeping a reference through the
+  // `RunnableMethod`.
+  IOThread().Dispatch(
+      mozilla::NewRunnableMethod<MessageLoopForIO::IOContext*, DWORD, DWORD>(
+          "ContinueConnect", this, &ChannelImpl::OnIOCompleted,
+          &input_state_.context, 0, 0));
 
-  BOOL ok = ConnectNamedPipe(pipe_, &input_state_.context.overlapped);
-
-  DWORD err = GetLastError();
-  if (ok) {
-    // Uhm, the API documentation says that this function should never
-    // return success when used in overlapped mode.
-    NOTREACHED();
-    return false;
-  }
-
-  switch (err) {
-    case ERROR_IO_PENDING: {
-      static bool kExtendedTimeout =
-#ifdef DEBUG
-          true;
-#else
-          !!PR_GetEnv("MOZ_RUN_GTEST");
-#endif
-      input_state_.is_pending = this;
-      NS_NewTimerWithCallback(
-          getter_AddRefs(connect_timeout_),
-          [self = RefPtr{this}](nsITimer* timer) {
-            CHROMIUM_LOG(ERROR) << "ConnectNamedPipe timed out!";
-            self->IOThread().AssertOnCurrentThread();
-            self->Close();
-            self->listener_->OnChannelError();
-          },
-          kExtendedTimeout ? 60000 : 10000, nsITimer::TYPE_ONE_SHOT,
-          "ChannelImpl::ProcessConnection", IOThread().GetEventTarget());
-    } break;
-    case ERROR_PIPE_CONNECTED:
-      waiting_connect_ = false;
-      if (connect_timeout_) {
-        connect_timeout_->Cancel();
-        connect_timeout_ = nullptr;
-      }
-      break;
-    case ERROR_NO_DATA:
-      // The pipe is being closed.
-      return false;
-    default:
-      NOTREACHED();
-      return false;
-  }
-
+  DCHECK(!output_state_.is_pending);
+  ProcessOutgoingMessages(NULL, 0, false);
   return true;
 }
 
@@ -497,13 +348,6 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
         MessageIterator it = MessageIterator(m);
         int32_t other_pid = it.NextInt();
         SetOtherPid(other_pid);
-        if (waiting_for_shared_secret_ && (it.NextInt() != shared_secret_)) {
-          NOTREACHED();
-          // Something went wrong. Abort connection.
-          // NOTE: Caller will `Close()` and notify `OnChannelError`.
-          return false;
-        }
-        waiting_for_shared_secret_ = false;
 
         listener_->OnChannelConnected(other_pid);
       } else {
@@ -622,26 +466,10 @@ void Channel::ChannelImpl::OnIOCompleted(MessageLoopForIO::IOContext* context,
   bool ok;
   if (context == &input_state_.context) {
     was_pending = input_state_.is_pending.forget();
-    bool was_waiting_connect = waiting_connect_;
-    if (was_waiting_connect) {
-      mozilla::MutexAutoLock lock(SendMutex());
-      if (!ProcessConnection()) {
-        return;
-      }
-      // We may have some messages queued up to send...
-      if (!output_queue_.IsEmpty() && !output_state_.is_pending) {
-        ProcessOutgoingMessages(NULL, 0, false);
-      }
-      if (input_state_.is_pending) {
-        return;
-      }
-      // else, fall-through and look for incoming messages...
-    }
     // we don't support recursion through OnMessageReceived yet!
     DCHECK(!processing_incoming_);
     processing_incoming_ = true;
-    ok = ProcessIncomingMessages(context, bytes_transfered,
-                                 was_pending && !was_waiting_connect);
+    ok = ProcessIncomingMessages(context, bytes_transfered, was_pending);
     processing_incoming_ = false;
   } else {
     mozilla::MutexAutoLock lock(SendMutex());
@@ -811,28 +639,21 @@ bool Channel::ChannelImpl::TransferHandles(Message& msg) {
 
 //------------------------------------------------------------------------------
 // Channel's methods simply call through to ChannelImpl.
-Channel::Channel(const ChannelId& channel_id, Mode mode, Listener* listener)
-    : channel_impl_(new ChannelImpl(channel_id, mode, listener)) {
-  MOZ_COUNT_CTOR(IPC::Channel);
-}
-
-Channel::Channel(ChannelHandle pipe, Mode mode, Listener* listener)
-    : channel_impl_(new ChannelImpl(std::move(pipe), mode, listener)) {
+Channel::Channel(ChannelHandle pipe, Mode mode)
+    : channel_impl_(new ChannelImpl(std::move(pipe), mode)) {
   MOZ_COUNT_CTOR(IPC::Channel);
 }
 
 Channel::~Channel() { MOZ_COUNT_DTOR(IPC::Channel); }
 
-bool Channel::Connect() { return channel_impl_->Connect(); }
+bool Channel::Connect(Listener* listener) {
+  return channel_impl_->Connect(listener);
+}
 
 void Channel::Close() { channel_impl_->Close(); }
 
 void Channel::StartAcceptingHandles(Mode mode) {
   channel_impl_->StartAcceptingHandles(mode);
-}
-
-Channel::Listener* Channel::set_listener(Listener* listener) {
-  return channel_impl_->set_listener(listener);
 }
 
 bool Channel::Send(mozilla::UniquePtr<Message> message) {
@@ -843,32 +664,14 @@ int32_t Channel::OtherPid() const { return channel_impl_->OtherPid(); }
 
 bool Channel::IsClosed() const { return channel_impl_->IsClosed(); }
 
-namespace {
-
-// Global atomic used to guarantee channel IDs are unique.
-mozilla::Atomic<int> g_last_id;
-
-}  // namespace
-
-// static
-Channel::ChannelId Channel::GenerateVerifiedChannelID() {
-  // Windows pipes can be enumerated by low-privileged processes. So, we
-  // append a strong random value after the \ character. This value is not
-  // included in the pipe name, but sent as part of the client hello, to
-  // prevent hijacking the pipe name to spoof the client.
-  int secret;
-  do {  // Guarantee we get a non-zero value.
-    secret = base::RandInt(0, std::numeric_limits<int>::max());
-  } while (secret == 0);
-  return StringPrintf(L"%d.%u.%d\\%d", base::GetCurrentProcId(), g_last_id++,
-                      base::RandInt(0, std::numeric_limits<int32_t>::max()),
-                      secret);
-}
-
-// static
-Channel::ChannelId Channel::ChannelIDForCurrentProcess() {
-  return CommandLine::ForCurrentProcess()->GetSwitchValue(
+HANDLE Channel::GetClientChannelHandle() {
+  // Read the switch from the command line which passed the initial handle for
+  // this process, and convert it back into a HANDLE.
+  std::wstring switchValue = CommandLine::ForCurrentProcess()->GetSwitchValue(
       switches::kProcessChannelID);
+
+  uint32_t handleInt = std::stoul(switchValue);
+  return Uint32ToHandle(handleInt);
 }
 
 // static

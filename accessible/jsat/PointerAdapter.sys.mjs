@@ -95,7 +95,7 @@ export var PointerRelay = {
     // Don't bother with chrome mouse events.
     if (
       lazy.Utils.MozBuildApp === "browser" &&
-      aEvent.view.top instanceof Ci.nsIDOMChromeWindow
+      aEvent.view.top.isChromeWindow
     ) {
       return;
     }

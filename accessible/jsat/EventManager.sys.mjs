@@ -895,10 +895,7 @@ const AccessibilityEventObserver = {
       // Match the content window to its EventManager.
       let eventManager = this.getListener(content);
       if (!eventManager || !eventManager._started) {
-        if (
-          lazy.Utils.MozBuildApp === "browser" &&
-          !(content instanceof Ci.nsIDOMChromeWindow)
-        ) {
+        if (lazy.Utils.MozBuildApp === "browser" && !content.isChromeWindow) {
           lazy.Logger.warning(
             "AccessibilityEventObserver.observe: ignored event:",
             lazy.Logger.eventToString(event),

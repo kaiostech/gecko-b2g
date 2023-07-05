@@ -24,6 +24,7 @@ var gFileMigrators = null;
 var gProfileStartup = null;
 var gL10n = null;
 var gPreviousDefaultBrowserKey = "";
+var gHasOpenedLegacyWizard = false;
 
 let gForceExitSpinResolve = false;
 let gKeepUndoData = false;
@@ -297,6 +298,9 @@ class MigrationUtils {
             console.error(ex);
           }
           previousExceptionMessage = ex.message;
+          if (ex.name == "NS_ERROR_FILE_CORRUPTED") {
+            break;
+          }
         } finally {
           try {
             if (didOpen) {
@@ -689,6 +693,11 @@ class MigrationUtils {
       return Promise.resolve();
     }
     // Legacy migration dialog
+    if (!gHasOpenedLegacyWizard) {
+      gHasOpenedLegacyWizard = true;
+      aOptions.openedTime = Cu.now();
+    }
+
     const DIALOG_URL = "chrome://browser/content/migration/migration.xhtml";
     let features = "chrome,dialog,modal,centerscreen,titlebar,resizable=no";
     if (AppConstants.platform == "macosx" && !this.isStartupMigration) {

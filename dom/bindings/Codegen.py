@@ -13491,14 +13491,18 @@ class CGUnionStruct(CGThing):
 
         bases = [ClassBase("AllOwningUnionBase")] if self.ownsMembers else []
         enums = [
-            ClassEnum("TypeOrUninit", enumValues, visibility="private"),
-            ClassEnum(
-                "Type",
-                enumValuesNoUninit,
-                visibility="public",
-                enumClass=True,
-                values=["TypeOrUninit::" + x for x in enumValuesNoUninit],
-            ),
+            ClassGroup(
+                [
+                    ClassEnum("TypeOrUninit", enumValues, visibility="private"),
+                    ClassEnum(
+                        "Type",
+                        enumValuesNoUninit,
+                        visibility="public",
+                        enumClass=True,
+                        values=["TypeOrUninit::" + x for x in enumValuesNoUninit],
+                    ),
+                ]
+            )
         ]
         return CGClass(
             selfName,
@@ -14012,6 +14016,18 @@ class ClassUnion(ClassItem):
         return ""
 
 
+class ClassGroup(ClassItem):
+    def __init__(self, items):
+        self.items = items
+        ClassItem.__init__(self, "", items[0].visibility)
+
+    def declare(self, cgClass):
+        assert False
+
+    def define(self, cgClass):
+        assert False
+
+
 class CGClass(CGThing):
     def __init__(
         self,
@@ -14060,6 +14076,15 @@ class CGClass(CGThing):
                 [str(a) for a in self.templateSpecialization]
             )
         return className
+
+    @staticmethod
+    def flattenClassItemLists(l):
+        for item in l:
+            if isinstance(item, ClassGroup):
+                for inner in CGClass.flattenClassItemLists(item.items):
+                    yield inner
+            else:
+                yield item
 
     def declare(self):
         result = ""
@@ -14115,11 +14140,11 @@ class CGClass(CGThing):
             for visibility in order:
                 list = members[visibility]
                 if list:
-                    if visibility != lastVisibility:
-                        result += visibility + ":\n"
-                    for member in list:
+                    for member in self.flattenClassItemLists(list):
+                        if member.visibility != lastVisibility:
+                            result += member.visibility + ":\n"
                         result += indent(member.declare(cgClass))
-                    lastVisibility = visibility
+                        lastVisibility = member.visibility
             return (result, lastVisibility)
 
         if self.disallowCopyConstruction:
@@ -14166,7 +14191,7 @@ class CGClass(CGThing):
     def define(self):
         def defineMembers(cgClass, memberList, itemCount, separator=""):
             result = ""
-            for member in memberList:
+            for member in self.flattenClassItemLists(memberList):
                 if itemCount != 0:
                     result = result + separator
                 definition = member.define(cgClass)

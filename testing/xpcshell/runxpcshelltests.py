@@ -1705,7 +1705,7 @@ class XPCShellTests(object):
         self.timeoutAsPass = options.get("timeoutAsPass")
         self.crashAsPass = options.get("crashAsPass")
         self.conditionedProfile = options.get("conditionedProfile")
-        self.repeat = options.get("repeat")
+        self.repeat = options.get("repeat", 0)
 
         self.testCount = 0
         self.passCount = 0
@@ -1877,7 +1877,7 @@ class XPCShellTests(object):
         sequential_tests = []
         status = None
 
-        if options.get("repeat") > 0:
+        if options.get("repeat", 0) > 0:
             self.sequential = True
 
         if not options.get("verify"):
@@ -1892,7 +1892,7 @@ class XPCShellTests(object):
                     continue
 
                 # if we have --repeat, duplicate the tests as needed
-                for i in range(0, options.get("repeat") + 1):
+                for i in range(0, options.get("repeat", 0) + 1):
                     self.testCount += 1
 
                     test = testClass(

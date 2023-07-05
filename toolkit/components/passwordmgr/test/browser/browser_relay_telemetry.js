@@ -86,29 +86,32 @@ const setupRelayScenario = async scenarioName => {
   Services.telemetry.clearEvents();
 };
 
-const waitForEvents = async expectedEvents =>
-  TestUtils.waitForCondition(
-    () => {
-      const snapshots = Services.telemetry.snapshotEvents(
-        Ci.nsITelemetry.DATASET_PRERELEASE_CHANNELS,
-        false
-      );
-
-      return (snapshots.parent?.length ?? 0) >= (expectedEvents.length ?? 0);
-    },
-    "Wait for telemetry to be collected",
-    100,
-    100
-  );
-
-async function assertEvents(expectedEvents) {
-  // To avoid intermittent failures, we wait for telemetry to be collected
-  await waitForEvents(expectedEvents);
-  const events = TelemetryTestUtils.getEvents(
+const collectRelayTelemeryEvent = sameFlow => {
+  const collectedEvents = TelemetryTestUtils.getEvents(
     { category: "relay_integration" },
     { process: "parent" }
   );
 
+  return sameFlow
+    ? collectedEvents.filter((event, _, arr) => event.value === arr[0].value)
+    : collectedEvents;
+};
+
+const waitForEvents = async (expectedEvents, sameFlow) => {
+  await TestUtils.waitForCondition(
+    () =>
+      (collectRelayTelemeryEvent(sameFlow)?.length ?? 0) >=
+      (expectedEvents.length ?? 0),
+    "Wait for telemetry to be collected",
+    100,
+    100
+  );
+  return collectRelayTelemeryEvent(sameFlow);
+};
+
+async function assertEvents(expectedEvents, sameFlow = true) {
+  // To avoid intermittent failures, we wait for telemetry to be collected
+  const events = await waitForEvents(expectedEvents, sameFlow);
   for (let i = 0; i < expectedEvents.length; i++) {
     const keysInExpectedEvent = Object.keys(expectedEvents[i]);
     keysInExpectedEvent.forEach(key => {
@@ -145,6 +148,9 @@ async function openRelayAC(browser) {
   popup.firstChild.getItemAtIndex(0).click();
   await promiseHidden;
 }
+
+// Bug 1832782: On OSX opt verify mode, the test exceeds the default timeout.
+requestLongerTimeout(2);
 
 add_setup(async function () {
   await ExperimentAPI.ready();
@@ -251,12 +257,11 @@ add_task(async function test_popup_option_optin_enabled() {
         .querySelector("button.popup-notification-primary-button")
         .click();
 
-      await notificationHidden;
-
-      await BrowserTestUtils.waitForEvent(
-        ConfirmationHint._panel,
-        "popuphidden"
-      );
+      await Promise.all([
+        notificationHidden,
+        BrowserTestUtils.waitForEvent(ConfirmationHint._panel, "popuphidden"),
+        TestUtils.waitForPrefChange("signon.firefoxRelay.feature"),
+      ]);
 
       await assertEvents([
         {
@@ -271,6 +276,20 @@ add_task(async function test_popup_option_optin_enabled() {
         },
         { object: "opt_in_panel", method: "shown" },
         { object: "opt_in_panel", method: "enabled" },
+      ]);
+
+      Services.telemetry.clearEvents();
+
+      // Retrigger AC popup
+      await SpecialPowers.spawn(browser, [], async function () {
+        const usernameInput = content.document.querySelector(
+          "#form-basic-username"
+        );
+        usernameInput.blur();
+        usernameInput.focus();
+      });
+
+      await assertEvents([
         {
           object: "fill_username",
           method: "shown",

@@ -1954,6 +1954,7 @@ nsresult BrowsingContext::LoadURI(nsDocShellLoadState* aLoadState,
 
   MOZ_DIAGNOSTIC_ASSERT(aLoadState->TargetBrowsingContext().IsNull(),
                         "Targeting occurs in InternalLoad");
+  aLoadState->AssertProcessCouldTriggerLoadIfSystem();
 
   if (mDocShell) {
     return mDocShell->LoadURI(aLoadState, aSetNavigating);
@@ -2050,6 +2051,7 @@ nsresult BrowsingContext::InternalLoad(nsDocShellLoadState* aLoadState) {
                         "should have target bc set");
   MOZ_DIAGNOSTIC_ASSERT(aLoadState->TargetBrowsingContext() == this,
                         "must be targeting this BrowsingContext");
+  aLoadState->AssertProcessCouldTriggerLoadIfSystem();
 
   if (mDocShell) {
     return nsDocShell::Cast(mDocShell)->InternalLoad(aLoadState);

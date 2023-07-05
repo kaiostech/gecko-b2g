@@ -113,7 +113,9 @@ def Libxul(name, output_category=None):
     if CONFIG["RUSTC_NATVIS_LDFLAGS"]:
         LDFLAGS += CONFIG["RUSTC_NATVIS_LDFLAGS"]
 
-    if CONFIG["OS_TARGET"] != "Android" and name == "xul-real":
+    if (
+        CONFIG["OS_TARGET"] != "Android" or CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk"
+    ) and name == "xul-real":
         SYMBOLS_FILE = "../libxul.symbols"
 
     if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
@@ -207,6 +209,7 @@ def Libxul(name, output_category=None):
             AOSPSharedObjects(
                 "vendor.qti.hardware.radio.qcrilhook@1.0",
             )
+
 
 # The real libxul definition is in ./build/moz.build, but we define a
 # xul library here such that # FINAL_LIBRARY = 'xul' refers to here, which

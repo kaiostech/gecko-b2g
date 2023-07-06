@@ -111,7 +111,9 @@ class WindowManager extends HTMLElement {
     let webview = document.createElement("web-view");
     // Bug 109000, we must set the openWindowInfo.
     webview.openWindowInfo = aParams ? aParams.openWindowInfo : null;
-    webview.setAttribute("remote", "true");
+    if (!url.startsWith("about:") || url == "about:blank") {
+      webview.setAttribute("remote", "true");
+    }
     webview.setAttribute("id", attr_id);
     if (config.isHomescreen) {
       this.homescreen_id = attr_id;

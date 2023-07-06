@@ -77,17 +77,29 @@ let tabFinder = {
   update() {
     this._map = new Map();
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
-      let tabbrowser = win.gBrowser;
-      for (let browser of tabbrowser.browsers) {
-        let id = browser.outerWindowID; // May be `null` if the browser isn't loaded yet
-        if (id != null) {
-          this._map.set(id, browser);
+      if (AppConstants.MOZ_B2G) {
+        let tabs = win.MarionetteHelper.tabs.map(
+          webView => webView.linkedBrowser
+        );
+        for (let browser of tabs) {
+          let id = browser.outerWindowID; // May be `null` if the browser isn't loaded yet
+          if (id != null) {
+            this._map.set(id, browser);
+          }
         }
-      }
-      if (tabbrowser.preloadedBrowser) {
-        let browser = tabbrowser.preloadedBrowser;
-        if (browser.outerWindowID) {
-          this._map.set(browser.outerWindowID, browser);
+      } else {
+        let tabbrowser = win.gBrowser;
+        for (let browser of tabbrowser.browsers) {
+          let id = browser.outerWindowID; // May be `null` if the browser isn't loaded yet
+          if (id != null) {
+            this._map.set(id, browser);
+          }
+        }
+        if (tabbrowser.preloadedBrowser) {
+          let browser = tabbrowser.preloadedBrowser;
+          if (browser.outerWindowID) {
+            this._map.set(browser.outerWindowID, browser);
+          }
         }
       }
     }

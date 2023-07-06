@@ -788,11 +788,12 @@
     );
   });
 
-  // Skip loading any extra custom elements in the extension dummy document
-  // and GeckoView windows.
+  // Skip loading any extra custom elements in the extension dummy document,
+  // GeckoView and B2G windows.
   const loadExtraCustomElements = !(
     document.documentURI == "chrome://extensions/content/dummy.xhtml" ||
-    document.documentURI == "chrome://geckoview/content/geckoview.xhtml"
+    document.documentURI == "chrome://geckoview/content/geckoview.xhtml" ||
+    document.documentURI == "chrome://b2g/content/shell.html"
   );
   if (loadExtraCustomElements) {
     // Lazily load the following elements

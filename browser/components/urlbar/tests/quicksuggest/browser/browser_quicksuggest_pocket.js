@@ -13,7 +13,7 @@ const REMOTE_SETTINGS_DATA = [
         url: "https://example.com/pocket-suggestion",
         title: "Pocket Suggestion",
         description: "Pocket description",
-        lowConfidenceKeywords: ["pocket-suggestion"],
+        lowConfidenceKeywords: ["pocket suggestion"],
         highConfidenceKeywords: ["high"],
       },
     ],
@@ -47,7 +47,7 @@ add_task(async function basic() {
     // Do a search.
     await UrlbarTestUtils.promiseAutocompleteResultPopup({
       window,
-      value: "pocket-suggestion",
+      value: "pocket suggestion",
     });
 
     // Check the result.
@@ -85,9 +85,144 @@ add_task(async function basic() {
   });
 });
 
+// Tests the "Show less frequently" command.
+add_task(async function resultMenu_showLessFrequently() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.urlbar.pocket.featureGate", true],
+      ["browser.urlbar.pocket.showLessFrequentlyCount", 0],
+    ],
+  });
+
+  const cleanUpNimbus = await UrlbarTestUtils.initNimbusFeature({
+    pocketShowLessFrequentlyCap: 3,
+  });
+
+  // Sanity check.
+  Assert.equal(UrlbarPrefs.get("pocketShowLessFrequentlyCap"), 3);
+  Assert.equal(UrlbarPrefs.get("pocket.showLessFrequentlyCount"), 0);
+
+  await doShowLessFrequently({
+    input: "pocket s",
+    expected: {
+      isSuggestionShown: true,
+      isMenuItemShown: true,
+    },
+  });
+  Assert.equal(UrlbarPrefs.get("pocket.showLessFrequentlyCount"), 1);
+
+  await doShowLessFrequently({
+    input: "pocket s",
+    expected: {
+      isSuggestionShown: true,
+      isMenuItemShown: true,
+    },
+  });
+  Assert.equal(UrlbarPrefs.get("pocket.showLessFrequentlyCount"), 2);
+
+  await doShowLessFrequently({
+    input: "pocket s",
+    expected: {
+      isSuggestionShown: true,
+      isMenuItemShown: true,
+    },
+  });
+  Assert.equal(UrlbarPrefs.get("pocket.showLessFrequentlyCount"), 3);
+
+  await doShowLessFrequently({
+    input: "pocket s",
+    expected: {
+      isSuggestionShown: false,
+    },
+  });
+
+  await doShowLessFrequently({
+    input: "pocket su",
+    expected: {
+      isSuggestionShown: true,
+      isMenuItemShown: false,
+    },
+  });
+
+  await cleanUpNimbus();
+  await SpecialPowers.popPrefEnv();
+});
+
+async function doShowLessFrequently({ input, expected }) {
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: input,
+  });
+
+  if (!expected.isSuggestionShown) {
+    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+      const details = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+      Assert.notEqual(
+        details.result.payload.telemetryType,
+        "pocket",
+        `Pocket suggestion should be absent (checking index ${i})`
+      );
+    }
+
+    return;
+  }
+
+  const resultIndex = 1;
+  const details = await UrlbarTestUtils.getDetailsOfResultAt(
+    window,
+    resultIndex
+  );
+  Assert.equal(
+    details.result.payload.telemetryType,
+    "pocket",
+    `Pocket suggestion should be present at expected index after ${input} search`
+  );
+
+  // Click the command.
+  try {
+    await UrlbarTestUtils.openResultMenuAndClickItem(
+      window,
+      "show_less_frequently",
+      {
+        resultIndex,
+      }
+    );
+    Assert.ok(expected.isMenuItemShown);
+    Assert.ok(
+      gURLBar.view.isOpen,
+      "The view should remain open clicking the command"
+    );
+    Assert.ok(
+      details.element.row.hasAttribute("feedback-acknowledgment"),
+      "Row should have feedback acknowledgment after clicking command"
+    );
+  } catch (e) {
+    Assert.ok(!expected.isMenuItemShown);
+    Assert.ok(
+      !details.element.row.hasAttribute("feedback-acknowledgment"),
+      "Row should not have feedback acknowledgment after clicking command"
+    );
+    Assert.equal(
+      e.message,
+      "Menu item not found for command: show_less_frequently"
+    );
+  }
+
+  await UrlbarTestUtils.promisePopupClose(window);
+}
+
 // Tests the "Not interested" result menu dismissal command.
 add_task(async function resultMenu_notInterested() {
   await doDismissTest("not_interested");
+
+  // Re-enable suggestions and wait until PocketSuggestions syncs them from
+  // remote settings again.
+  UrlbarPrefs.set("suggest.pocket", true);
+  let feature = QuickSuggest.getFeature("PocketSuggestions");
+  await TestUtils.waitForCondition(async () => {
+    let suggestions = await feature.queryRemoteSettings("pocket suggestion");
+    return !!suggestions.length;
+  }, "Waiting for PocketSuggestions to serve remote settings suggestions");
 });
 
 // Tests the "Not relevant" result menu dismissal command.
@@ -99,7 +234,7 @@ async function doDismissTest(command) {
   // Do a search.
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
     window,
-    value: "pocket-suggestion",
+    value: "pocket suggestion",
   });
 
   // Check the result.
@@ -189,7 +324,7 @@ async function doDismissTest(command) {
   // Do the search again.
   await UrlbarTestUtils.promiseAutocompleteResultPopup({
     window,
-    value: "pocket-suggestion",
+    value: "pocket suggestion",
   });
   for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
     details = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
@@ -203,3 +338,31 @@ async function doDismissTest(command) {
   await UrlbarTestUtils.promisePopupClose(window);
   await QuickSuggest.blockedSuggestions.clear();
 }
+
+// Tests row labels.
+add_task(async function rowLabel() {
+  const testCases = [
+    // high confidence keyword best match
+    {
+      searchString: "high",
+      expected: "Recommended reads",
+    },
+    // low confidence keyword non-best match
+    {
+      searchString: "pocket suggestion",
+      expected: "Firefox Suggest",
+    },
+  ];
+
+  for (const { searchString, expected } of testCases) {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({
+      window,
+      value: searchString,
+    });
+    Assert.equal(UrlbarTestUtils.getResultCount(window), 2);
+
+    const { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, 1);
+    const row = element.row;
+    Assert.equal(row.getAttribute("label"), expected);
+  }
+});

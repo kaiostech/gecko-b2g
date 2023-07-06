@@ -68,7 +68,7 @@ add_task(async function nonsponsoredDisabled() {
       providers: [UrlbarProviderQuickSuggest.name],
       isPrivate: false,
     }),
-    matches: [makeExpectedResult()],
+    matches: [makeExpectedResult({ searchString: LOW_KEYWORD })],
   });
 
   // Now disable them.
@@ -97,7 +97,7 @@ add_task(async function pocketSpecificPrefsDisabled() {
         providers: [UrlbarProviderQuickSuggest.name],
         isPrivate: false,
       }),
-      matches: [makeExpectedResult()],
+      matches: [makeExpectedResult({ searchString: LOW_KEYWORD })],
     });
 
     // Now disable the pref.
@@ -139,7 +139,7 @@ add_task(async function nimbus() {
       providers: [UrlbarProviderQuickSuggest.name],
       isPrivate: false,
     }),
-    matches: [makeExpectedResult()],
+    matches: [makeExpectedResult({ searchString: LOW_KEYWORD })],
   });
   await cleanUpNimbusEnable();
 
@@ -173,7 +173,9 @@ add_task(async function topPick() {
       providers: [UrlbarProviderQuickSuggest.name],
       isPrivate: false,
     }),
-    matches: [makeExpectedResult({ isTopPick: true })],
+    matches: [
+      makeExpectedResult({ searchString: HIGH_KEYWORD, isTopPick: true }),
+    ],
   });
 });
 
@@ -189,7 +191,9 @@ add_task(async function topPickPrefsDisabled() {
         providers: [UrlbarProviderQuickSuggest.name],
         isPrivate: false,
       }),
-      matches: [makeExpectedResult({ isTopPick: false })],
+      matches: [
+        makeExpectedResult({ searchString: HIGH_KEYWORD, isTopPick: false }),
+      ],
     });
     UrlbarPrefs.set(pref, true);
   }
@@ -219,7 +223,9 @@ add_task(async function lowPrefixes() {
         providers: [UrlbarProviderQuickSuggest.name],
         isPrivate: false,
       }),
-      matches: shouldMatch ? [makeExpectedResult()] : [],
+      matches: shouldMatch
+        ? [makeExpectedResult({ searchString, fullKeyword: LOW_KEYWORD })]
+        : [],
     });
   }
 });
@@ -247,7 +253,15 @@ add_task(async function highPrefixes() {
         providers: [UrlbarProviderQuickSuggest.name],
         isPrivate: false,
       }),
-      matches: shouldMatch ? [makeExpectedResult({ isTopPick: true })] : [],
+      matches: shouldMatch
+        ? [
+            makeExpectedResult({
+              searchString,
+              fullKeyword: HIGH_KEYWORD,
+              isTopPick: true,
+            }),
+          ]
+        : [],
     });
   }
 });
@@ -287,7 +301,14 @@ add_task(async function topPickLowAndHigh() {
         providers: [UrlbarProviderQuickSuggest.name],
         isPrivate: false,
       }),
-      matches: [makeExpectedResult({ isTopPick, suggestion })],
+      matches: [
+        makeExpectedResult({
+          searchString,
+          fullKeyword: "both low and high",
+          isTopPick,
+          suggestion,
+        }),
+      ],
     });
   }
 });
@@ -299,31 +320,42 @@ add_task(async function uppercase() {
       providers: [UrlbarProviderQuickSuggest.name],
       isPrivate: false,
     }),
-    matches: [makeExpectedResult()],
+    matches: [
+      makeExpectedResult({
+        searchString: LOW_KEYWORD.toUpperCase(),
+        fullKeyword: LOW_KEYWORD,
+      }),
+    ],
   });
   await check_results({
     context: createContext(HIGH_KEYWORD.toUpperCase(), {
       providers: [UrlbarProviderQuickSuggest.name],
       isPrivate: false,
     }),
-    matches: [makeExpectedResult({ isTopPick: true })],
+    matches: [
+      makeExpectedResult({
+        searchString: HIGH_KEYWORD.toUpperCase(),
+        fullKeyword: HIGH_KEYWORD,
+        isTopPick: true,
+      }),
+    ],
   });
 });
 
-// A blocked/dismissed suggestion shouldn't be added.
-add_task(async function block() {
-  let result = makeExpectedResult();
+// Tests the "Not relevant" command: a dismissed suggestion shouldn't be added.
+add_task(async function notRelevant() {
+  let result = makeExpectedResult({ searchString: LOW_KEYWORD });
   let queryContext = {
     view: {
       acknowledgeDismissal() {},
     },
   };
 
-  info("Blocking suggestion");
+  info("Triggering the 'Not relevant' command");
   QuickSuggest.getFeature("PocketSuggestions").handleCommand(
     queryContext,
     result,
-    "dismiss"
+    "not_relevant"
   );
   await QuickSuggest.blockedSuggestions._test_readyPromise;
 
@@ -358,6 +390,7 @@ add_task(async function block() {
     }),
     matches: [
       makeExpectedResult({
+        searchString: "other low",
         suggestion: REMOTE_SETTINGS_DATA[0].attachment[1],
       }),
     ],
@@ -376,7 +409,65 @@ add_task(async function block() {
   });
 });
 
+// Tests the "Not interested" command: all Pocket suggestions should be disabled
+// and not added anymore.
+add_task(async function notInterested() {
+  let result = makeExpectedResult({ searchString: LOW_KEYWORD });
+  let queryContext = {
+    view: {
+      acknowledgeDismissal() {},
+    },
+  };
+
+  info("Triggering the 'Not interested' command");
+  QuickSuggest.getFeature("PocketSuggestions").handleCommand(
+    queryContext,
+    result,
+    "not_interested"
+  );
+
+  Assert.ok(
+    !UrlbarPrefs.get("suggest.pocket"),
+    "Pocket suggestions should be disabled"
+  );
+
+  info("Doing search for the suggestion the command was used on");
+  await check_results({
+    context: createContext(LOW_KEYWORD, {
+      providers: [UrlbarProviderQuickSuggest.name],
+      isPrivate: false,
+    }),
+    matches: [],
+  });
+
+  info("Doing search for another Pocket suggestion");
+  await check_results({
+    context: createContext("other low", {
+      providers: [UrlbarProviderQuickSuggest.name],
+      isPrivate: false,
+    }),
+    matches: [],
+  });
+
+  UrlbarPrefs.clear("suggest.pocket");
+  await waitForSuggestions();
+});
+
+// Tests the "show less frequently" behavior.
+add_task(async function showLessFrequently() {
+  await doShowLessFrequentlyTests({
+    feature: QuickSuggest.getFeature("PocketSuggestions"),
+    showLessFrequentlyCountPref: "pocket.showLessFrequentlyCount",
+    nimbusCapVariable: "pocketShowLessFrequentlyCap",
+    expectedResult: searchString =>
+      makeExpectedResult({ searchString, fullKeyword: LOW_KEYWORD }),
+    keyword: LOW_KEYWORD,
+  });
+});
+
 function makeExpectedResult({
+  searchString,
+  fullKeyword = searchString,
   suggestion = REMOTE_SETTINGS_DATA[0].attachment[0],
   source = "remote-settings",
   isTopPick = false,
@@ -394,9 +485,17 @@ function makeExpectedResult({
       title: suggestion.title,
       url: suggestion.url,
       displayUrl: suggestion.url.replace(/^https:\/\//, ""),
-      description: suggestion.description,
+      description: isTopPick ? suggestion.description : "",
       icon: "chrome://global/skin/icons/pocket.svg",
       helpUrl: QuickSuggest.HELP_URL,
+      shouldShowUrl: true,
+      bottomTextL10n: {
+        id: "firefox-suggest-pocket-bottom-text",
+        args: {
+          keywordSubstringTyped: searchString,
+          keywordSubstringNotTyped: fullKeyword.substring(searchString.length),
+        },
+      },
     },
   };
 }

@@ -1181,7 +1181,7 @@ export var UrlbarUtils = {
         }
         if (result.payload.suggestion) {
           let type = result.payload.trending ? "trending" : "searchsuggestion";
-          if (result.payload.isRichSuggestion) {
+          if (result.isRichSuggestion) {
             type += "_rich";
           }
           return type;
@@ -1290,7 +1290,7 @@ export var UrlbarUtils = {
         let group = result.payload.trending
           ? "trending_search"
           : "search_suggest";
-        if (result.payload.isRichSuggestion) {
+        if (result.isRichSuggestion) {
           group += "_rich";
         }
         return group;
@@ -1376,7 +1376,7 @@ export var UrlbarUtils = {
           let type = result.payload.trending
             ? "trending_search"
             : "search_suggest";
-          if (result.payload.isRichSuggestion) {
+          if (result.isRichSuggestion) {
             type += "_rich";
           }
           return type;
@@ -1532,9 +1532,6 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       isGeneralPurposeEngine: {
         type: "boolean",
       },
-      isRichSuggestion: {
-        type: "boolean",
-      },
       keyword: {
         type: "string",
       },
@@ -1586,12 +1583,41 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
             type: "string",
           },
           args: {
-            type: "array",
+            type: "object",
+            additionalProperties: true,
+          },
+        },
+      },
+      // l10n { id, args }
+      bottomTextL10n: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: {
+            type: "string",
+          },
+          args: {
+            type: "object",
+            additionalProperties: true,
           },
         },
       },
       description: {
         type: "string",
+      },
+      // l10n { id, args }
+      descriptionL10n: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: {
+            type: "string",
+          },
+          args: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
       },
       displayUrl: {
         type: "string",
@@ -1611,7 +1637,8 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
             type: "string",
           },
           args: {
-            type: "array",
+            type: "object",
+            additionalProperties: true,
           },
         },
       },
@@ -1643,6 +1670,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
         type: "string",
       },
       sendAttributionRequest: {
+        type: "boolean",
+      },
+      shouldShowUrl: {
         type: "boolean",
       },
       source: {
@@ -1820,7 +1850,8 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
             type: "string",
           },
           args: {
-            type: "array",
+            type: "object",
+            additionalProperties: true,
           },
         },
       },
@@ -1844,7 +1875,8 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
             type: "string",
           },
           args: {
-            type: "array",
+            type: "object",
+            additionalProperties: true,
           },
         },
       },

@@ -23,8 +23,6 @@ export class TranslationsChild extends JSWindowActorChild {
    * @type {number | null}
    */
   innerWindowId = null;
-  isDestroyed = false;
-  #isPageHidden = false;
   #wasTranslationsEngineCreated = false;
 
   handleEvent(event) {
@@ -32,53 +30,26 @@ export class TranslationsChild extends JSWindowActorChild {
       case "DOMContentLoaded":
         this.innerWindowId =
           this.contentWindow?.windowGlobalChild.innerWindowId;
-        if (!this.#isRestrictedPage()) {
-          this.sendAsyncMessage("Translations:ReportLangTags", {
-            documentElementLang: this.document.documentElement.lang,
-          });
-        }
-        break;
-      case "pageshow":
-        this.#isPageHidden = false;
-        break;
-      case "pagehide":
-        this.#isPageHidden = true;
+        this.sendAsyncMessage("Translations:ReportLangTags", {
+          documentElementLang: this.document.documentElement.lang,
+        });
         break;
     }
-  }
-
-  /**
-   * Only translate pages that match certain protocols, that way internal pages like
-   * about:* pages will not be translated.
-   */
-  #isRestrictedPage() {
-    if (!this.contentWindow?.location) {
-      return true;
-    }
-    const { href } = this.contentWindow.location;
-    // Keep this logic up to date with TranslationsParent.isRestrictedPage.
-    return !(
-      href.startsWith("http://") ||
-      href.startsWith("https://") ||
-      href.startsWith("file:///")
-    );
   }
 
   async receiveMessage({ name, data }) {
     switch (name) {
       case "Translations:TranslatePage": {
-        if (!this.#isRestrictedPage()) {
-          lazy.TranslationsEngine.translatePage(this, data).then(
-            () => {
-              this.#wasTranslationsEngineCreated = true;
-            },
-            () => {
-              this.sendAsyncMessage("Translations:FullPageTranslationFailed", {
-                reason: "engine-load-failure",
-              });
-            }
-          );
-        }
+        lazy.TranslationsEngine.translatePage(this, data).then(
+          () => {
+            this.#wasTranslationsEngineCreated = true;
+          },
+          () => {
+            this.sendAsyncMessage("Translations:FullPageTranslationFailed", {
+              reason: "engine-load-failure",
+            });
+          }
+        );
         return undefined;
       }
       case "Translations:GetDocumentElementLang":
@@ -108,10 +79,6 @@ export class TranslationsChild extends JSWindowActorChild {
           return null;
         }
       }
-      case "Translations:DownloadedLanguageFile":
-      case "Translations:DownloadLanguageFileError":
-        // Currently unhandled.
-        return undefined;
       default:
         throw new Error("Unknown message.", name);
     }
@@ -119,32 +86,6 @@ export class TranslationsChild extends JSWindowActorChild {
 
   getSupportedLanguages() {
     return this.sendQuery("Translations:GetSupportedLanguages");
-  }
-
-  hasAllFilesForLanguage(language) {
-    return this.sendQuery("Translations:HasAllFilesForLanguage", {
-      language,
-    });
-  }
-
-  deleteLanguageFiles(language) {
-    return this.sendQuery("Translations:DeleteLanguageFiles", {
-      language,
-    });
-  }
-
-  downloadLanguageFiles(language) {
-    return this.sendQuery("Translations:DownloadLanguageFiles", {
-      language,
-    });
-  }
-
-  downloadAllFiles() {
-    return this.sendQuery("Translations:DownloadAllFiles");
-  }
-
-  deleteAllLanguageFiles() {
-    return this.sendQuery("Translations:DeleteAllLanguageFiles");
   }
 
   sendEngineIsReady() {
@@ -164,7 +105,7 @@ export class TranslationsChild extends JSWindowActorChild {
 
   getOrCreateLanguageIdEngine() {
     return lazy.LanguageIdEngine.getOrCreate(() => {
-      if (this.#isPageHidden) {
+      if (!this.manager || !this.manager.isCurrentGlobal) {
         throw new Error("The page was already hidden.");
       }
       return this.sendQuery("Translations:GetLanguageIdEnginePayload");
@@ -177,10 +118,11 @@ export class TranslationsChild extends JSWindowActorChild {
   }
 
   didDestroy() {
-    this.isDestroyed = true;
     if (this.#wasTranslationsEngineCreated) {
       // Only run this if needed, as it will de-lazify the code.
-      lazy.TranslationsEngine.discardTranslationQueue(this.innerWindowId);
+      lazy.TranslationsEngine.discardTranslationQueue(
+        this.manager.innerWindowId
+      );
     }
   }
 }

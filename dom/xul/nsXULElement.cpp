@@ -22,7 +22,8 @@
 #include "XULTreeElement.h"
 #include "js/CompilationAndEvaluation.h"
 #include "js/CompileOptions.h"
-#include "js/experimental/JSStencil.h"
+#include "js/experimental/CompileScript.h"  // JS::NewFrontendContext, JS::DestroyFrontendContext, JS::SetNativeStackQuota, JS::CompileGlobalScriptToStencil, JS::CompilationStorage
+#include "js/experimental/JSStencil.h"      // JS::Stencil, JS::FrontendContext
 #include "js/OffThreadScriptCompilation.h"
 #include "js/SourceText.h"
 #include "js/Transcoding.h"
@@ -46,7 +47,9 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticAnalysisFunctions.h"
+#include "mozilla/StaticPrefs_javascript.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/URLExtraData.h"
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/BorrowedAttrInfo.h"
@@ -1610,11 +1613,20 @@ static nsresult ReadStencil(nsIObjectInputStream* aStream, JSContext* aCx,
   return rv;
 }
 
-void nsXULPrototypeScript::FillCompileOptions(JS::CompileOptions& options) {
+void nsXULPrototypeScript::FillCompileOptions(JS::CompileOptions& aOptions,
+                                              const char* aFilename,
+                                              uint32_t aLineNo) {
+  // NOTE: This method shouldn't change any field which also exists in
+  //       JS::InstantiateOptions.  If such field is added,
+  //       nsXULPrototypeScript::InstantiateScript should also call this method.
+
   // If the script was inline, tell the JS parser to save source for
   // Function.prototype.toSource(). If it's out of line, we retrieve the
   // source from the files on demand.
-  options.setSourceIsLazy(mOutOfLine);
+  aOptions.setSourceIsLazy(mOutOfLine);
+
+  aOptions.setIntroductionType(mOutOfLine ? "srcScript" : "inlineScript")
+      .setFileAndLine(aFilename, mOutOfLine ? 1 : aLineNo);
 }
 
 nsresult nsXULPrototypeScript::Serialize(
@@ -1782,15 +1794,19 @@ class NotifyOffThreadScriptCompletedRunnable : public Runnable {
       sReceivers;
   static bool sSetupClearOnShutdown;
 
+  // Not-owning-pointer for the receiver.
+  //
+  // The pointed nsIOffThreadScriptReceiver is kept alive by sReceivers above.
   nsIOffThreadScriptReceiver* mReceiver;
-  JS::OffThreadToken* mToken;
+
+  RefPtr<JS::Stencil> mStencil;
 
  public:
   NotifyOffThreadScriptCompletedRunnable(nsIOffThreadScriptReceiver* aReceiver,
-                                         JS::OffThreadToken* aToken)
+                                         RefPtr<JS::Stencil>&& aStencil)
       : mozilla::Runnable("NotifyOffThreadScriptCompletedRunnable"),
         mReceiver(aReceiver),
-        mToken(aToken) {}
+        mStencil(std::move(aStencil)) {}
 
   static void NoteReceiver(nsIOffThreadScriptReceiver* aReceiver) {
     if (!sSetupClearOnShutdown) {
@@ -1815,18 +1831,6 @@ NS_IMETHODIMP
 NotifyOffThreadScriptCompletedRunnable::Run() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  RefPtr<JS::Stencil> stencil;
-  {
-    AutoJSAPI jsapi;
-    if (!jsapi.Init(xpc::CompilationScope())) {
-      // Now what?  I guess we just leak... this should probably never
-      // happen.
-      return NS_ERROR_UNEXPECTED;
-    }
-    JSContext* cx = jsapi.cx();
-    stencil = JS::FinishOffThreadStencil(cx, mToken);
-  }
-
   if (!sReceivers) {
     // We've already shut down.
     return NS_OK;
@@ -1838,41 +1842,188 @@ NotifyOffThreadScriptCompletedRunnable::Run() {
       std::move((*sReceivers)[index]);
   sReceivers->RemoveElementAt(index);
 
-  return receiver->OnScriptCompileComplete(stencil,
-                                           stencil ? NS_OK : NS_ERROR_FAILURE);
+  return receiver->OnScriptCompileComplete(mStencil,
+                                           mStencil ? NS_OK : NS_ERROR_FAILURE);
 }
 
-static void OffThreadScriptReceiverCallback(JS::OffThreadToken* aToken,
-                                            void* aCallbackData) {
-  // Be careful not to adjust the refcount on the receiver, as this callback
-  // may be invoked off the main thread.
-  nsIOffThreadScriptReceiver* aReceiver =
-      static_cast<nsIOffThreadScriptReceiver*>(aCallbackData);
-  RefPtr<NotifyOffThreadScriptCompletedRunnable> notify =
-      new NotifyOffThreadScriptCompletedRunnable(aReceiver, aToken);
-  NS_DispatchToMainThread(notify);
-}
+#ifdef DEBUG
+static void CheckErrorsAndWarnings(JS::FrontendContext* aFc) {
+  if (JS::HadFrontendErrors(aFc)) {
+    const JSErrorReport* report = JS::GetFrontendErrorReport(aFc);
+    if (report) {
+      const char* message = "<unknown>";
+      const char* filename = "<unknown>";
 
-template <typename Unit>
-nsresult nsXULPrototypeScript::Compile(
-    const Unit* aText, size_t aTextLength, JS::SourceOwnership aOwnership,
-    nsIURI* aURI, uint32_t aLineNo, Document* aDocument,
-    nsIOffThreadScriptReceiver* aOffThreadReceiver /* = nullptr */) {
-  // We'll compile the script in the compilation scope.
-  AutoJSAPI jsapi;
-  if (!jsapi.Init(xpc::CompilationScope())) {
-    if (aOwnership == JS::SourceOwnership::TakeOwnership) {
-      // In this early-exit case -- before the |srcBuf.init| call will
-      // own |aText| -- we must relinquish ownership manually.
-      js_free(const_cast<Unit*>(aText));
+      if (report->message().c_str()) {
+        message = report->message().c_str();
+      }
+      if (report->filename.c_str()) {
+        filename = report->filename.c_str();
+      }
+
+      NS_WARNING(
+          nsPrintfCString(
+              "Had compilation error in ScriptCompileTask: %s at %s:%u:%u",
+              message, filename, report->lineno, report->column)
+              .get());
     }
 
+    if (JS::HadFrontendOverRecursed(aFc)) {
+      NS_WARNING("Had over recursed in ScriptCompileTask");
+    }
+
+    if (JS::HadFrontendOutOfMemory(aFc)) {
+      NS_WARNING("Had out of memory in ScriptCompileTask");
+    }
+
+    if (JS::HadFrontendAllocationOverflow(aFc)) {
+      NS_WARNING("Had allocation overflow in ScriptCompileTask");
+    }
+  }
+
+  size_t count = JS::GetFrontendWarningCount(aFc);
+  for (size_t i = 0; i < count; i++) {
+    const JSErrorReport* report = JS::GetFrontendWarningAt(aFc, i);
+
+    const char* message = "<unknown>";
+    const char* filename = "<unknown>";
+
+    if (report->message().c_str()) {
+      message = report->message().c_str();
+    }
+    if (report->filename.c_str()) {
+      filename = report->filename.c_str();
+    }
+
+    NS_WARNING(
+        nsPrintfCString(
+            "Had compilation warning in ScriptCompileTask: %s at %s:%u:%u",
+            message, filename, report->lineno, report->column)
+            .get());
+  }
+}
+#endif
+
+class ScriptCompileRunnable final : public Runnable {
+ public:
+  explicit ScriptCompileRunnable(UniquePtr<Utf8Unit[], JS::FreePolicy>&& aText,
+                                 size_t aTextLength,
+                                 nsIOffThreadScriptReceiver* aReceiver)
+      : Runnable("ScriptCompileRunnable"),
+        mOptions(JS::OwningCompileOptions::ForFrontendContext()),
+        mText(std::move(aText)),
+        mTextLength(aTextLength),
+        mReceiver(aReceiver) {}
+
+  ~ScriptCompileRunnable() {
+    if (mFrontendContext) {
+      JS::DestroyFrontendContext(mFrontendContext);
+    }
+  }
+
+  nsresult Init(JS::CompileOptions& aOptions) {
+    mFrontendContext = JS::NewFrontendContext();
+    if (!mFrontendContext) {
+      return NS_ERROR_FAILURE;
+    }
+
+    if (!mOptions.copy(mFrontendContext, aOptions)) {
+      return NS_ERROR_FAILURE;
+    }
+
+    return NS_OK;
+  }
+
+  RefPtr<JS::Stencil> Compile() {
+    // NOTE: The stack limit must be set from the same thread that compiles.
+    const size_t kDefaultStackQuota = 128 * sizeof(size_t) * 1024;
+    JS::SetNativeStackQuota(mFrontendContext, kDefaultStackQuota);
+
+    JS::SourceText<Utf8Unit> srcBuf;
+    if (NS_WARN_IF(!srcBuf.init(mFrontendContext, mText.get(), mTextLength,
+                                JS::SourceOwnership::Borrowed))) {
+      return nullptr;
+    }
+
+    JS::CompilationStorage compileStorage;
+    RefPtr<JS::Stencil> stencil = JS::CompileGlobalScriptToStencil(
+        mFrontendContext, mOptions, srcBuf, compileStorage);
+#ifdef DEBUG
+    // Chrome-privileged code shouldn't have any compilation error.
+    CheckErrorsAndWarnings(mFrontendContext);
+    MOZ_ASSERT(stencil);
+#endif
+    if (NS_WARN_IF(!stencil)) {
+      return nullptr;
+    }
+
+    return stencil;
+  }
+
+  NS_DECL_NSIRUNNABLE
+
+ private:
+  // Owning-pointer for the context associated with the script compilation.
+  //
+  // The context is allocated on main thread in Init method, and is freed on
+  // any thread in the destructor.
+  JS::FrontendContext* mFrontendContext = nullptr;
+
+  JS::OwningCompileOptions mOptions;
+
+  // The source text for this compilation.
+  UniquePtr<Utf8Unit[], JS::FreePolicy> mText;
+  size_t mTextLength;
+
+  // Not-owning-pointer for the receiver which is going to be passed to
+  // NotifyOffThreadScriptCompletedRunnable.
+  //
+  // The pointed nsIOffThreadScriptReceiver is kept alive by
+  // NotifyOffThreadScriptCompletedRunnable::sReceivers, in order to avoid
+  // touching the refcount from random thread.
+  nsIOffThreadScriptReceiver* mReceiver;
+};
+
+NS_IMETHODIMP
+ScriptCompileRunnable::Run() {
+  RefPtr<JS::Stencil> stencil = Compile();
+  // NOTE: Failure case is handled by
+  //       NotifyOffThreadScriptCompletedRunnable::Run.
+
+  // Be careful not to adjust the refcount of mReceiver here, as this method is
+  // invoked off the main thread.
+  RefPtr<NotifyOffThreadScriptCompletedRunnable> notify =
+      new NotifyOffThreadScriptCompletedRunnable(mReceiver, std::move(stencil));
+  NS_DispatchToMainThread(notify);
+
+  return NS_OK;
+}
+
+nsresult StartOffThreadCompile(JS::CompileOptions& aOptions,
+                               UniquePtr<Utf8Unit[], JS::FreePolicy>&& aText,
+                               size_t aTextLength,
+                               nsIOffThreadScriptReceiver* aOffThreadReceiver) {
+  RefPtr<ScriptCompileRunnable> compile = new ScriptCompileRunnable(
+      std::move(aText), aTextLength, aOffThreadReceiver);
+
+  nsresult rv = compile->Init(aOptions);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_DispatchBackgroundTask(compile.forget());
+}
+
+nsresult nsXULPrototypeScript::Compile(const char16_t* aText,
+                                       size_t aTextLength, nsIURI* aURI,
+                                       uint32_t aLineNo, Document* aDocument) {
+  AutoJSAPI jsapi;
+  if (!jsapi.Init(xpc::CompilationScope())) {
     return NS_ERROR_UNEXPECTED;
   }
   JSContext* cx = jsapi.cx();
 
-  JS::SourceText<Unit> srcBuf;
-  if (NS_WARN_IF(!srcBuf.init(cx, aText, aTextLength, aOwnership))) {
+  JS::SourceText<char16_t> srcBuf;
+  if (NS_WARN_IF(!srcBuf.init(cx, aText, aTextLength,
+                              JS::SourceOwnership::Borrowed))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -1882,23 +2033,61 @@ nsresult nsXULPrototypeScript::Compile(
     return rv;
   }
 
-  // Ok, compile it to create a prototype script object!
   JS::CompileOptions options(cx);
-  FillCompileOptions(options);
-  options.setIntroductionType(mOutOfLine ? "srcScript" : "inlineScript")
-      .setFileAndLine(urlspec.get(), mOutOfLine ? 1 : aLineNo);
+  FillCompileOptions(options, urlspec.get(), aLineNo);
 
-  JS::Rooted<JSObject*> scope(cx, JS::CurrentGlobalOrNull(cx));
+  RefPtr<JS::Stencil> stencil =
+      JS::CompileGlobalScriptToStencil(cx, options, srcBuf);
+  if (!stencil) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+  Set(stencil);
+  return NS_OK;
+}
 
-  if (aOffThreadReceiver && JS::CanCompileOffThread(cx, options, aTextLength)) {
-    if (!JS::CompileToStencilOffThread(
-            cx, options, srcBuf, OffThreadScriptReceiverCallback,
-            static_cast<void*>(aOffThreadReceiver))) {
-      JS_ClearPendingException(cx);
-      return NS_ERROR_OUT_OF_MEMORY;
+nsresult nsXULPrototypeScript::CompileMaybeOffThread(
+    mozilla::UniquePtr<mozilla::Utf8Unit[], JS::FreePolicy>&& aText,
+    size_t aTextLength, nsIURI* aURI, uint32_t aLineNo, Document* aDocument,
+    nsIOffThreadScriptReceiver* aOffThreadReceiver) {
+  MOZ_ASSERT(aOffThreadReceiver);
+
+  nsAutoCString urlspec;
+  nsresult rv = aURI->GetSpec(urlspec);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  AutoJSAPI jsapi;
+  if (!jsapi.Init(xpc::CompilationScope())) {
+    return NS_ERROR_UNEXPECTED;
+  }
+  JSContext* cx = jsapi.cx();
+
+  JS::CompileOptions options(cx);
+  FillCompileOptions(options, urlspec.get(), aLineNo);
+
+  // TODO: This uses the same heuristics and the same threshold as the
+  //       JS::CanDecodeOffThread API, but the heuristics needs to be updated
+  //       to reflect the change regarding the Stencil API, and also the thread
+  //       management on the consumer side (bug 1840831).
+  static constexpr size_t OffThreadMinimumTextLength = 5 * 1000;
+
+  if (StaticPrefs::javascript_options_parallel_parsing() &&
+      aTextLength >= OffThreadMinimumTextLength) {
+    rv = StartOffThreadCompile(options, std::move(aText), aTextLength,
+                               aOffThreadReceiver);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
     }
+
     NotifyOffThreadScriptCompletedRunnable::NoteReceiver(aOffThreadReceiver);
   } else {
+    JS::SourceText<Utf8Unit> srcBuf;
+    if (NS_WARN_IF(!srcBuf.init(cx, aText.get(), aTextLength,
+                                JS::SourceOwnership::Borrowed))) {
+      return NS_ERROR_FAILURE;
+    }
+
     RefPtr<JS::Stencil> stencil =
         JS::CompileGlobalScriptToStencil(cx, options, srcBuf);
     if (!stencil) {
@@ -1909,21 +2098,11 @@ nsresult nsXULPrototypeScript::Compile(
   return NS_OK;
 }
 
-template nsresult nsXULPrototypeScript::Compile<char16_t>(
-    const char16_t* aText, size_t aTextLength, JS::SourceOwnership aOwnership,
-    nsIURI* aURI, uint32_t aLineNo, Document* aDocument,
-    nsIOffThreadScriptReceiver* aOffThreadReceiver);
-template nsresult nsXULPrototypeScript::Compile<Utf8Unit>(
-    const Utf8Unit* aText, size_t aTextLength, JS::SourceOwnership aOwnership,
-    nsIURI* aURI, uint32_t aLineNo, Document* aDocument,
-    nsIOffThreadScriptReceiver* aOffThreadReceiver);
-
 nsresult nsXULPrototypeScript::InstantiateScript(
     JSContext* aCx, JS::MutableHandle<JSScript*> aScript) {
   MOZ_ASSERT(mStencil);
 
   JS::CompileOptions options(aCx);
-  FillCompileOptions(options);
   JS::InstantiateOptions instantiateOptions(options);
   aScript.set(JS::InstantiateGlobalStencil(aCx, instantiateOptions, mStencil));
   if (!aScript) {

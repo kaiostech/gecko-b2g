@@ -423,7 +423,7 @@ var TranslationsPanel = new (class {
     try {
       /** @type {SupportedLanguages} */
       const { languagePairs, fromLanguages, toLanguages } =
-        await this.#getTranslationsActor().getSupportedLanguages();
+        await TranslationsParent.getSupportedLanguages();
 
       // Verify that we are in a proper state.
       if (languagePairs.length === 0) {
@@ -482,8 +482,12 @@ var TranslationsPanel = new (class {
   /**
    * Reactively sets the views based on the async state changes of the engine, and
    * other component state changes.
+   *
+   * @param {TranslationsLanguageState} languageState
    */
-  #updateViewFromTranslationStatus() {
+  #updateViewFromTranslationStatus(
+    languageState = this.#getTranslationsActor().languageState
+  ) {
     const {
       defaultTranslate,
       toMenuList,
@@ -492,8 +496,7 @@ var TranslationsPanel = new (class {
       cancelButton,
       restoreButton,
     } = this.elements;
-    const { requestedTranslationPair, isEngineReady } =
-      this.#getTranslationsActor().languageState;
+    const { requestedTranslationPair, isEngineReady } = languageState;
 
     if (
       requestedTranslationPair &&
@@ -1098,7 +1101,10 @@ var TranslationsPanel = new (class {
           TranslationsPanel.detectedLanguages = detectedLanguages;
         }
 
-        this.#updateViewFromTranslationStatus();
+        // Make sure to use the language state that is passed by the event.detail, and
+        // don't read it from the actor here, as it's possible the actor isn't available
+        // via the gBrowser.selectedBrowser.
+        this.#updateViewFromTranslationStatus(event.detail);
 
         if (
           // We've already requested to translate this page, so always show the icon.

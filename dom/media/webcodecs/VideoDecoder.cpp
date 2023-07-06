@@ -85,6 +85,10 @@ NS_IMPL_RELEASE_INHERITED(VideoDecoder, DOMEventTargetHelper)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(VideoDecoder)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
+/*
+ * Below are helpers for conversion among Maybe<T>, Optional<T>, and Nullable<T>
+ */
+
 template <typename T>
 Maybe<T> OptionalToMaybe(const dom::Optional<T>& aOptional) {
   if (aOptional.WasPassed()) {
@@ -107,64 +111,6 @@ Nullable<T> MaybeToNullable(const Maybe<T>& aOptional) {
     return Nullable<T>(aOptional.value());
   }
   return Nullable<T>();
-}
-
-VideoColorSpaceInternal::VideoColorSpaceInternal(
-    const dom::VideoColorSpaceInit& aColorSpaceInit) {
-  mFullRange = NullableToMaybe(aColorSpaceInit.mFullRange);
-  mMatrix = NullableToMaybe(aColorSpaceInit.mMatrix);
-  mPrimaries = NullableToMaybe(aColorSpaceInit.mPrimaries);
-  mTransfer = NullableToMaybe(aColorSpaceInit.mTransfer);
-}
-
-VideoColorSpaceInit VideoColorSpaceInternal::ToColorSpaceInit() const {
-  VideoColorSpaceInit init;
-  init.mFullRange = MaybeToNullable(mFullRange);
-  init.mMatrix = MaybeToNullable(mMatrix);
-  init.mPrimaries = MaybeToNullable(mPrimaries);
-  init.mTransfer = MaybeToNullable(mTransfer);
-  return init;
-}
-
-static Result<RefPtr<MediaByteBuffer>, nsresult> GetExtraData(
-    const OwningMaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer& aBuffer) {
-  RefPtr<MediaByteBuffer> data = nullptr;
-  Span<uint8_t> buf;
-  MOZ_TRY_VAR(buf, GetSharedArrayBufferData(aBuffer));
-  if (buf.empty()) {
-    return data;
-  }
-  data = MakeRefPtr<MediaByteBuffer>();
-  data->AppendElements(buf);
-  return data;
-}
-
-VideoDecoderConfigInternal::VideoDecoderConfigInternal(
-    const VideoDecoderConfig& aConfig) {
-  mCodec = aConfig.mCodec;
-  mCodedHeight = OptionalToMaybe(aConfig.mCodedHeight);
-  mCodedWidth = OptionalToMaybe(aConfig.mCodedWidth);
-  if (aConfig.mColorSpace.WasPassed()) {
-    auto colorspace(aConfig.mColorSpace.Value());
-    VideoColorSpaceInternal internal(colorspace);
-    mColorSpace = Some(internal);
-  } else {
-    mColorSpace = Nothing();
-  }
-  if (aConfig.mDescription.WasPassed()) {
-    RefPtr<MediaByteBuffer> buf;
-    auto rv = GetExtraData(aConfig.mDescription.Value());
-    if (rv.isErr()) {
-      MOZ_ASSERT(false, "OOM?");
-    }
-    mDescription = Some(rv.unwrap());
-  } else {
-    mDescription = Nothing();
-  }
-  mDisplayAspectHeight = OptionalToMaybe(aConfig.mDisplayAspectHeight);
-  mDisplayAspectWidth = OptionalToMaybe(aConfig.mDisplayAspectWidth);
-  mHardwareAcceleration = aConfig.mHardwareAcceleration;
-  mOptimizeForLatency = OptionalToMaybe(aConfig.mOptimizeForLatency);
 }
 
 /*
@@ -214,17 +160,18 @@ static bool IsValid(const VideoDecoderConfig& aConfig) {
   return true;
 }
 
-static nsTArray<nsCString> GuessMIMETypes(
-    const VideoDecoderConfigInternal& aConfig) {
-  const auto codec = NS_ConvertUTF16toUTF8(aConfig.mCodec);
+static nsTArray<nsCString> GuessMIMETypes(const nsAString& aCodec,
+                                          const uint32_t* aCodedWidth,
+                                          const uint32_t* aCodedHeight) {
+  const auto codec = NS_ConvertUTF16toUTF8(aCodec);
   nsTArray<nsCString> types;
-  for (const nsCString& container : GuessContainers(aConfig.mCodec)) {
+  for (const nsCString& container : GuessContainers(aCodec)) {
     nsPrintfCString mime("video/%s; codecs=%s", container.get(), codec.get());
-    if (aConfig.mCodedWidth.isSome()) {
-      mime.Append(nsPrintfCString("; width=%d", aConfig.mCodedWidth.value()));
+    if (aCodedWidth) {
+      mime.Append(nsPrintfCString("; width=%d", *aCodedWidth));
     }
-    if (aConfig.mCodedHeight.isSome()) {
-      mime.Append(nsPrintfCString("; height=%d", aConfig.mCodedHeight.value()));
+    if (aCodedHeight) {
+      mime.Append(nsPrintfCString("; height=%d", *aCodedHeight));
     }
     types.AppendElement(mime);
   }
@@ -240,7 +187,8 @@ static bool IsOnLinux() {
 }
 
 // https://w3c.github.io/webcodecs/#check-configuration-support
-static bool CanDecode(const VideoDecoderConfigInternal& aConfig) {
+static bool CanDecode(const nsAString& aCodec, const uint32_t* aCodecWidth,
+                      const uint32_t* aCodecHeight) {
   // Bug 1840508: H264-annexb doesn't work on non-linux platform. We only enable
   // Linux for now.
   if (!IsOnLinux()) {
@@ -249,7 +197,8 @@ static bool CanDecode(const VideoDecoderConfigInternal& aConfig) {
   // TODO: Instead of calling CanHandleContainerType with the guessed the
   // containers, DecoderTraits should provide an API to tell if a codec is
   // decodable or not.
-  for (const nsCString& mime : GuessMIMETypes(aConfig)) {
+  for (const nsCString& mime :
+       GuessMIMETypes(aCodec, aCodecWidth, aCodecHeight)) {
     if (Maybe<MediaContainerType> containerType =
             MakeMediaExtendedMIMEType(mime)) {
       if (DecoderTraits::CanHandleContainerType(
@@ -262,11 +211,28 @@ static bool CanDecode(const VideoDecoderConfigInternal& aConfig) {
   return false;
 }
 
+static bool CanDecode(const VideoDecoderConfigInternal& aConfig) {
+  return CanDecode(aConfig.mCodec, aConfig.mCodedWidth.ptrOr(nullptr),
+                   aConfig.mCodedHeight.ptrOr(nullptr));
+}
+
+static bool CanDecode(const VideoDecoderConfig& aConfig) {
+  // Converting Optional to Maybe may looks better, but it requires memory
+  // allocations.
+  return CanDecode(
+      aConfig.mCodec,
+      aConfig.mCodedWidth.WasPassed() ? &aConfig.mCodedWidth.Value() : nullptr,
+      aConfig.mCodedHeight.WasPassed() ? &aConfig.mCodedHeight.Value()
+                                       : nullptr);
+}
+
 static nsTArray<UniquePtr<TrackInfo>> GetTracksInfo(
     const VideoDecoderConfigInternal& aConfig) {
   // TODO: Instead of calling GetTracksInfo with the guessed containers,
   // DecoderTraits should provide an API to create the TrackInfo directly.
-  for (const nsCString& mime : GuessMIMETypes(aConfig)) {
+  for (const nsCString& mime :
+       GuessMIMETypes(aConfig.mCodec, aConfig.mCodedWidth.ptrOr(nullptr),
+                      aConfig.mCodedHeight.ptrOr(nullptr))) {
     if (Maybe<MediaContainerType> containerType =
             MakeMediaExtendedMIMEType(mime)) {
       if (nsTArray<UniquePtr<TrackInfo>> tracks =
@@ -277,6 +243,19 @@ static nsTArray<UniquePtr<TrackInfo>> GetTracksInfo(
     }
   }
   return {};
+}
+
+static Result<RefPtr<MediaByteBuffer>, nsresult> GetExtraData(
+    const OwningMaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer& aBuffer) {
+  RefPtr<MediaByteBuffer> data = nullptr;
+  Span<uint8_t> buf;
+  MOZ_TRY_VAR(buf, GetSharedArrayBufferData(aBuffer));
+  if (buf.empty()) {
+    return data;
+  }
+  data = MakeRefPtr<MediaByteBuffer>();
+  data->AppendElements(buf);
+  return data;
 }
 
 static Result<UniquePtr<TrackInfo>, nsresult> CreateVideoInfo(
@@ -664,6 +643,75 @@ static nsTArray<RefPtr<VideoFrame>> DecodedDataToVideoFrames(
   return frames;
 }
 
+/*
+ * Below are helper classes used in VideoDecoder
+ */
+
+VideoColorSpaceInternal::VideoColorSpaceInternal(
+    const VideoColorSpaceInit& aColorSpaceInit) {
+  mFullRange = NullableToMaybe(aColorSpaceInit.mFullRange);
+  mMatrix = NullableToMaybe(aColorSpaceInit.mMatrix);
+  mPrimaries = NullableToMaybe(aColorSpaceInit.mPrimaries);
+  mTransfer = NullableToMaybe(aColorSpaceInit.mTransfer);
+}
+
+VideoColorSpaceInit VideoColorSpaceInternal::ToColorSpaceInit() const {
+  VideoColorSpaceInit init;
+  init.mFullRange = MaybeToNullable(mFullRange);
+  init.mMatrix = MaybeToNullable(mMatrix);
+  init.mPrimaries = MaybeToNullable(mPrimaries);
+  init.mTransfer = MaybeToNullable(mTransfer);
+  return init;
+}
+
+/* static */
+UniquePtr<VideoDecoderConfigInternal> VideoDecoderConfigInternal::Create(
+    const VideoDecoderConfig& aConfig) {
+  if (!IsValid(aConfig)) {
+    return nullptr;
+  }
+
+  Maybe<RefPtr<MediaByteBuffer>> description;
+  if (aConfig.mDescription.WasPassed()) {
+    auto rv = GetExtraData(aConfig.mDescription.Value());
+    if (rv.isErr()) {  // Invalid description data.
+      return nullptr;
+    }
+    description.emplace(rv.unwrap());
+  }
+
+  Maybe<VideoColorSpaceInternal> colorSpace;
+  if (aConfig.mColorSpace.WasPassed()) {
+    colorSpace.emplace(VideoColorSpaceInternal(aConfig.mColorSpace.Value()));
+  }
+
+  return UniquePtr<VideoDecoderConfigInternal>(new VideoDecoderConfigInternal(
+      aConfig.mCodec, OptionalToMaybe(aConfig.mCodedHeight),
+      OptionalToMaybe(aConfig.mCodedWidth), std::move(colorSpace),
+      std::move(description), OptionalToMaybe(aConfig.mDisplayAspectHeight),
+      OptionalToMaybe(aConfig.mDisplayAspectWidth),
+      aConfig.mHardwareAcceleration,
+      OptionalToMaybe(aConfig.mOptimizeForLatency)));
+}
+
+VideoDecoderConfigInternal::VideoDecoderConfigInternal(
+    const nsAString& aCodec, Maybe<uint32_t>&& aCodedHeight,
+    Maybe<uint32_t>&& aCodedWidth, Maybe<VideoColorSpaceInternal>&& aColorSpace,
+    Maybe<RefPtr<MediaByteBuffer>>&& aDescription,
+    Maybe<uint32_t>&& aDisplayAspectHeight,
+    Maybe<uint32_t>&& aDisplayAspectWidth,
+    const HardwareAcceleration& aHardwareAcceleration,
+    Maybe<bool>&& aOptimizeForLatency)
+    : mCodec(aCodec),
+      mCodedHeight(std::move(aCodedHeight)),
+      mCodedWidth(std::move(aCodedWidth)),
+      mColorSpace(std::move(aColorSpace)),
+      mDescription(std::move(aDescription)),
+      mDisplayAspectHeight(std::move(aDisplayAspectHeight)),
+      mDisplayAspectWidth(std::move(aDisplayAspectWidth)),
+      mHardwareAcceleration(aHardwareAcceleration),
+      mOptimizeForLatency(std::move(aOptimizeForLatency)) {}
+
 template <typename T>
 class MessageRequestHolder {
  public:
@@ -688,7 +736,7 @@ class ConfigureMessage final
   using Id = DecoderAgent::Id;
   static constexpr Id NoId = 0;
   static ConfigureMessage* Create(
-      UniquePtr<VideoDecoderConfigInternal>& aConfig) {
+      UniquePtr<VideoDecoderConfigInternal>&& aConfig) {
     // This needs to be atomic since this can run on the main thread or worker
     // thread.
     static std::atomic<Id> sNextId = NoId;
@@ -834,6 +882,10 @@ RefPtr<MediaRawData> DecodeMessage::ChunkData::IntoMediaRawData(
   return sample.forget();
 }
 
+/*
+ * Below are VideoDecoder implementation
+ */
+
 VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
                            RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
                            RefPtr<VideoFrameOutputCallback>&& aOutputCallback)
@@ -907,28 +959,20 @@ void VideoDecoder::Configure(const VideoDecoderConfig& aConfig,
   }
 
   // Clone a VideoDecoderConfig as the active decoder config.
-  AutoJSAPI jsapi;
-  if (!jsapi.Init(GetParentObject())) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
+  UniquePtr<VideoDecoderConfigInternal> config =
+      VideoDecoderConfigInternal::Create(aConfig);
+  if (!config) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);  // Invalid description data.
     return;
   }
-  RootedDictionary<VideoDecoderConfig> config(jsapi.cx());
-  auto c = CloneConfiguration(config, jsapi.cx(), aConfig);
-  if (c.isErr()) {
-    aRv.Throw(c.unwrapErr());
-    return;
-  }
-  MOZ_ASSERT(IsValid(config));
 
   mState = CodecState::Configured;
   mKeyChunkRequired = true;
   mDecodeCounter = 0;
   mFlushCounter = 0;
 
-  auto conf = MakeUnique<VideoDecoderConfigInternal>(config);
-
   mControlMessageQueue.emplace(
-      UniquePtr<ControlMessage>(ConfigureMessage::Create(conf)));
+      UniquePtr<ControlMessage>(ConfigureMessage::Create(std::move(config))));
   mLatestConfigureId = mControlMessageQueue.back()->AsConfigureMessage()->mId;
   LOG("VideoDecoder %p enqueues %s", this,
       mControlMessageQueue.back()->ToString().get());
@@ -1049,8 +1093,8 @@ already_AddRefed<Promise> VideoDecoder::IsConfigSupported(
     aRv.Throw(e);
     return p.forget();
   }
-  VideoDecoderConfigInternal internal(config);
-  bool canDecode = CanDecode(internal);
+
+  bool canDecode = CanDecode(config);
   RootedDictionary<VideoDecoderSupport> s(aGlobal.Context());
   s.mConfig.Construct(std::move(config));
   s.mSupported.Construct(canDecode);

@@ -795,6 +795,7 @@
     document.documentURI == "chrome://geckoview/content/geckoview.xhtml"
   );
   if (loadExtraCustomElements) {
+    // Lazily load the following elements
     for (let [tag, script] of [
       ["button-group", "chrome://global/content/elements/named-deck.js"],
       ["findbar", "chrome://global/content/elements/findbar.js"],
@@ -852,6 +853,7 @@
         .catch(console.error);
     };
 
+    // Immediately load the following elements
     for (let script of [
       "chrome://global/content/elements/arrowscrollbox.js",
       "chrome://global/content/elements/dialog.js",

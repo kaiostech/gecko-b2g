@@ -57,9 +57,11 @@ export class PocketSuggestions extends BaseFeature {
   }
 
   get canShowLessFrequently() {
-    // TODO (bug 1837097): To be implemented once the "Show less frequently"
-    // logic is decided.
-    return false;
+    let cap =
+      lazy.UrlbarPrefs.get("pocketShowLessFrequentlyCap") ||
+      lazy.QuickSuggestRemoteSettings.config.show_less_frequently_cap ||
+      0;
+    return !cap || this.showLessFrequentlyCount < cap;
   }
 
   enable(enabled) {
@@ -144,6 +146,31 @@ export class PocketSuggestions extends BaseFeature {
   }
 
   makeResult(queryContext, suggestion, searchString) {
+    if (!this.isEnabled) {
+      // The feature is disabled on the client, but Merino may still return
+      // suggestions anyway, and we filter them out here.
+      return null;
+    }
+
+    // If the user hasn't clicked the "Show less frequently" command, the
+    // suggestion can be shown. Otherwise, the suggestion can be shown if the
+    // user typed more than one word with at least `showLessFrequentlyCount`
+    // characters after the first word, including spaces.
+    if (this.showLessFrequentlyCount) {
+      let spaceIndex = searchString.search(/\s/);
+      if (
+        spaceIndex < 0 ||
+        searchString.length - spaceIndex < this.showLessFrequentlyCount
+      ) {
+        return null;
+      }
+    }
+
+    let isBestMatch =
+      suggestion.is_top_pick &&
+      lazy.UrlbarPrefs.get("bestMatchEnabled") &&
+      lazy.UrlbarPrefs.get("suggest.bestmatch");
+
     return Object.assign(
       new lazy.UrlbarResult(
         lazy.UrlbarUtils.RESULT_TYPE.URL,
@@ -151,12 +178,26 @@ export class PocketSuggestions extends BaseFeature {
         ...lazy.UrlbarResult.payloadAndSimpleHighlights(queryContext.tokens, {
           url: suggestion.url,
           title: [suggestion.title, lazy.UrlbarUtils.HIGHLIGHT.TYPED],
-          description: suggestion.description,
+          description: isBestMatch ? suggestion.description : "",
           icon: "chrome://global/skin/icons/pocket.svg",
+          shouldShowUrl: true,
+          bottomTextL10n: {
+            id: "firefox-suggest-pocket-bottom-text",
+            args: {
+              keywordSubstringTyped: searchString,
+              keywordSubstringNotTyped: suggestion.full_keyword.substring(
+                searchString.length
+              ),
+            },
+          },
           helpUrl: lazy.QuickSuggest.HELP_URL,
         })
       ),
-      { showFeedbackMenu: true }
+      {
+        isRichSuggestion: true,
+        richSuggestionIconSize: isBestMatch ? 24 : 16,
+        showFeedbackMenu: true,
+      }
     );
   }
 
@@ -167,14 +208,17 @@ export class PocketSuggestions extends BaseFeature {
         break;
       // selType == "dismiss" when the user presses the dismiss key shortcut.
       case "dismiss":
-      case RESULT_MENU_COMMAND.NOT_INTERESTED:
       case RESULT_MENU_COMMAND.NOT_RELEVANT:
         lazy.QuickSuggest.blockedSuggestions.add(result.payload.url);
-        queryContext.view.acknowledgeDismissal(result);
+        queryContext.view.acknowledgeDismissal(result, false);
+        break;
+      case RESULT_MENU_COMMAND.NOT_INTERESTED:
+        lazy.UrlbarPrefs.set("suggest.pocket", false);
+        queryContext.view.acknowledgeDismissal(result, true);
         break;
       case RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY:
         queryContext.view.acknowledgeFeedback(result);
-        this.#incrementShowLessFrequentlyCount();
+        this.incrementShowLessFrequentlyCount();
         break;
     }
   }
@@ -223,7 +267,7 @@ export class PocketSuggestions extends BaseFeature {
     return commands;
   }
 
-  #incrementShowLessFrequentlyCount() {
+  incrementShowLessFrequentlyCount() {
     if (this.canShowLessFrequently) {
       lazy.UrlbarPrefs.set(
         "pocket.showLessFrequentlyCount",

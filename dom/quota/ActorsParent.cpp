@@ -1054,9 +1054,9 @@ class GetOriginUsageOp final : public QuotaUsageRequestBase {
 class QuotaRequestBase : public NormalOriginOperationBase,
                          public PQuotaRequestParent {
  public:
-  // May be overridden by subclasses if they need to perform work on the
-  // background thread before being run.
-  virtual void Init(Quota& aQuota);
+  // Must be overridden by subclasses to perform work on the background thread
+  // before being run.
+  virtual void Init(Quota& aQuota) = 0;
 
  protected:
   explicit QuotaRequestBase(const char* aRunnableName, bool aExclusive)
@@ -1103,10 +1103,6 @@ class InitializedRequestBase : public QuotaRequestBase {
  protected:
   bool mInitialized;
 
- public:
-  void Init(Quota& aQuota) override;
-
- protected:
   InitializedRequestBase(const char* aRunnableName);
 
  private:
@@ -1117,6 +1113,8 @@ class StorageInitializedOp final : public InitializedRequestBase {
  public:
   StorageInitializedOp()
       : InitializedRequestBase("dom::quota::StorageInitializedOp") {}
+
+  void Init(Quota& aQuota) override;
 
  private:
   ~StorageInitializedOp() = default;
@@ -1130,6 +1128,8 @@ class TemporaryStorageInitializedOp final : public InitializedRequestBase {
  public:
   TemporaryStorageInitializedOp()
       : InitializedRequestBase("dom::quota::StorageInitializedOp") {}
+
+  void Init(Quota& aQuota) override;
 
  private:
   ~TemporaryStorageInitializedOp() = default;
@@ -1176,10 +1176,6 @@ class InitializeOriginRequestBase : public QuotaRequestBase {
   bool mIsPrivate;
   bool mCreated;
 
- public:
-  void Init(Quota& aQuota) override;
-
- protected:
   InitializeOriginRequestBase(const char* aRunnableName,
                               PersistenceType aPersistenceType,
                               const PrincipalInfo& aPrincipalInfo);
@@ -1194,6 +1190,8 @@ class InitializePersistentOriginOp final : public InitializeOriginRequestBase {
  private:
   ~InitializePersistentOriginOp() = default;
 
+  void Init(Quota& aQuota) override;
+
   nsresult DoDirectoryWork(QuotaManager& aQuotaManager) override;
 
   void GetResponse(RequestResponse& aResponse) override;
@@ -1202,6 +1200,8 @@ class InitializePersistentOriginOp final : public InitializeOriginRequestBase {
 class InitializeTemporaryOriginOp final : public InitializeOriginRequestBase {
  public:
   explicit InitializeTemporaryOriginOp(const RequestParams& aParams);
+
+  void Init(Quota& aQuota) override;
 
  private:
   ~InitializeTemporaryOriginOp() = default;
@@ -1219,6 +1219,8 @@ class GetFullOriginMetadataOp : public QuotaRequestBase {
 
  public:
   explicit GetFullOriginMetadataOp(const GetFullOriginMetadataParams& aParams);
+
+  void Init(Quota& aQuota) override;
 
  private:
   nsresult DoInit(QuotaManager& aQuotaManager) override;
@@ -1253,6 +1255,8 @@ class ResetOrClearOp final : public QuotaRequestBase {
 class ClearPrivateBrowsingOp final : public QuotaRequestBase {
  public:
   ClearPrivateBrowsingOp();
+
+  void Init(Quota& aQuota) override;
 
  private:
   ~ClearPrivateBrowsingOp() = default;
@@ -1334,9 +1338,6 @@ class PersistRequestBase : public QuotaRequestBase {
   nsCString mStorageOrigin;
   bool mIsPrivate;
 
- public:
-  void Init(Quota& aQuota) override;
-
  protected:
   explicit PersistRequestBase(const PrincipalInfo& aPrincipalInfo);
 
@@ -1349,6 +1350,8 @@ class PersistedOp final : public PersistRequestBase {
  public:
   explicit PersistedOp(const RequestParams& aParams);
 
+  void Init(Quota& aQuota) override;
+
  private:
   ~PersistedOp() = default;
 
@@ -1360,6 +1363,8 @@ class PersistedOp final : public PersistRequestBase {
 class PersistOp final : public PersistRequestBase {
  public:
   explicit PersistOp(const RequestParams& aParams);
+
+  void Init(Quota& aQuota) override;
 
  private:
   ~PersistOp() = default;
@@ -1376,6 +1381,8 @@ class EstimateOp final : public QuotaRequestBase {
 
  public:
   explicit EstimateOp(const EstimateParams& aParams);
+
+  void Init(Quota& aQuota) override;
 
  private:
   ~EstimateOp() = default;
@@ -8190,12 +8197,6 @@ void GetOriginUsageOp::GetResponse(UsageRequestResponse& aResponse) {
   aResponse = usageResponse;
 }
 
-void QuotaRequestBase::Init(Quota& aQuota) {
-  AssertIsOnOwningThread();
-
-  mNeedsStorageInit = true;
-}
-
 void QuotaRequestBase::SendResults() {
   AssertIsOnOwningThread();
 
@@ -8263,11 +8264,11 @@ InitializedRequestBase::InitializedRequestBase(const char* aRunnableName)
   mNeedsStorageInit = false;
 }
 
-void InitializedRequestBase::Init(Quota& aQuota) { AssertIsOnOwningThread(); }
-
 RefPtr<DirectoryLock> InitializedRequestBase::CreateDirectoryLock() {
   return nullptr;
 }
+
+void StorageInitializedOp::Init(Quota& aQuota) { AssertIsOnOwningThread(); }
 
 nsresult StorageInitializedOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
   AssertIsOnIOThread();
@@ -8287,6 +8288,10 @@ void StorageInitializedOp::GetResponse(RequestResponse& aResponse) {
   storageInitializedResponse.initialized() = mInitialized;
 
   aResponse = storageInitializedResponse;
+}
+
+void TemporaryStorageInitializedOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
 }
 
 nsresult TemporaryStorageInitializedOp::DoDirectoryWork(
@@ -8381,10 +8386,6 @@ InitializeOriginRequestBase::InitializeOriginRequestBase(
   mPersistenceType.SetValue(aPersistenceType);
 }
 
-void InitializeOriginRequestBase::Init(Quota& aQuota) {
-  AssertIsOnOwningThread();
-}
-
 nsresult InitializeOriginRequestBase::DoInit(QuotaManager& aQuotaManager) {
   AssertIsOnOwningThread();
 
@@ -8412,6 +8413,10 @@ InitializePersistentOriginOp::InitializePersistentOriginOp(
   AssertIsOnOwningThread();
   MOZ_ASSERT(aParams.type() ==
              RequestParams::TInitializePersistentOriginParams);
+}
+
+void InitializePersistentOriginOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
 }
 
 nsresult InitializePersistentOriginOp::DoDirectoryWork(
@@ -8448,6 +8453,10 @@ InitializeTemporaryOriginOp::InitializeTemporaryOriginOp(
           aParams.get_InitializeTemporaryOriginParams().principalInfo()) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aParams.type() == RequestParams::TInitializeTemporaryOriginParams);
+}
+
+void InitializeTemporaryOriginOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
 }
 
 nsresult InitializeTemporaryOriginOp::DoDirectoryWork(
@@ -8487,6 +8496,12 @@ GetFullOriginMetadataOp::GetFullOriginMetadataOp(
                        /* aExclusive */ false),
       mParams(aParams) {
   AssertIsOnOwningThread();
+}
+
+void GetFullOriginMetadataOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
+
+  mNeedsStorageInit = true;
 }
 
 nsresult GetFullOriginMetadataOp::DoInit(QuotaManager& aQuotaManager) {
@@ -8622,6 +8637,12 @@ ClearPrivateBrowsingOp::ClearPrivateBrowsingOp()
                        OriginScope::FromNull(), Nullable<Client::Type>(),
                        /* aExclusive */ true) {
   AssertIsOnOwningThread();
+}
+
+void ClearPrivateBrowsingOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
+
+  mNeedsStorageInit = true;
 }
 
 nsresult ClearPrivateBrowsingOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
@@ -8899,7 +8920,7 @@ ClearOriginOp::ClearOriginOp(const RequestParams& aParams)
 void ClearOriginOp::Init(Quota& aQuota) {
   AssertIsOnOwningThread();
 
-  QuotaRequestBase::Init(aQuota);
+  mNeedsStorageInit = true;
 
   if (mParams.persistenceTypeIsExplicit()) {
     mPersistenceType.SetValue(mParams.persistenceType());
@@ -8935,7 +8956,7 @@ ClearDataOp::ClearDataOp(const RequestParams& aParams)
 void ClearDataOp::Init(Quota& aQuota) {
   AssertIsOnOwningThread();
 
-  QuotaRequestBase::Init(aQuota);
+  mNeedsStorageInit = true;
 
   mOriginScope.SetFromPattern(mParams.pattern());
 }
@@ -8997,12 +9018,6 @@ PersistRequestBase::PersistRequestBase(const PrincipalInfo& aPrincipalInfo)
                        /* aExclusive */ false),
       mPrincipalInfo(aPrincipalInfo) {
   AssertIsOnOwningThread();
-}
-
-void PersistRequestBase::Init(Quota& aQuota) {
-  AssertIsOnOwningThread();
-
-  QuotaRequestBase::Init(aQuota);
 
   mPersistenceType.SetValue(PERSISTENCE_TYPE_DEFAULT);
 }
@@ -9030,6 +9045,12 @@ PersistedOp::PersistedOp(const RequestParams& aParams)
     : PersistRequestBase(aParams.get_PersistedParams().principalInfo()),
       mPersisted(false) {
   MOZ_ASSERT(aParams.type() == RequestParams::TPersistedParams);
+}
+
+void PersistedOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
+
+  mNeedsStorageInit = true;
 }
 
 nsresult PersistedOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
@@ -9087,6 +9108,12 @@ void PersistedOp::GetResponse(RequestResponse& aResponse) {
 PersistOp::PersistOp(const RequestParams& aParams)
     : PersistRequestBase(aParams.get_PersistParams().principalInfo()) {
   MOZ_ASSERT(aParams.type() == RequestParams::TPersistParams);
+}
+
+void PersistOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
+
+  mNeedsStorageInit = true;
 }
 
 nsresult PersistOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
@@ -9170,6 +9197,12 @@ EstimateOp::EstimateOp(const EstimateParams& aParams)
   AssertIsOnOwningThread();
 
   // Overwrite OriginOperationBase default values.
+  mNeedsStorageInit = true;
+}
+
+void EstimateOp::Init(Quota& aQuota) {
+  AssertIsOnOwningThread();
+
   mNeedsStorageInit = true;
 }
 

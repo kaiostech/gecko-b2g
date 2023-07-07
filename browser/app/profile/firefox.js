@@ -1127,6 +1127,14 @@ pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.resume_session_once", false);
 pref("browser.sessionstore.resuming_after_os_restart", false);
 
+// Toggle for the behavior to include closed tabs from all windows in
+// recently-closed tab lists & counts, and re-open tabs into the current window
+#ifdef NIGHTLY_BUILD
+  pref("browser.sessionstore.closedTabsFromAllWindows", true);
+#else
+  pref("browser.sessionstore.closedTabsFromAllWindows", false);
+#endif
+
 // Minimal interval between two save operations in milliseconds (while the user is idle).
 pref("browser.sessionstore.interval.idle", 3600000); // 1h
 
@@ -1870,7 +1878,6 @@ pref("privacy.trackingprotection.cryptomining.enabled", true);
 
 pref("browser.contentblocking.database.enabled", true);
 
-pref("dom.storage_access.enabled", true);
 pref("dom.storage_access.frame_only", true);
 
 // Enable URL query stripping and strip on share in Nightly.
@@ -2785,6 +2792,8 @@ pref("svg.context-properties.content.allowed-domains", "profile.accounts.firefox
 pref("browser.firefox-view.feature-tour", "{\"screen\":\"FIREFOX_VIEW_SPOTLIGHT\",\"complete\":false}");
 // Number of times the user visited about:firefoxview
 pref("browser.firefox-view.view-count", 0);
+// Maximum number of rows to show on the "History" page.
+pref("browser.firefox-view.max-history-rows", 500);
 
 // If the user has seen the pdf.js feature tour this value reflects the tour
 // message id, the id of the last screen they saw, and whether they completed the tour

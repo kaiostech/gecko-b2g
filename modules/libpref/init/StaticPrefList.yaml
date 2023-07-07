@@ -4212,7 +4212,7 @@
 # Storage-access API.
 - name: dom.storage_access.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Forward-Declared Storage-access API.
@@ -8037,10 +8037,14 @@
   mirror: always
 
 # Whether the W^X policy is enforced to mark JIT code pages as either writable
-# or executable but never both at the same time.
+# or executable but never both at the same time. OpenBSD defaults to W^X.
 - name: javascript.options.content_process_write_protect_code
   type: bool
+#if defined(XP_OPENBSD)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # Whether to use the XPCOM thread pool for JS helper tasks.
@@ -8060,6 +8064,24 @@
 # privacy.resistFingerprinting is true, this pref is ignored and fdlibm is used
 # anyway.
 - name: javascript.options.use_fdlibm_for_sin_cos_tan
+  type: bool
+  value: false
+  mirror: always
+
+# Whether to support parsing '//(#@) source(Mapping)?URL=' pragmas.
+- name: javascript.options.source_pragmas
+  type: bool
+  value: true
+  mirror: always
+
+# asm.js
+- name: javascript.options.asmjs
+  type: bool
+  value: true
+  mirror: always
+
+# Whether to throw a TypeError if asm.js code hits validation failure.
+- name: javascript.options.throw_on_asmjs_validation_failure
   type: bool
   value: false
   mirror: always
@@ -9589,6 +9611,13 @@
   type: bool
   value: false
   mirror: always
+
+# Is support for -webkit-slider* pseudos enabled?
+- name: layout.css.webkit-range-pseudos.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
 
 # Is 'content:none' supported on (non-pseudo) elements?
 - name: layout.css.element-content-none.enabled

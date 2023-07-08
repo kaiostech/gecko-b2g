@@ -30,7 +30,13 @@ Result<Ok, nsresult> AnnexB::ConvertSampleToAnnexB(
     // Nothing to do, it's corrupted anyway.
     return Ok();
   }
+  return ConvertSampleToAnnexBInternal(aSample, aAddSPS,
+                                       ConvertExtraDataToAnnexB);
+}
 
+Result<Ok, nsresult> AnnexB::ConvertSampleToAnnexBInternal(
+    mozilla::MediaRawData* aSample, bool aAddSPS,
+    ConvertFunc aConvertExtraData) {
   BufferReader reader(aSample->Data(), aSample->Size());
 
   nsTArray<uint8_t> tmp;
@@ -60,8 +66,7 @@ Result<Ok, nsresult> AnnexB::ConvertSampleToAnnexB(
 
   // Prepend the Annex B NAL with SPS and PPS tables to keyframes.
   if (aAddSPS && aSample->mKeyframe) {
-    RefPtr<MediaByteBuffer> annexB =
-        ConvertExtraDataToAnnexB(aSample->mExtraData);
+    RefPtr<MediaByteBuffer> annexB = aConvertExtraData(aSample->mExtraData);
     if (!samplewriter->Prepend(annexB->Elements(), annexB->Length())) {
       return Err(NS_ERROR_OUT_OF_MEMORY);
     }
@@ -123,7 +128,7 @@ already_AddRefed<mozilla::MediaByteBuffer> AnnexB::ConvertExtraDataToAnnexB(
 }
 
 Result<mozilla::Ok, nsresult> AnnexB::ConvertSPSOrPPS(
-    BufferReader& aReader, uint8_t aCount, mozilla::MediaByteBuffer* aAnnexB) {
+    BufferReader& aReader, uint16_t aCount, mozilla::MediaByteBuffer* aAnnexB) {
   for (int i = 0; i < aCount; i++) {
     uint16_t length;
     MOZ_TRY_VAR(length, aReader.ReadU16());
@@ -359,6 +364,121 @@ bool AnnexB::IsAnnexB(const mozilla::MediaRawData* aSample) {
   }
   uint32_t header = mozilla::BigEndian::readUint32(aSample->Data());
   return header == 0x00000001 || (header >> 8) == 0x000001;
+}
+
+Result<Ok, nsresult> H265AnnexB::ConvertSampleToAnnexB(
+    mozilla::MediaRawData* aSample, bool aAddSPS) {
+  MOZ_ASSERT(aSample);
+
+  if (!IsHVCC(aSample)) {
+    return Ok();
+  }
+  MOZ_ASSERT(aSample->Data());
+
+  MOZ_TRY(ConvertSampleTo4BytesHVCC(aSample));
+
+  if (aSample->Size() < 4) {
+    // Nothing to do, it's corrupted anyway.
+    return Ok();
+  }
+
+  return AnnexB::ConvertSampleToAnnexBInternal(
+      aSample, aAddSPS, H265AnnexB::ConvertExtraDataToAnnexB);
+}
+
+already_AddRefed<MediaByteBuffer> H265AnnexB::ConvertExtraDataToAnnexB(
+    const MediaByteBuffer* aExtraData) {
+  RefPtr<MediaByteBuffer> annexB = new MediaByteBuffer;
+
+  BufferReader reader(*aExtraData);
+
+  const uint8_t* ptr = reader.Read(22);
+  if (ptr && ptr[0] == 1) {
+    uint8_t numOfArrays = reader.ReadU8().unwrapOr(0);
+    for (int i = 0; i < numOfArrays; i++) {
+      Unused << reader.ReadU8();  // array completeness | reserved | NALU type
+      Unused << reader.ReadU16().map(  // number of NALUs
+          [&](uint16_t x) { return ConvertSPSOrPPS(reader, x, annexB); });
+    }
+  }
+  return annexB.forget();
+}
+
+bool H265AnnexB::ConvertSampleToHVCC(
+    mozilla::MediaRawData* aSample,
+    const RefPtr<MediaByteBuffer>& aHVCCHeader) {
+  if (!IsAnnexB(aSample)) {
+    // Not AnnexB, nothing to convert.
+    return true;
+  }
+
+  nsTArray<uint8_t> nalu;
+  ByteWriter<BigEndian> writer(nalu);
+  BufferReader reader(aSample->Data(), aSample->Size());
+
+  if (ParseNALUnits(writer, reader).isErr()) {
+    return false;
+  }
+  UniquePtr<MediaRawDataWriter> samplewriter(aSample->CreateWriter());
+  if (!samplewriter->Replace(nalu.Elements(), nalu.Length())) {
+    return false;
+  }
+
+  if (aHVCCHeader) {
+    aSample->mExtraData = aHVCCHeader;
+    return true;
+  }
+
+  // TODO: is adding fake extra data here necessary?
+  return true;
+}
+
+Result<mozilla::Ok, nsresult> H265AnnexB::ConvertSampleTo4BytesHVCC(
+    mozilla::MediaRawData* aSample) {
+  MOZ_ASSERT(IsHVCC(aSample));
+
+  int nalLenSize = ((*aSample->mExtraData)[21] & 3) + 1;
+
+  if (nalLenSize == 4) {
+    return Ok();
+  }
+  nsTArray<uint8_t> dest;
+  ByteWriter<BigEndian> writer(dest);
+  BufferReader reader(aSample->Data(), aSample->Size());
+  while (reader.Remaining() > nalLenSize) {
+    uint32_t nalLen;
+    switch (nalLenSize) {
+      case 1:
+        MOZ_TRY_VAR(nalLen, reader.ReadU8());
+        break;
+      case 2:
+        MOZ_TRY_VAR(nalLen, reader.ReadU16());
+        break;
+      case 3:
+        MOZ_TRY_VAR(nalLen, reader.ReadU24());
+        break;
+    }
+
+    MOZ_ASSERT(nalLenSize != 4);
+
+    const uint8_t* p = reader.Read(nalLen);
+    if (!p) {
+      return Ok();
+    }
+    if (!writer.WriteU32(nalLen) || !writer.Write(p, nalLen)) {
+      return Err(NS_ERROR_OUT_OF_MEMORY);
+    }
+  }
+  UniquePtr<MediaRawDataWriter> samplewriter(aSample->CreateWriter());
+  if (!samplewriter->Replace(dest.Elements(), dest.Length())) {
+    return Err(NS_ERROR_OUT_OF_MEMORY);
+  }
+  return Ok();
+}
+
+bool H265AnnexB::IsHVCC(const mozilla::MediaRawData* aSample) {
+  return aSample->Size() >= 3 && aSample->mExtraData &&
+         aSample->mExtraData->Length() >= 23 && (*aSample->mExtraData)[0] == 1;
 }
 
 }  // namespace mozilla

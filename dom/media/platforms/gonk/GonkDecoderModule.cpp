@@ -82,6 +82,10 @@ media::DecodeSupportSet GonkDecoderModule::SupportsMimeType(
       aMimeType.EqualsLiteral("video/3gpp")) {
     return media::DecodeSupport::HardwareDecode;
   }
+  if (aMimeType.EqualsLiteral("video/hevc") &&
+      StaticPrefs::media_gonk_h265_enabled()) {
+    return media::DecodeSupport::HardwareDecode;
+  }
   return media::DecodeSupport::Unsupported;
 }
 

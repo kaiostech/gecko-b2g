@@ -11383,6 +11383,11 @@
     value: 4
     mirror: always
 
+-   name: media.gonk.h265.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
 -   name: media.gonk.video.max_video_decode_width
     type: RelaxedAtomicUint32
     value: 1920

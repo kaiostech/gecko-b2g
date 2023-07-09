@@ -8,6 +8,7 @@
 
 #include "AnnexB.h"
 #include "H264.h"
+#include "H265.h"
 #include "GeckoProfiler.h"
 #include "ImageContainer.h"
 #include "MP4Decoder.h"
@@ -166,6 +167,88 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   bool mGotSPS = false;
   RefPtr<TrackInfoSharedPtr> mTrackInfo;
   RefPtr<MediaByteBuffer> mPreviousExtraData;
+};
+
+class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
+ public:
+  explicit H265ChangeMonitor(const VideoInfo& aInfo, bool aFullParsing)
+      : mCurrentConfig(aInfo) {
+    if (CanBeInstantiated()) {
+      UpdateConfigFromExtraData(aInfo.mExtraData);
+    }
+  }
+
+  bool CanBeInstantiated() const override {
+    return H265::HasParamSets(mCurrentConfig.mExtraData);
+  }
+
+  MediaResult CheckForChange(MediaRawData* aSample) override {
+    if (!H265AnnexB::ConvertSampleToHVCC(aSample)) {
+      return MediaResult(NS_ERROR_OUT_OF_MEMORY,
+                         RESULT_DETAIL("ConvertSampleToHVCC"));
+    }
+
+    if (!H265AnnexB::IsHVCC(aSample)) {
+      return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                         RESULT_DETAIL("Invalid H265 content"));
+    }
+
+    // TODO: check in-band extra data
+    return NS_OK;
+  }
+
+  const TrackInfo& Config() const override { return mCurrentConfig; }
+
+  MediaResult PrepareSample(MediaDataDecoder::ConversionRequired aConversion,
+                            MediaRawData* aSample,
+                            bool aNeedKeyFrame) override {
+    MOZ_DIAGNOSTIC_ASSERT(
+        aConversion == MediaDataDecoder::ConversionRequired::kNeedAnnexB ||
+            aConversion == MediaDataDecoder::ConversionRequired::kNeedHVCC,
+        "Conversion must be either HVCC or AnnexB");
+
+    aSample->mExtraData = mCurrentConfig.mExtraData;
+    aSample->mTrackInfo = mTrackInfo;
+
+    if (aConversion == MediaDataDecoder::ConversionRequired::kNeedAnnexB) {
+      auto res = H265AnnexB::ConvertSampleToAnnexB(aSample, aNeedKeyFrame);
+      if (res.isErr()) {
+        return MediaResult(res.unwrapErr(),
+                           RESULT_DETAIL("ConvertSampleToAnnexB"));
+      }
+    }
+
+    return NS_OK;
+  }
+
+ private:
+  void UpdateConfigFromExtraData(MediaByteBuffer* aExtraData) {
+    H265::SPSData spsdata;
+    if (H265::DecodeSPSFromExtraData(aExtraData, spsdata)) {
+      mCurrentConfig.mImage.width = spsdata.pic_width_in_luma_samples;
+      mCurrentConfig.mImage.height = spsdata.pic_height_in_luma_samples;
+      // TODO: apply sample_ratio
+      mCurrentConfig.mDisplay = mCurrentConfig.mImage;
+      mCurrentConfig.SetImageRect(gfx::IntRect({0, 0}, mCurrentConfig.mImage));
+      mCurrentConfig.mColorDepth = spsdata.ColorDepth();
+      mCurrentConfig.mColorSpace = Some(spsdata.ColorSpace());
+      mCurrentConfig.mColorPrimaries = gfxUtils::CicpToColorPrimaries(
+          static_cast<gfx::CICP::ColourPrimaries>(spsdata.vui.colour_primaries),
+          gMediaDecoderLog);
+      mCurrentConfig.mTransferFunction = gfxUtils::CicpToTransferFunction(
+          static_cast<gfx::CICP::TransferCharacteristics>(
+              spsdata.vui.transfer_characteristics));
+      mCurrentConfig.mColorRange = spsdata.vui.video_full_range_flag
+                                       ? gfx::ColorRange::FULL
+                                       : gfx::ColorRange::LIMITED;
+    }
+    mCurrentConfig.mExtraData = aExtraData;
+    mTrackInfo = new TrackInfoSharedPtr(mCurrentConfig, mStreamID++);
+  }
+
+  VideoInfo mCurrentConfig;
+  uint32_t mStreamID = 0;
+  RefPtr<TrackInfoSharedPtr> mTrackInfo;
 };
 
 // Gets the pixel aspect ratio from the decoded video size and the rendered
@@ -469,6 +552,10 @@ RefPtr<PlatformDecoderModule::CreateDecoderPromise> MediaChangeMonitor::Create(
   } else if (AOMDecoder::IsAV1(currentConfig.mMimeType)) {
     changeMonitor = MakeUnique<AV1ChangeMonitor>(currentConfig);
 #endif
+  } else if (MP4Decoder::IsH265(currentConfig.mMimeType)) {
+    changeMonitor = MakeUnique<H265ChangeMonitor>(
+        currentConfig, aParams.mOptions.contains(
+                           CreateDecoderParams::Option::FullH264Parsing));
   } else {
     MOZ_ASSERT(MP4Decoder::IsH264(currentConfig.mMimeType));
     changeMonitor = MakeUnique<H264ChangeMonitor>(

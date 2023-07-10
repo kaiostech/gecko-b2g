@@ -22,6 +22,7 @@
 #include "mozilla/dom/FontFaceSet.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/dom/GeneratePlaceholderCanvasData.h"
+#include "mozilla/dom/VideoFrame.h"
 #include "nsPresContext.h"
 
 #include "nsIInterfaceRequestorUtils.h"
@@ -991,6 +992,7 @@ CanvasRenderingContext2D::ContextState::ContextState(const ContextState& aOther)
       textBaseline(aOther.textBaseline),
       textDirection(aOther.textDirection),
       fontKerning(aOther.fontKerning),
+      fontStretch(aOther.fontStretch),
       fontVariantCaps(aOther.fontVariantCaps),
       textRendering(aOther.textRendering),
       letterSpacing(aOther.letterSpacing),
@@ -2281,6 +2283,7 @@ already_AddRefed<CanvasPattern> CanvasRenderingContext2D::CreatePattern(
 
   Element* element = nullptr;
   OffscreenCanvas* offscreenCanvas = nullptr;
+  VideoFrame* videoFrame = nullptr;
 
   if (aSource.IsHTMLCanvasElement()) {
     HTMLCanvasElement* canvas = &aSource.GetAsHTMLCanvasElement();
@@ -2356,6 +2359,18 @@ already_AddRefed<CanvasPattern> CanvasRenderingContext2D::CreatePattern(
 
       return pat.forget();
     }
+  } else if (aSource.IsVideoFrame()) {
+    videoFrame = &aSource.GetAsVideoFrame();
+
+    if (videoFrame->CodedWidth() == 0) {
+      aError.ThrowInvalidStateError("Passed-in canvas has width 0");
+      return nullptr;
+    }
+
+    if (videoFrame->CodedHeight() == 0) {
+      aError.ThrowInvalidStateError("Passed-in canvas has height 0");
+      return nullptr;
+    }
   } else {
     // Special case for ImageBitmap
     ImageBitmap& imgBitmap = aSource.GetAsImageBitmap();
@@ -2390,11 +2405,15 @@ already_AddRefed<CanvasPattern> CanvasRenderingContext2D::CreatePattern(
   // of animated images
   auto flags = nsLayoutUtils::SFE_WANT_FIRST_FRAME_IF_IMAGE |
                nsLayoutUtils::SFE_EXACT_SIZE_SURFACE;
-  SurfaceFromElementResult res =
-      offscreenCanvas
-          ? nsLayoutUtils::SurfaceFromOffscreenCanvas(offscreenCanvas, flags,
-                                                      mTarget)
-          : nsLayoutUtils::SurfaceFromElement(element, flags, mTarget);
+  SurfaceFromElementResult res;
+  if (offscreenCanvas) {
+    res = nsLayoutUtils::SurfaceFromOffscreenCanvas(offscreenCanvas, flags,
+                                                    mTarget);
+  } else if (videoFrame) {
+    res = nsLayoutUtils::SurfaceFromVideoFrame(videoFrame, flags, mTarget);
+  } else {
+    res = nsLayoutUtils::SurfaceFromElement(element, flags, mTarget);
+  }
 
   // Per spec, we should throw here for the HTMLImageElement and SVGImageElement
   // cases if the image request state is "broken".  In terms of the infromation
@@ -3693,9 +3712,11 @@ void CanvasRenderingContext2D::SetFont(const nsACString& aFont,
     return;
   }
 
-  // Setting the font attribute magically resets fontVariantCaps to normal.
+  // Setting the font attribute magically resets fontVariantCaps and
+  // fontStretch to normal.
   // (spec unclear, cf. https://github.com/whatwg/html/issues/8103)
   SetFontVariantCaps(CanvasFontVariantCaps::Normal);
+  SetFontStretch(CanvasFontStretch::Normal);
 
   // If letterSpacing or wordSpacing is present, recompute to account for
   // changes to font-relative dimensions.
@@ -3755,6 +3776,44 @@ bool CanvasRenderingContext2D::SetFontInternal(const nsACString& aFont,
       QuantizeFontSize(resizedFont.size.ToCSSPixels()));
 
   resizedFont.kerning = CanvasToGfx(CurrentState().fontKerning);
+
+  // fontStretch handling: if fontStretch is not 'normal', apply it;
+  // if it is normal, then use whatever the shorthand set.
+  // XXX(jfkthame) The interaction between the shorthand and the separate attr
+  // here is not clearly spec'd, and we may want to reconsider it (or revise
+  // the available values); see https://github.com/whatwg/html/issues/8103.
+  switch (CurrentState().fontStretch) {
+    case CanvasFontStretch::Normal:
+      // Leave whatever the shorthand set.
+      break;
+    case CanvasFontStretch::Ultra_condensed:
+      resizedFont.stretch = StyleFontStretch::ULTRA_CONDENSED;
+      break;
+    case CanvasFontStretch::Extra_condensed:
+      resizedFont.stretch = StyleFontStretch::EXTRA_CONDENSED;
+      break;
+    case CanvasFontStretch::Condensed:
+      resizedFont.stretch = StyleFontStretch::CONDENSED;
+      break;
+    case CanvasFontStretch::Semi_condensed:
+      resizedFont.stretch = StyleFontStretch::SEMI_CONDENSED;
+      break;
+    case CanvasFontStretch::Semi_expanded:
+      resizedFont.stretch = StyleFontStretch::SEMI_EXPANDED;
+      break;
+    case CanvasFontStretch::Expanded:
+      resizedFont.stretch = StyleFontStretch::EXPANDED;
+      break;
+    case CanvasFontStretch::Extra_expanded:
+      resizedFont.stretch = StyleFontStretch::EXTRA_EXPANDED;
+      break;
+    case CanvasFontStretch::Ultra_expanded:
+      resizedFont.stretch = StyleFontStretch::ULTRA_EXPANDED;
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unknown stretch value");
+      break;
+  }
 
   // fontVariantCaps handling: if fontVariantCaps is not 'normal', apply it;
   // if it is, then use the smallCaps boolean from the shorthand.
@@ -3893,6 +3952,39 @@ bool CanvasRenderingContext2D::SetFontInternalDisconnected(
   }
 
   fontStyle.size = QuantizeFontSize(size);
+
+  switch (CurrentState().fontStretch) {
+    case CanvasFontStretch::Normal:
+      // Leave whatever the shorthand set.
+      break;
+    case CanvasFontStretch::Ultra_condensed:
+      fontStyle.stretch = StyleFontStretch::ULTRA_CONDENSED;
+      break;
+    case CanvasFontStretch::Extra_condensed:
+      fontStyle.stretch = StyleFontStretch::EXTRA_CONDENSED;
+      break;
+    case CanvasFontStretch::Condensed:
+      fontStyle.stretch = StyleFontStretch::CONDENSED;
+      break;
+    case CanvasFontStretch::Semi_condensed:
+      fontStyle.stretch = StyleFontStretch::SEMI_CONDENSED;
+      break;
+    case CanvasFontStretch::Semi_expanded:
+      fontStyle.stretch = StyleFontStretch::SEMI_EXPANDED;
+      break;
+    case CanvasFontStretch::Expanded:
+      fontStyle.stretch = StyleFontStretch::EXPANDED;
+      break;
+    case CanvasFontStretch::Extra_expanded:
+      fontStyle.stretch = StyleFontStretch::EXTRA_EXPANDED;
+      break;
+    case CanvasFontStretch::Ultra_expanded:
+      fontStyle.stretch = StyleFontStretch::ULTRA_EXPANDED;
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unknown stretch value");
+      break;
+  }
 
   // fontVariantCaps handling: if fontVariantCaps is not 'normal', apply it;
   // if it is, then use the smallCaps boolean from the shorthand.
@@ -4969,20 +5061,21 @@ static already_AddRefed<SourceSurface> ExtractSubrect(SourceSurface* aSurface,
 //
 
 static void ClipImageDimension(double& aSourceCoord, double& aSourceSize,
-                               int32_t aImageSize, double& aDestCoord,
-                               double& aDestSize) {
+                               double& aClipOriginCoord, double& aClipSize,
+                               double& aDestCoord, double& aDestSize) {
   double scale = aDestSize / aSourceSize;
-  if (aSourceCoord < 0.0) {
+  double relativeCoord = aSourceCoord - aClipOriginCoord;
+  if (relativeCoord < 0.0) {
     double destEnd = aDestCoord + aDestSize;
-    aDestCoord -= aSourceCoord * scale;
+    aDestCoord -= relativeCoord * scale;
     aDestSize = destEnd - aDestCoord;
-    aSourceSize += aSourceCoord;
-    aSourceCoord = 0.0;
+    aSourceSize += relativeCoord;
+    aSourceCoord = aClipOriginCoord;
   }
-  double delta = aImageSize - (aSourceCoord + aSourceSize);
+  double delta = aClipSize - (relativeCoord + aSourceSize);
   if (delta < 0.0) {
     aDestSize += delta * scale;
-    aSourceSize = aImageSize - aSourceCoord;
+    aSourceSize = aClipSize - relativeCoord;
   }
 }
 
@@ -5099,8 +5192,10 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
   RefPtr<SourceSurface> srcSurf;
   gfx::IntSize imgSize;
   gfx::IntSize intrinsicImgSize;
+  Maybe<IntRect> cropRect;
   Element* element = nullptr;
   OffscreenCanvas* offscreenCanvas = nullptr;
+  VideoFrame* videoFrame = nullptr;
 
   EnsureTarget();
   if (!IsTargetValid()) {
@@ -5150,6 +5245,8 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
 
     imgSize = intrinsicImgSize =
         gfx::IntSize(imageBitmap.Width(), imageBitmap.Height());
+  } else if (aImage.IsVideoFrame()) {
+    videoFrame = &aImage.GetAsVideoFrame();
   } else {
     if (aImage.IsHTMLImageElement()) {
       HTMLImageElement* img = &aImage.GetAsHTMLImageElement();
@@ -5164,8 +5261,9 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
       element = video;
     }
 
-    srcSurf = CanvasImageCache::LookupCanvas(element, mCanvasElement, mTarget,
-                                             &imgSize, &intrinsicImgSize);
+    srcSurf =
+        CanvasImageCache::LookupCanvas(element, mCanvasElement, mTarget,
+                                       &imgSize, &intrinsicImgSize, &cropRect);
   }
 
   DirectDrawInfo drawInfo;
@@ -5175,12 +5273,14 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
     // of animated images. We also don't want to rasterize vector images.
     uint32_t sfeFlags = nsLayoutUtils::SFE_WANT_FIRST_FRAME_IF_IMAGE |
                         nsLayoutUtils::SFE_NO_RASTERIZING_VECTORS |
-                        nsLayoutUtils::SFE_EXACT_SIZE_SURFACE;
+                        nsLayoutUtils::SFE_ALLOW_UNCROPPED_UNSCALED;
 
     SurfaceFromElementResult res;
     if (offscreenCanvas) {
       res = nsLayoutUtils::SurfaceFromOffscreenCanvas(offscreenCanvas, sfeFlags,
                                                       mTarget);
+    } else if (videoFrame) {
+      res = nsLayoutUtils::SurfaceFromVideoFrame(videoFrame, sfeFlags, mTarget);
     } else {
       res = CanvasRenderingContext2D::CachedSurfaceFromElement(element);
       if (!res.mSourceSurface) {
@@ -5188,7 +5288,8 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
       }
     }
 
-    if (!res.mSourceSurface && !res.mDrawInfo.mImgContainer) {
+    srcSurf = res.GetSourceSurface();
+    if (!srcSurf && !res.mDrawInfo.mImgContainer) {
       // https://html.spec.whatwg.org/#check-the-usability-of-the-image-argument:
       //
       // Only throw if the request is broken and the element is an
@@ -5200,44 +5301,73 @@ void CanvasRenderingContext2D::DrawImage(const CanvasImageSource& aImage,
       if (!res.mIsStillLoading && !res.mHasSize &&
           (aImage.IsHTMLImageElement() || aImage.IsSVGImageElement())) {
         aError.ThrowInvalidStateError("Passed-in image is \"broken\"");
+      } else if (videoFrame) {
+        aError.ThrowInvalidStateError("Passed-in video frame is \"broken\"");
       }
       return;
     }
 
     imgSize = res.mSize;
     intrinsicImgSize = res.mIntrinsicSize;
+    cropRect = res.mCropRect;
     DoSecurityCheck(res.mPrincipal, res.mIsWriteOnly, res.mCORSUsed);
 
-    if (res.mSourceSurface) {
+    if (srcSurf) {
       if (res.mImageRequest) {
         CanvasImageCache::NotifyDrawImage(element, mCanvasElement, mTarget,
-                                          res.mSourceSurface, imgSize,
-                                          intrinsicImgSize);
+                                          srcSurf, imgSize, intrinsicImgSize,
+                                          cropRect);
       }
-      srcSurf = res.mSourceSurface;
     } else {
       drawInfo = res.mDrawInfo;
     }
   }
 
+  double clipOriginX, clipOriginY, clipWidth, clipHeight;
+  if (cropRect) {
+    clipOriginX = cropRect.ref().X();
+    clipOriginY = cropRect.ref().Y();
+    clipWidth = cropRect.ref().Width();
+    clipHeight = cropRect.ref().Height();
+  } else {
+    clipOriginX = clipOriginY = 0.0;
+    clipWidth = imgSize.width;
+    clipHeight = imgSize.height;
+  }
+
+  // Any provided coordinates are in the display space, or the same as the
+  // intrinsic size. In order to get to the surface coordinate space, we may
+  // need to adjust for scaling and/or cropping. If no source coordinates are
+  // provided, then we can just directly use the actual surface size.
   if (aOptional_argc == 0) {
-    aSx = aSy = 0.0;
-    aSw = (double)imgSize.width;
-    aSh = (double)imgSize.height;
+    aSx = clipOriginX;
+    aSy = clipOriginY;
+    aSw = clipWidth;
+    aSh = clipHeight;
     aDw = (double)intrinsicImgSize.width;
     aDh = (double)intrinsicImgSize.height;
   } else if (aOptional_argc == 2) {
-    aSx = aSy = 0.0;
-    aSw = (double)imgSize.width;
-    aSh = (double)imgSize.height;
+    aSx = clipOriginX;
+    aSy = clipOriginY;
+    aSw = clipWidth;
+    aSh = clipHeight;
+  } else if (cropRect || intrinsicImgSize != imgSize) {
+    // We need to first scale between the cropped size and the intrinsic size,
+    // and then adjust for the offset from the crop rect.
+    double scaleXToCrop = clipWidth / intrinsicImgSize.width;
+    double scaleYToCrop = clipHeight / intrinsicImgSize.height;
+    aSx = aSx * scaleXToCrop + clipOriginX;
+    aSy = aSy * scaleYToCrop + clipOriginY;
+    aSw = aSw * scaleXToCrop;
+    aSh = aSh * scaleYToCrop;
   }
 
   if (aSw == 0.0 || aSh == 0.0) {
     return;
   }
 
-  ClipImageDimension(aSx, aSw, imgSize.width, aDx, aDw);
-  ClipImageDimension(aSy, aSh, imgSize.height, aDy, aDh);
+  ClipImageDimension(aSx, aSw, clipOriginX, clipWidth, aDx, aDw);
+  ClipImageDimension(aSy, aSh, clipOriginY, clipHeight, aDy, aDh);
 
   if (aSw <= 0.0 || aSh <= 0.0 || aDw <= 0.0 || aDh <= 0.0) {
     // source and/or destination are fully clipped, so nothing is painted

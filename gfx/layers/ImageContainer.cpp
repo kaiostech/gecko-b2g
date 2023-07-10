@@ -41,7 +41,6 @@
 
 #ifdef XP_MACOSX
 #  include "MacIOSurfaceImage.h"
-#  include "mozilla/gfx/QuartzSupport.h"
 #endif
 
 #ifdef XP_WIN

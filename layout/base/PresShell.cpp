@@ -906,11 +906,12 @@ void PresShell::Init(nsPresContext* aPresContext, nsViewManager* aViewManager) {
   // Add the preference style sheet.
   UpdatePreferenceStyles();
 
-  bool accessibleCaretEnabled =
+  const bool accessibleCaretEnabled =
       AccessibleCaretEnabled(mDocument->GetDocShell());
   if (accessibleCaretEnabled) {
     // Need to happen before nsFrameSelection has been set up.
     mAccessibleCaretEventHub = new AccessibleCaretEventHub(this);
+    mAccessibleCaretEventHub->Init();
   }
 
   mSelection = new nsFrameSelection(this, nullptr, accessibleCaretEnabled);
@@ -8381,7 +8382,8 @@ bool PresShell::EventHandler::PrepareToDispatchEvent(
       // if web apps want to prevent it since we respect our users' intention.
       // In this case, we don't fire "contextmenu" event on web content because
       // of not cancelable.
-      if (mouseEvent->IsShift()) {
+      if (mouseEvent->IsShift() &&
+          StaticPrefs::dom_event_contextmenu_shift_suppresses_event()) {
         aEvent->mFlags.mOnlyChromeDispatch = true;
         aEvent->mFlags.mRetargetToNonNativeAnonymous = true;
       }

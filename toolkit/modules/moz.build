@@ -206,7 +206,6 @@ EXTRA_JS_MODULES += [
     "ScreenshotUtils.sys.mjs",
     "SelectionUtils.sys.mjs",
     "ServiceRequest.sys.mjs",
-    "Services.jsm",
     "ShortcutUtils.sys.mjs",
     "Sqlite.sys.mjs",
     "SubDialog.sys.mjs",

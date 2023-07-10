@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_webcodecs_Utils
-#define mozilla_webcodecs_Utils
+#ifndef MOZILLA_DOM_WEBCODECS_WEBCODECSUTILS_H
+#define MOZILLA_DOM_WEBCODECS_WEBCODECSUTILS_H
 
 #include <tuple>
 
@@ -14,6 +14,8 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/Result.h"
 #include "mozilla/Span.h"
+#include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/UnionTypes.h"
 
 namespace mozilla {
@@ -33,6 +35,34 @@ namespace dom {
  */
 
 nsTArray<nsCString> GuessContainers(const nsAString& aCodec);
+
+/*
+ * Below are helpers for conversion among Maybe, Optional, and Nullable.
+ */
+
+template <typename T>
+Maybe<T> OptionalToMaybe(const Optional<T>& aOptional) {
+  if (aOptional.WasPassed()) {
+    return Some(aOptional.Value());
+  }
+  return Nothing();
+}
+
+template <typename T>
+Maybe<T> NullableToMaybe(const Nullable<T>& aNullable) {
+  if (!aNullable.IsNull()) {
+    return Some(aNullable.Value());
+  }
+  return Nothing();
+}
+
+template <typename T>
+Nullable<T> MaybeToNullable(const Maybe<T>& aOptional) {
+  if (aOptional.isSome()) {
+    return Nullable<T>(aOptional.value());
+  }
+  return Nullable<T>();
+}
 
 /*
  * Below are helpers to operate ArrayBuffer or ArrayBufferView.
@@ -97,4 +127,4 @@ Maybe<VideoPixelFormat> ImageBitmapFormatToVideoPixelFormat(
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_webcodecs_Utils
+#endif  // MOZILLA_DOM_WEBCODECS_WEBCODECSUTILS_H

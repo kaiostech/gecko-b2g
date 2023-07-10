@@ -279,6 +279,14 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     return false;
   }
 
+  // Allocate space for every memory
+  if (!allocateInstanceDataBytesN(
+          sizeof(MemoryInstanceData), alignof(MemoryInstanceData),
+          moduleEnv_->memories.length(), &moduleEnv_->memoriesOffsetStart)) {
+    return false;
+  }
+  metadata_->memoriesOffsetStart = moduleEnv_->memoriesOffsetStart;
+
   // Allocate space for every table
   if (!allocateInstanceDataBytesN(
           sizeof(TableInstanceData), alignof(TableInstanceData),
@@ -1049,15 +1057,14 @@ SharedMetadata ModuleGenerator::finishMetadata(const Bytes& bytecode) {
 
   // Copy over data from the ModuleEnvironment.
 
-  metadata_->memory = moduleEnv_->memory;
   metadata_->startFuncIndex = moduleEnv_->startFuncIndex;
+  metadata_->memories = std::move(moduleEnv_->memories);
   metadata_->tables = std::move(moduleEnv_->tables);
   metadata_->globals = std::move(moduleEnv_->globals);
   metadata_->tags = std::move(moduleEnv_->tags);
   metadata_->nameCustomSectionIndex = moduleEnv_->nameCustomSectionIndex;
   metadata_->moduleName = moduleEnv_->moduleName;
   metadata_->funcNames = std::move(moduleEnv_->funcNames);
-  metadata_->omitsBoundsChecks = moduleEnv_->hugeMemoryEnabled();
 
   // Copy over additional debug information.
 

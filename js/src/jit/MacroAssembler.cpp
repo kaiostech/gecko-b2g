@@ -3509,7 +3509,6 @@ MacroAssembler::MacroAssembler(TempAllocator& alloc,
                                CompileRealm* maybeRealm)
     : maybeRuntime_(maybeRuntime),
       maybeRealm_(maybeRealm),
-      wasmMaxOffsetGuardLimit_(0),
       framePushed_(0),
 #ifdef DEBUG
       inCall_(false),
@@ -3550,8 +3549,6 @@ WasmMacroAssembler::WasmMacroAssembler(TempAllocator& alloc,
   // not the PSP.
   SetStackPointer64(sp);
 #endif
-  setWasmMaxOffsetGuardLimit(
-      wasm::GetMaxOffsetGuardLimit(env.hugeMemoryEnabled()));
   if (!limitedSize) {
     setUnlimitedBuffer();
   }
@@ -4454,14 +4451,9 @@ void MacroAssembler::branchTestObjShapeList(
   Label* onMatch = cond == Assembler::Equal ? label : &done;
 
   // Load the object's shape pointer into shapeScratch, and prepare to compare
-  // it with the shapes in the list. On 64-bit, we box the shape. On 32-bit,
-  // we only have to compare the 32-bit payload.
-#ifdef JS_PUNBOX64
-  loadPtr(Address(obj, JSObject::offsetOfShape()), endScratch);
-  tagValue(JSVAL_TYPE_PRIVATE_GCTHING, endScratch, ValueOperand(shapeScratch));
-#else
+  // it with the shapes in the list. The shapes are stored as private values so
+  // we can compare directly.
   loadPtr(Address(obj, JSObject::offsetOfShape()), shapeScratch);
-#endif
 
   // Compute end pointer.
   Address lengthAddr(shapeElements,
@@ -5277,13 +5269,13 @@ void MacroAssembler::boundsCheck32PowerOfTwo(Register index, uint32_t length,
 void MacroAssembler::loadWasmPinnedRegsFromInstance(
     mozilla::Maybe<wasm::BytecodeOffset> trapOffset) {
 #ifdef WASM_HAS_HEAPREG
-  static_assert(wasm::Instance::offsetOfMemoryBase() < 4096,
+  static_assert(wasm::Instance::offsetOfMemory0Base() < 4096,
                 "We count only on the low page being inaccessible");
   if (trapOffset) {
     append(wasm::Trap::IndirectCallToNull,
            wasm::TrapSite(currentOffset(), *trapOffset));
   }
-  loadPtr(Address(InstanceReg, wasm::Instance::offsetOfMemoryBase()), HeapReg);
+  loadPtr(Address(InstanceReg, wasm::Instance::offsetOfMemory0Base()), HeapReg);
 #else
   MOZ_ASSERT(!trapOffset);
 #endif

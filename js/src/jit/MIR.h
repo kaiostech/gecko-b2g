@@ -1724,6 +1724,8 @@ class MTableSwitch final : public MControlInstruction,
   }
 
   MDefinition* foldsTo(TempAllocator& alloc) override;
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
 template <size_t Arity, size_t Successors>
@@ -9423,22 +9425,21 @@ class MWasmStoreInstance : public MBinaryInstruction,
   AliasSet getAliasSet() const override { return aliases_; }
 };
 
-class MWasmHeapBase : public MUnaryInstruction, public NoTypePolicy::Data {
+class MWasmHeapReg : public MNullaryInstruction {
   AliasSet aliases_;
 
-  explicit MWasmHeapBase(MDefinition* instance, AliasSet aliases)
-      : MUnaryInstruction(classOpcode, instance), aliases_(aliases) {
+  explicit MWasmHeapReg(AliasSet aliases)
+      : MNullaryInstruction(classOpcode), aliases_(aliases) {
     setMovable();
     setResultType(MIRType::Pointer);
   }
 
  public:
-  INSTRUCTION_HEADER(WasmHeapBase)
+  INSTRUCTION_HEADER(WasmHeapReg)
   TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, instance))
 
   bool congruentTo(const MDefinition* ins) const override {
-    return ins->isWasmHeapBase();
+    return ins->isWasmHeapReg();
   }
 
   AliasSet getAliasSet() const override { return aliases_; }
@@ -9489,7 +9490,7 @@ class MWasmBoundsCheck : public MBinaryInstruction, public NoTypePolicy::Data {
 
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 
-  bool isMemory() const { return target_ == MWasmBoundsCheck::Memory0; }
+  bool isMemory0() const { return target_ == MWasmBoundsCheck::Memory0; }
 
   bool isRedundant() const { return !isGuard(); }
 
@@ -9597,6 +9598,8 @@ class MWasmLoad
     return AliasSet::Load(AliasSet::WasmHeap);
   }
 
+  bool hasMemoryBase() const { return numOperands() > 1; }
+
 #ifdef JS_JITSPEW
   void getExtras(ExtrasCollector* extras) override {
     char buf[64];
@@ -9642,6 +9645,8 @@ class MWasmStore : public MVariadicInstruction, public NoTypePolicy::Data {
     return AliasSet::Store(AliasSet::WasmHeap);
   }
 
+  bool hasMemoryBase() const { return numOperands() > 2; }
+
 #ifdef JS_JITSPEW
   void getExtras(ExtrasCollector* extras) override {
     char buf[64];
@@ -9666,8 +9671,8 @@ class MAsmJSMemoryAccess {
   bool needsBoundsCheck() const { return needsBoundsCheck_; }
 
   wasm::MemoryAccessDesc access() const {
-    return wasm::MemoryAccessDesc(accessType_, Scalar::byteSize(accessType_), 0,
-                                  wasm::BytecodeOffset());
+    return wasm::MemoryAccessDesc(0, accessType_, Scalar::byteSize(accessType_),
+                                  0, wasm::BytecodeOffset(), false);
   }
 
   void removeBoundsCheck() { needsBoundsCheck_ = false; }
@@ -9821,6 +9826,8 @@ class MWasmCompareExchangeHeap : public MVariadicInstruction,
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::WasmHeap);
   }
+
+  bool hasMemoryBase() const { return numOperands() > 4; }
 };
 
 class MWasmAtomicExchangeHeap : public MVariadicInstruction,
@@ -9870,6 +9877,8 @@ class MWasmAtomicExchangeHeap : public MVariadicInstruction,
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::WasmHeap);
   }
+
+  bool hasMemoryBase() const { return numOperands() > 3; }
 };
 
 class MWasmAtomicBinopHeap : public MVariadicInstruction,
@@ -9922,6 +9931,8 @@ class MWasmAtomicBinopHeap : public MVariadicInstruction,
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::WasmHeap);
   }
+
+  bool hasMemoryBase() const { return numOperands() > 3; }
 };
 
 class MWasmLoadInstanceDataField : public MUnaryInstruction,
@@ -10238,6 +10249,8 @@ class MWasmReturn : public MAryControlInstruction<2, 0>,
  public:
   INSTRUCTION_HEADER(WasmReturn)
   TRIVIAL_NEW_WRAPPERS
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
 class MWasmReturnVoid : public MAryControlInstruction<1, 0>,
@@ -10250,6 +10263,8 @@ class MWasmReturnVoid : public MAryControlInstruction<1, 0>,
  public:
   INSTRUCTION_HEADER(WasmReturnVoid)
   TRIVIAL_NEW_WRAPPERS
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
 class MWasmStackArg : public MUnaryInstruction, public NoTypePolicy::Data {

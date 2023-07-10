@@ -27,6 +27,7 @@
 #include "gc/Pretenuring.h"
 #include "js/Utility.h"
 #include "wasm/WasmInstance.h"
+#include "wasm/WasmMemory.h"
 #include "wasm/WasmTypeDecls.h"
 
 namespace js {
@@ -93,6 +94,24 @@ struct FuncImportInstanceData {
   // values for lazy table initialization.
   GCPtr<JSObject*> callable;
   static_assert(sizeof(GCPtr<JSObject*>) == sizeof(void*), "for JIT access");
+};
+
+struct MemoryInstanceData {
+  // Pointer the memory object.
+  GCPtr<WasmMemoryObject*> memory;
+
+  // Pointer to the base of the memory.
+  uint8_t* base;
+
+  // Bounds check limit in bytes (or zero if there is no memory).  This is
+  // 64-bits on 64-bit systems so as to allow for heap lengths up to and beyond
+  // 4GB, and 32-bits on 32-bit systems, where heaps are limited to 2GB.
+  //
+  // See "Linear memory addresses and bounds checking" in WasmMemory.cpp.
+  uintptr_t boundsCheckLimit;
+
+  // Whether this memory is shared or not.
+  bool isShared;
 };
 
 // TableInstanceData describes the region of wasm global memory allocated in the

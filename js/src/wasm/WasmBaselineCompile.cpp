@@ -5431,7 +5431,9 @@ bool BaseCompiler::emitLoad(ValType type, Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   loadCommon(&access, AccessCheck(), type);
   return true;
 }
@@ -5446,7 +5448,9 @@ bool BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   storeCommon(&access, AccessCheck(), resultType);
   return true;
 }
@@ -5827,7 +5831,8 @@ bool BaseCompiler::emitAtomicCmpXchg(ValType type, Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(), hugeMemoryEnabled(addr.memoryIndex),
                           Synchronization::Full());
   atomicCmpXchg(&access, type);
   return true;
@@ -5841,7 +5846,8 @@ bool BaseCompiler::emitAtomicLoad(ValType type, Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(), hugeMemoryEnabled(addr.memoryIndex),
                           Synchronization::Load());
   atomicLoad(&access, type);
   return true;
@@ -5858,7 +5864,8 @@ bool BaseCompiler::emitAtomicRMW(ValType type, Scalar::Type viewType,
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(), hugeMemoryEnabled(addr.memoryIndex),
                           Synchronization::Full());
   atomicRMW(&access, type, op);
   return true;
@@ -5874,7 +5881,8 @@ bool BaseCompiler::emitAtomicStore(ValType type, Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(), hugeMemoryEnabled(addr.memoryIndex),
                           Synchronization::Store());
   atomicStore(&access, type);
   return true;
@@ -5890,7 +5898,8 @@ bool BaseCompiler::emitAtomicXchg(ValType type, Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset(),
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(), hugeMemoryEnabled(addr.memoryIndex),
                           Synchronization::Full());
   atomicXchg(&access, type);
   return true;
@@ -5906,8 +5915,9 @@ bool BaseCompiler::emitWait(ValType type, uint32_t byteSize) {
     return true;
   }
   MemoryAccessDesc access(
+      addr.memoryIndex,
       type.kind() == ValType::I32 ? Scalar::Int32 : Scalar::Int64, addr.align,
-      addr.offset, bytecodeOffset());
+      addr.offset, bytecodeOffset(), hugeMemoryEnabled(addr.memoryIndex));
   return atomicWait(type, &access);
 }
 
@@ -5920,8 +5930,9 @@ bool BaseCompiler::emitWake() {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(Scalar::Int32, addr.align, addr.offset,
-                          bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, Scalar::Int32, addr.align,
+                          addr.offset, bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   return atomicWake(&access);
 }
 
@@ -5941,33 +5952,47 @@ bool BaseCompiler::emitFence() {
 // Bulk memory operations.
 
 bool BaseCompiler::emitMemoryGrow() {
-  return emitInstanceCallOp(
-      !usesMemory() || isMem32() ? SASigMemoryGrowM32 : SASigMemoryGrowM64,
-      [this]() -> bool {
-        Nothing arg;
-        return iter_.readMemoryGrow(&arg);
-      });
-}
-
-bool BaseCompiler::emitMemorySize() {
-  return emitInstanceCallOp(
-      !usesMemory() || isMem32() ? SASigMemorySizeM32 : SASigMemorySizeM64,
-      [this]() -> bool { return iter_.readMemorySize(); });
-}
-
-bool BaseCompiler::emitMemCopy() {
-  uint32_t dstMemOrTableIndex = 0;
-  uint32_t srcMemOrTableIndex = 0;
+  uint32_t memoryIndex;
   Nothing nothing;
-  if (!iter_.readMemOrTableCopy(true, &dstMemOrTableIndex, &nothing,
-                                &srcMemOrTableIndex, &nothing, &nothing)) {
+  if (!iter_.readMemoryGrow(&memoryIndex, &nothing)) {
     return false;
   }
   if (deadCode_) {
     return true;
   }
 
-  if (isMem32()) {
+  pushI32(memoryIndex);
+  return emitInstanceCall(isMem32(memoryIndex) ? SASigMemoryGrowM32
+                                               : SASigMemoryGrowM64);
+}
+
+bool BaseCompiler::emitMemorySize() {
+  uint32_t memoryIndex;
+  if (!iter_.readMemorySize(&memoryIndex)) {
+    return false;
+  }
+  if (deadCode_) {
+    return true;
+  }
+
+  pushI32(memoryIndex);
+  return emitInstanceCall(isMem32(memoryIndex) ? SASigMemorySizeM32
+                                               : SASigMemorySizeM64);
+}
+
+bool BaseCompiler::emitMemCopy() {
+  uint32_t dstMemIndex = 0;
+  uint32_t srcMemIndex = 0;
+  Nothing nothing;
+  if (!iter_.readMemOrTableCopy(true, &dstMemIndex, &nothing, &srcMemIndex,
+                                &nothing, &nothing)) {
+    return false;
+  }
+  if (deadCode_) {
+    return true;
+  }
+
+  if (dstMemIndex == 0 && srcMemIndex == 0 && isMem32(dstMemIndex)) {
     int32_t signedLength;
     if (peekConst(&signedLength) && signedLength != 0 &&
         uint32_t(signedLength) <= MaxInlineMemoryCopyLength) {
@@ -5976,27 +6001,71 @@ bool BaseCompiler::emitMemCopy() {
     }
   }
 
-  return memCopyCall();
+  return memCopyCall(dstMemIndex, srcMemIndex);
 }
 
-bool BaseCompiler::memCopyCall() {
-  pushHeapBase();
-  return emitInstanceCall(
-      usesSharedMemory()
-          ? (isMem32() ? SASigMemCopySharedM32 : SASigMemCopySharedM64)
-          : (isMem32() ? SASigMemCopyM32 : SASigMemCopyM64));
+bool BaseCompiler::memCopyCall(uint32_t dstMemIndex, uint32_t srcMemIndex) {
+  // Common and optimized path for when the src/dest memories are the same
+  if (dstMemIndex == srcMemIndex) {
+    bool mem32 = isMem32(dstMemIndex);
+    pushHeapBase(dstMemIndex);
+    return emitInstanceCall(
+        usesSharedMemory(dstMemIndex)
+            ? (mem32 ? SASigMemCopySharedM32 : SASigMemCopySharedM64)
+            : (mem32 ? SASigMemCopyM32 : SASigMemCopyM64));
+  }
+
+  // Do the general-purpose fallback for copying between any combination of
+  // memories. This works by moving everything to the lowest-common denominator.
+  // i32 indices are promoted to i64, and non-shared memories are treated as
+  // shared.
+  IndexType dstIndexType = moduleEnv_.memories[dstMemIndex].indexType();
+  IndexType srcIndexType = moduleEnv_.memories[srcMemIndex].indexType();
+  IndexType lenIndexType =
+      (dstIndexType == IndexType::I32 || srcIndexType == IndexType::I32)
+          ? IndexType::I32
+          : IndexType::I64;
+
+  // Pop the operands off of the stack and widen them
+  RegI64 len = popIndexToInt64(lenIndexType);
+#ifdef JS_CODEGEN_X86
+  {
+    // Stash the length value to prevent running out of registers
+    ScratchPtr scratch(*this);
+    stashI64(scratch, len);
+    freeI64(len);
+  }
+#endif
+  RegI64 srcIndex = popIndexToInt64(srcIndexType);
+  RegI64 dstIndex = popIndexToInt64(dstIndexType);
+
+  pushI64(dstIndex);
+  pushI64(srcIndex);
+#ifdef JS_CODEGEN_X86
+  {
+    // Unstash the length value and push it back on the stack
+    ScratchPtr scratch(*this);
+    len = needI64();
+    unstashI64(scratch, len);
+  }
+#endif
+  pushI64(len);
+  pushI32(dstMemIndex);
+  pushI32(srcMemIndex);
+  return emitInstanceCall(SASigMemCopyAny);
 }
 
 bool BaseCompiler::emitMemFill() {
+  uint32_t memoryIndex;
   Nothing nothing;
-  if (!iter_.readMemFill(&nothing, &nothing, &nothing)) {
+  if (!iter_.readMemFill(&memoryIndex, &nothing, &nothing, &nothing)) {
     return false;
   }
   if (deadCode_) {
     return true;
   }
 
-  if (isMem32()) {
+  if (memoryIndex == 0 && isMem32(memoryIndex)) {
     int32_t signedLength;
     int32_t signedValue;
     if (peek2xConst(&signedLength, &signedValue) && signedLength != 0 &&
@@ -6005,28 +6074,34 @@ bool BaseCompiler::emitMemFill() {
       return true;
     }
   }
-  return memFillCall();
+  return memFillCall(memoryIndex);
 }
 
-bool BaseCompiler::memFillCall() {
-  pushHeapBase();
+bool BaseCompiler::memFillCall(uint32_t memoryIndex) {
+  pushHeapBase(memoryIndex);
   return emitInstanceCall(
-      usesSharedMemory()
-          ? (isMem32() ? SASigMemFillSharedM32 : SASigMemFillSharedM64)
-          : (isMem32() ? SASigMemFillM32 : SASigMemFillM64));
+      usesSharedMemory(memoryIndex)
+          ? (isMem32(memoryIndex) ? SASigMemFillSharedM32
+                                  : SASigMemFillSharedM64)
+          : (isMem32(memoryIndex) ? SASigMemFillM32 : SASigMemFillM64));
 }
 
 bool BaseCompiler::emitMemInit() {
-  return emitInstanceCallOp<uint32_t>(
-      (!usesMemory() || isMem32() ? SASigMemInitM32 : SASigMemInitM64),
-      [this](uint32_t* segIndex) -> bool {
-        Nothing nothing;
-        if (iter_.readMemOrTableInit(/*isMem*/ true, segIndex, nullptr,
-                                     &nothing, &nothing, &nothing)) {
-          return true;
-        }
-        return false;
-      });
+  uint32_t segIndex;
+  uint32_t memIndex;
+  Nothing nothing;
+  if (!iter_.readMemOrTableInit(/*isMem*/ true, &segIndex, &memIndex, &nothing,
+                                &nothing, &nothing)) {
+    return false;
+  }
+  if (deadCode_) {
+    return true;
+  }
+
+  pushI32(segIndex);
+  pushI32(memIndex);
+  return emitInstanceCall(isMem32(memIndex) ? SASigMemInitM32
+                                            : SASigMemInitM64);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -6072,19 +6147,21 @@ bool BaseCompiler::emitTableFill() {
 }
 
 bool BaseCompiler::emitMemDiscard() {
+  uint32_t memoryIndex;
   Nothing nothing;
-  if (!iter_.readMemDiscard(&nothing, &nothing)) {
+  if (!iter_.readMemDiscard(&memoryIndex, &nothing, &nothing)) {
     return false;
   }
   if (deadCode_) {
     return true;
   }
 
-  pushHeapBase();
+  pushHeapBase(memoryIndex);
   return emitInstanceCall(
-      usesSharedMemory()
-          ? (isMem32() ? SASigMemDiscardSharedM32 : SASigMemDiscardSharedM64)
-          : (isMem32() ? SASigMemDiscardM32 : SASigMemDiscardM64));
+      usesSharedMemory(memoryIndex)
+          ? (isMem32(memoryIndex) ? SASigMemDiscardSharedM32
+                                  : SASigMemDiscardSharedM64)
+          : (isMem32(memoryIndex) ? SASigMemDiscardM32 : SASigMemDiscardM64));
 }
 
 bool BaseCompiler::emitTableGet() {
@@ -8607,7 +8684,9 @@ bool BaseCompiler::emitLoadSplat(Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   loadSplat(&access);
   return true;
 }
@@ -8621,7 +8700,9 @@ bool BaseCompiler::emitLoadZero(Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   loadZero(&access);
   return true;
 }
@@ -8634,8 +8715,9 @@ bool BaseCompiler::emitLoadExtend(Scalar::Type viewType) {
   if (deadCode_) {
     return true;
   }
-  MemoryAccessDesc access(Scalar::Int64, addr.align, addr.offset,
-                          bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, Scalar::Int64, addr.align,
+                          addr.offset, bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   loadExtend(&access, viewType);
   return true;
 }
@@ -8667,7 +8749,9 @@ bool BaseCompiler::emitLoadLane(uint32_t laneSize) {
     default:
       MOZ_CRASH("unsupported laneSize");
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   loadLane(&access, laneIndex);
   return true;
 }
@@ -8699,7 +8783,9 @@ bool BaseCompiler::emitStoreLane(uint32_t laneSize) {
     default:
       MOZ_CRASH("unsupported laneSize");
   }
-  MemoryAccessDesc access(viewType, addr.align, addr.offset, bytecodeOffset());
+  MemoryAccessDesc access(addr.memoryIndex, viewType, addr.align, addr.offset,
+                          bytecodeOffset(),
+                          hugeMemoryEnabled(addr.memoryIndex));
   storeLane(&access, laneIndex);
   return true;
 }
@@ -8809,7 +8895,7 @@ bool BaseCompiler::emitIntrinsic() {
   }
 
   // The final parameter of an intrinsic is implicitly the heap base
-  pushHeapBase();
+  pushHeapBase(0);
 
   // Call the intrinsic
   return emitInstanceCall(intrinsic->signature);
@@ -10896,7 +10982,11 @@ BaseCompiler::~BaseCompiler() {
 
 bool BaseCompiler::init() {
   // We may lift this restriction in the future.
-  MOZ_ASSERT_IF(usesMemory() && isMem64(), !moduleEnv_.hugeMemoryEnabled());
+  for (uint32_t memoryIndex = 0; memoryIndex < moduleEnv_.memories.length();
+       memoryIndex++) {
+    MOZ_ASSERT_IF(isMem64(memoryIndex),
+                  !moduleEnv_.hugeMemoryEnabled(memoryIndex));
+  }
   // asm.js is not supported in baseline
   MOZ_ASSERT(!moduleEnv_.isAsmJS());
   // Only asm.js modules have call site line numbers

@@ -901,6 +901,9 @@ enum ABIFunctionType : uint64_t {
       ArgType_Int32, {ArgType_General, ArgType_Int32}),
   Args_Int32_GeneralInt32Int32 = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32}),
+  Args_Int32_GeneralInt32Int32Int32 = detail::MakeABIFunctionType(
+      ArgType_Int32,
+      {ArgType_General, ArgType_Int32, ArgType_Int32, ArgType_Int32}),
   Args_Int32_GeneralInt32Int32Int32Int32 = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
                       ArgType_Int32, ArgType_Int32}),
@@ -944,21 +947,21 @@ enum ABIFunctionType : uint64_t {
   Args_Int32_GeneralInt32Int32Int32General = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
                       ArgType_Int32, ArgType_General}),
-  Args_Int32_GeneralInt32Int32Int64 = detail::MakeABIFunctionType(
-      ArgType_Int32,
-      {ArgType_General, ArgType_Int32, ArgType_Int32, ArgType_Int64}),
   Args_Int32_GeneralInt32Int32General = detail::MakeABIFunctionType(
       ArgType_Int32,
       {ArgType_General, ArgType_Int32, ArgType_Int32, ArgType_General}),
-  Args_Int32_GeneralInt32Int64Int64 = detail::MakeABIFunctionType(
-      ArgType_Int32,
-      {ArgType_General, ArgType_Int32, ArgType_Int64, ArgType_Int64}),
+  Args_Int32_GeneralInt32Int32Int64Int32 = detail::MakeABIFunctionType(
+      ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                      ArgType_Int64, ArgType_Int32}),
   Args_Int32_GeneralInt32GeneralInt32 = detail::MakeABIFunctionType(
       ArgType_Int32,
       {ArgType_General, ArgType_Int32, ArgType_General, ArgType_Int32}),
   Args_Int32_GeneralInt32GeneralInt32Int32 = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_General,
                       ArgType_Int32, ArgType_Int32}),
+  Args_Int32_GeneralInt32Int64Int64Int32 = detail::MakeABIFunctionType(
+      ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int64,
+                      ArgType_Int64, ArgType_Int32}),
   Args_Int32_GeneralGeneral = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_General}),
   Args_Int32_GeneralGeneralGeneral = detail::MakeABIFunctionType(
@@ -977,33 +980,44 @@ enum ABIFunctionType : uint64_t {
   Args_General_GeneralInt32Int32GeneralInt32 = detail::MakeABIFunctionType(
       ArgType_General, {ArgType_General, ArgType_Int32, ArgType_Int32,
                         ArgType_General, ArgType_Int32}),
-  Args_Int32_GeneralInt64Int32Int32Int32 = detail::MakeABIFunctionType(
-      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32,
-                      ArgType_Int32, ArgType_Int32}),
-  Args_Int32_GeneralInt64Int32 = detail::MakeABIFunctionType(
-      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32}),
-  Args_Int32_GeneralInt64Int32Int64 = detail::MakeABIFunctionType(
+  Args_Int32_GeneralInt64Int32Int32 = detail::MakeABIFunctionType(
       ArgType_Int32,
-      {ArgType_General, ArgType_Int64, ArgType_Int32, ArgType_Int64}),
+      {ArgType_General, ArgType_Int64, ArgType_Int32, ArgType_Int32}),
+  Args_Int32_GeneralInt64Int32Int32Int32Int32 = detail::MakeABIFunctionType(
+      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32,
+                      ArgType_Int32, ArgType_Int32, ArgType_Int32}),
+  Args_Int32_GeneralInt64Int32Int64Int32 = detail::MakeABIFunctionType(
+      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32,
+                      ArgType_Int64, ArgType_Int32}),
   Args_Int32_GeneralInt64Int32Int64General = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int32,
                       ArgType_Int64, ArgType_General}),
   Args_Int32_GeneralInt64Int64Int64 = detail::MakeABIFunctionType(
       ArgType_Int32,
       {ArgType_General, ArgType_Int64, ArgType_Int64, ArgType_Int64}),
+  Args_Int32_GeneralInt64Int64Int64Int32 = detail::MakeABIFunctionType(
+      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int64,
+                      ArgType_Int64, ArgType_Int32}),
   Args_Int32_GeneralInt64Int64General = detail::MakeABIFunctionType(
       ArgType_Int32,
       {ArgType_General, ArgType_Int64, ArgType_Int64, ArgType_General}),
   Args_Int32_GeneralInt64Int64Int64General = detail::MakeABIFunctionType(
       ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int64,
                       ArgType_Int64, ArgType_General}),
+  Args_Int32_GeneralInt64Int64Int64GeneralGeneral = detail::MakeABIFunctionType(
+      ArgType_Int32, {ArgType_General, ArgType_Int64, ArgType_Int64,
+                      ArgType_Int64, ArgType_General, ArgType_General}),
 
   // Functions that return Int64 are tricky because SpiderMonkey's ReturnRegI64
   // does not match the ABI int64 return register on x86.  Wasm only!
   Args_Int64_General =
       detail::MakeABIFunctionType(ArgType_Int64, {ArgType_General}),
+  Args_Int64_GeneralInt32 = detail::MakeABIFunctionType(
+      ArgType_Int64, {ArgType_General, ArgType_Int32}),
   Args_Int64_GeneralInt64 = detail::MakeABIFunctionType(
       ArgType_Int64, {ArgType_General, ArgType_Int64}),
+  Args_Int64_GeneralInt64Int32 = detail::MakeABIFunctionType(
+      ArgType_Int64, {ArgType_General, ArgType_Int64, ArgType_Int32}),
 
 };
 

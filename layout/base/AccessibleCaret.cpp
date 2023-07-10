@@ -7,15 +7,19 @@
 #include "AccessibleCaret.h"
 
 #include "AccessibleCaretLogger.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/ErrorResult.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/dom/Document.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/ToString.h"
 #include "nsCanvasFrame.h"
 #include "nsCaret.h"
 #include "nsCSSFrameConstructor.h"
 #include "nsDOMTokenList.h"
+#include "nsGenericHTMLElement.h"
 #include "nsIFrame.h"
 #include "nsLayoutUtils.h"
 #include "nsPlaceholderFrame.h"
@@ -33,10 +37,9 @@ using namespace dom;
 
 NS_IMPL_ISUPPORTS(AccessibleCaret::DummyTouchListener, nsIDOMEventListener)
 
-const nsLiteralString AccessibleCaret::sTextOverlayElementId =
-    u"text-overlay"_ns;
-const nsLiteralString AccessibleCaret::sCaretImageElementId = u"image"_ns;
-const nsLiteralString AccessibleCaret::sSelectionBarElementId = u"bar"_ns;
+static constexpr auto kTextOverlayElementId = u"text-overlay"_ns;
+static constexpr auto kCaretImageElementId = u"image"_ns;
+static constexpr auto kSelectionBarElementId = u"bar"_ns;
 
 #define AC_PROCESS_ENUM_TO_STREAM(e) \
   case (e):                          \
@@ -76,7 +79,6 @@ AccessibleCaret::AccessibleCaret(PresShell* aPresShell)
     : mPresShell(aPresShell) {
   // Check all resources required.
   if (mPresShell) {
-    MOZ_ASSERT(RootFrame());
     MOZ_ASSERT(mPresShell->GetDocument());
     InjectCaretElement(mPresShell->GetDocument());
   }
@@ -88,12 +90,24 @@ AccessibleCaret::~AccessibleCaret() {
   }
 }
 
+dom::Element* AccessibleCaret::TextOverlayElement() const {
+  return mCaretElementHolder->Root()->GetElementById(kTextOverlayElementId);
+}
+
+dom::Element* AccessibleCaret::CaretImageElement() const {
+  return mCaretElementHolder->Root()->GetElementById(kCaretImageElementId);
+}
+
+dom::Element* AccessibleCaret::SelectionBarElement() const {
+  return mCaretElementHolder->Root()->GetElementById(kSelectionBarElementId);
+}
+
 void AccessibleCaret::SetAppearance(Appearance aAppearance) {
   if (mAppearance == aAppearance) {
     return;
   }
 
-  ErrorResult rv;
+  IgnoredErrorResult rv;
   CaretElement().ClassList()->Remove(AppearanceString(mAppearance), rv);
   MOZ_ASSERT(!rv.Failed(), "Remove old appearance failed!");
 
@@ -189,7 +203,6 @@ void AccessibleCaret::EnsureApzAware() {
   // if that's the case we register a dummy listener if there isn't one on
   // the element already.
   if (!CaretElement().IsApzAware()) {
-    // FIXME(emilio): Is this needed anymore?
     CaretElement().AddEventListener(u"touchstart"_ns, mDummyTouchListener,
                                     false);
   }
@@ -201,46 +214,55 @@ bool AccessibleCaret::IsInPositionFixedSubtree() const {
 }
 
 void AccessibleCaret::InjectCaretElement(Document* aDocument) {
-  IgnoredErrorResult rv;
-  RefPtr<Element> element = CreateCaretElement(aDocument);
   mCaretElementHolder =
-      aDocument->InsertAnonymousContent(*element, /* aForce = */ false, rv);
+      aDocument->InsertAnonymousContent(/* aForce = */ false, IgnoreErrors());
+  MOZ_RELEASE_ASSERT(mCaretElementHolder, "We must have anonymous content!");
 
-  MOZ_ASSERT(!rv.Failed(), "Insert anonymous content should not fail!");
-  MOZ_ASSERT(mCaretElementHolder, "We must have anonymous content!");
-
-  // InsertAnonymousContent will clone the element to make an AnonymousContent.
-  // Since event listeners are not being cloned when cloning a node, we need to
-  // add the listener here.
+  CreateCaretElement();
   EnsureApzAware();
 }
 
-already_AddRefed<Element> AccessibleCaret::CreateCaretElement(
-    Document* aDocument) const {
+void AccessibleCaret::CreateCaretElement() const {
   // Content structure of AccessibleCaret
   // <div class="moz-accessiblecaret">  <- CaretElement()
-  //   <div id="text-overlay">          <- TextOverlayElement()
-  //   <div id="bar">                   <- SelectionBarElement()
-  //   <div id="image">                 <- CaretImageElement()
+  //   <#shadow-root>
+  //     <link rel="stylesheet" href="accessiblecaret.css">
+  //     <div id="text-overlay">          <- TextOverlayElement()
+  //     <div id="bar">                   <- SelectionBarElement()
+  //     <div id="image">                 <- CaretImageElement()
 
-  ErrorResult rv;
-  RefPtr<Element> parent = aDocument->CreateHTMLElement(nsGkAtoms::div);
-  parent->ClassList()->Add(u"moz-accessiblecaret"_ns, rv);
-  parent->ClassList()->Add(u"none"_ns, rv);
-  parent->ClassList()->Add(u"no-bar"_ns, rv);
+  constexpr bool kNotify = false;
 
-  auto CreateAndAppendChildElement =
-      [aDocument, &parent](const nsLiteralString& aElementId) {
-        RefPtr<Element> child = aDocument->CreateHTMLElement(nsGkAtoms::div);
-        child->SetAttr(kNameSpaceID_None, nsGkAtoms::id, aElementId, true);
-        parent->AppendChildTo(child, false, IgnoreErrors());
-      };
+  Element& host = CaretElement();
+  host.SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
+               u"moz-accessiblecaret none"_ns, kNotify);
 
-  CreateAndAppendChildElement(sTextOverlayElementId);
-  CreateAndAppendChildElement(sSelectionBarElementId);
-  CreateAndAppendChildElement(sCaretImageElementId);
+  ShadowRoot* root = mCaretElementHolder->Root();
+  Document* doc = host.OwnerDoc();
+  {
+    RefPtr<NodeInfo> linkNodeInfo = doc->NodeInfoManager()->GetNodeInfo(
+        nsGkAtoms::link, nullptr, kNameSpaceID_XHTML, nsINode::ELEMENT_NODE);
+    RefPtr<nsGenericHTMLElement> link =
+        NS_NewHTMLLinkElement(linkNodeInfo.forget());
+    if (NS_WARN_IF(!link)) {
+      return;
+    }
+    link->SetAttr(nsGkAtoms::rel, u"stylesheet"_ns, IgnoreErrors());
+    link->SetAttr(nsGkAtoms::href,
+                  u"resource://content-accessible/accessiblecaret.css"_ns,
+                  IgnoreErrors());
+    root->AppendChildTo(link, kNotify, IgnoreErrors());
+  }
 
-  return parent.forget();
+  auto CreateAndAppendChildElement = [&](const nsLiteralString& aElementId) {
+    RefPtr<Element> child = doc->CreateHTMLElement(nsGkAtoms::div);
+    child->SetAttr(kNameSpaceID_None, nsGkAtoms::id, aElementId, kNotify);
+    mCaretElementHolder->Root()->AppendChildTo(child, kNotify, IgnoreErrors());
+  };
+
+  CreateAndAppendChildElement(kTextOverlayElementId);
+  CreateAndAppendChildElement(kSelectionBarElementId);
+  CreateAndAppendChildElement(kCaretImageElementId);
 }
 
 void AccessibleCaret::RemoveCaretElement(Document* aDocument) {

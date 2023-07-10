@@ -241,12 +241,14 @@ OpKind Classify(OpBytes op);
 template <typename Value>
 struct LinearMemoryAddress {
   Value base;
+  uint32_t memoryIndex;
   uint64_t offset;
   uint32_t align;
 
-  LinearMemoryAddress() : offset(0), align(0) {}
-  LinearMemoryAddress(Value base, uint64_t offset, uint32_t align)
-      : base(base), offset(offset), align(align) {}
+  LinearMemoryAddress() : memoryIndex(0), offset(0), align(0) {}
+  LinearMemoryAddress(Value base, uint32_t memoryIndex, uint64_t offset,
+                      uint32_t align)
+      : base(base), memoryIndex(memoryIndex), offset(offset), align(align) {}
 };
 
 template <typename ControlItem>
@@ -441,7 +443,6 @@ class MOZ_STACK_CLASS OpIter : private Policy {
   [[nodiscard]] bool readFixedF32(float* out) { return d_.readFixedF32(out); }
   [[nodiscard]] bool readFixedF64(double* out) { return d_.readFixedF64(out); }
 
-  [[nodiscard]] bool readMemOrTableIndex(bool isMem, uint32_t* index);
   [[nodiscard]] bool readLinearMemoryAddress(uint32_t byteSize,
                                              LinearMemoryAddress<Value>* addr);
   [[nodiscard]] bool readLinearMemoryAddressAligned(
@@ -656,8 +657,8 @@ class MOZ_STACK_CLASS OpIter : private Policy {
                                   LinearMemoryAddress<Value>* addr,
                                   Value* value);
   [[nodiscard]] bool readNop();
-  [[nodiscard]] bool readMemorySize();
-  [[nodiscard]] bool readMemoryGrow(Value* input);
+  [[nodiscard]] bool readMemorySize(uint32_t* memoryIndex);
+  [[nodiscard]] bool readMemoryGrow(uint32_t* memoryIndex, Value* input);
   [[nodiscard]] bool readSelect(bool typed, StackType* type, Value* trueValue,
                                 Value* falseValue, Value* condition);
   [[nodiscard]] bool readGetLocal(const ValTypeVector& locals, uint32_t* id);
@@ -715,13 +716,15 @@ class MOZ_STACK_CLASS OpIter : private Policy {
                                         uint32_t* srcMemOrTableIndex,
                                         Value* src, Value* len);
   [[nodiscard]] bool readDataOrElemDrop(bool isData, uint32_t* segIndex);
-  [[nodiscard]] bool readMemFill(Value* start, Value* val, Value* len);
+  [[nodiscard]] bool readMemFill(uint32_t* memoryIndex, Value* start,
+                                 Value* val, Value* len);
   [[nodiscard]] bool readMemOrTableInit(bool isMem, uint32_t* segIndex,
-                                        uint32_t* dstTableIndex, Value* dst,
-                                        Value* src, Value* len);
+                                        uint32_t* dstMemOrTableIndex,
+                                        Value* dst, Value* src, Value* len);
   [[nodiscard]] bool readTableFill(uint32_t* tableIndex, Value* start,
                                    Value* val, Value* len);
-  [[nodiscard]] bool readMemDiscard(Value* start, Value* len);
+  [[nodiscard]] bool readMemDiscard(uint32_t* memoryIndex, Value* start,
+                                    Value* len);
   [[nodiscard]] bool readTableGet(uint32_t* tableIndex, Value* index);
   [[nodiscard]] bool readTableGrow(uint32_t* tableIndex, Value* initValue,
                                    Value* delta);
@@ -1853,47 +1856,39 @@ inline bool OpIter<Policy>::readTernary(ValType operandType, Value* v0,
   return true;
 }
 
-// For memories, the index is currently always a placeholder zero byte.
-//
-// For tables, the index is a placeholder zero byte until we get multi-table
-// with the reftypes proposal.
-//
-// The zero-ness of the value must be checked by the caller.
-template <typename Policy>
-inline bool OpIter<Policy>::readMemOrTableIndex(bool isMem, uint32_t* index) {
-  bool readByte = isMem;
-  if (readByte) {
-    uint8_t indexTmp;
-    if (!readFixedU8(&indexTmp)) {
-      return fail("unable to read memory or table index");
-    }
-    *index = indexTmp;
-  } else {
-    if (!readVarU32(index)) {
-      return fail("unable to read memory or table index");
-    }
-  }
-  return true;
-}
-
 template <typename Policy>
 inline bool OpIter<Policy>::readLinearMemoryAddress(
     uint32_t byteSize, LinearMemoryAddress<Value>* addr) {
-  if (!env_.usesMemory()) {
-    return fail("can't touch memory without memory");
+  uint32_t flags;
+  if (!readVarU32(&flags)) {
+    return fail("unable to read load alignment");
   }
 
-  IndexType it = env_.memory->indexType();
+  uint8_t alignLog2 = flags & ((1 << 6) - 1);
+  uint8_t hasMemoryIndex = flags & (1 << 6);
+  uint8_t undefinedBits = flags & ~((1 << 7) - 1);
 
-  uint32_t alignLog2;
-  if (!readVarU32(&alignLog2)) {
-    return fail("unable to read load alignment");
+  if (undefinedBits != 0) {
+    return fail("invalid memory flags");
+  }
+
+  if (hasMemoryIndex != 0) {
+    if (!readVarU32(&addr->memoryIndex)) {
+      return fail("unable to read memory index");
+    }
+  } else {
+    addr->memoryIndex = 0;
+  }
+
+  if (addr->memoryIndex >= env_.numMemories()) {
+    return fail("memory index out of range");
   }
 
   if (!readVarU64(&addr->offset)) {
     return fail("unable to read load offset");
   }
 
+  IndexType it = env_.memories[addr->memoryIndex].indexType();
   if (it == IndexType::I32 && addr->offset > UINT32_MAX) {
     return fail("offset too large for memory type");
   }
@@ -1981,44 +1976,35 @@ inline bool OpIter<Policy>::readNop() {
 }
 
 template <typename Policy>
-inline bool OpIter<Policy>::readMemorySize() {
+inline bool OpIter<Policy>::readMemorySize(uint32_t* memoryIndex) {
   MOZ_ASSERT(Classify(op_) == OpKind::MemorySize);
 
-  if (!env_.usesMemory()) {
-    return fail("can't touch memory without memory");
-  }
-
-  uint8_t flags;
-  if (!readFixedU8(&flags)) {
+  if (!readVarU32(memoryIndex)) {
     return fail("failed to read memory flags");
   }
 
-  if (flags != uint8_t(0)) {
-    return fail("unexpected flags");
+  if (*memoryIndex >= env_.numMemories()) {
+    return fail("memory index out of range for memory.size");
   }
 
-  ValType ptrType = ToValType(env_.memory->indexType());
+  ValType ptrType = ToValType(env_.memories[*memoryIndex].indexType());
   return push(ptrType);
 }
 
 template <typename Policy>
-inline bool OpIter<Policy>::readMemoryGrow(Value* input) {
+inline bool OpIter<Policy>::readMemoryGrow(uint32_t* memoryIndex,
+                                           Value* input) {
   MOZ_ASSERT(Classify(op_) == OpKind::MemoryGrow);
 
-  if (!env_.usesMemory()) {
-    return fail("can't touch memory without memory");
-  }
-
-  uint8_t flags;
-  if (!readFixedU8(&flags)) {
+  if (!readVarU32(memoryIndex)) {
     return fail("failed to read memory flags");
   }
 
-  if (flags != uint8_t(0)) {
-    return fail("unexpected flags");
+  if (*memoryIndex >= env_.numMemories()) {
+    return fail("memory index out of range for memory.grow");
   }
 
-  ValType ptrType = ToValType(env_.memory->indexType());
+  ValType ptrType = ToValType(env_.memories[*memoryIndex].indexType());
   if (!popWithType(ptrType, input)) {
     return false;
   }
@@ -2725,18 +2711,16 @@ inline bool OpIter<Policy>::readMemOrTableCopy(bool isMem,
   MOZ_ASSERT(dstMemOrTableIndex != srcMemOrTableIndex);
 
   // Spec requires (dest, src) as of 2019-10-04.
-  if (!readMemOrTableIndex(isMem, dstMemOrTableIndex)) {
+  if (!readVarU32(dstMemOrTableIndex)) {
     return false;
   }
-  if (!readMemOrTableIndex(isMem, srcMemOrTableIndex)) {
+  if (!readVarU32(srcMemOrTableIndex)) {
     return false;
   }
 
   if (isMem) {
-    if (!env_.usesMemory()) {
-      return fail("can't touch memory without memory");
-    }
-    if (*srcMemOrTableIndex != 0 || *dstMemOrTableIndex != 0) {
+    if (*srcMemOrTableIndex >= env_.memories.length() ||
+        *dstMemOrTableIndex >= env_.memories.length()) {
       return fail("memory index out of range for memory.copy");
     }
   } else {
@@ -2751,17 +2735,30 @@ inline bool OpIter<Policy>::readMemOrTableCopy(bool isMem,
     }
   }
 
-  ValType ptrType = isMem ? ToValType(env_.memory->indexType()) : ValType::I32;
+  ValType dstPtrType;
+  ValType srcPtrType;
+  ValType lenType;
+  if (isMem) {
+    dstPtrType = ToValType(env_.memories[*dstMemOrTableIndex].indexType());
+    srcPtrType = ToValType(env_.memories[*srcMemOrTableIndex].indexType());
+    if (dstPtrType == ValType::I64 && srcPtrType == ValType::I64) {
+      lenType = ValType::I64;
+    } else {
+      lenType = ValType::I32;
+    }
+  } else {
+    dstPtrType = srcPtrType = lenType = ValType::I32;
+  }
 
-  if (!popWithType(ptrType, len)) {
+  if (!popWithType(lenType, len)) {
     return false;
   }
 
-  if (!popWithType(ptrType, src)) {
+  if (!popWithType(srcPtrType, src)) {
     return false;
   }
 
-  if (!popWithType(ptrType, dst)) {
+  if (!popWithType(dstPtrType, dst)) {
     return false;
   }
 
@@ -2794,25 +2791,19 @@ inline bool OpIter<Policy>::readDataOrElemDrop(bool isData,
 }
 
 template <typename Policy>
-inline bool OpIter<Policy>::readMemFill(Value* start, Value* val, Value* len) {
+inline bool OpIter<Policy>::readMemFill(uint32_t* memoryIndex, Value* start,
+                                        Value* val, Value* len) {
   MOZ_ASSERT(Classify(op_) == OpKind::MemFill);
 
-  if (!env_.usesMemory()) {
-    return fail("can't touch memory without memory");
-  }
-
-  uint8_t memoryIndex;
-  if (!readFixedU8(&memoryIndex)) {
+  if (!readVarU32(memoryIndex)) {
     return fail("failed to read memory index");
   }
-  if (!env_.usesMemory()) {
-    return fail("can't touch memory without memory");
-  }
-  if (memoryIndex != 0) {
-    return fail("memory index must be zero");
+
+  if (*memoryIndex >= env_.numMemories()) {
+    return fail("memory index out of range for memory.fill");
   }
 
-  ValType ptrType = ToValType(env_.memory->indexType());
+  ValType ptrType = ToValType(env_.memories[*memoryIndex].indexType());
 
   if (!popWithType(ptrType, len)) {
     return false;
@@ -2831,28 +2822,27 @@ inline bool OpIter<Policy>::readMemFill(Value* start, Value* val, Value* len) {
 
 template <typename Policy>
 inline bool OpIter<Policy>::readMemOrTableInit(bool isMem, uint32_t* segIndex,
-                                               uint32_t* dstTableIndex,
+                                               uint32_t* dstMemOrTableIndex,
                                                Value* dst, Value* src,
                                                Value* len) {
   MOZ_ASSERT(Classify(op_) == OpKind::MemOrTableInit);
-  MOZ_ASSERT(segIndex != dstTableIndex);
+  MOZ_ASSERT(segIndex != dstMemOrTableIndex);
 
   if (!readVarU32(segIndex)) {
     return fail("unable to read segment index");
   }
 
   uint32_t memOrTableIndex = 0;
-  if (!readMemOrTableIndex(isMem, &memOrTableIndex)) {
+  if (!readVarU32(&memOrTableIndex)) {
     return false;
   }
 
   if (isMem) {
-    if (!env_.usesMemory()) {
-      return fail("can't touch memory without memory");
+    if (memOrTableIndex >= env_.memories.length()) {
+      return fail("memory index out of range for memory.init");
     }
-    if (memOrTableIndex != 0) {
-      return fail("memory index must be zero");
-    }
+    *dstMemOrTableIndex = memOrTableIndex;
+
     if (env_.dataCount.isNothing()) {
       return fail("memory.init requires a DataCount section");
     }
@@ -2863,13 +2853,13 @@ inline bool OpIter<Policy>::readMemOrTableInit(bool isMem, uint32_t* segIndex,
     if (memOrTableIndex >= env_.tables.length()) {
       return fail("table index out of range for table.init");
     }
-    *dstTableIndex = memOrTableIndex;
+    *dstMemOrTableIndex = memOrTableIndex;
 
     if (*segIndex >= env_.elemSegments.length()) {
       return fail("table.init segment index out of range");
     }
     if (!checkIsSubtypeOf(env_.elemSegments[*segIndex]->elemType,
-                          env_.tables[*dstTableIndex].elemType)) {
+                          env_.tables[*dstMemOrTableIndex].elemType)) {
       return false;
     }
   }
@@ -2882,7 +2872,9 @@ inline bool OpIter<Policy>::readMemOrTableInit(bool isMem, uint32_t* segIndex,
     return false;
   }
 
-  ValType ptrType = isMem ? ToValType(env_.memory->indexType()) : ValType::I32;
+  ValType ptrType =
+      isMem ? ToValType(env_.memories[*dstMemOrTableIndex].indexType())
+            : ValType::I32;
   return popWithType(ptrType, dst);
 }
 
@@ -2912,22 +2904,18 @@ inline bool OpIter<Policy>::readTableFill(uint32_t* tableIndex, Value* start,
 }
 
 template <typename Policy>
-inline bool OpIter<Policy>::readMemDiscard(Value* start, Value* len) {
+inline bool OpIter<Policy>::readMemDiscard(uint32_t* memoryIndex, Value* start,
+                                           Value* len) {
   MOZ_ASSERT(Classify(op_) == OpKind::MemDiscard);
 
-  if (!env_.usesMemory()) {
-    return fail("can't touch memory without memory");
-  }
-
-  uint8_t memoryIndex;
-  if (!readFixedU8(&memoryIndex)) {
+  if (!readVarU32(memoryIndex)) {
     return fail("failed to read memory index");
   }
-  if (memoryIndex != 0) {
-    return fail("memory index must be zero");
+  if (*memoryIndex >= env_.memories.length()) {
+    return fail("memory index out of range for memory.discard");
   }
 
-  ValType ptrType = ToValType(env_.memory->indexType());
+  ValType ptrType = ToValType(env_.memories[*memoryIndex].indexType());
 
   if (!popWithType(ptrType, len)) {
     return false;
@@ -4213,7 +4201,7 @@ inline bool OpIter<Policy>::readIntrinsic(const Intrinsic** intrinsic,
 
   *intrinsic = &Intrinsic::getFromId(IntrinsicId(id));
 
-  if (!env_.usesMemory()) {
+  if (env_.numMemories() == 0) {
     return fail("can't touch memory without memory");
   }
   return popWithTypes((*intrinsic)->params, params);

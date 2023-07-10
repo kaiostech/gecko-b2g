@@ -459,6 +459,7 @@ void GCRuntime::sweepZoneAfterCompacting(MovingTracer* trc, Zone* zone) {
   MOZ_ASSERT(zone->isGCCompacting());
 
   zone->traceWeakMaps(trc);
+  zone->sweepObjectsWithWeakPointers(trc);
 
   traceWeakFinalizationObserverEdges(trc, zone);
 
@@ -467,7 +468,7 @@ void GCRuntime::sweepZoneAfterCompacting(MovingTracer* trc, Zone* zone) {
   }
 
   if (jit::JitZone* jitZone = zone->jitZone()) {
-    jitZone->traceWeak(trc);
+    jitZone->traceWeak(trc, zone);
   }
 
   for (CompartmentsInZoneIter c(zone); !c.done(); c.next()) {

@@ -521,7 +521,9 @@ bool RecompileInfo::traceWeak(JSTracer* trc) {
   return maybeIonScriptToInvalidate() != nullptr;
 }
 
-void JitZone::traceWeak(JSTracer* trc) {
+void JitZone::traceWeak(JSTracer* trc, Zone* zone) {
+  MOZ_ASSERT(this == zone->jitZone());
+
   baselineCacheIRStubCodes_.traceWeak(trc);
   inlinedCompilations_.traceWeak(trc);
 }
@@ -779,6 +781,11 @@ void IonScript::trace(JSTracer* trc) {
   for (size_t i = 0; i < numICs(); i++) {
     getICFromIndex(i).trace(trc, this);
   }
+}
+
+void IonScript::traceWeak(JSTracer* trc) {
+  // IonICs do not currently contain weak pointers. If this is added then they
+  // should be traced here.
 }
 
 /* static */

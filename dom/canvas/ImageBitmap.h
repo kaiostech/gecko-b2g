@@ -8,6 +8,7 @@
 #define mozilla_dom_ImageBitmap_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/SurfaceFromElementResult.h"
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/ImageBitmapSource.h"
 #include "mozilla/dom/TypedArray.h"
@@ -56,6 +57,7 @@ class ImageUtils;
 class Promise;
 class PostMessageEvent;  // For StructuredClone between windows.
 class SVGImageElement;
+class VideoFrame;
 
 struct ImageBitmapCloneData final {
   RefPtr<gfx::DataSourceSurface> mSurface;
@@ -91,6 +93,8 @@ class ImageBitmap final : public nsISupports, public nsWrapperCache {
   uint32_t Height() const { return mPictureRect.Height(); }
 
   void Close();
+
+  SurfaceFromElementResult SurfaceFrom(uint32_t aSurfaceFlags);
 
   /*
    * The PrepareForDrawTarget() might return null if the mPictureRect does not
@@ -216,6 +220,11 @@ class ImageBitmap final : public nsISupports, public nsWrapperCache {
 
   static already_AddRefed<ImageBitmap> CreateInternal(
       nsIGlobalObject* aGlobal, ImageBitmap& aImageBitmap,
+      const Maybe<gfx::IntRect>& aCropRect, const ImageBitmapOptions& aOptions,
+      ErrorResult& aRv);
+
+  static already_AddRefed<ImageBitmap> CreateInternal(
+      nsIGlobalObject* aGlobal, VideoFrame& aVideoFrame,
       const Maybe<gfx::IntRect>& aCropRect, const ImageBitmapOptions& aOptions,
       ErrorResult& aRv);
 

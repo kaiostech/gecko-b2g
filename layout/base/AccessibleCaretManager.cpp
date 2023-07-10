@@ -834,11 +834,6 @@ void AccessibleCaretManager::OnKeyboardEvent() {
   }
 }
 
-void AccessibleCaretManager::OnFrameReconstruction() {
-  mCarets.GetFirst()->EnsureApzAware();
-  mCarets.GetSecond()->EnsureApzAware();
-}
-
 void AccessibleCaretManager::SetLastInputSource(uint16_t aInputSource) {
   mLastInputSource = aInputSource;
 }

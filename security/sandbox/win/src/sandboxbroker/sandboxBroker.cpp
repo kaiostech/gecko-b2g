@@ -1133,7 +1133,6 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
 void SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel) {
   MOZ_RELEASE_ASSERT(mPolicy, "mPolicy must be set before this call.");
 
-  sandbox::JobLevel jobLevel;
   sandbox::TokenLevel accessTokenLevel;
   sandbox::IntegrityLevel initialIntegrityLevel;
   sandbox::IntegrityLevel delayedIntegrityLevel;
@@ -1142,34 +1141,30 @@ void SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel) {
   // crude) tool while we are tightening the policy. Gaps are left to try and
   // avoid changing their meaning.
   if (aSandboxLevel >= 2) {
-    jobLevel = sandbox::JOB_NONE;
     accessTokenLevel = sandbox::USER_LIMITED;
     initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
     delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
   } else {
     MOZ_RELEASE_ASSERT(aSandboxLevel >= 1,
                        "Should not be called with aSandboxLevel < 1");
-    jobLevel = sandbox::JOB_NONE;
-    accessTokenLevel = sandbox::USER_NON_ADMIN;
+    accessTokenLevel = sandbox::USER_RESTRICTED_NON_ADMIN;
     initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
     delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
   }
 
-  sandbox::ResultCode result =
-      SetJobLevel(mPolicy, jobLevel, 0 /* ui_exceptions */);
+  // We use JOB_LIMITED_USER for the setting that limits the job to one active
+  // process, which prevents the creation of child processes. For the moment
+  // the other restrictions are added as excpetions until we can assess them.
+  sandbox::ResultCode result = SetJobLevel(
+      mPolicy, sandbox::JOB_LIMITED_USER,
+      JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS | JOB_OBJECT_UILIMIT_DESKTOP |
+          JOB_OBJECT_UILIMIT_EXITWINDOWS | JOB_OBJECT_UILIMIT_DISPLAYSETTINGS);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                      "Setting job level failed, have you set memory limit when "
                      "jobLevel == JOB_NONE?");
 
-  // If the delayed access token is not restricted we don't want the initial one
-  // to be either, because it can interfere with running from a network drive.
-  sandbox::TokenLevel initialAccessTokenLevel =
-      (accessTokenLevel == sandbox::USER_UNPROTECTED ||
-       accessTokenLevel == sandbox::USER_NON_ADMIN)
-          ? sandbox::USER_UNPROTECTED
-          : sandbox::USER_RESTRICTED_SAME_ACCESS;
-
-  result = mPolicy->SetTokenLevel(initialAccessTokenLevel, accessTokenLevel);
+  result = mPolicy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
+                                  accessTokenLevel);
   MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                      "Lockdown level cannot be USER_UNPROTECTED or USER_LAST "
                      "if initial level was USER_RESTRICTED_SAME_ACCESS");

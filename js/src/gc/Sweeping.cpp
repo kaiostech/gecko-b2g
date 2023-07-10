@@ -1348,25 +1348,27 @@ void GCRuntime::sweepJitDataOnMainThread(JS::GCContext* gcx) {
   {
     gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::SWEEP_JIT_DATA);
 
-    if (initialState != State::NotActive) {
-      // Cancel any active or pending off thread compilations. We also did
-      // this before marking (in DiscardJITCodeForGC) so this is a no-op
-      // for non-incremental GCs.
-      js::CancelOffThreadIonCompile(rt, JS::Zone::Sweep);
-    }
-
     // Bug 1071218: the following method has not yet been refactored to
     // work on a single zone-group at once.
 
-    // Sweep entries containing about-to-be-finalized JitCode and
-    // update relocated TypeSet::Types inside the JitcodeGlobalTable.
+    // Sweep entries containing about-to-be-finalized JitCode in the
+    // JitcodeGlobalTable.
     jit::JitRuntime::TraceWeakJitcodeGlobalTable(rt, &trc);
   }
 
-  if (initialState != State::NotActive) {
+  // Discard JIT code and trace weak edges in JitScripts to remove edges to
+  // dying GC things. The latter is carried out as part of discardJitCode if
+  // possible to avoid iterating all scripts in the zone twice.
+  {
     gcstats::AutoPhase apdc(stats(), gcstats::PhaseKind::SWEEP_DISCARD_CODE);
+    Zone::DiscardOptions options;
+    options.traceWeakJitScripts = &trc;
     for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
-      zone->discardJitCode(gcx);
+      if (!haveDiscardedJITCodeThisSlice && !zone->isPreservingCode()) {
+        zone->forceDiscardJitCode(gcx, options);
+      } else {
+        zone->traceWeakJitScripts(&trc);
+      }
     }
   }
 
@@ -1381,10 +1383,33 @@ void GCRuntime::sweepJitDataOnMainThread(JS::GCContext* gcx) {
 
     for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
       if (jit::JitZone* jitZone = zone->jitZone()) {
-        jitZone->traceWeak(&trc);
+        jitZone->traceWeak(&trc, zone);
       }
     }
   }
+}
+
+void GCRuntime::sweepObjectsWithWeakPointers() {
+  SweepingTracer trc(rt);
+  for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
+    AutoSetThreadIsSweeping threadIsSweeping(zone);
+    zone->sweepObjectsWithWeakPointers(&trc);
+  }
+}
+
+void JS::Zone::sweepObjectsWithWeakPointers(JSTracer* trc) {
+  MOZ_ASSERT(trc->traceWeakEdges());
+
+  objectsWithWeakPointers.ref().mutableEraseIf([&](JSObject*& obj) {
+    if (!TraceManuallyBarrieredWeakEdge(trc, &obj, "objectsWithWeakPointers")) {
+      // Object itself is dead.
+      return true;
+    }
+
+    // Call trace hook to sweep weak pointers.
+    obj->getClass()->doTrace(trc, obj);
+    return false;
+  });
 }
 
 using WeakCacheTaskVector =
@@ -1508,6 +1533,12 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
   cellsToAssertNotGray.ref().clearAndFree();
 #endif
 
+  // Cancel off thread compilation as soon as possible, unless this already
+  // happened in GCRuntime::discardJITCodeForGC.
+  if (!haveDiscardedJITCodeThisSlice) {
+    js::CancelOffThreadIonCompile(rt, JS::Zone::Sweep);
+  }
+
   // Updating the atom marking bitmaps. This marks atoms referenced by
   // uncollected zones so cannot be done in parallel with the other sweeping
   // work below.
@@ -1555,6 +1586,9 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JS::GCContext* gcx,
     AutoRunParallelTask sweepUniqueIds(this, &GCRuntime::sweepUniqueIds,
                                        PhaseKind::SWEEP_UNIQUEIDS,
                                        GCUse::Sweeping, lock);
+    AutoRunParallelTask sweepWeakPointers(
+        this, &GCRuntime::sweepObjectsWithWeakPointers,
+        PhaseKind::SWEEP_WEAK_POINTERS, GCUse::Sweeping, lock);
 
     WeakCacheTaskVector sweepCacheTasks;
     bool canSweepWeakCachesOffThread =

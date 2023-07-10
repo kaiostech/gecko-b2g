@@ -37,6 +37,7 @@
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/FrameLoaderBinding.h"
 #include "mozilla/dom/HTMLLabelElement.h"
+#include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/MouseEventBinding.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/PointerEventHandler.h"
@@ -74,6 +75,7 @@
 #include "nsIWidget.h"
 #include "nsLiteralString.h"
 #include "nsPresContext.h"
+#include "nsTArray.h"
 #include "nsGkAtoms.h"
 #include "nsIFormControl.h"
 #include "nsComboboxControlFrame.h"
@@ -210,6 +212,62 @@ static bool DispatchKeyToContentFirst(WidgetKeyboardEvent* aKeyEvent) {
   return functionalKeyCodes->find(eventName.get()) != functionalKeyCodes->end();
 }
 
+/**
+ * Returns the common ancestor for mouseup purpose, given the
+ * current mouseup target and the previous mousedown target.
+ */
+static nsINode* GetCommonAncestorForMouseUp(
+    nsINode* aCurrentMouseUpTarget, nsINode* aLastMouseDownTarget,
+    Maybe<FormControlType>& aLastMouseDownInputControlType) {
+  if (!aCurrentMouseUpTarget || !aLastMouseDownTarget) {
+    return nullptr;
+  }
+
+  if (aCurrentMouseUpTarget == aLastMouseDownTarget) {
+    return aCurrentMouseUpTarget;
+  }
+
+  // Build the chain of parents
+  AutoTArray<nsINode*, 30> parents1;
+  do {
+    parents1.AppendElement(aCurrentMouseUpTarget);
+    aCurrentMouseUpTarget = aCurrentMouseUpTarget->GetFlattenedTreeParentNode();
+  } while (aCurrentMouseUpTarget);
+
+  AutoTArray<nsINode*, 30> parents2;
+  do {
+    parents2.AppendElement(aLastMouseDownTarget);
+    if (aLastMouseDownTarget == parents1.LastElement()) {
+      break;
+    }
+    aLastMouseDownTarget = aLastMouseDownTarget->GetFlattenedTreeParentNode();
+  } while (aLastMouseDownTarget);
+
+  // Find where the parent chain differs
+  uint32_t pos1 = parents1.Length();
+  uint32_t pos2 = parents2.Length();
+  nsINode* parent = nullptr;
+  for (uint32_t len = std::min(pos1, pos2); len > 0; --len) {
+    nsINode* child1 = parents1.ElementAt(--pos1);
+    nsINode* child2 = parents2.ElementAt(--pos2);
+    if (child1 != child2) {
+      break;
+    }
+
+    // If the input control type is different between mouseup and mousedown,
+    // this is not a valid click.
+    if (HTMLInputElement* input = HTMLInputElement::FromNodeOrNull(child1)) {
+      if (aLastMouseDownInputControlType.isSome() &&
+          aLastMouseDownInputControlType.ref() != input->ControlType()) {
+        break;
+      }
+    }
+    parent = child1;
+  }
+
+  return parent;
+}
+
 /******************************************************************/
 /* mozilla::UITimerCallback                                       */
 /******************************************************************/
@@ -314,9 +372,6 @@ EventStateManager::EventStateManager()
       mGestureModifiers(0),
       mGestureDownButtons(0),
       mPresContext(nullptr),
-      mLClickCount(0),
-      mMClickCount(0),
-      mRClickCount(0),
       mShouldAlwaysUseLineDeltas(false),
       mShouldAlwaysUseLineDeltasInitialized(false),
       mGestureDownInTextControl(false),
@@ -447,10 +502,10 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(EventStateManager)
 
 NS_IMPL_CYCLE_COLLECTION_WEAK(EventStateManager, mCurrentTargetContent,
                               mGestureDownContent, mGestureDownFrameOwner,
-                              mLastLeftMouseDownContent,
-                              mLastMiddleMouseDownContent,
-                              mLastRightMouseDownContent, mActiveContent,
-                              mHoverContent, mURLTargetContent,
+                              mLastLeftMouseDownInfo.mLastMouseDownContent,
+                              mLastMiddleMouseDownInfo.mLastMouseDownContent,
+                              mLastRightMouseDownInfo.mLastMouseDownContent,
+                              mActiveContent, mHoverContent, mURLTargetContent,
                               mMouseEnterLeaveHelper, mPointersEnterLeaveHelper,
                               mDocument, mIMEContentObserver, mAccessKeys)
 
@@ -710,16 +765,16 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
       switch (mouseEvent->mButton) {
         case MouseButton::ePrimary:
           BeginTrackingDragGesture(aPresContext, mouseEvent, aTargetFrame);
-          mLClickCount = mouseEvent->mClickCount;
+          mLastLeftMouseDownInfo.mClickCount = mouseEvent->mClickCount;
           SetClickCount(mouseEvent, aStatus);
           sNormalLMouseEventInProcess = true;
           break;
         case MouseButton::eMiddle:
-          mMClickCount = mouseEvent->mClickCount;
+          mLastMiddleMouseDownInfo.mClickCount = mouseEvent->mClickCount;
           SetClickCount(mouseEvent, aStatus);
           break;
         case MouseButton::eSecondary:
-          mRClickCount = mouseEvent->mClickCount;
+          mLastRightMouseDownInfo.mClickCount = mouseEvent->mClickCount;
           SetClickCount(mouseEvent, aStatus);
           break;
       }
@@ -1106,6 +1161,21 @@ already_AddRefed<EventStateManager> EventStateManager::ESMFromContentOrThis(
 
   RefPtr<EventStateManager> esm = this;
   return esm.forget();
+}
+
+EventStateManager::LastMouseDownInfo& EventStateManager::GetLastMouseDownInfo(
+    int16_t aButton) {
+  switch (aButton) {
+    case MouseButton::ePrimary:
+      return mLastLeftMouseDownInfo;
+    case MouseButton::eMiddle:
+      return mLastMiddleMouseDownInfo;
+    case MouseButton::eSecondary:
+      return mLastRightMouseDownInfo;
+    default:
+      MOZ_ASSERT_UNREACHABLE("This button shouldn't use this method");
+      return mLastLeftMouseDownInfo;
+  }
 }
 
 void EventStateManager::HandleQueryContentEvent(
@@ -3418,17 +3488,16 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
             ESMFromContentOrThis(aOverrideClickTarget);
         switch (mouseEvent->mButton) {
           case MouseButton::ePrimary:
-            esm->mLastLeftMouseDownContent = nullptr;
-            esm->mLClickCount = 0;
-            break;
           case MouseButton::eSecondary:
-            esm->mLastMiddleMouseDownContent = nullptr;
-            esm->mMClickCount = 0;
+          case MouseButton::eMiddle: {
+            LastMouseDownInfo& mouseDownInfo =
+                GetLastMouseDownInfo(mouseEvent->mButton);
+            mouseDownInfo.mLastMouseDownContent = nullptr;
+            mouseDownInfo.mClickCount = 0;
+            mouseDownInfo.mLastMouseDownInputControlType = Nothing();
             break;
-          case MouseButton::eMiddle:
-            esm->mLastRightMouseDownContent = nullptr;
-            esm->mRClickCount = 0;
-            break;
+          }
+
           default:
             break;
         }
@@ -5221,66 +5290,41 @@ nsresult EventStateManager::SetClickCount(WidgetMouseEvent* aEvent,
     }
   }
 
-  switch (aEvent->mButton) {
-    case MouseButton::ePrimary:
-      if (aEvent->mMessage == eMouseDown) {
-        mLastLeftMouseDownContent =
-            !aEvent->mClickEventPrevented ? mouseContent : nullptr;
-      } else if (aEvent->mMessage == eMouseUp) {
-        aEvent->mClickTarget =
-            !aEvent->mClickEventPrevented
-                ? nsContentUtils::GetCommonAncestorUnderInteractiveContent(
-                      mouseContent, mLastLeftMouseDownContent)
-                : nullptr;
-        if (aEvent->mClickTarget) {
-          aEvent->mClickCount = mLClickCount;
-          mLClickCount = 0;
-        } else {
-          aEvent->mClickCount = 0;
-        }
-        mLastLeftMouseDownContent = nullptr;
-      }
-      break;
+  LastMouseDownInfo& mouseDownInfo = GetLastMouseDownInfo(aEvent->mButton);
+  if (aEvent->mMessage == eMouseDown) {
+    mouseDownInfo.mLastMouseDownContent =
+        !aEvent->mClickEventPrevented ? mouseContent : nullptr;
 
-    case MouseButton::eMiddle:
-      if (aEvent->mMessage == eMouseDown) {
-        mLastMiddleMouseDownContent =
-            !aEvent->mClickEventPrevented ? mouseContent : nullptr;
-      } else if (aEvent->mMessage == eMouseUp) {
-        aEvent->mClickTarget =
-            !aEvent->mClickEventPrevented
-                ? nsContentUtils::GetCommonAncestorUnderInteractiveContent(
-                      mouseContent, mLastMiddleMouseDownContent)
-                : nullptr;
-        if (aEvent->mClickTarget) {
-          aEvent->mClickCount = mMClickCount;
-          mMClickCount = 0;
-        } else {
-          aEvent->mClickCount = 0;
+    if (mouseDownInfo.mLastMouseDownContent) {
+      if (HTMLInputElement* input = HTMLInputElement::FromNodeOrNull(
+              mouseDownInfo.mLastMouseDownContent)) {
+        mouseDownInfo.mLastMouseDownInputControlType =
+            Some(input->ControlType());
+      } else if (mouseDownInfo.mLastMouseDownContent
+                     ->IsInNativeAnonymousSubtree()) {
+        if (HTMLInputElement* input = HTMLInputElement::FromNodeOrNull(
+                mouseDownInfo.mLastMouseDownContent
+                    ->GetFlattenedTreeParent())) {
+          mouseDownInfo.mLastMouseDownInputControlType =
+              Some(input->ControlType());
         }
-        mLastMiddleMouseDownContent = nullptr;
       }
-      break;
-
-    case MouseButton::eSecondary:
-      if (aEvent->mMessage == eMouseDown) {
-        mLastRightMouseDownContent =
-            !aEvent->mClickEventPrevented ? mouseContent : nullptr;
-      } else if (aEvent->mMessage == eMouseUp) {
-        aEvent->mClickTarget =
-            !aEvent->mClickEventPrevented
-                ? nsContentUtils::GetCommonAncestorUnderInteractiveContent(
-                      mouseContent, mLastRightMouseDownContent)
-                : nullptr;
-        if (aEvent->mClickTarget) {
-          aEvent->mClickCount = mRClickCount;
-          mRClickCount = 0;
-        } else {
-          aEvent->mClickCount = 0;
-        }
-        mLastRightMouseDownContent = nullptr;
-      }
-      break;
+    }
+  } else {
+    aEvent->mClickTarget =
+        !aEvent->mClickEventPrevented
+            ? GetCommonAncestorForMouseUp(
+                  mouseContent, mouseDownInfo.mLastMouseDownContent,
+                  mouseDownInfo.mLastMouseDownInputControlType)
+            : nullptr;
+    if (aEvent->mClickTarget) {
+      aEvent->mClickCount = mouseDownInfo.mClickCount;
+      mouseDownInfo.mClickCount = 0;
+    } else {
+      aEvent->mClickCount = 0;
+    }
+    mouseDownInfo.mLastMouseDownContent = nullptr;
+    mouseDownInfo.mLastMouseDownInputControlType = Nothing();
   }
 
   return NS_OK;
@@ -5886,22 +5930,28 @@ void EventStateManager::NativeAnonymousContentRemoved(nsIContent* aContent) {
   RemoveNodeFromChainIfNeeded(ElementState::HOVER, aContent, false);
   RemoveNodeFromChainIfNeeded(ElementState::ACTIVE, aContent, false);
 
-  if (mLastLeftMouseDownContent &&
+  nsCOMPtr<nsIContent>& lastLeftMouseDownContent =
+      mLastLeftMouseDownInfo.mLastMouseDownContent;
+  if (lastLeftMouseDownContent &&
       nsContentUtils::ContentIsFlattenedTreeDescendantOf(
-          mLastLeftMouseDownContent, aContent)) {
-    mLastLeftMouseDownContent = aContent->GetFlattenedTreeParent();
+          lastLeftMouseDownContent, aContent)) {
+    lastLeftMouseDownContent = aContent->GetFlattenedTreeParent();
   }
 
-  if (mLastMiddleMouseDownContent &&
+  nsCOMPtr<nsIContent>& lastMiddleMouseDownContent =
+      mLastMiddleMouseDownInfo.mLastMouseDownContent;
+  if (lastMiddleMouseDownContent &&
       nsContentUtils::ContentIsFlattenedTreeDescendantOf(
-          mLastMiddleMouseDownContent, aContent)) {
-    mLastMiddleMouseDownContent = aContent->GetFlattenedTreeParent();
+          lastMiddleMouseDownContent, aContent)) {
+    lastMiddleMouseDownContent = aContent->GetFlattenedTreeParent();
   }
 
-  if (mLastRightMouseDownContent &&
+  nsCOMPtr<nsIContent>& lastRightMouseDownContent =
+      mLastRightMouseDownInfo.mLastMouseDownContent;
+  if (lastRightMouseDownContent &&
       nsContentUtils::ContentIsFlattenedTreeDescendantOf(
-          mLastRightMouseDownContent, aContent)) {
-    mLastRightMouseDownContent = aContent->GetFlattenedTreeParent();
+          lastRightMouseDownContent, aContent)) {
+    lastRightMouseDownContent = aContent->GetFlattenedTreeParent();
   }
 }
 

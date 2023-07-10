@@ -518,10 +518,14 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
         LinearMemoryAddress<Nothing> addr;
         CHECK(iter.readStore(ValType::F64, 8, &addr, &nothing));
       }
-      case uint16_t(Op::MemoryGrow):
-        CHECK(iter.readMemoryGrow(&nothing));
-      case uint16_t(Op::MemorySize):
-        CHECK(iter.readMemorySize());
+      case uint16_t(Op::MemoryGrow): {
+        uint32_t memoryIndex;
+        CHECK(iter.readMemoryGrow(&memoryIndex, &nothing));
+      }
+      case uint16_t(Op::MemorySize): {
+        uint32_t memoryIndex;
+        CHECK(iter.readMemorySize(&memoryIndex));
+      }
       case uint16_t(Op::Br): {
         uint32_t unusedDepth;
         CHECK(iter.readBr(&unusedDepth, &unusedType, &nothings));
@@ -1188,14 +1192,16 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
             uint32_t unusedSegIndex;
             CHECK(iter.readDataOrElemDrop(/*isData=*/true, &unusedSegIndex));
           }
-          case uint32_t(MiscOp::MemoryFill):
-            CHECK(iter.readMemFill(&nothing, &nothing, &nothing));
+          case uint32_t(MiscOp::MemoryFill): {
+            uint32_t memoryIndex;
+            CHECK(iter.readMemFill(&memoryIndex, &nothing, &nothing, &nothing));
+          }
           case uint32_t(MiscOp::MemoryInit): {
             uint32_t unusedSegIndex;
-            uint32_t unusedTableIndex;
+            uint32_t unusedMemoryIndex;
             CHECK(iter.readMemOrTableInit(/*isMem=*/true, &unusedSegIndex,
-                                          &unusedTableIndex, &nothing, &nothing,
-                                          &nothing));
+                                          &unusedMemoryIndex, &nothing,
+                                          &nothing, &nothing));
           }
           case uint32_t(MiscOp::TableCopy): {
             uint32_t unusedDestTableIndex;
@@ -1225,7 +1231,8 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
             if (!env.memoryControlEnabled()) {
               return iter.unrecognizedOpcode(&op);
             }
-            CHECK(iter.readMemDiscard(&nothing, &nothing));
+            uint32_t unusedMemoryIndex;
+            CHECK(iter.readMemDiscard(&unusedMemoryIndex, &nothing, &nothing));
           }
 #endif
           case uint32_t(MiscOp::TableGrow): {
@@ -1907,6 +1914,20 @@ static bool DecodeFuncTypeIndex(Decoder& d, const SharedTypeContext& types,
   return true;
 }
 
+static bool DecodeLimitBound(Decoder& d, IndexType indexType, uint64_t* bound) {
+  if (indexType == IndexType::I64) {
+    return d.readVarU64(bound);
+  }
+
+  // Spec tests assert that we only decode a LEB32 when index type is I32.
+  uint32_t bound32;
+  if (!d.readVarU32(&bound32)) {
+    return false;
+  }
+  *bound = bound32;
+  return true;
+}
+
 static bool DecodeLimits(Decoder& d, LimitsKind kind, Limits* limits) {
   uint8_t flags;
   if (!d.readFixedU8(&flags)) {
@@ -1920,31 +1941,6 @@ static bool DecodeLimits(Decoder& d, LimitsKind kind, Limits* limits) {
     return d.failf("unexpected bits set in flags: %" PRIu32,
                    uint32_t(flags & ~uint8_t(mask)));
   }
-
-  uint64_t initial;
-  if (!d.readVarU64(&initial)) {
-    return d.fail("expected initial length");
-  }
-  limits->initial = initial;
-
-  if (flags & uint8_t(LimitsFlags::HasMaximum)) {
-    uint64_t maximum;
-    if (!d.readVarU64(&maximum)) {
-      return d.fail("expected maximum length");
-    }
-
-    if (limits->initial > maximum) {
-      return d.failf(
-          "memory size minimum must not be greater than maximum; "
-          "maximum length %" PRIu64 " is less than initial length %" PRIu64,
-          maximum, limits->initial);
-    }
-
-    limits->maximum.emplace(maximum);
-  }
-
-  limits->shared = Shareable::False;
-  limits->indexType = IndexType::I32;
 
   // Memory limits may be shared or specify an alternate index type
   if (kind == LimitsKind::Memory) {
@@ -1961,10 +1957,36 @@ static bool DecodeLimits(Decoder& d, LimitsKind kind, Limits* limits) {
     limits->indexType =
         (flags & uint8_t(LimitsFlags::IsI64)) ? IndexType::I64 : IndexType::I32;
 #else
+    limits->indexType = IndexType::I32;
     if (flags & uint8_t(LimitsFlags::IsI64)) {
       return d.fail("i64 is not supported for memory limits");
     }
 #endif
+  } else {
+    limits->shared = Shareable::False;
+    limits->indexType = IndexType::I32;
+  }
+
+  uint64_t initial;
+  if (!DecodeLimitBound(d, limits->indexType, &initial)) {
+    return d.fail("expected initial length");
+  }
+  limits->initial = initial;
+
+  if (flags & uint8_t(LimitsFlags::HasMaximum)) {
+    uint64_t maximum;
+    if (!DecodeLimitBound(d, limits->indexType, &maximum)) {
+      return d.fail("expected maximum length");
+    }
+
+    if (limits->initial > maximum) {
+      return d.failf(
+          "memory size minimum must not be greater than maximum; "
+          "maximum length %" PRIu64 " is less than initial length %" PRIu64,
+          maximum, limits->initial);
+    }
+
+    limits->maximum.emplace(maximum);
   }
 
   return true;
@@ -2057,9 +2079,14 @@ static bool DecodeGlobalType(Decoder& d, const SharedTypeContext& types,
   return true;
 }
 
-static bool DecodeMemoryTypeAndLimits(Decoder& d, ModuleEnvironment* env) {
-  if (env->usesMemory()) {
+static bool DecodeMemoryTypeAndLimits(Decoder& d, ModuleEnvironment* env,
+                                      MemoryDescVector* memories) {
+  if (!env->features.multiMemory && env->numMemories() == 1) {
     return d.fail("already have default memory");
+  }
+
+  if (env->numMemories() >= MaxMemories) {
+    return d.fail("too many memories");
   }
 
   Limits limits;
@@ -2086,8 +2113,7 @@ static bool DecodeMemoryTypeAndLimits(Decoder& d, ModuleEnvironment* env) {
     return d.fail("memory64 is disabled");
   }
 
-  env->memory = Some(MemoryDesc(limits));
-  return true;
+  return memories->emplaceBack(MemoryDesc(limits));
 }
 
 static bool DecodeTag(Decoder& d, ModuleEnvironment* env, TagKind* tagKind,
@@ -2158,7 +2184,7 @@ static bool DecodeImport(Decoder& d, ModuleEnvironment* env) {
       break;
     }
     case DefinitionKind::Memory: {
-      if (!DecodeMemoryTypeAndLimits(d, env)) {
+      if (!DecodeMemoryTypeAndLimits(d, env, &env->memories)) {
         return false;
       }
       break;
@@ -2313,12 +2339,12 @@ static bool DecodeMemorySection(Decoder& d, ModuleEnvironment* env) {
     return d.fail("failed to read number of memories");
   }
 
-  if (numMemories > 1) {
+  if (!env->features.multiMemory && numMemories > 1) {
     return d.fail("the number of memories must be at most one");
   }
 
   for (uint32_t i = 0; i < numMemories; ++i) {
-    if (!DecodeMemoryTypeAndLimits(d, env)) {
+    if (!DecodeMemoryTypeAndLimits(d, env, &env->memories)) {
       return false;
     }
   }
@@ -2481,11 +2507,11 @@ static bool DecodeExport(Decoder& d, ModuleEnvironment* env, NameSet* dupSet) {
         return d.fail("expected memory index");
       }
 
-      if (memoryIndex > 0 || !env->usesMemory()) {
+      if (memoryIndex >= env->numMemories()) {
         return d.fail("exported memory index out of bounds");
       }
 
-      return env->exports.emplaceBack(std::move(fieldName),
+      return env->exports.emplaceBack(std::move(fieldName), memoryIndex,
                                       DefinitionKind::Memory);
     }
     case DefinitionKind::Global: {
@@ -3002,25 +3028,30 @@ static bool DecodeDataSection(Decoder& d, ModuleEnvironment* env) {
 
     DataSegmentKind initializerKind = DataSegmentKind(initializerKindVal);
 
-    if (initializerKind != DataSegmentKind::Passive && !env->usesMemory()) {
+    if (initializerKind != DataSegmentKind::Passive &&
+        env->numMemories() == 0) {
       return d.fail("active data segment requires a memory section");
     }
 
-    uint32_t memIndex = 0;
+    DataSegmentEnv seg;
     if (initializerKind == DataSegmentKind::ActiveWithMemoryIndex) {
-      if (!d.readVarU32(&memIndex)) {
+      if (!d.readVarU32(&seg.memoryIndex)) {
         return d.fail("expected memory index");
       }
-      if (memIndex > 0) {
-        return d.fail("memory index must be zero");
-      }
+    } else if (initializerKind == DataSegmentKind::Active) {
+      seg.memoryIndex = 0;
+    } else {
+      seg.memoryIndex = InvalidMemoryIndex;
     }
 
-    DataSegmentEnv seg;
     if (initializerKind == DataSegmentKind::Active ||
         initializerKind == DataSegmentKind::ActiveWithMemoryIndex) {
+      if (seg.memoryIndex >= env->numMemories()) {
+        return d.fail("invalid memory index");
+      }
+
       InitExpr segOffset;
-      ValType exprType = ToValType(env->memory->indexType());
+      ValType exprType = ToValType(env->memories[seg.memoryIndex].indexType());
       if (!InitExpr::decodeAndValidate(d, env, exprType, env->globals.length(),
                                        &segOffset)) {
         return false;

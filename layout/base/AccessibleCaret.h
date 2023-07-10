@@ -134,9 +134,7 @@ class AccessibleCaret {
   // Element for 'Intersects' test. This is the container of the caret image
   // and text-overlay elements. See CreateCaretElement() for the content
   // structure.
-  dom::Element& CaretElement() const {
-    return mCaretElementHolder->ContentNode();
-  }
+  dom::Element& CaretElement() const { return *mCaretElementHolder->Host(); }
 
   // Ensures that the caret element is made "APZ aware" so that the APZ code
   // doesn't scroll the page when the user is trying to drag the caret.
@@ -155,19 +153,13 @@ class AccessibleCaret {
   float GetZoomLevel();
 
   // Element which contains the text overly for the 'Contains' test.
-  dom::Element* TextOverlayElement() const {
-    return mCaretElementHolder->GetElementById(sTextOverlayElementId);
-  }
+  dom::Element* TextOverlayElement() const;
 
   // Element which contains the caret image for 'Contains' test.
-  dom::Element* CaretImageElement() const {
-    return mCaretElementHolder->GetElementById(sCaretImageElementId);
-  }
+  dom::Element* CaretImageElement() const;
 
   // Element which represents the text selection bar.
-  dom::Element* SelectionBarElement() const {
-    return mCaretElementHolder->GetElementById(sSelectionBarElementId);
-  }
+  dom::Element* SelectionBarElement() const;
 
   nsIFrame* RootFrame() const;
 
@@ -176,7 +168,7 @@ class AccessibleCaret {
   // Transform Appearance to CSS id used in ua.css.
   static nsAutoString AppearanceString(Appearance aAppearance);
 
-  already_AddRefed<dom::Element> CreateCaretElement(dom::Document*) const;
+  void CreateCaretElement() const;
 
   // Inject caret element into custom content container.
   void InjectCaretElement(dom::Document*);
@@ -235,12 +227,6 @@ class AccessibleCaret {
   // A no-op touch-start listener which prevents APZ from panning when dragging
   // the caret.
   RefPtr<DummyTouchListener> mDummyTouchListener{new DummyTouchListener()};
-
-  // Static class variables
-  static const nsLiteralString sTextOverlayElementId;
-  static const nsLiteralString sCaretImageElementId;
-  static const nsLiteralString sSelectionBarElementId;
-
 };  // class AccessibleCaret
 
 std::ostream& operator<<(std::ostream& aStream,

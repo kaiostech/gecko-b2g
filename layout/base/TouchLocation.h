@@ -66,9 +66,7 @@ class TouchLocation {
   void InjectElement(dom::Document* aDocument);
   void RemoveElement(dom::Document* aDocument);
 
-  dom::Element& TouchElement() const {
-    return mTouchElementHolder->ContentNode();
-  }
+  dom::Element* TouchElement() const { return mTouchElementHolder->Host(); }
 
   dom::Element* StartElement(FingerStartId aId) const {
     return aId < sSupportFingers ? _NthChildElement(aId) : nullptr;
@@ -81,9 +79,9 @@ class TouchLocation {
   dom::Element* _NthChildElement(ChildId aId) const {
     const uint32_t idx = aId.mId;
 
-    dom::Element& node = TouchElement();
-    dom::AllChildrenIterator iter(node.AsContent(), nsIContent::eAllChildren);
-    RefPtr kids = new nsSimpleContentList(&node);
+    auto node = TouchElement();
+    dom::AllChildrenIterator iter(node->AsContent(), nsIContent::eAllChildren);
+    RefPtr kids = new nsSimpleContentList(node);
     while (nsIContent* kid = iter.GetNextChild()) {
       kids->AppendElement(kid);
     }

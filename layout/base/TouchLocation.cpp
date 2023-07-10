@@ -77,6 +77,9 @@ void TouchLocation::InjectElement(dom::Document* aDocument) {
   //   <div class="cross">              <- CrossElement(sSupportFingers - 1)
 
   ErrorResult rv;
+  mTouchElementHolder =
+      aDocument->InsertAnonymousContent(/* aForce = */ false, rv);
+
   nsCOMPtr<dom::Element> element = aDocument->CreateHTMLElement(nsGkAtoms::div);
   element->ClassList()->Add(u"moz-touchlocation"_ns, rv);
   element->ClassList()->Add(u"none"_ns, rv);
@@ -97,7 +100,7 @@ void TouchLocation::InjectElement(dom::Document* aDocument) {
     element->AppendChildTo(cross, false, IgnoreErrors());
   }
 
-  mTouchElementHolder = aDocument->InsertAnonymousContent(*element, /* aForce = */ false, rv);
+  mTouchElementHolder->Root()->AppendChildTo(element, false, rv);
 }
 
 void TouchLocation::RemoveElement(dom::Document* aDocument) {
@@ -167,8 +170,8 @@ void TouchLocation::SetEnable(bool aEnabled) {
   }
 
   ErrorResult rv;
-  TouchElement().ClassList()->Toggle(u"none"_ns, dom::Optional<bool>(!aEnabled),
-                                     rv);
+  TouchElement()->ClassList()->Toggle(u"none"_ns,
+                                      dom::Optional<bool>(!aEnabled), rv);
   mEnabled = aEnabled;
 
   if (mEnabled) {

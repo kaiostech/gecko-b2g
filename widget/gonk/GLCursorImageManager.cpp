@@ -19,6 +19,7 @@
 #include "GLCursorImageManager.h"
 #include "imgIContainer.h"
 #include "mozilla/dom/AnonymousContent.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "nsDOMTokenList.h"
 #include "nsIFrame.h"
 #include "nsIWidgetListener.h"
@@ -201,17 +202,17 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     ErrorResult rv;
     image->ClassList()->Add(u"b2g-cursor"_ns, rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
-    cursorElementHolder =
-        doc->InsertAnonymousContent(*image, /* aForce */ false, rv);
+    cursorElementHolder = doc->InsertAnonymousContent(/* aForce */ false, rv);
+    cursorElementHolder->Root()->AppendChildTo(image, false, rv);
 
     if (cursorElementHolder) {
-      dom::Element& element = cursorElementHolder->ContentNode();
-      nsIFrame* frame = element.GetPrimaryFrame();
+      auto element = cursorElementHolder->Host();
+      nsIFrame* frame = element->GetPrimaryFrame();
       if (!frame) {
         // Force the document to construct a primary frame immediately if
         // it hasn't constructed yet.
         doc->FlushPendingNotifications(FlushType::Frames);
-        frame = element.GetPrimaryFrame();
+        frame = element->GetPrimaryFrame();
       }
       MOZ_ASSERT(frame);
 

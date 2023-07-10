@@ -248,9 +248,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
     case ColorID::MozCombobox:
       aColor = BG_NORMAL_COLOR;
       break;
-    case ColorID::MozMenubartext:
-      aColor = TEXT_NORMAL_COLOR;
-      break;
     case ColorID::MozMenubarhovertext:
       aColor = FG_PRELIGHT_COLOR;
       break;

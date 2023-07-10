@@ -430,8 +430,8 @@ void CursorSimulator::CSSToDevPixel(CSSPoint& aCSS,
   NS_ENSURE_TRUE_VOID(presContext);
 
   float resolution = presShell->GetResolution();
-  aDev.x = NS_roundf(presContext->CSSPixelsToDevPixels(aCSS.x * resolution));
-  aDev.y = NS_roundf(presContext->CSSPixelsToDevPixels(aCSS.y * resolution));
+  aDev.x = NS_lround(presContext->CSSPixelsToDevPixels(aCSS.x * resolution));
+  aDev.y = NS_lround(presContext->CSSPixelsToDevPixels(aCSS.y * resolution));
 }
 
 void CursorSimulator::CheckFullScreenElement() {
@@ -781,9 +781,9 @@ bool CursorSimulator::PerformScroll(nsIScrollableFrame* aScrollFrame,
 
   nsIntPoint destinationPt;
   destinationPt.x =
-      NS_roundf(presContext->CSSPixelsToDevPixels(scrollOffset.x));
+      NS_lround(presContext->CSSPixelsToDevPixels(scrollOffset.x));
   destinationPt.y =
-      NS_roundf(presContext->CSSPixelsToDevPixels(scrollOffset.y));
+      NS_lround(presContext->CSSPixelsToDevPixels(scrollOffset.y));
 
   aScrollFrame->ScrollBy(destinationPt, ScrollUnit::DEVICE_PIXELS,
                          ScrollMode::Smooth);

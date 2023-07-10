@@ -95,18 +95,20 @@ void PanSimulator::FireTouchEvent(int aType, nsIntPoint aPoint) {
 
 nsIntPoint PanSimulator::CalculatePointPosition() {
   nsIntPoint p(mPoint);
-  p.x += mRepeatTimes * ((mKeyCode == KeyboardEvent_Binding::DOM_VK_UP ||
-                          mKeyCode == KeyboardEvent_Binding::DOM_VK_DOWN)
-                             ? 0
-                             : (mKeyCode == KeyboardEvent_Binding::DOM_VK_LEFT
-                                    ? mPointOffset
-                                    : -mPointOffset));
-  p.y += mRepeatTimes *
-         ((mKeyCode == KeyboardEvent_Binding::DOM_VK_LEFT ||
-           mKeyCode == KeyboardEvent_Binding::DOM_VK_RIGHT)
-              ? 0
-              : (mKeyCode == KeyboardEvent_Binding::DOM_VK_UP ? mPointOffset
-                                                              : -mPointOffset));
+  p.x += NS_lround(
+      mRepeatTimes *
+      ((mKeyCode == KeyboardEvent_Binding::DOM_VK_UP ||
+        mKeyCode == KeyboardEvent_Binding::DOM_VK_DOWN)
+           ? 0
+           : (mKeyCode == KeyboardEvent_Binding::DOM_VK_LEFT ? mPointOffset
+                                                             : -mPointOffset)));
+  p.y += NS_lround(
+      mRepeatTimes *
+      ((mKeyCode == KeyboardEvent_Binding::DOM_VK_LEFT ||
+        mKeyCode == KeyboardEvent_Binding::DOM_VK_RIGHT)
+           ? 0
+           : (mKeyCode == KeyboardEvent_Binding::DOM_VK_UP ? mPointOffset
+                                                           : -mPointOffset)));
 
   return p;
 }

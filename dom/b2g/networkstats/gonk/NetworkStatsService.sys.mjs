@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import { NetworkStatsDB } from "resource://gre/modules/NetworkStatsDB.sys.mjs";
@@ -76,7 +75,7 @@ XPCOMUtils.defineLazyGetter(lazy, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "timeService", function() {
+XPCOMUtils.defineLazyGetter(lazy, "timeService", function () {
   return Cc["@mozilla.org/sidl-native/time;1"].getService(Ci.nsITime);
 });
 
@@ -163,7 +162,7 @@ export const NetworkStatsService = {
       "NetworkStats:MaxStorageAge",
     ];
 
-    this.messages.forEach(function(aMsgName) {
+    this.messages.forEach(function (aMsgName) {
       lazy.ppmm.addMessageListener(aMsgName, this);
     }, this);
 
@@ -313,7 +312,7 @@ export const NetworkStatsService = {
       case "xpcom-shutdown":
         debug("Service shutdown");
 
-        this.messages.forEach(function(aMsgName) {
+        this.messages.forEach(function (aMsgName) {
           lazy.ppmm.removeMessageListener(aMsgName, this);
         }, this);
 
@@ -496,7 +495,7 @@ export const NetworkStatsService = {
     // Check if network is available in the DB.
     this._db.isNetworkAvailable(
       aNetwork,
-      function(aError, aResult) {
+      function (aError, aResult) {
         if (aResult) {
           this._networks[netId] = Object.create(null);
           this._networks[netId].network = aNetwork;
@@ -607,7 +606,7 @@ export const NetworkStatsService = {
     let start = new Date(msg.start);
     let end = new Date(msg.end);
 
-    let callback = function(aError, aResult) {
+    let callback = function (aError, aResult) {
       this._db.find(
         function onStatsFound(aError, aResult) {
           mm.sendAsyncMessage("NetworkStats:Get:Return", {
@@ -712,17 +711,17 @@ export const NetworkStatsService = {
           return;
         }
 
-        self._db.clearInterfaceStats(network, function onDBCleared(
-          aError,
-          aResult
-        ) {
-          self._updateCurrentAlarm(aNetId);
-          mm.sendAsyncMessage("NetworkStats:Clear:Return", {
-            id: msg.id,
-            error: aError,
-            result: aResult,
-          });
-        });
+        self._db.clearInterfaceStats(
+          network,
+          function onDBCleared(aError, aResult) {
+            self._updateCurrentAlarm(aNetId);
+            mm.sendAsyncMessage("NetworkStats:Clear:Return", {
+              id: msg.id,
+              error: aError,
+              result: aResult,
+            });
+          }
+        );
       });
     });
   },
@@ -740,7 +739,7 @@ export const NetworkStatsService = {
       }
 
       let networks = aResult;
-      networks.forEach(function(network, index) {
+      networks.forEach(function (network, index) {
         networks[index] = {
           network,
           networkId: self.getNetworkId(network.id, network.type),
@@ -758,7 +757,7 @@ export const NetworkStatsService = {
         }
 
         self._db.clearStats(networks, function onDBCleared(aError, aResult) {
-          networks.forEach(function(network, index) {
+          networks.forEach(function (network, index) {
             self._updateCurrentAlarm(network.networkId);
           }, self);
           mm.sendAsyncMessage("NetworkStats:ClearAll:Return", {
@@ -774,7 +773,7 @@ export const NetworkStatsService = {
   updateAllStats: function updateAllStats(aTimestamp, aCallback) {
     let elements = [];
     let lastElement = null;
-    let callback = function(success, message) {
+    let callback = function (success, message) {
       this.updateCachedStats(aCallback);
     }.bind(this);
 
@@ -889,7 +888,7 @@ export const NetworkStatsService = {
    */
   updateQueueIndex: function updateQueueIndex(aNetId) {
     return this.updateQueue
-      .map(function(e) {
+      .map(function (e) {
         return e.netId;
       })
       .indexOf(aNetId);
@@ -928,7 +927,7 @@ export const NetworkStatsService = {
     }
 
     // Process the next item as soon as possible.
-    setTimeout(function() {
+    setTimeout(function () {
       self.run(self.updateQueue[0]);
     }, 0);
   },
@@ -953,7 +952,7 @@ export const NetworkStatsService = {
   },
 
   updateInterfaceInfo: function updateInterfaceInfo(aInterfaceName, aCallback) {
-    let callback = function(aResult, aRxBytes, aTxBytes, aTimestamp) {
+    let callback = function (aResult, aRxBytes, aTxBytes, aTimestamp) {
       if (!aResult) {
         if (aCallback) {
           aCallback(false, "Netd IPC error");
@@ -978,7 +977,7 @@ export const NetworkStatsService = {
       return;
     }
 
-    let callback = function(aResult, aRxBytesDiff, aTxBytesDiff, aFetchTime) {
+    let callback = function (aResult, aRxBytesDiff, aTxBytesDiff, aFetchTime) {
       if (!aResult) {
         if (aCallback) {
           aCallback(false, "Netd IPC error");
@@ -1196,7 +1195,7 @@ export const NetworkStatsService = {
       cachedStats.rxBytes > MAX_CACHED_TRAFFIC ||
       cachedStats.txBytes > MAX_CACHED_TRAFFIC
     ) {
-      this._db.saveStats(cachedStats, function(error, result) {
+      this._db.saveStats(cachedStats, function (error, result) {
         debug("Application stats inserted in indexedDB");
         if (aCallback) {
           aCallback(true, "ok");
@@ -1497,42 +1496,42 @@ export const NetworkStatsService = {
 
   _getAlarmQuota: function _getAlarmQuota(aAlarm, aCallback) {
     let self = this;
-    this.updateStats(aAlarm.networkId, function onStatsUpdated(
-      aResult,
-      aMessage
-    ) {
-      self._db.getCurrentStats(
-        self._networks[aAlarm.networkId].network,
-        aAlarm.startTime,
-        function onStatsFound(error, result) {
-          if (error) {
-            debug(
-              "Error getting stats for " +
-                JSON.stringify(self._networks[aAlarm.networkId]) +
-                ": " +
-                error
-            );
-            aCallback(error, result);
-            return;
+    this.updateStats(
+      aAlarm.networkId,
+      function onStatsUpdated(aResult, aMessage) {
+        self._db.getCurrentStats(
+          self._networks[aAlarm.networkId].network,
+          aAlarm.startTime,
+          function onStatsFound(error, result) {
+            if (error) {
+              debug(
+                "Error getting stats for " +
+                  JSON.stringify(self._networks[aAlarm.networkId]) +
+                  ": " +
+                  error
+              );
+              aCallback(error, result);
+              return;
+            }
+
+            let quota =
+              aAlarm.absoluteThreshold - result.rxBytes - result.txBytes;
+
+            // Alarm set to a threshold lower than current rx/tx bytes.
+            if (quota <= 0) {
+              aCallback("InvalidStateError", null);
+              return;
+            }
+
+            aAlarm.relativeThreshold = aAlarm.startTime
+              ? result.rxTotalBytes + result.txTotalBytes + quota
+              : aAlarm.absoluteThreshold;
+
+            aCallback(null, quota);
           }
-
-          let quota =
-            aAlarm.absoluteThreshold - result.rxBytes - result.txBytes;
-
-          // Alarm set to a threshold lower than current rx/tx bytes.
-          if (quota <= 0) {
-            aCallback("InvalidStateError", null);
-            return;
-          }
-
-          aAlarm.relativeThreshold = aAlarm.startTime
-            ? result.rxTotalBytes + result.txTotalBytes + quota
-            : aAlarm.absoluteThreshold;
-
-          aCallback(null, quota);
-        }
-      );
-    });
+        );
+      }
+    );
   },
 
   _fireAlarm: function _fireAlarm(aAlarm) {

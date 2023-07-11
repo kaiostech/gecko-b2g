@@ -4,7 +4,6 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );

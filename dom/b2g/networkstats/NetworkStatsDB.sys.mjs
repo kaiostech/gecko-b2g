@@ -133,7 +133,7 @@ NetworkStatsDB.prototype = {
         newObjectStore.createIndex("network", "network", { unique: false });
         // Copy records from the current object store to the new one.
         objectStore = aTransaction.objectStore(deprecatedName);
-        objectStore.openCursor().onsuccess = function(event) {
+        objectStore.openCursor().onsuccess = function (event) {
           let cursor = event.target.result;
           if (!cursor) {
             db.deleteObjectStore(deprecatedName);
@@ -251,7 +251,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readwrite",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         debug("Filtered time: " + new Date(timestamp));
         debug("New stats: " + JSON.stringify(stats));
 
@@ -497,7 +497,7 @@ NetworkStatsDB.prototype = {
     let lastSample = null;
     let self = this;
 
-    aStore.openCursor(range).onsuccess = function(event) {
+    aStore.openCursor(range).onsuccess = function (event) {
       var cursor = event.target.result;
       if (cursor) {
         lastSample = cursor.value;
@@ -534,7 +534,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readwrite",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         let sample = null;
         let request = aStore.index("network").openCursor(network, "prev");
         request.onsuccess = function onsuccess(event) {
@@ -572,7 +572,7 @@ NetworkStatsDB.prototype = {
     let index = 0;
     let self = this;
 
-    let callback = function(aError, aResult) {
+    let callback = function (aError, aResult) {
       index++;
 
       if (!aError && index < aNetworks.length) {
@@ -608,7 +608,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(txn, store) {
+      function (txn, store) {
         let request = null;
         let upperFilter = ["default", "", aNetwork, Date.now()];
         let range = IDBKeyRange.upperBound(upperFilter, false);
@@ -644,7 +644,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(txn, store) {
+      function (txn, store) {
         let request = null;
         let start = this.normalizeDate(aDate);
         let lowerFilter = ["default", "", aNetwork, start];
@@ -722,7 +722,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         let network = [aNetwork.id, aNetwork.type];
         let lowerFilter = [aManifestURL, aServiceType, network, start];
         let upperFilter = [aManifestURL, aServiceType, network, end];
@@ -739,7 +739,7 @@ NetworkStatsDB.prototype = {
         aTxn.result.start = aStart;
         aTxn.result.end = aEnd;
 
-        aStore.openCursor(range).onsuccess = function(event) {
+        aStore.openCursor(range).onsuccess = function (event) {
           var cursor = event.target.result;
           if (cursor) {
             // We use rxTotalBytes/txTotalBytes instead of rxBytes/txBytes for
@@ -806,7 +806,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         if (!aTxn.result) {
           aTxn.result = [];
         }
@@ -828,7 +828,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         if (!aTxn.result) {
           aTxn.result = false;
         }
@@ -851,7 +851,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         if (!aTxn.result) {
           aTxn.result = [];
         }
@@ -883,7 +883,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       STATS_STORE_NAME,
       "readonly",
-      function(aTxn, aStore) {
+      function (aTxn, aStore) {
         aStore.mozGetAll().onsuccess = function onsuccess(event) {
           aTxn.result = event.target.result;
         };
@@ -932,7 +932,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readwrite",
-      function(txn, store) {
+      function (txn, store) {
         debug("Going to add " + JSON.stringify(aAlarm));
 
         let record = this.alarmToRecord(aAlarm);
@@ -951,7 +951,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readonly",
-      function(txn, store) {
+      function (txn, store) {
         debug("Get first alarm for network " + aNetworkId);
 
         let lowerFilter = [aNetworkId, 0];
@@ -976,7 +976,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readwrite",
-      function(txn, store) {
+      function (txn, store) {
         debug("Remove alarm " + aAlarmId);
 
         store.get(aAlarmId).onsuccess = function onsuccess(event) {
@@ -998,18 +998,17 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readwrite",
-      function(txn, store) {
+      function (txn, store) {
         debug("Remove alarms of " + aOriginURL);
 
-        store
-          .index("originURL")
-          .openCursor(aOriginURL).onsuccess = function onsuccess(event) {
-          let cursor = event.target.result;
-          if (cursor) {
-            cursor.delete();
-            cursor.continue();
-          }
-        };
+        store.index("originURL").openCursor(aOriginURL).onsuccess =
+          function onsuccess(event) {
+            let cursor = event.target.result;
+            if (cursor) {
+              cursor.delete();
+              cursor.continue();
+            }
+          };
       },
       aResultCb
     );
@@ -1020,7 +1019,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readwrite",
-      function(txn, store) {
+      function (txn, store) {
         debug("Update alarm " + aAlarm.id);
 
         let record = self.alarmToRecord(aAlarm);
@@ -1042,24 +1041,23 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readonly",
-      function(txn, store) {
+      function (txn, store) {
         debug("Get alarms for " + aOriginURL);
 
         txn.result = [];
-        store
-          .index("originURL")
-          .openCursor(aOriginURL).onsuccess = function onsuccess(event) {
-          let cursor = event.target.result;
-          if (!cursor) {
-            return;
-          }
+        store.index("originURL").openCursor(aOriginURL).onsuccess =
+          function onsuccess(event) {
+            let cursor = event.target.result;
+            if (!cursor) {
+              return;
+            }
 
-          if (!aNetworkId || cursor.value.networkId == aNetworkId) {
-            txn.result.push(self.recordToAlarm(cursor.value));
-          }
+            if (!aNetworkId || cursor.value.networkId == aNetworkId) {
+              txn.result.push(self.recordToAlarm(cursor.value));
+            }
 
-          cursor.continue();
-        };
+            cursor.continue();
+          };
       },
       aResultCb
     );
@@ -1069,7 +1067,7 @@ NetworkStatsDB.prototype = {
     this.dbNewTxn(
       ALARMS_STORE_NAME,
       "readwrite",
-      function(txn, store) {
+      function (txn, store) {
         debug("Reset alarms for network " + aNetworkId);
 
         let lowerFilter = [aNetworkId, 0];

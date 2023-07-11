@@ -4,7 +4,6 @@
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 import { NetworkStatsService } from "resource://gre/modules/NetworkStatsService.sys.mjs";
 
 const lazy = {};
@@ -100,9 +99,8 @@ NetworkStatsServiceProxy.prototype = {
       if (aOrigin == "[System Principal]") {
         aManifestURL = "http://system.localhost/manifest.webmanifest";
       } else if (aIsApp && lazy.AppsServiceDelegate) {
-        let pwaManifestURL = lazy.AppsServiceDelegate.getManifestUrlByScopeUrl(
-          aURL
-        );
+        let pwaManifestURL =
+          lazy.AppsServiceDelegate.getManifestUrlByScopeUrl(aURL);
         if (pwaManifestURL) {
           aManifestURL = pwaManifestURL;
         }

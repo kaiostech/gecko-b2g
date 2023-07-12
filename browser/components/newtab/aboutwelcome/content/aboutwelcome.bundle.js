@@ -331,10 +331,14 @@ const MultiStageAboutWelcome = props => {
 
     return false;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // Save the active multi select state containing array of checkbox ids
-  // used in handleAction to update MULTI_ACTION data
+  // Save the active multi select state for each screen as an object keyed by
+  // screen id. Each screen id has an array containing checkbox ids used in
+  // handleAction to update MULTI_ACTION data. This allows us to remember the
+  // state of each screen's multi select checkboxes when navigating back and
+  // forth between screens, while also allowing a message to have more than one
+  // multi select screen.
 
-  const [activeMultiSelect, setActiveMultiSelect] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null); // Get the active theme so the rendering code can make it selected
+  const [activeMultiSelects, setActiveMultiSelects] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)({}); // Get the active theme so the rendering code can make it selected
   // by default.
 
   const [activeTheme, setActiveTheme] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
@@ -364,6 +368,11 @@ const MultiStageAboutWelcome = props => {
     const isLastScreen = screen === screens[screens.length - 1];
     const totalNumberOfScreens = screens.length;
     const isSingleScreen = totalNumberOfScreens === 1;
+
+    const setActiveMultiSelect = valueOrFn => setActiveMultiSelects(prevState => ({ ...prevState,
+      [screen.id]: typeof valueOrFn === "function" ? valueOrFn(prevState[screen.id]) : valueOrFn
+    }));
+
     return index === order ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(WelcomeScreen, {
       key: screen.id + order,
       id: screen.id,
@@ -382,7 +391,7 @@ const MultiStageAboutWelcome = props => {
       initialTheme: initialTheme,
       setActiveTheme: setActiveTheme,
       setInitialTheme: setInitialTheme,
-      activeMultiSelect: activeMultiSelect,
+      activeMultiSelect: activeMultiSelects[screen.id],
       setActiveMultiSelect: setActiveMultiSelect,
       autoAdvance: screen.auto_advance,
       negotiatedLanguage: negotiatedLanguage,
@@ -526,11 +535,11 @@ class WelcomeScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCo
       };
 
       for (const checkbox of ((_props$content = props.content) === null || _props$content === void 0 ? void 0 : (_props$content$tiles = _props$content.tiles) === null || _props$content$tiles === void 0 ? void 0 : _props$content$tiles.data) ?? []) {
-        var _props$content, _props$content$tiles;
+        var _props$content, _props$content$tiles, _this$props$activeMul;
 
         let checkboxAction;
 
-        if (this.props.activeMultiSelect.includes(checkbox.id)) {
+        if ((_this$props$activeMul = this.props.activeMultiSelect) !== null && _this$props$activeMul !== void 0 && _this$props$activeMul.includes(checkbox.id)) {
           checkboxAction = checkbox.checkedAction ?? checkbox.action;
         } else {
           checkboxAction = checkbox.uncheckedAction;
@@ -627,6 +636,7 @@ class WelcomeScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCo
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "CONFIGURABLE_STYLES": () => (/* binding */ CONFIGURABLE_STYLES),
 /* harmony export */   "Localized": () => (/* binding */ Localized)
 /* harmony export */ });
 /* harmony import */ var react__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
@@ -670,7 +680,10 @@ const Localized = ({
     const {
       current
     } = zapRef;
-    if (current) requestAnimationFrame(() => current === null || current === void 0 ? void 0 : current.classList.replace("short", current.getBoundingClientRect().width > ZAP_SIZE_THRESHOLD ? "long" : "short"));
+
+    if (current) {
+      requestAnimationFrame(() => current === null || current === void 0 ? void 0 : current.classList.replace("short", current.getBoundingClientRect().width > ZAP_SIZE_THRESHOLD ? "long" : "short"));
+    }
   }); // Skip rendering of children with no text.
 
   if (!text) {
@@ -691,7 +704,10 @@ const Localized = ({
     // Set the key so React knows not to reuse when switching to plain text.
     props.key = text.string_id;
     props["data-l10n-id"] = text.string_id;
-    if (text.args) props["data-l10n-args"] = JSON.stringify(text.args);
+
+    if (text.args) {
+      props["data-l10n-args"] = JSON.stringify(text.args);
+    }
   } else if (text.raw) {
     textNodes.push(text.raw);
   } else if (typeof text === "string") {
@@ -714,7 +730,9 @@ const Localized = ({
 
 
   CONFIGURABLE_STYLES.forEach(style => {
-    if (text[style] !== undefined) props.style[style] = text[style];
+    if (text[style] !== undefined) {
+      props.style[style] = text[style];
+    }
   });
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().cloneElement( // Provide a default container for the text if necessary.
   children ?? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", null), props, // Conditionally pass in as void elements can't accept empty array.
@@ -864,7 +882,11 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
 
   getScreenClassName(isFirstScreen, isLastScreen, includeNoodles, isVideoOnboarding) {
     const screenClass = `screen-${this.props.order % 2 !== 0 ? 1 : 2}`;
-    if (isVideoOnboarding) return "with-video";
+
+    if (isVideoOnboarding) {
+      return "with-video";
+    }
+
     return `${isFirstScreen ? `dialog-initial` : ``} ${isLastScreen ? `dialog-last` : ``} ${includeNoodles ? `with-noodles` : ``} ${screenClass}`;
   }
 
@@ -1178,11 +1200,14 @@ function Colorways(props) {
   const [variationIndex, setVariationIndex] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(defaultVariationIndex);
 
   function revertToDefaultTheme() {
-    if (hasReverted) return; // Spoofing an event with current target value of "navigate_away"
+    if (hasReverted) {
+      return;
+    } // Spoofing an event with current target value of "navigate_away"
     // helps the handleAction method to read the colorways theme as "revert"
     // which causes the initial theme to be activated.
     // The "navigate_away" action is set in content in the colorways screen JSON config.
     // Any value in the JSON for theme will work, provided it is not `<event>`.
+
 
     const event = {
       currentTarget: {
@@ -1350,49 +1375,87 @@ __webpack_require__.r(__webpack_exports__);
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-const MultiSelect = props => {
-  let handleChange = event => {
-    if (event.currentTarget.checked) {
-      props.setActiveMultiSelect([...props.activeMultiSelect, event.currentTarget.value]);
-    } else {
-      props.setActiveMultiSelect(props.activeMultiSelect.filter(id => id !== event.currentTarget.value));
-    }
-  };
+const MULTI_SELECT_STYLES = [..._MSLocalized__WEBPACK_IMPORTED_MODULE_1__.CONFIGURABLE_STYLES, "flexDirection", "flexWrap", "flexFlow", "flexGrow", "flexShrink", "justifyContent", "alignItems", "gap"];
+const MULTI_SELECT_ICON_STYLES = [..._MSLocalized__WEBPACK_IMPORTED_MODULE_1__.CONFIGURABLE_STYLES, "width", "height", "background", "backgroundColor", "backgroundImage", "backgroundSize", "backgroundPosition", "backgroundRepeat", "backgroundOrigin", "backgroundClip", "border", "borderRadius", "appearance", "fill", "stroke", "outline", "outlineOffset", "boxShadow"];
 
-  let {
+function getValidStyle(style, validStyles, allowVars) {
+  if (!style) {
+    return null;
+  }
+
+  return Object.keys(style).filter(key => validStyles.includes(key) || allowVars && key.startsWith("--")).reduce((obj, key) => {
+    obj[key] = style[key];
+    return obj;
+  }, {});
+}
+
+const MultiSelect = ({
+  content,
+  activeMultiSelect,
+  setActiveMultiSelect
+}) => {
+  const {
     data
-  } = props.content.tiles; // When screen renders for first time, update state
+  } = content.tiles;
+  const refs = (0,react__WEBPACK_IMPORTED_MODULE_0__.useRef)({});
+  const handleChange = (0,react__WEBPACK_IMPORTED_MODULE_0__.useCallback)(() => {
+    const newActiveMultiSelect = [];
+    Object.keys(refs.current).forEach(key => {
+      var _refs$current$key;
+
+      if ((_refs$current$key = refs.current[key]) !== null && _refs$current$key !== void 0 && _refs$current$key.checked) {
+        newActiveMultiSelect.push(key);
+      }
+    });
+    setActiveMultiSelect(newActiveMultiSelect);
+  }, [setActiveMultiSelect]);
+  const containerStyle = (0,react__WEBPACK_IMPORTED_MODULE_0__.useMemo)(() => getValidStyle(content.tiles.style, MULTI_SELECT_STYLES, true), [content.tiles.style]); // When screen renders for first time, update state
   // with checkbox ids that has defaultvalue true
 
   (0,react__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
-    if (!props.activeMultiSelect) {
-      props.setActiveMultiSelect(data.map(item => item.defaultValue && item.id).filter(item => !!item));
-    } // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!activeMultiSelect) {
+      let newActiveMultiSelect = [];
+      data.forEach(({
+        id,
+        defaultValue
+      }) => {
+        if (defaultValue && id) {
+          newActiveMultiSelect.push(id);
+        }
+      });
+      setActiveMultiSelect(newActiveMultiSelect);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  }, []);
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
-    className: "multi-select-container"
-  }, props.content.tiles.data.map(({
+    className: "multi-select-container",
+    style: containerStyle
+  }, data.map(({
+    id,
     label,
-    id
-  }) => {
-    var _props$activeMultiSel;
-
-    return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
-      key: id + label,
-      className: "checkbox-container multi-select-item"
-    }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", {
-      type: "checkbox",
-      id: id,
-      value: id,
-      checked: (_props$activeMultiSel = props.activeMultiSelect) === null || _props$activeMultiSel === void 0 ? void 0 : _props$activeMultiSel.includes(id),
-      onChange: handleChange
-    }), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
-      text: label
-    }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("label", {
-      htmlFor: id
-    })));
-  }));
+    icon,
+    type = "checkbox",
+    group,
+    style
+  }) => /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
+    key: id + label,
+    className: "checkbox-container multi-select-item",
+    style: getValidStyle(style, MULTI_SELECT_STYLES)
+  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("input", {
+    type: type // checkbox or radio
+    ,
+    id: id,
+    value: id,
+    name: group,
+    checked: activeMultiSelect === null || activeMultiSelect === void 0 ? void 0 : activeMultiSelect.includes(id),
+    style: getValidStyle(icon === null || icon === void 0 ? void 0 : icon.style, MULTI_SELECT_ICON_STYLES),
+    onChange: handleChange,
+    ref: el => refs.current[id] = el
+  }), label ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
+    text: label
+  }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("label", {
+    htmlFor: id
+  })) : null)));
 };
 
 /***/ }),

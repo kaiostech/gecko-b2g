@@ -3253,12 +3253,6 @@
   value: true
   mirror: always
 
-# Whether HTMLMediaElement.mozPreservesPitch is enabled.
-- name: dom.media.mozPreservesPitch.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # WebCodecs API
 - name: dom.media.webcodecs.enabled
   type: RelaxedAtomicBool
@@ -4970,17 +4964,6 @@
   value: true
   mirror: always
 
-# Enable the "noreferrer" feature argument for window.open()
-- name: dom.window.open.noreferrer.enabled
-  type: bool
-  value: true
-  mirror: always
-
-- name: dom.window.content.untrusted.enabled
-  type: bool
-  value: false
-  mirror: always
-
 - name: dom.window.clientinformation.enabled
   type: bool
   value: true
@@ -4989,6 +4972,12 @@
 - name: dom.window.sidebar.enabled
   type: bool
   value: false
+  mirror: always
+
+# Whether Window.sizeToContent() is enabled.
+- name: dom.window.sizeToContent.enabled
+  type: bool
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -5975,6 +5964,11 @@
 - name: gfx.canvas.accelerated.reserve-empty-cache
   type: RelaxedAtomicUint32
   value: 36
+  mirror: always
+
+- name: gfx.canvas.accelerated.max-draw-target-count
+  type: RelaxedAtomicInt32
+  value: 200
   mirror: always
 
 - name: gfx.canvas.accelerated.max-size
@@ -9198,13 +9192,6 @@
   type: RelaxedAtomicInt32
   value: 200
   mirror: always
-
-# Is steps(jump-*) supported in easing functions?
-- name: layout.css.step-position-jump.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
 
 # Stylo thread-pool size.
 # Negative means auto, 0 disables the thread-pool (main-thread styling), other

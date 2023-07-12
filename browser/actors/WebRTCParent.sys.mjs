@@ -772,37 +772,54 @@ function prompt(aActor, aBrowser, aRequest) {
         return true;
       }
 
-      function listDevices(menupopup, devices, labelID) {
-        while (menupopup.lastChild) {
-          menupopup.removeChild(menupopup.lastChild);
+      /**
+       * Prepare the device selector for one kind of device.
+       * @param {Object[]} devices - available devices of this kind.
+       * @param {string} IDPrefix - indicating kind of device and so
+       *   associated UI elements.
+       * @param {string[]} describedByIDs - an array to which might be
+       *   appended ids of elements that describe the panel, for the caller to
+       *   use in the aria-describedby attribute.
+       */
+      function listDevices(devices, IDPrefix, describedByIDs) {
+        let labelID = `${IDPrefix}-single-device-label`;
+        let list;
+        let itemParent;
+        if (IDPrefix == "webRTC-selectSpeaker") {
+          list = doc.getElementById(`${IDPrefix}-richlistbox`);
+          itemParent = list;
+        } else {
+          itemParent = doc.getElementById(`${IDPrefix}-menupopup`);
+          list = itemParent.parentNode; // menulist
         }
-        let menulist = menupopup.parentNode;
-        // Removing the child nodes of the menupopup doesn't clear the value
-        // attribute of the menulist. This can have unfortunate side effects
-        // when the list is rebuilt with a different content, so we remove
-        // the value attribute and unset the selectedItem explicitly.
-        menulist.removeAttribute("value");
-        menulist.selectedItem = null;
+        while (itemParent.lastChild) {
+          itemParent.removeChild(itemParent.lastChild);
+        }
+
+        // Removing the child nodes of a menupopup doesn't clear the value
+        // attribute of its menulist. Similary for richlistbox state. This can
+        // have unfortunate side effects when the list is rebuilt with a
+        // different content, so we set the selectedIndex explicitly to reset
+        // state.
+        let defaultIndex = 0;
 
         for (let device of devices) {
-          let item = addDeviceToList(
-            menupopup,
-            device.name,
-            device.deviceIndex
-          );
+          addDeviceToList(list, device.name, device.deviceIndex);
           if (device.id == aRequest.audioOutputId) {
-            menulist.selectedItem = item;
+            defaultIndex = device.deviceIndex;
           }
         }
+        list.selectedIndex = defaultIndex;
 
         let label = doc.getElementById(labelID);
         if (devices.length == 1) {
+          describedByIDs.push(`${IDPrefix}-icon`, labelID);
           label.value = devices[0].name;
           label.hidden = false;
-          menulist.hidden = true;
+          list.hidden = true;
         } else {
           label.hidden = true;
-          menulist.hidden = false;
+          list.hidden = false;
         }
       }
 
@@ -835,7 +852,7 @@ function prompt(aActor, aBrowser, aRequest) {
         // "Select a Window or Screen" is the default because we can't and don't
         // want to pick a 'default' window to share (Full screen is "scary").
         addDeviceToList(
-          menupopup,
+          menupopup.parentNode,
           localization.formatValueSync("webrtc-pick-window-or-screen"),
           "-1"
         );
@@ -858,7 +875,7 @@ function prompt(aActor, aBrowser, aRequest) {
 
             isPipeWireDetected = true;
             let item = addDeviceToList(
-              menupopup,
+              menupopup.parentNode,
               localization.formatValueSync("webrtc-share-pipe-wire-portal"),
               i,
               type
@@ -893,7 +910,7 @@ function prompt(aActor, aBrowser, aRequest) {
               });
             }
           }
-          let item = addDeviceToList(menupopup, name, i, type);
+          let item = addDeviceToList(menupopup.parentNode, name, i, type);
           item.deviceId = device.rawId;
           item.mediaSource = type;
           if (device.scary) {
@@ -1017,21 +1034,18 @@ function prompt(aActor, aBrowser, aRequest) {
         menupopup.addEventListener("command", menupopup._commandEventListener);
       }
 
-      function addDeviceToList(menupopup, deviceName, deviceIndex, type) {
-        let menuitem = doc.createXULElement("menuitem");
-        menuitem.setAttribute("value", deviceIndex);
-        menuitem.setAttribute("label", deviceName);
-        menuitem.setAttribute("tooltiptext", deviceName);
+      function addDeviceToList(list, deviceName, deviceIndex, type) {
+        let item = list.appendItem(deviceName, deviceIndex);
+        item.setAttribute("tooltiptext", deviceName);
         if (type) {
-          menuitem.setAttribute("devicetype", type);
+          item.setAttribute("devicetype", type);
         }
 
         if (deviceIndex == "-1") {
-          menuitem.setAttribute("disabled", true);
+          item.setAttribute("disabled", true);
         }
 
-        menupopup.appendChild(menuitem);
-        return menuitem;
+        return item;
       }
 
       doc.getElementById("webRTC-selectCamera").hidden =
@@ -1042,41 +1056,26 @@ function prompt(aActor, aBrowser, aRequest) {
         reqAudioInput !== "Microphone";
       doc.getElementById("webRTC-selectSpeaker").hidden = !reqAudioOutput;
 
-      let camMenupopup = doc.getElementById("webRTC-selectCamera-menupopup");
-      let windowMenupopup = doc.getElementById("webRTC-selectWindow-menupopup");
-      let micMenupopup = doc.getElementById(
-        "webRTC-selectMicrophone-menupopup"
-      );
-      let speakerMenupopup = doc.getElementById(
-        "webRTC-selectSpeaker-menupopup"
-      );
       let describedByIDs = ["webRTC-shareDevices-notification-description"];
 
       if (sharingScreen) {
+        let windowMenupopup = doc.getElementById(
+          "webRTC-selectWindow-menupopup"
+        );
         listScreenShareDevices(windowMenupopup, videoInputDevices);
         checkDisabledWindowMenuItem();
       } else {
-        let labelID = "webRTC-selectCamera-single-device-label";
-        listDevices(camMenupopup, videoInputDevices, labelID);
+        listDevices(videoInputDevices, "webRTC-selectCamera", describedByIDs);
         notificationElement.removeAttribute("invalidselection");
-        if (videoInputDevices.length == 1) {
-          describedByIDs.push("webRTC-selectCamera-icon", labelID);
-        }
       }
-
       if (!sharingAudio) {
-        let labelID = "webRTC-selectMicrophone-single-device-label";
-        listDevices(micMenupopup, audioInputDevices, labelID);
-        if (audioInputDevices.length == 1) {
-          describedByIDs.push("webRTC-selectMicrophone-icon", labelID);
-        }
+        listDevices(
+          audioInputDevices,
+          "webRTC-selectMicrophone",
+          describedByIDs
+        );
       }
-
-      let labelID = "webRTC-selectSpeaker-single-device-label";
-      listDevices(speakerMenupopup, audioOutputDevices, labelID);
-      if (audioOutputDevices.length == 1) {
-        describedByIDs.push("webRTC-selectSpeaker-icon", labelID);
-      }
+      listDevices(audioOutputDevices, "webRTC-selectSpeaker", describedByIDs);
 
       // PopupNotifications knows to clear the aria-describedby attribute
       // when hiding, so we don't have to worry about cleaning it up ourselves.
@@ -1153,7 +1152,7 @@ function prompt(aActor, aBrowser, aRequest) {
 
         if (reqAudioOutput) {
           let audioDeviceIndex = doc.getElementById(
-            "webRTC-selectSpeaker-menulist"
+            "webRTC-selectSpeaker-richlistbox"
           ).value;
           let allowSpeaker = audioDeviceIndex != "-1";
           if (allowSpeaker) {

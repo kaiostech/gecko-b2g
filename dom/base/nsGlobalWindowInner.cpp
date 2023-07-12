@@ -3310,12 +3310,6 @@ bool nsGlobalWindowInner::DeviceSensorsEnabled(JSContext*, JSObject*) {
 }
 
 /* static */
-bool nsGlobalWindowInner::ContentPropertyEnabled(JSContext* aCx, JSObject*) {
-  return StaticPrefs::dom_window_content_untrusted_enabled() ||
-         nsContentUtils::IsSystemCaller(aCx);
-}
-
-/* static */
 bool nsGlobalWindowInner::CachesEnabled(JSContext* aCx, JSObject*) {
   if (!StaticPrefs::dom_caches_enabled()) {
     return false;
@@ -3325,6 +3319,12 @@ bool nsGlobalWindowInner::CachesEnabled(JSContext* aCx, JSObject*) {
            StaticPrefs::dom_serviceWorkers_testing_enabled();
   }
   return true;
+}
+
+/* static */
+bool nsGlobalWindowInner::IsSizeToContentEnabled(JSContext* aCx, JSObject*) {
+  return StaticPrefs::dom_window_sizeToContent_enabled() ||
+         nsContentUtils::IsSystemCaller(aCx);
 }
 
 Crypto* nsGlobalWindowInner::GetCrypto(ErrorResult& aError) {

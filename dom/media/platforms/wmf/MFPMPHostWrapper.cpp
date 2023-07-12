@@ -20,9 +20,17 @@ HRESULT MFPMPHostWrapper::RuntimeClassInitialize(
   return S_OK;
 }
 
-STDMETHODIMP MFPMPHostWrapper::LockProcess() { return mPMPHost->LockProcess(); }
+MFPMPHostWrapper::MFPMPHostWrapper() { LOG("MFPMPHostWrapper created"); }
+
+MFPMPHostWrapper::~MFPMPHostWrapper() { LOG("MFPMPHostWrapper destroyed"); };
+
+STDMETHODIMP MFPMPHostWrapper::LockProcess() {
+  LOG("LockProcess");
+  return mPMPHost->LockProcess();
+}
 
 STDMETHODIMP MFPMPHostWrapper::UnlockProcess() {
+  LOG("UnlockProcess");
   return mPMPHost->UnlockProcess();
 }
 
@@ -59,6 +67,13 @@ STDMETHODIMP MFPMPHostWrapper::ActivateClassById(LPCWSTR aId, IStream* aStream,
   RETURN_IF_FAILED(activator->ActivateObject(aRiid, aActivatedClass));
   LOG("Done ActivateClassById, id=%ls", aId);
   return S_OK;
+}
+
+void MFPMPHostWrapper::Shutdown() {
+  LOG("Shutdown");
+  if (mPMPHost) {
+    mPMPHost = nullptr;
+  }
 }
 
 #undef LOG

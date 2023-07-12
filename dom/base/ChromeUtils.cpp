@@ -1000,7 +1000,9 @@ void ChromeUtils::GetLibcConstants(const GlobalObject&,
 
   aConsts.mFD_CLOEXEC.Construct(FD_CLOEXEC);
 
+#if !defined(MOZ_WIDGET_GONK)
   aConsts.mAT_EACCESS.Construct(AT_EACCESS);
+#endif
 
   aConsts.mO_CREAT.Construct(O_CREAT);
   aConsts.mO_NONBLOCK.Construct(O_NONBLOCK);

@@ -2299,7 +2299,18 @@ class ClassMethod : public BinaryNode {
 class ClassField : public BinaryNode {
   bool isStatic_;
 #ifdef ENABLE_DECORATORS
-  bool hasAccessor_;
+  // The accessorGetterNode_ and accessorSetterNode_ are used to store the
+  // getter and setter synthesized by the `accessor` keyword when they are
+  // decorated. Otherwise, they are null.
+  //
+  // In most cases, the accessors are not added to the class members, and the
+  // code generation occurs immediately prior to the decorator running. For
+  // non-static private methods, the accessors are added to the class members
+  // which causes them to be stored in lexical variables. The references here
+  // are used to store the names of the accessors to look up the values of these
+  // variables during bytecode generation.
+  ClassMethod* accessorGetterNode_;
+  ClassMethod* accessorSetterNode_;
   ListNode* decorators_;
 #endif
 
@@ -2307,7 +2318,8 @@ class ClassField : public BinaryNode {
   ClassField(ParseNode* name, ParseNode* initializer, bool isStatic
 #ifdef ENABLE_DECORATORS
              ,
-             ListNode* decorators, bool hasAccessor
+             ListNode* decorators, ClassMethod* accessorGetterNode,
+             ClassMethod* accessorSetterNode
 #endif
              )
       : BinaryNode(ParseNodeKind::ClassField, initializer->pn_pos, name,
@@ -2315,10 +2327,15 @@ class ClassField : public BinaryNode {
         isStatic_(isStatic)
 #ifdef ENABLE_DECORATORS
         ,
-        hasAccessor_(hasAccessor),
+        accessorGetterNode_(accessorGetterNode),
+        accessorSetterNode_(accessorSetterNode),
         decorators_(decorators)
 #endif
   {
+#ifdef ENABLE_DECORATORS
+    MOZ_ASSERT((accessorGetterNode_ == nullptr) ==
+               (accessorSetterNode_ == nullptr));
+#endif
   }
 
   static bool test(const ParseNode& node) {
@@ -2335,7 +2352,11 @@ class ClassField : public BinaryNode {
 
 #ifdef ENABLE_DECORATORS
   ListNode* decorators() const { return decorators_; }
-  bool hasAccessor() const { return hasAccessor_; }
+  bool hasAccessor() const {
+    return accessorGetterNode_ != nullptr && accessorSetterNode_ != nullptr;
+  }
+  ClassMethod* accessorGetterNode() { return accessorGetterNode_; }
+  ClassMethod* accessorSetterNode() { return accessorSetterNode_; }
 #endif
 };
 

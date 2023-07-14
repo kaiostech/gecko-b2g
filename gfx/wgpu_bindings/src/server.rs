@@ -3,8 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    identity::IdentityRecyclerFactory, wgpu_string, AdapterInformation, ByteBuf,
-    CommandEncoderAction, DeviceAction, DropAction, QueueWriteAction, TextureAction,
+    error::{ErrMsg, ErrorBuffer, ErrorBufferType},
+    identity::IdentityRecyclerFactory,
+    wgpu_string, AdapterInformation, ByteBuf, CommandEncoderAction, DeviceAction, DropAction,
+    QueueWriteAction, TextureAction,
 };
 
 use nsstring::{nsACString, nsCString, nsString};
@@ -13,8 +15,8 @@ use wgc::pipeline::CreateShaderModuleError;
 use wgc::{gfx_select, id};
 
 use std::borrow::Cow;
+use std::slice;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::{error::Error, os::raw::c_char, ptr, slice};
 
 /// We limit the size of buffer allocations for stability reason.
 /// We can reconsider this limit in the future. Note that some drivers (mesa for example),
@@ -24,68 +26,6 @@ use std::{error::Error, os::raw::c_char, ptr, slice};
 const MAX_BUFFER_SIZE: wgt::BufferAddress = 1 << 30;
 // Mesa has issues with height/depth that don't fit in a 16 bits signed integers.
 const MAX_TEXTURE_EXTENT: u32 = std::i16::MAX as u32;
-
-/// A fixed-capacity, null-terminated error buffer owned by C++.
-///
-/// This type points to space owned by a C++ `mozilla::webgpu::ErrorBuffer`
-/// object, owned by our callers in `WebGPUParent.cpp`. If we catch a
-/// `Result::Err` here, we convert the error to a string, copy as much of that
-/// string as fits into this buffer, and null-terminate it. The caller
-/// determines whether a error occurred by simply checking if there's any text
-/// before the first null byte.
-///
-/// C++ callers of Rust functions that expect one of these structs can create a
-/// `mozilla::webgpu::ErrorBuffer` object, and call its `ToFFI` method to
-/// construct a value of this type, available to C++ as
-/// `mozilla::webgpu::ffi::WGPUErrorBuffer`.
-#[repr(C)]
-pub struct ErrorBuffer {
-    string: *mut c_char,
-    capacity: usize,
-}
-
-impl ErrorBuffer {
-    /// Fill this buffer with the textual representation of `error`.
-    ///
-    /// If the error message is too long, truncate it as needed. In either case,
-    /// the error message is always terminated by a zero byte.
-    ///
-    /// Note that there is no explicit indication of the message's length, only
-    /// the terminating zero byte. If the textual form of `error` itself
-    /// includes a zero byte (as Rust strings can), then the C++ code receiving
-    /// this error message has no way to distinguish that from the terminating
-    /// zero byte, and will see the message as shorter than it is.
-    fn init(&mut self, error: impl Error) {
-        use std::fmt::Write;
-
-        let mut string = format!("{}", error);
-        let mut e = error.source();
-        while let Some(source) = e {
-            write!(string, ", caused by: {}", source).unwrap();
-            e = source.source();
-        }
-
-        self.init_str(&string);
-    }
-
-    fn init_str(&mut self, message: &str) {
-        assert_ne!(self.capacity, 0);
-        let length = if message.len() >= self.capacity {
-            log::warn!(
-                "Error length {} reached capacity {}",
-                message.len(),
-                self.capacity
-            );
-            self.capacity - 1
-        } else {
-            message.len()
-        };
-        unsafe {
-            ptr::copy_nonoverlapping(message.as_ptr(), self.string as *mut u8, length);
-            *self.string.add(length) = 0;
-        }
-    }
-}
 
 // hide wgc's global in private
 pub struct Global(wgc::global::Global<IdentityRecyclerFactory>);
@@ -347,7 +287,10 @@ pub extern "C" fn wgpu_server_device_create_buffer(
 
     // Don't trust the graphics driver with buffer sizes larger than our conservative max texture size.
     if size > MAX_BUFFER_SIZE {
-        error_buf.init_str("Out of memory");
+        error_buf.init(ErrMsg {
+            message: "Out of memory",
+            r#type: ErrorBufferType::OutOfMemory,
+        });
         gfx_select!(self_id => global.create_buffer_error(buffer_id, label));
         return;
     }
@@ -462,7 +405,10 @@ impl Global {
                     || desc.size.depth_or_array_layers > max
                 {
                     gfx_select!(self_id => self.create_texture_error(id, desc.label));
-                    error_buf.init_str("Out of memory");
+                    error_buf.init(ErrMsg {
+                        message: "Out of memory",
+                        r#type: ErrorBufferType::OutOfMemory,
+                    });
                     return;
                 }
                 let (_, error) = self.device_create_texture::<A>(self_id, &desc, id);
@@ -542,8 +488,11 @@ impl Global {
                     error_buf.init(err);
                 }
             }
-            DeviceAction::Error(message) => {
-                error_buf.init_str(&message);
+            DeviceAction::Error { message, r#type } => {
+                error_buf.init(ErrMsg {
+                    message: &message,
+                    r#type,
+                });
             }
         }
     }

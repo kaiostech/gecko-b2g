@@ -3552,9 +3552,20 @@ void StyleCalcNode::ScaleLengthsBy(float aScale) {
       }
       break;
     }
+    case Tag::Product: {
+      for (const auto& child : AsProduct().AsSpan()) {
+        ScaleNode(child);
+      }
+      break;
+    }
     case Tag::Negate: {
       const auto& negate = AsNegate();
       ScaleNode(*negate);
+      break;
+    }
+    case Tag::Invert: {
+      const auto& invert = AsInvert();
+      ScaleNode(*invert);
       break;
     }
     case Tag::Hypot: {
@@ -3566,6 +3577,11 @@ void StyleCalcNode::ScaleLengthsBy(float aScale) {
     case Tag::Abs: {
       const auto& abs = AsAbs();
       ScaleNode(*abs);
+      break;
+    }
+    case Tag::Sign: {
+      const auto& sign = AsSign();
+      ScaleNode(*sign);
       break;
     }
   }

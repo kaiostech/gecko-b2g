@@ -66,10 +66,10 @@ async def test_primitive_values(bidi_session, top_context, await_promise, expres
             {
                 "type": "object",
                 "value": [
-                    ["foo", {"type": "object"}],
-                    ["qux", {"type": "string", "value": "quux"}],
                     ["1", {"type": "string", "value": "fred"}],
                     ["2", {"type": "string", "value": "thud"}],
+                    ["foo", {"type": "object"}],
+                    ["qux", {"type": "string", "value": "quux"}],
                 ],
             },
         ),
@@ -119,9 +119,16 @@ async def test_primitive_values(bidi_session, top_context, await_promise, expres
         ("new WeakMap()", {"type": "weakmap"}),
         ("new WeakSet()", {"type": "weakset"}),
         ("new Error('SOME_ERROR_TEXT')", {"type": "error"}),
-        # TODO(sadym): add `iterator` test.
-        # TODO(sadym): add `generator` test.
-        # TODO(sadym): add `proxy` test.
+        ("([1, 2][Symbol.iterator]())", {
+            "type": "iterator",
+        }),
+        ("new Proxy({}, {})", {
+            "type": "proxy"
+        }),
+        # generator
+        ("(function*() { yield 'a'; })", {
+            "type": "generator"
+        }),
         ("new Int32Array()", {"type": "typedarray"}),
         ("new ArrayBuffer()", {"type": "arraybuffer"}),
         ("window", {"type": "window"}),

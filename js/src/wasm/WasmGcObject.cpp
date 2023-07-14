@@ -9,6 +9,7 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Casting.h"
 #include "mozilla/CheckedInt.h"
+#include "mozilla/DebugOnly.h"
 
 #include <algorithm>
 
@@ -23,20 +24,14 @@
 #include "vm/JSFunction.h"
 #include "vm/JSObject.h"
 #include "vm/PlainObject.h"  // js::PlainObject
+#include "vm/PropertyResult.h"
 #include "vm/Realm.h"
 #include "vm/SelfHosting.h"
 #include "vm/StringType.h"
 #include "vm/TypedArrayObject.h"
 #include "vm/Uint8Clamped.h"
 
-#include "gc/GCContext-inl.h"
-#include "gc/Marking-inl.h"
-#include "gc/Nursery-inl.h"
-#include "gc/StoreBuffer-inl.h"
-#include "vm/JSAtom-inl.h"
-#include "vm/JSObject-inl.h"
-#include "vm/NativeObject-inl.h"
-#include "vm/Shape-inl.h"
+#include "gc/ObjectKind-inl.h"
 
 using mozilla::AssertedCast;
 using mozilla::CheckedUint32;
@@ -224,31 +219,6 @@ bool WasmGcObject::obj_deleteProperty(JSContext* cx, HandleObject obj,
   return false;
 }
 
-/* static */
-WasmGcObject* WasmGcObject::create(JSContext* cx,
-                                   wasm::TypeDefInstanceData* typeDefData,
-                                   js::gc::Heap initialHeap) {
-  MOZ_ASSERT(IsWasmGcObjectClass(typeDefData->clasp));
-  MOZ_ASSERT(!typeDefData->clasp->isNativeObject());
-
-  debugCheckNewObject(typeDefData->shape, typeDefData->allocKind, initialHeap);
-
-  WasmGcObject* obj =
-      cx->newCell<WasmGcObject>(typeDefData->allocKind, initialHeap,
-                                typeDefData->clasp, &typeDefData->allocSite);
-  if (!obj) {
-    return nullptr;
-  }
-
-  obj->initShape(typeDefData->shape);
-  obj->superTypeVector_ = typeDefData->superTypeVector;
-
-  js::gc::gcprobes::CreateObject(obj);
-  probes::CreateObject(cx, obj);
-
-  return obj;
-}
-
 bool WasmGcObject::lookUpProperty(JSContext* cx, Handle<WasmGcObject*> obj,
                                   jsid id, WasmGcObject::PropOffset* offset,
                                   FieldType* type) {
@@ -388,8 +358,13 @@ template <bool ZeroFields>
 WasmArrayObject* WasmArrayObject::createArray(
     JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
     js::gc::Heap initialHeap, uint32_t numElements) {
-  const TypeDef* typeDef = typeDefData->typeDef;
   STATIC_ASSERT_WASMARRAYELEMENTS_NUMELEMENTS_IS_U32;
+
+  MOZ_ASSERT(IsWasmGcObjectClass(typeDefData->clasp));
+  MOZ_ASSERT(!typeDefData->clasp->isNativeObject());
+  debugCheckNewObject(typeDefData->shape, typeDefData->allocKind, initialHeap);
+
+  const TypeDef* typeDef = typeDefData->typeDef;
   MOZ_ASSERT(typeDef->kind() == wasm::TypeDefKind::Array);
 
   // Calculate the byte length of the outline storage, being careful to check
@@ -409,9 +384,9 @@ WasmArrayObject* WasmArrayObject::createArray(
   // allocated.
   Nursery& nursery = cx->nursery();
   PointerAndUint7 outlineData(nullptr, 0);
-  if (outlineBytes.value() > 0) {
+  if (MOZ_LIKELY(outlineBytes.value() > 0)) {
     outlineData = nursery.mallocedBlockCache().alloc(outlineBytes.value());
-    if (!outlineData.pointer()) {
+    if (MOZ_UNLIKELY(!outlineData.pointer())) {
       ReportOutOfMemory(cx);
       return nullptr;
     }
@@ -421,9 +396,10 @@ WasmArrayObject* WasmArrayObject::createArray(
   // path and rooting costs around 15 instructions.  It is the call to
   // registerTrailer that makes it necessary.
   Rooted<WasmArrayObject*> arrayObj(cx);
-  arrayObj =
-      (WasmArrayObject*)WasmGcObject::create(cx, typeDefData, initialHeap);
-  if (!arrayObj) {
+  arrayObj = (WasmArrayObject*)cx->newCell<WasmGcObject>(
+      typeDefData->allocKind, initialHeap, typeDefData->clasp,
+      &typeDefData->allocSite);
+  if (MOZ_UNLIKELY(!arrayObj)) {
     ReportOutOfMemory(cx);
     if (outlineData.pointer()) {
       nursery.mallocedBlockCache().free(outlineData);
@@ -431,17 +407,24 @@ WasmArrayObject* WasmArrayObject::createArray(
     return nullptr;
   }
 
+  arrayObj->initShape(typeDefData->shape);
+  arrayObj->superTypeVector_ = typeDefData->superTypeVector;
+
+  js::gc::gcprobes::CreateObject(arrayObj);
+  probes::CreateObject(cx, arrayObj);
+
   arrayObj->numElements_ = numElements;
   arrayObj->data_ = (uint8_t*)outlineData.pointer();
-  if (outlineData.pointer()) {
+  if (MOZ_LIKELY(outlineData.pointer())) {
     if constexpr (ZeroFields) {
       memset(outlineData.pointer(), 0, outlineBytes.value());
     }
-    if (js::gc::IsInsideNursery(arrayObj)) {
+    if (MOZ_LIKELY(js::gc::IsInsideNursery(arrayObj))) {
       // We need to register the OOL area with the nursery, so it will be
       // freed after GCing of the nursery if `arrayObj_` doesn't make it into
       // the tenured heap.
-      if (!nursery.registerTrailer(outlineData, outlineBytes.value())) {
+      if (MOZ_UNLIKELY(
+              !nursery.registerTrailer(outlineData, outlineBytes.value()))) {
         nursery.mallocedBlockCache().free(outlineData);
         ReportOutOfMemory(cx);
         return nullptr;
@@ -585,62 +568,6 @@ js::gc::AllocKind js::WasmStructObject::allocKindForTypeDef(
 
   return gc::GetGCObjectKindForBytes(nbytes);
 }
-
-/* static MOZ_NEVER_INLINE */
-template <bool ZeroFields>
-WasmStructObject* WasmStructObject::createStructOOL(
-    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
-    js::gc::Heap initialHeap, uint32_t inlineBytes, uint32_t outlineBytes) {
-  // This method is called as the slow path from the (inlineable)
-  // WasmStructObject::createStruct.  It handles the case where an object
-  // needs OOL storage.  It doesn't handle the non-OOL case at all.
-
-  // Allocate the outline data area before allocating the object so that we can
-  // infallibly initialize the outline data area.
-  Nursery& nursery = cx->nursery();
-  PointerAndUint7 outlineData =
-      nursery.mallocedBlockCache().alloc(outlineBytes);
-  if (MOZ_UNLIKELY(!outlineData.pointer())) {
-    ReportOutOfMemory(cx);
-    return nullptr;
-  }
-
-  // See corresponding comment in WasmArrayObject::createArray.
-  Rooted<WasmStructObject*> structObj(cx);
-  structObj =
-      (WasmStructObject*)WasmGcObject::create(cx, typeDefData, initialHeap);
-  if (MOZ_UNLIKELY(!structObj)) {
-    ReportOutOfMemory(cx);
-    if (outlineData.pointer()) {
-      nursery.mallocedBlockCache().free(outlineData);
-    }
-    return nullptr;
-  }
-
-  // Initialize the outline data fields
-  structObj->outlineData_ = (uint8_t*)outlineData.pointer();
-  if constexpr (ZeroFields) {
-    memset(&(structObj->inlineData_[0]), 0, inlineBytes);
-    memset(outlineData.pointer(), 0, outlineBytes);
-  }
-  if (MOZ_LIKELY(js::gc::IsInsideNursery(structObj))) {
-    // See corresponding comment in WasmArrayObject::createArray.
-    if (!nursery.registerTrailer(outlineData, outlineBytes)) {
-      nursery.mallocedBlockCache().free(outlineData);
-      ReportOutOfMemory(cx);
-      return nullptr;
-    }
-  }
-
-  return structObj;
-}
-
-template WasmStructObject* WasmStructObject::createStruct<true>(
-    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
-    js::gc::Heap initialHeap);
-template WasmStructObject* WasmStructObject::createStruct<false>(
-    JSContext* cx, wasm::TypeDefInstanceData* typeDefData,
-    js::gc::Heap initialHeap);
 
 /* static */
 void WasmStructObject::obj_trace(JSTracer* trc, JSObject* object) {

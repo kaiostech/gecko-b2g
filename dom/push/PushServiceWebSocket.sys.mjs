@@ -15,17 +15,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AlarmService: "resource://gre/modules/AlarmService.sys.mjs",
   PushCredential: "resource://gre/modules/PushCredential.sys.mjs",
   pushBroadcastService: "resource://gre/modules/PushBroadcastService.sys.mjs",
+  ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
 });
 
 import { PushDB } from "resource://gre/modules/PushDB.sys.mjs";
 import { PushRecord } from "resource://gre/modules/PushRecord.sys.mjs";
 import { PushCrypto } from "resource://gre/modules/PushCrypto.sys.mjs";
 
-ChromeUtils.defineModuleGetter(
-  lazy,
-  "ObjectUtils",
-  "resource://gre/modules/ObjectUtils.jsm"
-);
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "gPowerManagerService",

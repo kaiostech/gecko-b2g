@@ -3212,7 +3212,11 @@
 # disabled.
 - name: dom.keyboardevent.init_key_event.enabled_in_addons
   type: bool
+#if defined(RELEASE_OR_BETA)
   value: true
+#else
+  value: false
+#endif
   mirror: always
 
 # If this is true, keypress events for non-printable keys are dispatched only
@@ -6622,20 +6626,11 @@
   value: false
   mirror: once
 
-# We expose two prefs: gfx.webrender.all and gfx.webrender.enabled.
-# The first enables WR+additional features, and the second just enables WR.
-# For developer convenience, building with --enable-webrender=true or just
-# --enable-webrender will set gfx.webrender.enabled to true by default.
+# Whether to use the WebRender hardware backend
 - name: gfx.webrender.all
   type: bool
   value: false
   mirror: once
-
-- name: gfx.webrender.enabled
-  type: bool
-  value: false
-  mirror: once
-  do_not_use_directly: true
 
 #ifdef XP_WIN
 - name: gfx.webrender.force-angle
@@ -8067,6 +8062,24 @@
   value: false
   mirror: always
 
+# Whether to support parsing '//(#@) source(Mapping)?URL=' pragmas.
+- name: javascript.options.source_pragmas
+  type: bool
+  value: true
+  mirror: always
+
+# asm.js
+- name: javascript.options.asmjs
+  type: bool
+  value: true
+  mirror: always
+
+# Whether to throw a TypeError if asm.js code hits validation failure.
+- name: javascript.options.throw_on_asmjs_validation_failure
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "layers."
 #---------------------------------------------------------------------------
@@ -8516,7 +8529,7 @@
 # Whether CSS nesting is enabled.
 - name: layout.css.nesting.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -9609,7 +9622,7 @@
 # Is support for -webkit-slider* pseudos enabled?
 - name: layout.css.webkit-range-pseudos.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
   rust: true
 

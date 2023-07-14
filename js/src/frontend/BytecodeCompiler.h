@@ -7,22 +7,27 @@
 #ifndef frontend_BytecodeCompiler_h
 #define frontend_BytecodeCompiler_h
 
-#include "mozilla/Maybe.h"
-#include "mozilla/Utf8.h"  // mozilla::Utf8Unit
+#include "mozilla/AlreadyAddRefed.h"  // already_AddRefed
+#include "mozilla/Maybe.h"            // mozilla::Maybe
+#include "mozilla/Utf8.h"             // mozilla::Utf8Unit
 
-#include "NamespaceImports.h"
+#include <stdint.h>  // uint32_t
 
-#include "ds/LifoAlloc.h"
-#include "frontend/FunctionSyntaxKind.h"
-#include "js/SourceText.h"
-#include "js/UniquePtr.h"  // js::UniquePtr
+#include "ds/LifoAlloc.h"                 // js::LifoAlloc
+#include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
+#include "frontend/ScriptIndex.h"         // ScriptIndex
+#include "js/CompileOptions.h"            // JS::ReadOnlyCompileOptions
+#include "js/RootingAPI.h"                // JS::Handle
+#include "js/SourceText.h"                // JS::SourceText
+#include "js/UniquePtr.h"                 // js::UniquePtr
+#include "vm/ScopeKind.h"                 // js::ScopeKind
 
 /*
  * Structure of all of the support classes.
  *
  * Parser: described in Parser.h.
  *
- * BytecodeCompiler.cpp: BytecodeCompiler.h *and* BytecodeCompilation.h.
+ * BytecodeCompiler.cpp: BytecodeCompiler.h
  * This is the "driver", the high-level operations like "compile this source to
  * bytecode". It calls the parser, bytecode emitter, etc.
  *
@@ -94,17 +99,16 @@
  * (this gets complicated with `var`, etc., check the class for docs)
  */
 
-class JSLinearString;
-
-namespace JS {
-class JS_PUBLIC_API ReadOnlyCompileOptions;
-}
+class JSFunction;
+class JSObject;
+class JSScript;
+struct JSContext;
 
 namespace js {
 
 class ModuleObject;
-class ScriptSourceObject;
 class FrontendContext;
+class Scope;
 
 namespace frontend {
 
@@ -112,11 +116,56 @@ struct CompilationInput;
 struct CompilationStencil;
 struct ExtensibleCompilationStencil;
 struct CompilationGCOutput;
-class ErrorReporter;
-class FunctionBox;
-class ParseNode;
-class TaggedParserAtomIndex;
 class ScopeBindingCache;
+
+// Compile a script of the given source using the given options.
+extern already_AddRefed<CompilationStencil> CompileGlobalScriptToStencil(
+    JSContext* maybeCx, FrontendContext* fc, js::LifoAlloc& tempLifoAlloc,
+    CompilationInput& input, ScopeBindingCache* scopeCache,
+    JS::SourceText<char16_t>& srcBuf, ScopeKind scopeKind);
+
+extern already_AddRefed<CompilationStencil> CompileGlobalScriptToStencil(
+    JSContext* maybeCx, FrontendContext* fc, js::LifoAlloc& tempLifoAlloc,
+    CompilationInput& input, ScopeBindingCache* scopeCache,
+    JS::SourceText<mozilla::Utf8Unit>& srcBuf, ScopeKind scopeKind);
+
+extern UniquePtr<ExtensibleCompilationStencil>
+CompileGlobalScriptToExtensibleStencil(JSContext* maybeCx, FrontendContext* fc,
+                                       CompilationInput& input,
+                                       ScopeBindingCache* scopeCache,
+                                       JS::SourceText<char16_t>& srcBuf,
+                                       ScopeKind scopeKind);
+
+extern UniquePtr<ExtensibleCompilationStencil>
+CompileGlobalScriptToExtensibleStencil(
+    JSContext* maybeCx, FrontendContext* fc, CompilationInput& input,
+    ScopeBindingCache* scopeCache, JS::SourceText<mozilla::Utf8Unit>& srcBuf,
+    ScopeKind scopeKind);
+
+[[nodiscard]] extern bool InstantiateStencils(JSContext* cx,
+                                              CompilationInput& input,
+                                              const CompilationStencil& stencil,
+                                              CompilationGCOutput& gcOutput);
+
+// Perform CompileGlobalScriptToStencil and InstantiateStencils at the
+// same time, skipping some extra copy.
+extern JSScript* CompileGlobalScript(JSContext* cx, FrontendContext* fc,
+                                     const JS::ReadOnlyCompileOptions& options,
+                                     JS::SourceText<char16_t>& srcBuf,
+                                     ScopeKind scopeKind);
+
+extern JSScript* CompileGlobalScript(JSContext* cx, FrontendContext* fc,
+                                     const JS::ReadOnlyCompileOptions& options,
+                                     JS::SourceText<mozilla::Utf8Unit>& srcBuf,
+                                     ScopeKind scopeKind);
+
+// Compile a script for eval of the given source using the given options and
+// enclosing scope/environment.
+extern JSScript* CompileEvalScript(JSContext* cx,
+                                   const JS::ReadOnlyCompileOptions& options,
+                                   JS::SourceText<char16_t>& srcBuf,
+                                   JS::Handle<js::Scope*> enclosingScope,
+                                   JS::Handle<JSObject*> enclosingEnv);
 
 // Compile a module of the given source using the given options.
 ModuleObject* CompileModule(JSContext* cx, FrontendContext* fc,
@@ -187,38 +236,21 @@ UniquePtr<ExtensibleCompilationStencil> ParseModuleToExtensibleStencil(
     JSContext* cx, const JS::ReadOnlyCompileOptions& options,
     JS::SourceText<char16_t>& srcBuf,
     const mozilla::Maybe<uint32_t>& parameterListEnd,
-    frontend::FunctionSyntaxKind syntaxKind, Handle<Scope*> enclosingScope);
+    frontend::FunctionSyntaxKind syntaxKind, JS::Handle<Scope*> enclosingScope);
 
-/*
- * True if str consists of an IdentifierStart character, followed by one or
- * more IdentifierPart characters, i.e. it matches the IdentifierName production
- * in the language spec.
- *
- * This returns true even if str is a keyword like "if".
- *
- * Defined in TokenStream.cpp.
- */
-bool IsIdentifier(JSLinearString* str);
+extern bool DelazifyCanonicalScriptedFunction(JSContext* cx,
+                                              FrontendContext* fc,
+                                              JS::Handle<JSFunction*> fun);
 
-bool IsIdentifierNameOrPrivateName(JSLinearString* str);
+extern already_AddRefed<CompilationStencil> DelazifyCanonicalScriptedFunction(
+    JSContext* cx, FrontendContext* fc, ScopeBindingCache* scopeCache,
+    CompilationStencil& context, ScriptIndex scriptIndex);
 
-/*
- * As above, but taking chars + length.
- */
-bool IsIdentifier(const Latin1Char* chars, size_t length);
-bool IsIdentifier(const char16_t* chars, size_t length);
-
-/*
- * ASCII variant with known length.
- */
-bool IsIdentifierASCII(char c);
-bool IsIdentifierASCII(char c1, char c2);
-
-bool IsIdentifierNameOrPrivateName(const Latin1Char* chars, size_t length);
-bool IsIdentifierNameOrPrivateName(const char16_t* chars, size_t length);
-
-/* True if str is a keyword. Defined in TokenStream.cpp. */
-bool IsKeyword(TaggedParserAtomIndex atom);
+// Certain compile options will disable the syntax parser entirely.
+inline bool CanLazilyParse(const JS::ReadOnlyCompileOptions& options) {
+  return !options.discardSource && !options.sourceIsLazy &&
+         !options.forceFullParse();
+}
 
 } /* namespace frontend */
 } /* namespace js */

@@ -194,6 +194,13 @@ pref("pdfjs.enableScripting", true);
 // Enable XFA form support in the PDF viewer.
 pref("pdfjs.enableXfa", true);
 
+// Enable adding an image in a pdf.
+#if defined(EARLY_BETA_OR_EARLIER)
+  pref("pdfjs.enableStampEditor", true);
+#else
+  pref("pdfjs.enableStampEditor", false);
+#endif
+
 // Disable support for MathML
 pref("mathml.disabled",    false);
 
@@ -903,20 +910,16 @@ pref("privacy.purge_trackers.consider_entity_list", false);
 pref("dom.event.contextmenu.enabled",       true);
 
 pref("javascript.enabled",                  true);
-pref("javascript.options.asmjs",                  true);
 pref("javascript.options.wasm",                   true);
 pref("javascript.options.wasm_trustedprincipals", true);
 pref("javascript.options.wasm_verbose",           false);
 pref("javascript.options.wasm_baselinejit",       true);
-
-pref("javascript.options.source_pragmas",    true);
 
 pref("javascript.options.asyncstack", true);
 // Broadly capturing async stack data adds overhead that is only advisable for
 // developers, so we only enable it when the devtools are open, by default.
 pref("javascript.options.asyncstack_capture_debuggee_only", true);
 
-pref("javascript.options.throw_on_asmjs_validation_failure", false);
 // This preference instructs the JS engine to discard the
 // source of any privileged JS after compilation. This saves
 // memory, but makes things like Function.prototype.toSource()
@@ -3980,8 +3983,13 @@ pref("extensions.formautofill.addresses.supportedCountries", "US,CA");
 pref("extensions.formautofill.creditCards.supported", "detect");
 pref("extensions.formautofill.creditCards.enabled", true);
 pref("extensions.formautofill.creditCards.ignoreAutocompleteOff", true);
+
+#if defined(NIGHTLY_BUILD)
 // Supported countries need to follow ISO 3166-1 to align with "browser.search.region"
+pref("extensions.formautofill.creditCards.supportedCountries", "US,CA,GB,FR,DE,IT,ES");
+#else
 pref("extensions.formautofill.creditCards.supportedCountries", "US,CA,GB,FR,DE");
+#endif
 
 // Algorithm used by formautofill while determine whether a field is a credit card field
 // 0:Heurstics based on regular expression string matching

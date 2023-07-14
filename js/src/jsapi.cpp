@@ -34,7 +34,6 @@
 #include "builtin/JSON.h"
 #include "builtin/Promise.h"
 #include "builtin/Symbol.h"
-#include "frontend/BytecodeCompiler.h"
 #include "frontend/FrontendContext.h"  // AutoReportFrontendContext
 #include "gc/GC.h"
 #include "gc/GCContext.h"
@@ -71,6 +70,7 @@
 #include "js/Wrapper.h"
 #include "js/WrapperCallbacks.h"
 #include "proxy/DOMProxy.h"
+#include "util/Identifier.h"  // IsIdentifier
 #include "util/StringBuffer.h"
 #include "util/Text.h"
 #include "vm/BoundFunctionObject.h"
@@ -2302,15 +2302,12 @@ void JS::TransitiveCompileOptions::copyPODTransitiveOptions(
   mutedErrors_ = rhs.mutedErrors_;
   forceStrictMode_ = rhs.forceStrictMode_;
   alwaysUseFdlibm_ = rhs.alwaysUseFdlibm_;
-  sourcePragmas_ = rhs.sourcePragmas_;
   skipFilenameValidation_ = rhs.skipFilenameValidation_;
   hideScriptFromDebugger_ = rhs.hideScriptFromDebugger_;
   deferDebugMetadata_ = rhs.deferDebugMetadata_;
   eagerDelazificationStrategy_ = rhs.eagerDelazificationStrategy_;
 
   selfHostingMode = rhs.selfHostingMode;
-  asmJSOption = rhs.asmJSOption;
-  throwOnAsmJSValidationFailureOption = rhs.throwOnAsmJSValidationFailureOption;
   forceAsync = rhs.forceAsync;
   discardSource = rhs.discardSource;
   sourceIsLazy = rhs.sourceIsLazy;
@@ -2318,12 +2315,13 @@ void JS::TransitiveCompileOptions::copyPODTransitiveOptions(
   nonSyntacticScope = rhs.nonSyntacticScope;
 
   topLevelAwait = rhs.topLevelAwait;
-  importAssertions = rhs.importAssertions;
 
   borrowBuffer = rhs.borrowBuffer;
   usePinnedBytecode = rhs.usePinnedBytecode;
   allocateInstantiationStorage = rhs.allocateInstantiationStorage;
   deoptimizeModuleGlobalVars = rhs.deoptimizeModuleGlobalVars;
+
+  prefableOptions_ = rhs.prefableOptions_;
 
   introductionType = rhs.introductionType;
   introductionLineno = rhs.introductionLineno;
@@ -2409,23 +2407,16 @@ bool JS::OwningCompileOptions::copy(JS::FrontendContext* fc,
 }
 
 JS::CompileOptions::CompileOptions(JSContext* cx) : ReadOnlyCompileOptions() {
-  if (!js::IsAsmJSCompilationAvailable(cx)) {
-    // Distinguishing the cases is just for error reporting.
-    asmJSOption = !cx->options().asmJS()
-                      ? AsmJSOption::DisabledByAsmJSPref
-                      : AsmJSOption::DisabledByNoWasmCompiler;
-  } else if (cx->realm() && (cx->realm()->debuggerObservesWasm() ||
-                             cx->realm()->debuggerObservesAsmJS())) {
-    asmJSOption = AsmJSOption::DisabledByDebugger;
-  } else {
-    asmJSOption = AsmJSOption::Enabled;
+  prefableOptions_ = cx->options().compileOptions();
+
+  if (cx->options().asmJSOption() == AsmJSOption::Enabled) {
+    if (!js::IsAsmJSCompilationAvailable(cx)) {
+      prefableOptions_.setAsmJSOption(AsmJSOption::DisabledByNoWasmCompiler);
+    } else if (cx->realm() && (cx->realm()->debuggerObservesWasm() ||
+                               cx->realm()->debuggerObservesAsmJS())) {
+      prefableOptions_.setAsmJSOption(AsmJSOption::DisabledByDebugger);
+    }
   }
-  throwOnAsmJSValidationFailureOption =
-      cx->options().throwOnAsmJSValidationFailure();
-
-  importAssertions = cx->options().importAssertions();
-
-  sourcePragmas_ = cx->options().sourcePragmas();
 
   // Certain modes of operation disallow syntax parsing in general.
   if (coverage::IsLCovEnabled()) {
@@ -4417,12 +4408,12 @@ JS_PUBLIC_API bool JS_IsIdentifier(JSContext* cx, HandleString str,
     return false;
   }
 
-  *isIdentifier = js::frontend::IsIdentifier(linearStr);
+  *isIdentifier = IsIdentifier(linearStr);
   return true;
 }
 
 JS_PUBLIC_API bool JS_IsIdentifier(const char16_t* chars, size_t length) {
-  return js::frontend::IsIdentifier(chars, length);
+  return IsIdentifier(chars, length);
 }
 
 namespace JS {

@@ -70,7 +70,6 @@ if toolkit != "cocoa":
     ]
 
 XPIDL_SOURCES += [
-    "nsIOSFileConstantsService.idl",
     "nsIOSPermissionRequest.idl",
 ]
 
@@ -79,10 +78,6 @@ XPIDL_MODULE = "dom_system"
 EXPORTS += [
     "nsDeviceSensors.h",
     "nsOSPermissionRequestBase.h",
-]
-
-EXPORTS.mozilla += [
-    "OSFileConstants.h",
 ]
 
 EXPORTS.mozilla.dom += [
@@ -94,7 +89,6 @@ UNIFIED_SOURCES += [
     "IOUtils.cpp",
     "nsDeviceSensors.cpp",
     "nsOSPermissionRequestBase.cpp",
-    "OSFileConstants.cpp",
     "PathUtils.cpp",
 ]
 

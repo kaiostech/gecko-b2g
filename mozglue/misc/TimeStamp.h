@@ -43,6 +43,7 @@ typedef uint64_t TimeStampValue;
 #endif
 
 class TimeStamp;
+class TimeStampTests;
 
 /**
  * Platform-specific implementation details of BaseTimeDuration.
@@ -278,7 +279,7 @@ class BaseTimeDuration {
   template <typename>
   friend class BaseTimeDuration;
 
-  static BaseTimeDuration FromTicks(int64_t aTicks) {
+  static constexpr BaseTimeDuration FromTicks(int64_t aTicks) {
     BaseTimeDuration t;
     t.mValue = aTicks;
     return t;
@@ -423,7 +424,7 @@ class TimeStamp {
   /**
    * Return true if this is the "null" moment
    */
-  bool IsNull() const { return mValue == 0; }
+  constexpr bool IsNull() const { return mValue == 0; }
 
   /**
    * Return true if this is not the "null" moment, may be used in tests, e.g.:
@@ -548,22 +549,22 @@ class TimeStamp {
     return *this;
   }
 
-  bool operator<(const TimeStamp& aOther) const {
+  constexpr bool operator<(const TimeStamp& aOther) const {
     MOZ_ASSERT(!IsNull(), "Cannot compute with a null value");
     MOZ_ASSERT(!aOther.IsNull(), "Cannot compute with aOther null value");
     return mValue < aOther.mValue;
   }
-  bool operator<=(const TimeStamp& aOther) const {
+  constexpr bool operator<=(const TimeStamp& aOther) const {
     MOZ_ASSERT(!IsNull(), "Cannot compute with a null value");
     MOZ_ASSERT(!aOther.IsNull(), "Cannot compute with aOther null value");
     return mValue <= aOther.mValue;
   }
-  bool operator>=(const TimeStamp& aOther) const {
+  constexpr bool operator>=(const TimeStamp& aOther) const {
     MOZ_ASSERT(!IsNull(), "Cannot compute with a null value");
     MOZ_ASSERT(!aOther.IsNull(), "Cannot compute with aOther null value");
     return mValue >= aOther.mValue;
   }
-  bool operator>(const TimeStamp& aOther) const {
+  constexpr bool operator>(const TimeStamp& aOther) const {
     MOZ_ASSERT(!IsNull(), "Cannot compute with a null value");
     MOZ_ASSERT(!aOther.IsNull(), "Cannot compute with aOther null value");
     return mValue > aOther.mValue;
@@ -588,14 +589,14 @@ class TimeStamp {
  private:
   friend struct IPC::ParamTraits<mozilla::TimeStamp>;
   friend struct TimeStampInitialization;
+  friend class TimeStampTests;
 
 #if defined(MOZ_B2G)
   friend class mozilla::dom::KeyboardAppProxy;
   friend class mozilla::dom::KeyboardEventForwarderChild;
 #endif
 
-  MOZ_IMPLICIT
-  TimeStamp(TimeStampValue aValue) : mValue(aValue) {}
+  constexpr MOZ_IMPLICIT TimeStamp(TimeStampValue aValue) : mValue(aValue) {}
 
   static MFBT_API TimeStamp Now(bool aHighResolution);
 

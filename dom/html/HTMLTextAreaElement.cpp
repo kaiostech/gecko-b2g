@@ -166,12 +166,7 @@ void HTMLTextAreaElement::GetValue(nsAString& aValue) {
 void HTMLTextAreaElement::GetValueInternal(nsAString& aValue,
                                            bool aIgnoreWrap) const {
   MOZ_ASSERT(mState);
-  mState->GetValue(aValue, aIgnoreWrap);
-}
-
-bool HTMLTextAreaElement::ValueEquals(const nsAString& aValue) const {
-  MOZ_ASSERT(mState);
-  return mState->ValueEquals(aValue);
+  mState->GetValue(aValue, aIgnoreWrap, /* aForDisplay = */ true);
 }
 
 nsIEditor* HTMLTextAreaElement::GetEditorForBindings() {
@@ -1110,16 +1105,15 @@ int32_t HTMLTextAreaElement::GetRows() {
   return DEFAULT_ROWS_TEXTAREA;
 }
 
-void HTMLTextAreaElement::GetDefaultValueFromContent(nsAString& aValue) {
+void HTMLTextAreaElement::GetDefaultValueFromContent(nsAString& aValue, bool) {
   GetDefaultValue(aValue, IgnoreErrors());
 }
 
 bool HTMLTextAreaElement::ValueChanged() const { return mValueChanged; }
 
-void HTMLTextAreaElement::GetTextEditorValue(nsAString& aValue,
-                                             bool aIgnoreWrap) const {
+void HTMLTextAreaElement::GetTextEditorValue(nsAString& aValue) const {
   MOZ_ASSERT(mState);
-  mState->GetValue(aValue, aIgnoreWrap);
+  mState->GetValue(aValue, /* aIgnoreWrap = */ true, /* aForDisplay = */ true);
 }
 
 void HTMLTextAreaElement::InitializeKeyboardEventListeners() {

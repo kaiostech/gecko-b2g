@@ -301,7 +301,7 @@ dom::LockManager* WorkerNavigator::Locks() {
     nsIGlobalObject* global = workerPrivate->GlobalScope();
     MOZ_ASSERT(global);
 
-    mLocks = new dom::LockManager(global);
+    mLocks = dom::LockManager::Create(*global);
   }
   return mLocks;
 }

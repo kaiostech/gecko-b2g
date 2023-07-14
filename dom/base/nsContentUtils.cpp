@@ -2295,9 +2295,14 @@ inline bool SchemeSaysShouldNotResistFingerprinting(nsIPrincipal* aPrincipal) {
     return true;
   }
 
-  bool isSpecialAboutURI;
-  Unused << aPrincipal->IsContentAccessibleAboutURI(&isSpecialAboutURI);
-  return isSpecialAboutURI;
+  if (!aPrincipal->SchemeIs("about")) {
+    return false;
+  }
+
+  bool isContentAccessibleAboutURI;
+  Unused << aPrincipal->IsContentAccessibleAboutURI(
+      &isContentAccessibleAboutURI);
+  return !isContentAccessibleAboutURI;
 }
 
 const char* kExemptedDomainsPrefName =
@@ -2408,6 +2413,9 @@ bool nsContentUtils::ShouldResistFingerprinting(nsIChannel* aChannel,
   }
 
   if (CookieJarSettingsSaysShouldResistFingerprinting(loadInfo)) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting(nsIChannel*)"
+             " CookieJarSettingsSaysShouldResistFingerprinting said true"));
     return true;
   }
 
@@ -2480,6 +2488,11 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
     return false;
   }
 
+  MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+          ("Inside ShouldResistFingerprinting_dangerous(nsIURI*,"
+           " OriginAttributes) and the URI is %s",
+           aURI->GetSpecOrDefault().get()));
+
   if (!StaticPrefs::privacy_resistFingerprinting_DoNotUseDirectly() &&
       !StaticPrefs::privacy_fingerprintingProtection_DoNotUseDirectly()) {
     // If neither of the 'regular' RFP prefs are set, then one (or both)
@@ -2492,6 +2505,9 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
 
   // Exclude internal schemes and web extensions
   if (SchemeSaysShouldNotResistFingerprinting(aURI)) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting(nsIURI*)"
+             " SchemeSaysShouldNotResistFingerprinting said false"));
     return false;
   }
 
@@ -2549,11 +2565,17 @@ bool nsContentUtils::ShouldResistFingerprinting_dangerous(
 
   // Exclude internal schemes and web extensions
   if (SchemeSaysShouldNotResistFingerprinting(aPrincipal)) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting(nsIPrincipal*)"
+             " SchemeSaysShouldNotResistFingerprinting said false"));
     return false;
   }
 
   // Web extension principals are also excluded
   if (BasePrincipal::Cast(aPrincipal)->AddonPolicy()) {
+    MOZ_LOG(nsContentUtils::ResistFingerprintingLog(), LogLevel::Debug,
+            ("Inside ShouldResistFingerprinting_dangerous(nsIPrincipal*)"
+             " and AddonPolicy said false"));
     return false;
   }
 
@@ -7275,12 +7297,6 @@ bool nsContentUtils::HaveEqualPrincipals(Document* aDoc1, Document* aDoc2) {
   bool principalsEqual = false;
   aDoc1->NodePrincipal()->Equals(aDoc2->NodePrincipal(), &principalsEqual);
   return principalsEqual;
-}
-
-/* static */
-bool nsContentUtils::HasPluginWithUncontrolledEventDispatch(
-    nsIContent* aContent) {
-  return false;
 }
 
 /* static */

@@ -9055,6 +9055,7 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
         // The following branches except for the last `else` clause emit the
         // cases handled in NameResolver::resolveFun (see NameFunctions.cpp)
         if (key->isKind(ParseNodeKind::ObjectPropertyName) ||
+            key->isKind(ParseNodeKind::PrivateName) ||
             key->isKind(ParseNodeKind::StringExpr)) {
           auto keyAtom = key->as<NameNode>().atom();
           if (!emitAnonymousFunctionWithName(propVal, keyAtom)) {
@@ -9677,14 +9678,31 @@ static FunctionNode* GetInitializer(ParseNode* node, bool isStaticContext) {
                                 : node->as<StaticClassBlock>().function();
 }
 
+static bool IsPrivateInstanceAccessor(const ClassMethod* classMethod) {
+  return !classMethod->isStatic() &&
+         classMethod->name().isKind(ParseNodeKind::PrivateName) &&
+         classMethod->accessorType() != AccessorType::None;
+}
+
 bool BytecodeEmitter::emitCreateMemberInitializers(ClassEmitter& ce,
                                                    ListNode* obj,
-                                                   FieldPlacement placement) {
-  // FieldPlacement::Instance
-  //                [stack] HOMEOBJ HERITAGE?
+                                                   FieldPlacement placement
+#ifdef ENABLE_DECORATORS
+                                                   ,
+                                                   bool hasHeritage
+#endif
+) {
+  // FieldPlacement::Instance, hasHeritage == false
+  //                [stack] HOMEOBJ
+  //
+  // FieldPlacement::Instance, hasHeritage == true
+  //                [stack] HOMEOBJ HERITAGE
   //
   // FieldPlacement::Static
   //                [stack] CTOR HOMEOBJ
+#ifdef ENABLE_DECORATORS
+  MOZ_ASSERT_IF(placement == FieldPlacement::Static, !hasHeritage);
+#endif
   mozilla::Maybe<MemberInitializers> memberInitializers =
       setupMemberInitializers(obj, placement);
   if (!memberInitializers) {
@@ -9763,23 +9781,257 @@ bool BytecodeEmitter::emitCreateMemberInitializers(ClassEmitter& ce,
       continue;
     }
     ClassField* field = &propdef->as<ClassField>();
-    if (placement == FieldPlacement::Static && !field->isStatic()) {
+    if (field->isStatic() != isStatic) {
       continue;
     }
     if (field->decorators() && !field->decorators()->empty()) {
       DecoratorEmitter de(this);
-      if (!de.emitApplyDecoratorsToFieldDefinition(
-              &field->name(), field->decorators(), field->isStatic())) {
-        //                [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITIALIZERS
-        // or:
-        //                [stack] CTOR HOMEOBJ ARRAY INDEX INITIALIZERS
-        return false;
-      }
+      if (!field->hasAccessor()) {
+        if (!de.emitApplyDecoratorsToFieldDefinition(
+                &field->name(), field->decorators(), field->isStatic())) {
+          //        [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS
+          // or:
+          //        [stack] CTOR HOMEOBJ ARRAY INDEX INITS
+          return false;
+        }
+      } else {
+        ClassMethod* accessorGetterNode = field->accessorGetterNode();
+        auto accessorGetterKeyAtom =
+            accessorGetterNode->left()->as<NameNode>().atom();
+        ClassMethod* accessorSetterNode = field->accessorSetterNode();
+        auto accessorSetterKeyAtom =
+            accessorSetterNode->left()->as<NameNode>().atom();
+        if (!IsPrivateInstanceAccessor(accessorGetterNode)) {
+          if (!emitTree(&accessorGetterNode->method())) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX GETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX GETTER
+            return false;
+          }
+          if (!emitTree(&accessorSetterNode->method())) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX GETTER SETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX GETTER SETTER
+            return false;
+          }
+        } else {
+          MOZ_ASSERT(IsPrivateInstanceAccessor(accessorSetterNode));
+          auto getAccessor = [this](
+                                 ClassMethod* classMethod,
+                                 TaggedParserAtomIndex& updatedAtom) -> bool {
+            //      [stack]
 
+            // Synthesize a name for the lexical variable that will store the
+            // private method body.
+            TaggedParserAtomIndex name =
+                classMethod->name().as<NameNode>().atom();
+            AccessorType accessorType = classMethod->accessorType();
+            StringBuffer storedMethodName(fc);
+            if (!storedMethodName.append(parserAtoms(), name)) {
+              return false;
+            }
+            if (!storedMethodName.append(accessorType == AccessorType::Getter
+                                             ? ".getter"
+                                             : ".setter")) {
+              return false;
+            }
+            updatedAtom = storedMethodName.finishParserAtom(parserAtoms(), fc);
+            if (!updatedAtom) {
+              return false;
+            }
+
+            return emitGetName(updatedAtom);
+            //      [stack] ACCESSOR
+          };
+
+          if (!getAccessor(accessorGetterNode, accessorGetterKeyAtom)) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX GETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX GETTER
+            return false;
+          };
+
+          if (!getAccessor(accessorSetterNode, accessorSetterKeyAtom)) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX GETTER SETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX GETTER SETTER
+            return false;
+          };
+        }
+
+        if (!de.emitApplyDecoratorsToAccessorDefinition(
+                &field->name(), field->decorators(), field->isStatic())) {
+          //        [stack] HOMEOBJ HERITAGE? ARRAY INDEX GETTER SETTER INITS
+          // or:
+          //        [stack] CTOR HOMEOBJ ARRAY INDEX GETTER SETTER INITS
+          return false;
+        }
+
+        if (!emitUnpickN(2)) {
+          //        [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS GETTER SETTER
+          // or:
+          //        [stack] CTOR HOMEOBJ ARRAY INDEX INITS GETTER SETTER
+          return false;
+        }
+
+        if (!IsPrivateInstanceAccessor(accessorGetterNode)) {
+          if (!isStatic) {
+            if (!emitPickN(hasHeritage ? 6 : 5)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS GETTER SETTER HOMEOBJ
+              return false;
+            }
+          } else {
+            if (!emitPickN(6)) {
+              //    [stack] HOMEOBJ ARRAY INDEX INITS GETTER SETTER CTOR
+              return false;
+            }
+            if (!emitPickN(6)) {
+              //    [stack] ARRAY INDEX INITS GETTER SETTER CTOR HOMEOBJ
+              return false;
+            }
+          }
+
+          PropertyEmitter::Kind kind = field->isStatic()
+                                           ? PropertyEmitter::Kind::Static
+                                           : PropertyEmitter::Kind::Prototype;
+          if (!accessorGetterNode->name().isKind(ParseNodeKind::PrivateName)) {
+            MOZ_ASSERT(
+                !accessorSetterNode->name().isKind(ParseNodeKind::PrivateName));
+
+            if (!ce.prepareForPropValue(propdef->pn_pos.begin, kind)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS GETTER SETTER HOMEOBJ
+              // or:
+              //    [stack] ARRAY INDEX INITS GETTER SETTER CTOR HOMEOBJ CTOR
+              return false;
+            }
+            if (!emitPickN(isStatic ? 3 : 1)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS GETTER HOMEOBJ SETTER
+              // or:
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ CTOR SETTER
+              return false;
+            }
+            if (!ce.emitInit(AccessorType::Setter, accessorSetterKeyAtom)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS GETTER HOMEOBJ
+              // or:
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ
+              return false;
+            }
+
+            if (!ce.prepareForPropValue(propdef->pn_pos.begin, kind)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS GETTER HOMEOBJ
+              // or:
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ CTOR
+              return false;
+            }
+            if (!emitPickN(isStatic ? 3 : 1)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS HOMEOBJ GETTER
+              // or:
+              //    [stack] ARRAY INDEX INITS CTOR HOMEOBJ CTOR GETTER
+              return false;
+            }
+            if (!ce.emitInit(AccessorType::Getter, accessorGetterKeyAtom)) {
+              //    [stack] HERITAGE? ARRAY INDEX INITS HOMEOBJ
+              // or:
+              //    [stack] ARRAY INDEX INITS CTOR HOMEOBJ
+              return false;
+            }
+          } else {
+            MOZ_ASSERT(isStatic);
+            // The getter and setter share the same name.
+            if (!emitNewPrivateName(accessorSetterKeyAtom,
+                                    accessorSetterKeyAtom)) {
+              return false;
+            }
+            if (!ce.prepareForPrivateStaticMethod(propdef->pn_pos.begin)) {
+              //    [stack] ARRAY INDEX INITS GETTER SETTER CTOR HOMEOBJ CTOR
+              return false;
+            }
+            if (!emitGetPrivateName(
+                    &accessorSetterNode->name().as<NameNode>())) {
+              //    [stack] ARRAY INDEX INITS GETTER SETTER CTOR HOMEOBJ CTOR
+              //    KEY
+              return false;
+            }
+            if (!emitPickN(4)) {
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ CTOR KEY
+              //    SETTER
+              return false;
+            }
+            if (!ce.emitPrivateStaticMethod(AccessorType::Setter)) {
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ
+              return false;
+            }
+
+            if (!ce.prepareForPrivateStaticMethod(propdef->pn_pos.begin)) {
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ CTOR
+              return false;
+            }
+            if (!emitGetPrivateName(
+                    &accessorGetterNode->name().as<NameNode>())) {
+              //    [stack] ARRAY INDEX INITS GETTER CTOR HOMEOBJ CTOR KEY
+              return false;
+            }
+            if (!emitPickN(4)) {
+              //    [stack] ARRAY INDEX INITS CTOR HOMEOBJ CTOR KEY GETTER
+              return false;
+            }
+            if (!ce.emitPrivateStaticMethod(AccessorType::Getter)) {
+              //    [stack] ARRAY INDEX INITS CTOR HOMEOBJ
+              return false;
+            }
+          }
+
+          if (!isStatic) {
+            if (!emitUnpickN(hasHeritage ? 4 : 3)) {
+              //    [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS
+              return false;
+            }
+          } else {
+            if (!emitUnpickN(4)) {
+              //    [stack] HOMEOBJ ARRAY INDEX INITS CTOR
+              return false;
+            }
+            if (!emitUnpickN(4)) {
+              //    [stack] CTOR HOMEOBJ ARRAY INDEX INITS
+              return false;
+            }
+          }
+        } else {
+          MOZ_ASSERT(IsPrivateInstanceAccessor(accessorSetterNode));
+
+          if (!emitLexicalInitialization(accessorSetterKeyAtom)) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS GETTER SETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX INITS GETTER SETTER
+            return false;
+          }
+
+          if (!emitPopN(1)) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS GETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX INITS GETTER
+            return false;
+          }
+
+          if (!emitLexicalInitialization(accessorGetterKeyAtom)) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS GETTER
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX INITS GETTER
+            return false;
+          }
+
+          if (!emitPopN(1)) {
+            //      [stack] HOMEOBJ HERITAGE? ARRAY INDEX INITS
+            // or:
+            //      [stack] CTOR HOMEOBJ ARRAY INDEX INITS
+            return false;
+          }
+        }
+      }
       if (!emit1(JSOp::InitElemInc)) {
-        //                [stack] HOMEOBJ HERITAGE? ARRAY INDEX
+        //          [stack] HOMEOBJ HERITAGE? ARRAY INDEX
         // or:
-        //                [stack] CTOR HOMEOBJ ARRAY INDEX
+        //          [stack] CTOR HOMEOBJ ARRAY INDEX
         return false;
       }
     }
@@ -9787,9 +10039,9 @@ bool BytecodeEmitter::emitCreateMemberInitializers(ClassEmitter& ce,
 
   // Pop INDEX
   if (!emitPopN(1)) {
-    //                [stack] HOMEOBJ HERITAGE? ARRAY
+    //              [stack] HOMEOBJ HERITAGE? ARRAY
     // or:
-    //                [stack] CTOR HOMEOBJ ARRAY
+    //              [stack] CTOR HOMEOBJ ARRAY
     return false;
   }
 #endif
@@ -9802,12 +10054,6 @@ bool BytecodeEmitter::emitCreateMemberInitializers(ClassEmitter& ce,
   }
 
   return true;
-}
-
-static bool IsPrivateInstanceAccessor(const ClassMethod* classMethod) {
-  return !classMethod->isStatic() &&
-         classMethod->name().isKind(ParseNodeKind::PrivateName) &&
-         classMethod->accessorType() != AccessorType::None;
 }
 
 bool BytecodeEmitter::emitPrivateMethodInitializers(ClassEmitter& ce,
@@ -10284,6 +10530,116 @@ bool BytecodeEmitter::emitInitializeStaticFields(ListNode* classMembers) {
       return false;
     }
   }
+
+#ifdef ENABLE_DECORATORS
+  // Decorators Proposal
+  // https://arai-a.github.io/ecma262-compare/?pr=2417&id=sec-initializeinstanceelements
+  // 4. For each element e of elements, do
+  //     4.a. If elementRecord.[[Kind]] is field or accessor, then
+  //         4.a.i. Perform ? InitializeFieldOrAccessor(O, elementRecord).
+  //
+
+  // TODO: (See Bug 1817993) At the moment, we're applying the initialization
+  // logic in two steps. The pre-decorator initialization code runs, stores
+  // the initial value, and then we retrieve it here and apply the
+  // initializers added by decorators. We should unify these two steps.
+  if (!emitGetName(TaggedParserAtomIndex::WellKnown::dotStaticInitializers())) {
+    //          [stack] CTOR ARRAY
+    return false;
+  }
+
+  if (!emit1(JSOp::Dup)) {
+    //          [stack] CTOR ARRAY ARRAY
+    return false;
+  }
+
+  if (!emitAtomOp(JSOp::GetProp, TaggedParserAtomIndex::WellKnown::length())) {
+    //          [stack] CTOR ARRAY LENGTH
+    return false;
+  }
+
+  if (!emitNumberOp(static_cast<double>(numFields))) {
+    //          [stack] CTOR ARRAY LENGTH INDEX
+    return false;
+  }
+
+  WhileEmitter wh(this);
+  // At this point, we have no context to determine offsets in the
+  // code for this while statement. Ideally, it would correspond to
+  // the field we're initializing.
+  if (!wh.emitCond(0, 0, 0)) {
+    //          [stack] CTOR ARRAY LENGTH INDEX
+    return false;
+  }
+
+  if (!emit1(JSOp::Dup)) {
+    //          [stack] CTOR ARRAY LENGTH INDEX INDEX
+    return false;
+  }
+
+  if (!emitDupAt(2)) {
+    //          [stack] CTOR ARRAY LENGTH INDEX INDEX LENGTH
+    return false;
+  }
+
+  if (!emit1(JSOp::Lt)) {
+    //          [stack] CTOR ARRAY LENGTH INDEX BOOL
+    return false;
+  }
+
+  if (!wh.emitBody()) {
+    //          [stack] CTOR ARRAY LENGTH INDEX
+    return false;
+  }
+
+  if (!emitDupAt(2)) {
+    //          [stack] CTOR ARRAY LENGTH INDEX ARRAY
+    return false;
+  }
+
+  if (!emitDupAt(1)) {
+    //          [stack] CTOR ARRAY LENGTH INDEX ARRAY INDEX
+    return false;
+  }
+
+  // Retrieve initializers for this field
+  if (!emit1(JSOp::GetElem)) {
+    //            [stack] CTOR ARRAY LENGTH INDEX INITIALIZERS
+    return false;
+  }
+
+  if (!emitDupAt(4)) {
+    //            [stack] CTOR ARRAY LENGTH INDEX INITIALIZERS CTOR
+    return false;
+  }
+
+  if (!emit1(JSOp::Swap)) {
+    //            [stack] CTOR ARRAY LENGTH INDEX CTOR INITIALIZERS
+    return false;
+  }
+
+  DecoratorEmitter de(this);
+  if (!de.emitInitializeFieldOrAccessor()) {
+    //            [stack] CTOR ARRAY LENGTH INDEX
+    return false;
+  }
+
+  if (!emit1(JSOp::Inc)) {
+    //            [stack] CTOR ARRAY LENGTH INDEX
+    return false;
+  }
+
+  if (!wh.emitEnd()) {
+    //          [stack] CTOR ARRAY LENGTH INDEX
+    return false;
+  }
+
+  if (!emitPopN(3)) {
+    //            [stack] CTOR
+    return false;
+  }
+  // 5. Return unused.
+#endif
 
   // Overwrite |.staticInitializers| and |.staticFieldKeys| with undefined to
   // avoid keeping the arrays alive indefinitely.
@@ -11234,7 +11590,12 @@ bool BytecodeEmitter::emitClass(
 
       // Any class with field initializers will have a constructor
       if (!emitCreateMemberInitializers(ce, classMembers,
-                                        FieldPlacement::Instance)) {
+                                        FieldPlacement::Instance
+#ifdef ENABLE_DECORATORS
+                                        ,
+                                        isDerived
+#endif
+                                        )) {
         return false;
       }
     }
@@ -11272,7 +11633,12 @@ bool BytecodeEmitter::emitClass(
     return false;
   }
 
-  if (!emitCreateMemberInitializers(ce, classMembers, FieldPlacement::Static)) {
+  if (!emitCreateMemberInitializers(ce, classMembers, FieldPlacement::Static
+#ifdef ENABLE_DECORATORS
+                                    ,
+                                    false
+#endif
+                                    )) {
     return false;
   }
 

@@ -34,7 +34,6 @@
 #include "jsnum.h"
 #include "jstypes.h"
 
-#include "frontend/BytecodeCompiler.h"
 #include "frontend/FoldConstants.h"
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
 #include "frontend/ModuleSharedContext.h"
@@ -42,7 +41,7 @@
 #include "frontend/ParseNodeVerify.h"
 #include "frontend/ParserAtom.h"  // TaggedParserAtomIndex, ParserAtomsTable, ParserAtom
 #include "frontend/ScriptIndex.h"  // ScriptIndex
-#include "frontend/TokenStream.h"
+#include "frontend/TokenStream.h"  // IsKeyword, ReservedWordTokenKind, ReservedWordToCharZ, DeprecatedContent, *TokenStream*, CharBuffer, TokenKindToDesc
 #include "irregexp/RegExpAPI.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/HashTable.h"
@@ -808,8 +807,12 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredPrivateName(
   PrivateNameKind kind;
   switch (propType) {
     case PropertyType::Field:
-    case PropertyType::FieldWithAccessor:
       kind = PrivateNameKind::Field;
+      break;
+    case PropertyType::FieldWithAccessor:
+      // In this case, we create a new private field for the underlying storage,
+      // and use the current name for the getter and setter.
+      kind = PrivateNameKind::GetterSetter;
       break;
     case PropertyType::Method:
     case PropertyType::GeneratorMethod:
@@ -4966,7 +4969,7 @@ bool GeneralParser<ParseHandler, Unit>::assertClause(
     ListNodeType assertionsSet) {
   MOZ_ASSERT(anyChars.isCurrentTokenType(TokenKind::Assert));
 
-  if (!options().importAssertions) {
+  if (!options().importAssertions()) {
     error(JSMSG_IMPORT_ASSERTIONS_NOT_SUPPORTED);
     return false;
   }
@@ -7811,6 +7814,8 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
     }
 
 #ifdef ENABLE_DECORATORS
+    ClassMethodType accessorGetterNode = null();
+    ClassMethodType accessorSetterNode = null();
     if (propType == PropertyType::FieldWithAccessor) {
       // Decorators Proposal
       // https://arai-a.github.io/ecma262-compare/?pr=2417&id=sec-runtime-semantics-classfielddefinitionevaluation
@@ -7842,26 +7847,46 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
 
       // Step 5. Let getter be MakeAutoAccessorGetter(homeObject, name,
       // privateStateName).
-      Node method = synthesizeAccessor(
+      accessorGetterNode = synthesizeAccessor(
           propName, propNamePos, propAtom, privateStateName, isStatic,
-          FunctionSyntaxKind::Getter, decorators, classInitializedMembers);
-      if (!method) {
+          FunctionSyntaxKind::Getter, classInitializedMembers);
+      if (!accessorGetterNode) {
         return false;
       }
-      if (!handler_.addClassMemberDefinition(classMembers, method)) {
-        return false;
+      // If the accessor is not decorated or is a non-static private field,
+      // add it to the class here. Otherwise, we'll handle this when the
+      // decorators are called. We don't need to keep a reference to the node
+      // after this except for non-static private accessors. Please see the
+      // comment in the definition of ClassField for details.
+      bool addAccessorImmediately =
+          !decorators || (!isStatic && handler_.isPrivateName(propName));
+      if (addAccessorImmediately) {
+        if (!handler_.addClassMemberDefinition(classMembers,
+                                               accessorGetterNode)) {
+          return false;
+        }
+        if (!handler_.isPrivateName(propName)) {
+          accessorGetterNode = null();
+        }
       }
 
       // Step 6. Let setter be MakeAutoAccessorSetter(homeObject, name,
       // privateStateName).
-      method = synthesizeAccessor(
+      accessorSetterNode = synthesizeAccessor(
           propName, propNamePos, propAtom, privateStateName, isStatic,
-          FunctionSyntaxKind::Setter, decorators, classInitializedMembers);
-      if (!method) {
+          FunctionSyntaxKind::Setter, classInitializedMembers);
+      if (!accessorSetterNode) {
         return false;
       }
-      if (!handler_.addClassMemberDefinition(classMembers, method)) {
-        return false;
+
+      if (addAccessorImmediately) {
+        if (!handler_.addClassMemberDefinition(classMembers,
+                                               accessorSetterNode)) {
+          return false;
+        }
+        if (!handler_.isPrivateName(propName)) {
+          accessorSetterNode = null();
+        }
       }
 
       // Step 10. Return ClassElementDefinition Record { [[Key]]: name,
@@ -7870,7 +7895,9 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
       // initializers, [[Decorators]]: empty }.
       propName = handler_.newPrivateName(privateStateName, pos());
       propAtom = privateStateName;
-      decorators = handler_.newList(ParseNodeKind::DecoratorList, pos());
+      // We maintain `decorators` here to perform this step at the same time:
+      // https://arai-a.github.io/ecma262-compare/?pr=2417&id=sec-static-semantics-classelementevaluation
+      // 4. Set fieldDefinition.[[Decorators]] to decorators.
     }
 #endif
     if (isStatic) {
@@ -7895,7 +7922,7 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
         propName, initializer, isStatic
 #ifdef ENABLE_DECORATORS
         ,
-        decorators, propType == PropertyType::FieldWithAccessor
+        decorators, accessorGetterNode, accessorSetterNode
 #endif
     );
     if (!field) {
@@ -9059,11 +9086,11 @@ GeneralParser<ParseHandler, Unit>::synthesizePrivateMethodInitializer(
 #ifdef ENABLE_DECORATORS
 
 template <class ParseHandler, typename Unit>
-typename ParseHandler::Node
+typename ParseHandler::ClassMethodType
 GeneralParser<ParseHandler, Unit>::synthesizeAccessor(
     Node propName, TokenPos propNamePos, TaggedParserAtomIndex propAtom,
     TaggedParserAtomIndex privateStateNameAtom, bool isStatic,
-    FunctionSyntaxKind syntaxKind, ListNodeType decorators,
+    FunctionSyntaxKind syntaxKind,
     ClassInitializedMembers& classInitializedMembers) {
   // Decorators Proposal
   // https://arai-a.github.io/ecma262-compare/?pr=2417&id=sec-makeautoaccessorgetter
@@ -9084,7 +9111,7 @@ GeneralParser<ParseHandler, Unit>::synthesizeAccessor(
                                   : AccessorType::Setter;
 
   mozilla::Maybe<FunctionNodeType> initializerIfPrivate = Nothing();
-  if (handler_.isPrivateName(propName)) {
+  if (!isStatic && handler_.isPrivateName(propName)) {
     classInitializedMembers.privateAccessors++;
     auto initializerNode =
         synthesizePrivateMethodInitializer(propAtom, accessorType, propNamePos);
@@ -9100,8 +9127,16 @@ GeneralParser<ParseHandler, Unit>::synthesizeAccessor(
   //
   // https://arai-a.github.io/ecma262-compare/?pr=2417&id=sec-makeautoaccessorsetter
   // 2. Let setter be CreateBuiltinFunction(setterClosure, 1, "set", « »).
-  FunctionNodeType funNode =
-      synthesizeAccessorBody(propNamePos, privateStateNameAtom, syntaxKind);
+  StringBuffer storedMethodName(fc_);
+  if (!storedMethodName.append(accessorType == AccessorType::Getter ? "get"
+                                                                    : "set")) {
+    return null();
+  }
+  TaggedParserAtomIndex funNameAtom =
+      storedMethodName.finishParserAtom(this->parserAtoms(), fc_);
+
+  FunctionNodeType funNode = synthesizeAccessorBody(
+      funNameAtom, propNamePos, privateStateNameAtom, syntaxKind);
   if (!funNode) {
     return null();
   }
@@ -9113,16 +9148,15 @@ GeneralParser<ParseHandler, Unit>::synthesizeAccessor(
   // https://arai-a.github.io/ecma262-compare/?pr=2417&id=sec-makeautoaccessorsetter
   // 3. Perform MakeMethod(setter, homeObject).
   // 4. Return setter.
-  return handler_.newClassMethodDefinition(propName, funNode, accessorType,
-                                           isStatic, initializerIfPrivate,
-                                           decorators);
+  return handler_.newClassMethodDefinition(
+      propName, funNode, accessorType, isStatic, initializerIfPrivate, null());
 }
 
 template <class ParseHandler, typename Unit>
 typename ParseHandler::FunctionNodeType
 GeneralParser<ParseHandler, Unit>::synthesizeAccessorBody(
-    TokenPos propNamePos, TaggedParserAtomIndex propAtom,
-    FunctionSyntaxKind syntaxKind) {
+    TaggedParserAtomIndex funNameAtom, TokenPos propNamePos,
+    TaggedParserAtomIndex propNameAtom, FunctionSyntaxKind syntaxKind) {
   if (!abortIfSyntaxParser()) {
     return null();
   }
@@ -9142,8 +9176,8 @@ GeneralParser<ParseHandler, Unit>::synthesizeAccessorBody(
   // Create the FunctionBox and link it to the function object.
   Directives directives(true);
   FunctionBox* funbox =
-      newFunctionBox(funNode, TaggedParserAtomIndex::null(), flags,
-                     propNamePos.begin, directives, generatorKind, asyncKind);
+      newFunctionBox(funNode, funNameAtom, flags, propNamePos.begin, directives,
+                     generatorKind, asyncKind);
   if (!funbox) {
     return null();
   }
@@ -9189,7 +9223,7 @@ GeneralParser<ParseHandler, Unit>::synthesizeAccessorBody(
     return null();
   }
 
-  NameNodeType privateNameNode = privateNameReference(propAtom);
+  NameNodeType privateNameNode = privateNameReference(propNameAtom);
   if (!privateNameNode) {
     return null();
   }
@@ -12792,7 +12826,7 @@ GeneralParser<ParseHandler, Unit>::importExpr(YieldHandling yieldHandling,
     }
 
     Node optionalArg;
-    if (options().importAssertions) {
+    if (options().importAssertions()) {
       if (next == TokenKind::Comma) {
         tokenStream.consumeKnownToken(TokenKind::Comma,
                                       TokenStream::SlashIsRegExp);

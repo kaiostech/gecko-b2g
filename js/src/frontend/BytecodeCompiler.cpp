@@ -13,7 +13,6 @@
 
 #include "debugger/DebugAPI.h"
 #include "ds/LifoAlloc.h"
-#include "frontend/BytecodeCompilation.h"
 #include "frontend/BytecodeEmitter.h"
 #include "frontend/CompilationStencil.h"
 #include "frontend/EitherParser.h"
@@ -430,6 +429,14 @@ frontend::CompileGlobalScriptToExtensibleStencil(
                                                     srcBuf, scopeKind);
 }
 
+static void FireOnNewScript(JSContext* cx,
+                            const JS::InstantiateOptions& options,
+                            JS::Handle<JSScript*> script) {
+  if (!options.hideFromNewScriptInitial()) {
+    DebugAPI::onNewScript(cx, script);
+  }
+}
+
 bool frontend::InstantiateStencils(JSContext* cx, CompilationInput& input,
                                    const CompilationStencil& stencil,
                                    CompilationGCOutput& gcOutput) {
@@ -443,32 +450,18 @@ bool frontend::InstantiateStencils(JSContext* cx, CompilationInput& input,
     }
   }
 
-  // Enqueue an off-thread source compression task after finishing parsing.
-  if (!cx->isHelperThreadContext()) {
-    if (!stencil.source->tryCompressOffThread(cx)) {
-      return false;
-    }
+  MOZ_ASSERT(!cx->isHelperThreadContext());
 
-    Rooted<JSScript*> script(cx, gcOutput.script);
-    const JS::InstantiateOptions instantiateOptions(input.options);
-    FireOnNewScript(cx, instantiateOptions, script);
+  // Enqueue an off-thread source compression task after finishing parsing.
+  if (!stencil.source->tryCompressOffThread(cx)) {
+    return false;
   }
+
+  Rooted<JSScript*> script(cx, gcOutput.script);
+  const JS::InstantiateOptions instantiateOptions(input.options);
+  FireOnNewScript(cx, instantiateOptions, script);
 
   return true;
-}
-
-bool frontend::PrepareForInstantiate(JSContext* maybeCx, FrontendContext* fc,
-                                     CompilationInput& input,
-                                     const CompilationStencil& stencil,
-                                     CompilationGCOutput& gcOutput) {
-  Maybe<AutoGeckoProfilerEntry> pseudoFrame;
-  if (maybeCx) {
-    pseudoFrame.emplace(maybeCx, "stencil instantiate",
-                        JS::ProfilingCategoryPair::JS_Parsing);
-  }
-
-  return CompilationStencil::prepareForInstantiate(fc, input.atomCache, stencil,
-                                                   gcOutput);
 }
 
 template <typename Unit>
@@ -1278,9 +1271,12 @@ static bool CompileLazyFunctionToStencilMaybeInstantiate(
 }
 
 template <typename Unit>
-static bool DelazifyCanonicalScriptedFunctionImpl(
-    JSContext* cx, FrontendContext* fc, ScopeBindingCache* scopeCache,
-    HandleFunction fun, Handle<BaseScript*> lazy, ScriptSource* ss) {
+static bool DelazifyCanonicalScriptedFunctionImpl(JSContext* cx,
+                                                  FrontendContext* fc,
+                                                  ScopeBindingCache* scopeCache,
+                                                  JS::Handle<JSFunction*> fun,
+                                                  JS::Handle<BaseScript*> lazy,
+                                                  ScriptSource* ss) {
   MOZ_ASSERT(!lazy->hasBytecode(), "Script is already compiled!");
   MOZ_ASSERT(lazy->function() == fun);
 
@@ -1324,7 +1320,7 @@ static bool DelazifyCanonicalScriptedFunctionImpl(
 
 bool frontend::DelazifyCanonicalScriptedFunction(JSContext* cx,
                                                  FrontendContext* fc,
-                                                 HandleFunction fun) {
+                                                 JS::Handle<JSFunction*> fun) {
   Maybe<AutoGeckoProfilerEntry> pseudoFrame;
   if (cx) {
     pseudoFrame.emplace(cx, "script delazify",
@@ -1433,7 +1429,7 @@ static JSFunction* CompileStandaloneFunction(
     JSContext* cx, const JS::ReadOnlyCompileOptions& options,
     JS::SourceText<char16_t>& srcBuf, const Maybe<uint32_t>& parameterListEnd,
     FunctionSyntaxKind syntaxKind, GeneratorKind generatorKind,
-    FunctionAsyncKind asyncKind, Handle<Scope*> enclosingScope = nullptr) {
+    FunctionAsyncKind asyncKind, JS::Handle<Scope*> enclosingScope = nullptr) {
   JS::Rooted<JSFunction*> fun(cx);
   {
     AutoReportFrontendContext fc(cx);
@@ -1482,11 +1478,11 @@ static JSFunction* CompileStandaloneFunction(
         CompilationStencil::TopLevelIndex);
     MOZ_ASSERT(fun->hasBytecode() || IsAsmJSModule(fun));
 
+    MOZ_ASSERT(!cx->isHelperThreadContext());
+
     // Enqueue an off-thread source compression task after finishing parsing.
-    if (!cx->isHelperThreadContext()) {
-      if (!source->tryCompressOffThread(cx)) {
-        return nullptr;
-      }
+    if (!source->tryCompressOffThread(cx)) {
+      return nullptr;
     }
 
     // Note: If AsmJS successfully compiles, the into.script will still be
@@ -1496,8 +1492,6 @@ static JSFunction* CompileStandaloneFunction(
       if (parameterListEnd) {
         source->setParameterListEnd(*parameterListEnd);
       }
-
-      MOZ_ASSERT(!cx->isHelperThreadContext());
 
       const JS::InstantiateOptions instantiateOptions(options);
       Rooted<JSScript*> script(cx, gcOutput.get().script);
@@ -1548,18 +1542,10 @@ JSFunction* frontend::CompileStandaloneAsyncGenerator(
 JSFunction* frontend::CompileStandaloneFunctionInNonSyntacticScope(
     JSContext* cx, const JS::ReadOnlyCompileOptions& options,
     JS::SourceText<char16_t>& srcBuf, const Maybe<uint32_t>& parameterListEnd,
-    FunctionSyntaxKind syntaxKind, Handle<Scope*> enclosingScope) {
+    FunctionSyntaxKind syntaxKind, JS::Handle<Scope*> enclosingScope) {
   MOZ_ASSERT(enclosingScope);
   return CompileStandaloneFunction(cx, options, srcBuf, parameterListEnd,
                                    syntaxKind, GeneratorKind::NotGenerator,
                                    FunctionAsyncKind::SyncFunction,
                                    enclosingScope);
-}
-
-void frontend::FireOnNewScript(JSContext* cx,
-                               const JS::InstantiateOptions& options,
-                               JS::Handle<JSScript*> script) {
-  if (!options.hideFromNewScriptInitial()) {
-    DebugAPI::onNewScript(cx, script);
-  }
 }

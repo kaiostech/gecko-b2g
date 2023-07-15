@@ -39,8 +39,11 @@ class SoftapEventService
 
 #if ANDROID_VERSION <= 29
   // IApInterfaceEventCallback
+
+  // TODO: check status of onNumAssociatedStationsChanged
   android::binder::Status onNumAssociatedStationsChanged(
-      int32_t numStations) override;
+      int32_t numStations);
+
   android::binder::Status onSoftApChannelSwitched(int32_t frequency,
                                                   int32_t bandwidth) override;
 #endif

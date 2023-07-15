@@ -7,8 +7,11 @@
 #include "TrafficStats.h"
 #include <inttypes.h>
 
+// FIXME
+#if 1
 using android::bpf::bpfGetIfaceStats;
 using android::bpf::stats_line;
+#endif 
 
 namespace mozilla {
 
@@ -28,6 +31,8 @@ NS_IMPL_ISUPPORTS(TrafficStats, nsITrafficStats)
 
 NS_IMETHODIMP
 TrafficStats::GetStats(nsTArray<RefPtr<nsIStatsInfo>>& aStatsInfos) {
+// FIXME: stats_line is not found
+#if 1
   std::vector<stats_line> lines;
   if (parseBpfNetworkStatsDev(&lines) == 0) {
     for (auto line : lines) {
@@ -37,6 +42,7 @@ TrafficStats::GetStats(nsTArray<RefPtr<nsIStatsInfo>>& aStatsInfos) {
       aStatsInfos.AppendElement(std::move(statsInfo));
     }
   }
+#endif
   return NS_OK;
 }
 

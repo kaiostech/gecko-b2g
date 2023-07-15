@@ -7,6 +7,9 @@
 #ifndef MOZILLA_GFX_LOGGING_CONSTANTS_H_
 #define MOZILLA_GFX_LOGGING_CONSTANTS_H_
 
+#undef LOG_WARNING
+#undef LOG_DEBUG
+
 namespace mozilla {
 namespace gfx {
 

@@ -11,6 +11,8 @@ def Libxul_defines():
     LIBRARY_DEFINES["IMPL_LIBXUL"] = True
     if not CONFIG["JS_SHARED_LIBRARY"]:
         LIBRARY_DEFINES["STATIC_EXPORTABLE_JS_API"] = True
+    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+        LIBRARY_DEFINES["DO_NOT_CHECK_MANUAL_BINDER_INTERFACES"] = True
 
 
 @template
@@ -19,6 +21,11 @@ def AOSPSharedObjects(*sharedobjects):
         path = CONFIG["GONK_PATH"] + "/libs/" + so + ".so"
         LDFLAGS += [path]
 
+@template
+def AOSPStaticObjects(*staticobjects):
+    for s in staticobjects:
+        path = CONFIG["GONK_PATH"] + "/libs/" + s + ".a"
+        LDFLAGS += [path]
 
 @template
 def Libxul(name, output_category=None):
@@ -141,7 +148,6 @@ def Libxul(name, output_category=None):
             "media_helper",
             "mtp",
             "nativewindow",
-            "netdbpf",
             "stagefright",
             "stagefright_foundation",
             "stagefright_omx",
@@ -178,8 +184,14 @@ def Libxul(name, output_category=None):
             "binder_b2g_stub",
             "dnsresolver_aidl_interface-V2-cpp",
             "netd_aidl_interface-V2-cpp",
+            "netd_aidl_interface-V10-cpp",
             "netd_event_listener_interface-V1-cpp",
+            "oemnetd_aidl_interface-cpp",
         )
+        if CONFIG["ANDROID_VERSION"] <= "30":
+            OS_LIBS += [
+                "netdbpf",
+            ]
         if CONFIG["ANDROID_VERSION"] >= "29":
             AOSPSharedObjects(
                 "android.hardware.gnss@1.1",
@@ -193,16 +205,39 @@ def Libxul(name, output_category=None):
                 "binder_b2g_telephony_interface-cpp",
                 "binder_b2g_remotesimunlock_interface-cpp",
             )
-        if CONFIG["ANDROID_VERSION"] >= "30":
+        if CONFIG["ANDROID_VERSION"] == "30":
             AOSPSharedObjects(
                 "android.hardware.power-V1-cpp",
                 "android.hardware.vibrator-V1-cpp",
+            )
+        if CONFIG["ANDROID_VERSION"] >= "30":
+            AOSPSharedObjects(
                 "android.hardware.wifi@1.4",
                 "android.hardware.wifi.supplicant@1.3",
                 "binder_b2g_connectivity_interface-V1-cpp",
                 "binder_b2g_system_interface-V1-cpp",
                 "binder_b2g_telephony_interface-V1-cpp",
                 "binder_b2g_remotesimunlock_interface-V1-cpp",
+            )
+        if CONFIG["ANDROID_VERSION"] == "33":
+            LDFLAGS += ["-v"]
+            OS_LIBS += [
+                "activitymanager_aidl",
+                "audiopolicyservice",
+                "binder_ndk",
+                "input",
+                "networkstats",
+            ]
+            AOSPStaticObjects(
+                "libvold_binder",
+            )
+            AOSPSharedObjects(
+                "android.frameworks.stats@1.0",
+                "android.frameworks.stats-V1-ndk",
+                "android.hardware.power-V3-cpp",
+                "android.hardware.vibrator-V2-cpp",
+                "android.hardware.wifi@1.5",
+                "audiopolicy-aidl-cpp",
             )
 
         if CONFIG["B2G_OEMHOOK"]:

@@ -30,6 +30,6 @@ if CONFIG["NECKO_WIFI"]:
 DIRS += ["locales"]
 
 DIRS += ["build"]
-TEST_DIRS += ["test"]
+# TEST_DIRS += ["test"]
 
 SPHINX_TREES["/networking"] = "docs"

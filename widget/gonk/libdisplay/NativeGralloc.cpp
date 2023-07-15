@@ -79,8 +79,8 @@ void native_gralloc_initialize(int framebuffer) {
         atexit(native_gralloc_deinitialize);
       } else {
         if (framebuffer) {
-          if (framebuffer_open(gralloc_hardware_module, &framebuffer_device) ==
-              0) {
+	  int rv = framebuffer_open(gralloc_hardware_module, &framebuffer_device);
+          if (rv == 0) {
             if ((gralloc_open(gralloc_hardware_module, &gralloc0_alloc) == 0) &&
                 gralloc0_alloc != NULL) {
               // success
@@ -94,7 +94,7 @@ void native_gralloc_initialize(int framebuffer) {
               assert(NULL);
             }
           } else {
-            ALOGI("failed to open the framebuffer module");
+            ALOGI("failed to open the framebuffer module ret=%d (%s)", rv, strerror(-rv));
             assert(NULL);
           }
         } else if ((gralloc_open(gralloc_hardware_module, &gralloc0_alloc) ==

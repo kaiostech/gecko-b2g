@@ -19,6 +19,10 @@
 #  include <sstream>
 #endif
 
+#undef LOG_INFO
+#undef LOG_WARNING
+#undef LOG_ERROR
+
 // Replace the Chromium logging code with NSPR-based logging code and
 // some C++ wrappers to emulate std::ostream
 

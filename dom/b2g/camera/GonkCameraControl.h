@@ -23,16 +23,19 @@
 #include "DeviceStorage.h"
 #include "CameraControlImpl.h"
 #include "CameraCommon.h"
-#include "GonkCameraHwMgr.h"
 #include "GonkCameraParameters.h"
 
+// #  include <utils/Log.h>
 #ifdef MOZ_WIDGET_GONK
+#  include <log/log_main.h>
 #  include <media/MediaProfiles.h>
 #  include <camera/Camera.h>
 #  include "GonkRecorder.h"
 #else
 #  include "FallbackCameraPlatform.h"
 #endif
+
+#include "GonkCameraHwMgr.h"
 
 class nsITimer;
 

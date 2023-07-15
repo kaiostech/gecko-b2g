@@ -30,7 +30,7 @@
 #include <utils/threads.h>
 #include <utils/List.h>
 #include <utils/Errors.h>
-#include <utils/PropertyMap.h>
+#include <input/PropertyMap.h>
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
 

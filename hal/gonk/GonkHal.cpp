@@ -1340,6 +1340,12 @@ class FlashlightListener : public BnCameraServiceListener {
   }
 #endif
 
+#if ANDROID_VERSION >= 33
+  Status onTorchStrengthLevelChanged(const ::android::String16& cameraId, int32_t newTorchStrength) override {
+    return Status::ok();
+  }
+#endif
+
   Status onTorchStatusChanged(int32_t status,
                               const String16& cameraId) override {
     AutoMutex l(mLock);

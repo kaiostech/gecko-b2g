@@ -132,11 +132,32 @@ class GonkBufferQueueConsumer : public BnGonkGraphicBufferConsumer {
   // NATIVE_WINDOW_TRANSFORM_ROT_90.  The default is 0 (no transform).
   virtual status_t setTransformHint(uint32_t hint);
 
+#if 1
   // Retrieve the sideband buffer stream, if any.
-  virtual sp<NativeHandle> getSidebandStream() const;
+  virtual status_t getSidebandStream(sp<NativeHandle>* outStream) const;
 
+  virtual status_t getOccupancyHistory(bool forceFlush,
+                                       std::vector<OccupancyTracker::Segment>* outHistory);
+
+  // discardFreeBuffers releases all currently-free buffers held by the BufferQueue, in order to
+  // reduce the memory consumption of the BufferQueue to the minimum possible without
+  // discarding data.
+  // The consumer invoking this method is responsible for calling getReleasedBuffers() after this
+  // call to free up any of its locally cached buffers.
+  virtual status_t discardFreeBuffers();
+
+  // dump state into a string
+  virtual status_t dumpState(const String8& prefix, String8* outResult) const;
+
+  // // Provide backwards source compatibility
+  // void dumpState(String8& result, const char* prefix) {
+  //     String8 returned;
+  //     dumpState(String8(prefix), &returned);
+  //     result.append(returned);
+  // }
   // dump our state in a String
   virtual void dumpToString(String8& result, const char* prefix) const;
+#endif
 
   // Added by mozilla
   virtual already_AddRefed<GonkBufferSlot::TextureClient>

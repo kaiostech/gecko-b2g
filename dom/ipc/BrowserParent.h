@@ -7,6 +7,9 @@
 #ifndef mozilla_dom_BrowserParent_h
 #define mozilla_dom_BrowserParent_h
 
+#include <android/binder_parcel.h>
+#include <android/binder_status.h>
+
 #include <utility>
 
 #include "LiveResizeListener.h"

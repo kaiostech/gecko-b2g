@@ -207,10 +207,12 @@ enum {
 };
 
 class BpGonkGraphicBufferConsumer
-    : public BpInterface<IGonkGraphicBufferConsumer> {
+    : public SafeBpInterface<IGonkGraphicBufferConsumer> {
  public:
   explicit BpGonkGraphicBufferConsumer(const sp<IBinder>& impl)
-      : BpInterface<IGonkGraphicBufferConsumer>(impl) {}
+      : SafeBpInterface<IGonkGraphicBufferConsumer>(impl, "BpGonkGraphicBufferConsumer") {}
+
+  ~BpGonkGraphicBufferConsumer() {}
 
   virtual status_t acquireBuffer(BufferItem* buffer, nsecs_t presentWhen) {
     Parcel data, reply;
@@ -406,7 +408,7 @@ class BpGonkGraphicBufferConsumer
     return reply.readInt32();
   }
 
-  virtual sp<NativeHandle> getSidebandStream() const {
+  virtual status_t getSidebandStream(sp<NativeHandle>* outStream) const {
     Parcel data, reply;
     status_t err;
     data.writeInterfaceToken(
@@ -415,11 +417,27 @@ class BpGonkGraphicBufferConsumer
         NO_ERROR) {
       return NULL;
     }
-    sp<NativeHandle> stream;
     if (reply.readInt32()) {
-      stream = NativeHandle::create(reply.readNativeHandle(), true);
+      *outStream = NativeHandle::create(reply.readNativeHandle(), true);
     }
-    return stream;
+    return reply.readInt32();;
+  }
+
+    virtual status_t getOccupancyHistory(bool forceFlush,
+                                         std::vector<OccupancyTracker::Segment>* outHistory) {
+        // FIXME
+        return NO_ERROR;
+    }
+
+    virtual status_t discardFreeBuffers() {
+        // FIXME
+        return NO_ERROR;
+    }
+
+    // dump state into a string
+    virtual status_t dumpState(const String8& prefix, String8* outResult) const {
+        // FIXME
+        return NO_ERROR;
   }
 
   virtual void dumpToString(String8& result, const char* prefix) const {
@@ -448,6 +466,7 @@ class BpGonkGraphicBufferConsumer
   }
 };
 
+// FIXME: "b/64223827: Manually written binder interfaces are considered error prone and frequently have bugs. The preferred way to add interfaces is to define an .aidl file to auto-generate the interface. If an interface must be manually written, add its name to the whitelist."
 IMPLEMENT_META_INTERFACE(GonkGraphicBufferConsumer,
                          "android.gui.IGonkGraphicBufferConsumer");
 

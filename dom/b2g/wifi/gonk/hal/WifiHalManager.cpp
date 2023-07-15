@@ -188,14 +188,17 @@ Result_t WifiHal::InitWifiInterface() {
       }
     }
 
+    WIFI_LOGE(LOG_TAG, "About to register event callback");
     WifiStatus response;
-    mWifi->registerEventCallback(
+    mWifi->registerEventCallback_1_5(
         this, [&](const WifiStatus& status) { response = status; });
     if (response.code != WifiStatusCode::SUCCESS) {
-      WIFI_LOGE(LOG_TAG, "registerEventCallback failed: %d, reason: %s",
+      WIFI_LOGE(LOG_TAG, "registerEventCallback_1_5 failed: code=%d, reason='%s'",
                 response.code, response.description.c_str());
       mWifi = nullptr;
       return nsIWifiResult::ERROR_COMMAND_FAILED;
+    } else {
+      WIFI_LOGE(LOG_TAG, "Wifi Event Callback registered");
     }
 
     // wifi hal just initialized, stop wifi in case driver is loaded.
@@ -610,6 +613,11 @@ Return<void> WifiHal::onStop() {
 
 Return<void> WifiHal::onFailure(const WifiStatus& status) {
   WIFI_LOGD(LOG_TAG, "WifiEventCallback.onFailure(): %d", status.code);
+  return android::hardware::Void();
+}
+
+Return<void> WifiHal::onSubsystemRestart(const WifiStatus& status) {
+  WIFI_LOGD(LOG_TAG, "WifiEventCallback.onSubsystemRestart(): %d", status.code);
   return android::hardware::Void();
 }
 

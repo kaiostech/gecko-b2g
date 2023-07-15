@@ -98,6 +98,17 @@ android::binder::Status SoftapEventService::onNumAssociatedStationsChanged(
 
 android::binder::Status SoftapEventService::onSoftApChannelSwitched(
     int32_t frequency, int32_t bandwidth) {
+  WIFI_LOGI(LOG_TAG, "onSoftApChannelSwitched frequency=%d bandwith=%d",
+    frequency, bandwidth);
+  return android::binder::Status::ok();
+}
+
+// TODO: FIXME
+android::binder::Status SoftapEventService::onConnectedClientsChanged(
+    const ::android::net::wifi::nl80211::NativeWifiClient& client,
+	  bool isConnected) {
+  WIFI_LOGI(LOG_TAG, "onConnectedClientsChanged isConnected=%s",
+    isConnected ? "yes" : "no");
   return android::binder::Status::ok();
 }
 #endif

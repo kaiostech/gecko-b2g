@@ -262,7 +262,8 @@ bool MozMtpServer::Init() {
   property_get("ro.version", propValueDeviceVersion, "");
   property_get("ro.serialno", propValueSerialNumber, "");
 
-  mMozMtpDatabase = new MozMtpDatabase();
+  // FIXME 
+  // mMozMtpDatabase = new MozMtpDatabase();
   mMtpServer = new RefCountedMtpServer(
       mMozMtpDatabase.get(),   // IMtpDatabase
       0,                       // controlFd

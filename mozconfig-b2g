@@ -1,12 +1,14 @@
 # Compiler
-export CC=$HOME/.mozbuild/clang/bin/clang
-export CXX=$HOME/.mozbuild/clang/bin/clang++
-export LLVMCONFIG=$HOME/.mozbuild/clang/bin/llvm-config
-#export LLVM_CONFIG=$HOME/.mozbuild/clang/bin/llvm-config
-export AR=$HOME/.mozbuild/clang/bin/llvm-ar
-export NM=$HOME/.mozbuild/clang/bin/llvm-nm
-export RANLIB=$HOME/.mozbuild/clang/bin/llvm-ranlib
-#export CBINDGEN=$HOME/.mozbuild/cbindgen/cbindgen
+
+# NDK=$HOME/.mozbuild/android-ndk-r25b
+TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
+
+export CC=$TOOLCHAIN/bin/clang
+export CXX=$TOOLCHAIN/bin/clang++
+export LLVMCONFIG=$TOOLCHAIN/bin/llvm-config
+export AR=$TOOLCHAIN/bin/llvm-ar
+export NM=$TOOLCHAIN/bin/llvm-nm
+export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
 
 # Build B2G
 ac_add_options --enable-application=b2g
@@ -42,7 +44,7 @@ ac_add_options --with-android-ndk=$ANDROID_NDK
 ac_add_options --with-android-version=$PLATFORM_VERSION
 
 # Use sccache
-ac_add_options --with-ccache=sccache
+# ac_add_options --with-ccache=sccache
 
 # Auto-clobber
 mk_add_options AUTOCLOBBER=1
@@ -158,6 +160,10 @@ ac_add_options --enable-sandbox
 
 ac_add_options --enable-wasm-function-references
 ac_add_options --enable-wasm-gc
+
+ac_add_options --disable-b2g-camera
+ac_add_options --disable-b2g-mediadrm
+ac_add_options --disable-accessibility
 
 # Disable WASM libraries sandboxing for now until we figure out build failures.
 ac_add_options --without-wasm-sandboxed-libraries

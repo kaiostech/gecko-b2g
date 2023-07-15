@@ -37,7 +37,7 @@
 #  include "transport/runnable_utils.h"
 #endif
 
-#ifdef MOZ_WIDGET_GONK
+#ifdef MOZ_B2G_CAMERA
 #  include "DOMCameraManager.h"
 #endif
 

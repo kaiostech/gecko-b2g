@@ -99,12 +99,25 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
   sp<AudioTrack> t;
   CallbackData* newcbd = new CallbackData(this);
 
+
   t = new AudioTrack(
-      mStreamType, aSampleRate, aFormat, aChannelMask,
+      mStreamType, 
+      aSampleRate,
+      aFormat,
+      aChannelMask,
+      nullptr);
+/*
       0,  // Offloaded tracks will get frame count from AudioFlinger
-      aFlags, CallbackWrapper, newcbd,
+      aFlags,
+      CallbackWrapper,
+      newcbd,
+      NULL,
       0,  // notification frames
-      mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo, mUid);
+      mSessionId,
+      AudioTrack::TRANSFER_CALLBACK,
+      aOffloadInfo,
+      mUid);
+*/
 
   if ((!t.get()) || (t->initCheck() != NO_ERROR)) {
     AUDIO_OFFLOAD_LOG(LogLevel::Error, ("Unable to create audio track"));
@@ -166,18 +179,20 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
     // by another player, but the format turned out to be incompatible.
     data->Unlock();
     if (buffer) {
-      buffer->size = 0;
+      // FIXME: mSize is private.
+      // buffer->size = 0;
     }
     return;
   }
 
   switch (aEvent) {
     case AudioTrack::EVENT_MORE_DATA: {
+      // FIXME: raw is private.
       size_t actualSize =
-          (*me->mCallback)(me, buffer->raw, buffer->size, me->mCallbackCookie,
+          (*me->mCallback)(me, buffer->data(), buffer->size(), me->mCallbackCookie,
                            CB_EVENT_FILL_BUFFER);
 
-      if (actualSize == 0 && buffer->size > 0) {
+      if (actualSize == 0 && buffer->size() > 0) {
         // Log when no data is returned from the callback.
         // (1) We may have no data (especially with network streaming sources).
         // (2) We may have reached the EOS and the audio track is not stopped
@@ -193,7 +208,8 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
                           ("Callback wrapper: empty buffer returned"));
       }
 
-      buffer->size = actualSize;
+      // FIXME: mSize is private.
+      // buffer->size = actualSize;
     } break;
 
     case AudioTrack::EVENT_STREAM_END:

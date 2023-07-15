@@ -529,14 +529,35 @@ status_t GonkBufferQueueConsumer::setTransformHint(uint32_t hint) {
   return NO_ERROR;
 }
 
-sp<NativeHandle> GonkBufferQueueConsumer::getSidebandStream() const {
-  return mCore->mSidebandStream;
+// FIXME
+#if 1
+status_t GonkBufferQueueConsumer::getSidebandStream(sp<NativeHandle>* outStream) const {
+  // FIXME
+  return NO_ERROR;
+}
+
+status_t GonkBufferQueueConsumer::getOccupancyHistory(bool forceFlush,
+                             std::vector<OccupancyTracker::Segment>* outHistory) {
+  // FIXME
+      return NO_ERROR;
+}
+
+status_t GonkBufferQueueConsumer::discardFreeBuffers() {
+  // FIXME
+  return NO_ERROR;
+}
+
+// dump state into a string
+status_t GonkBufferQueueConsumer::dumpState(const String8& prefix, String8* outResult) const {
+  // FIXME
+  return NO_ERROR;
 }
 
 void GonkBufferQueueConsumer::dumpToString(String8& result,
                                            const char* prefix) const {
   mCore->dump(result, prefix);
 }
+#endif
 
 already_AddRefed<GonkBufferSlot::TextureClient>
 GonkBufferQueueConsumer::getTextureClientFromBuffer(

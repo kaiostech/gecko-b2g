@@ -21,7 +21,7 @@
 #include "InputDevice.h"
 #include <utils/Errors.h>
 #include <utils/String8.h>
-#include <utils/PropertyMap.h>
+#include <input/PropertyMap.h>
 
 namespace android {
 

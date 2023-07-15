@@ -49,7 +49,7 @@ fi
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r21d}
+ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r25b}
 export ANDROID_NDK="${ANDROID_NDK/#\~/$HOME}"
 
 TARGET_GCC_VERSION=${TARGET_GCC_VERSION:-4.9}
@@ -115,7 +115,10 @@ else
     export DISABLE_OEMHOOK=1
 fi
 
-if [ "$PLATFORM_VERSION" == "30" ]; then
+if [ "$PLATFORM_VERSION" == "33" ]; then
+  export MOZ_DISABLE_LTO=1
+  SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot-aosp13.sh
+elif [ "$PLATFORM_VERSION" == "30" ]; then
   # FIXME: bug 134833 - disable lto to make build happy.
   export MOZ_DISABLE_LTO=1
   SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot-aosp11.sh

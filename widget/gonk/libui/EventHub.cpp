@@ -1381,8 +1381,10 @@ void EventHub::loadConfigurationLocked(Device* device) {
     ALOGD("No input device configuration file found for device '%s'.",
           device->identifier.name.string());
   } else {
-    status_t status =
-        PropertyMap::load(device->configurationFile, &device->configuration);
+    status_t status;
+        // =
+        // FIXME: too many arguments to function call, expected 1, have 2;
+        // PropertyMap::load(device->configurationFile, &device->configuration);
     if (status) {
       ALOGE(
           "Error loading input device configuration file for device '%s'.  "

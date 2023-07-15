@@ -179,7 +179,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
   mAudioSessionId = static_cast<audio_session_t>(
       AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION));
 #if ANDROID_VERSION >= 30
-  AudioSystem::acquireAudioSessionId(mAudioSessionId, -1, 0);
+  AudioSystem::acquireAudioSessionId(mAudioSessionId, -1, -1);
 #else
   AudioSystem::acquireAudioSessionId(mAudioSessionId, -1);
 #endif
@@ -196,7 +196,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
 
     audio_offload_info_t offloadInfo = AUDIO_INFO_INITIALIZER;
     offloadInfo.sample_rate = sampleRate;
-    offloadInfo.channel_mask = channelMask;
+    offloadInfo.channel_mask = static_cast<audio_channel_mask_t>(channelMask);
     offloadInfo.format = audioFormat;
     offloadInfo.stream_type = streamType;
     offloadInfo.bit_rate = bitrate;
@@ -220,7 +220,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
         offloadInfo.has_video, offloadInfo.is_streaming, offloadInfo.bit_width,
         offloadInfo.offload_buffer_size);
 
-    err = mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
+    err = mAudioSink->Open(sampleRate, channels, static_cast<audio_channel_mask_t>(channelMask), audioFormat,
                            &AudioOffloadPlayer::AudioSinkCallback, this,
                            AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD, &offloadInfo);
     if (err == OK) {
@@ -229,7 +229,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
   } else {
     auto audioFormat = AUDIO_FORMAT_PCM_FLOAT;
 
-    err = mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
+    err = mAudioSink->Open(sampleRate, channels, static_cast<audio_channel_mask_t>(channelMask), audioFormat,
                            &AudioOffloadPlayer::AudioSinkCallback, this,
                            AUDIO_OUTPUT_FLAG_NONE, nullptr);
   }

@@ -27,6 +27,9 @@
 #include "Matrix.h"
 #include "LoggingConstants.h"
 
+#undef LOG_WARNING
+#undef LOG_DEBUG
+
 #if defined(MOZ_LOGGING)
 extern GFX2D_API mozilla::LogModule* GetGFX2DLog();
 #endif
@@ -37,15 +40,15 @@ namespace gfx {
 #if defined(MOZ_LOGGING)
 inline mozilla::LogLevel PRLogLevelForLevel(int aLevel) {
   switch (aLevel) {
-    case LOG_CRITICAL:
+    case gfx::LOG_CRITICAL:
       return LogLevel::Error;
-    case LOG_WARNING:
+    case gfx::LOG_WARNING:
       return LogLevel::Warning;
-    case LOG_DEBUG:
+    case gfx::LOG_DEBUG:
       return LogLevel::Debug;
-    case LOG_DEBUG_PRLOG:
+    case gfx::LOG_DEBUG_PRLOG:
       return LogLevel::Debug;
-    case LOG_EVERYTHING:
+    case gfx::LOG_EVERYTHING:
       return LogLevel::Error;
   }
   return LogLevel::Debug;

@@ -20,7 +20,7 @@ ac_add_options --with-android-version=29
 ac_add_options --target=x86_64-linux-android
 
 # Compiler options
-ac_add_options --with-android-ndk="$HOME/.mozbuild/android-ndk-r21d"
+ac_add_options --with-android-ndk="$HOME/.mozbuild/android-ndk-r25b"
 
 # B2G-specific options
 ac_add_options --with-gonk-gfx

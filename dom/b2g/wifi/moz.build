@@ -29,6 +29,8 @@ if not CONFIG["DISABLE_WIFI"]:
 
     if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         DIRS += ["gonk"]
+    elif CONFIG["OS_TARGET"] == "Linux":
+        DIRS += ["linux"]
     else:
         error(
             "No Wifi support for: %s, configure your build with DISABLE_WIFI (--disable-wifi-support)"

@@ -5,7 +5,6 @@
 import { showMenu } from "../../context-menu/menu";
 
 import {
-  getContext,
   isSourceOverridden,
   isSourceMapIgnoreListEnabled,
   isSourceOnSourceMapIgnoreList,
@@ -51,7 +50,6 @@ export function showSourceTreeItemContextMenu(
     const menuOptions = [];
 
     const state = getState();
-    const cx = getContext(state);
     const isOverridden = isSourceOverridden(state, item.source);
     const isSourceOnIgnoreList =
       isSourceMapIgnoreListEnabled(state) &&
@@ -74,14 +72,14 @@ export function showSourceTreeItemContextMenu(
         label: L10N.getStr(`ignoreContextItem.${ignoreStr}`),
         accesskey: L10N.getStr(`ignoreContextItem.${ignoreStr}.accesskey`),
         disabled: isSourceOnIgnoreList || !shouldBlackbox(source),
-        click: () => dispatch(toggleBlackBox(cx, source)),
+        click: () => dispatch(toggleBlackBox(source)),
       };
       const downloadFileItem = {
         id: "node-menu-download-file",
         label: L10N.getStr("downloadFile.label"),
         accesskey: L10N.getStr("downloadFile.accesskey"),
         disabled: false,
-        click: () => saveLocalFile(cx, dispatch, source),
+        click: () => saveLocalFile(dispatch, source),
       };
 
       const overrideStr = !isOverridden ? "override" : "removeOverride";
@@ -90,7 +88,7 @@ export function showSourceTreeItemContextMenu(
         label: L10N.getStr(`overridesContextItem.${overrideStr}`),
         accesskey: L10N.getStr(`overridesContextItem.${overrideStr}.accesskey`),
         disabled: !!source.isHTML,
-        click: () => handleLocalOverride(cx, dispatch, source, isOverridden),
+        click: () => handleLocalOverride(dispatch, source, isOverridden),
       };
 
       menuOptions.push(
@@ -123,28 +121,28 @@ export function showSourceTreeItemContextMenu(
         });
       }
 
-      addBlackboxAllOption(cx, dispatch, state, menuOptions, item, depth);
+      addBlackboxAllOption(dispatch, state, menuOptions, item, depth);
     }
 
     showMenu(event, menuOptions);
   };
 }
 
-async function saveLocalFile(cx, dispatch, source) {
+async function saveLocalFile(dispatch, source) {
   if (!source) {
     return null;
   }
 
-  const data = await dispatch(loadSourceText(cx, source));
+  const data = await dispatch(loadSourceText(source));
   if (!data) {
     return null;
   }
   return saveAsLocalFile(data.value, source.displayURL.filename);
 }
 
-async function handleLocalOverride(cx, dispatch, source, isOverridden) {
+async function handleLocalOverride(dispatch, source, isOverridden) {
   if (!isOverridden) {
-    const localPath = await saveLocalFile(cx, dispatch, source);
+    const localPath = await saveLocalFile(dispatch, source);
     if (localPath) {
       dispatch(setOverrideSource(source, localPath));
     }
@@ -153,7 +151,7 @@ async function handleLocalOverride(cx, dispatch, source, isOverridden) {
   }
 }
 
-function addBlackboxAllOption(cx, dispatch, state, menuOptions, item, depth) {
+function addBlackboxAllOption(dispatch, state, menuOptions, item, depth) {
   const {
     sourcesInside,
     sourcesOutside,
@@ -190,8 +188,7 @@ function addBlackboxAllOption(cx, dispatch, state, menuOptions, item, depth) {
       : "node-blackbox-all-inside",
     label: blackBoxInsideMenuItemLabel,
     disabled: false,
-    click: () =>
-      dispatch(blackBoxSources(cx, sourcesInside, !allInsideBlackBoxed)),
+    click: () => dispatch(blackBoxSources(sourcesInside, !allInsideBlackBoxed)),
   };
 
   if (sourcesOutside.length) {
@@ -207,9 +204,7 @@ function addBlackboxAllOption(cx, dispatch, state, menuOptions, item, depth) {
           label: blackBoxOutsideMenuItemLabel,
           disabled: false,
           click: () =>
-            dispatch(
-              blackBoxSources(cx, sourcesOutside, !allOutsideBlackBoxed)
-            ),
+            dispatch(blackBoxSources(sourcesOutside, !allOutsideBlackBoxed)),
         },
       ],
     });

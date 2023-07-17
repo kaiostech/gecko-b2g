@@ -105,8 +105,9 @@ void Event::InitPresContextData(nsPresContext* aPresContext) {
   // Get the explicit original target (if it's anonymous make it null)
   {
     nsCOMPtr<nsIContent> content = GetTargetFromFrame();
-    mExplicitOriginalTarget = content;
-    if (content && content->IsInNativeAnonymousSubtree()) {
+    if (content && !content->IsInNativeAnonymousSubtree()) {
+      mExplicitOriginalTarget = std::move(content);
+    } else {
       mExplicitOriginalTarget = nullptr;
     }
   }
@@ -810,15 +811,13 @@ void Event::SetOwner(EventTarget* aOwner) {
     return;
   }
 
-  nsCOMPtr<nsINode> n = do_QueryInterface(aOwner);
-  if (n) {
+  if (nsINode* n = aOwner->GetAsNode()) {
     mOwner = n->OwnerDoc()->GetScopeObject();
     return;
   }
 
-  nsCOMPtr<nsPIDOMWindowInner> w = do_QueryInterface(aOwner);
-  if (w) {
-    mOwner = do_QueryInterface(w);
+  if (nsPIDOMWindowInner* w = aOwner->GetAsWindowInner()) {
+    mOwner = w->AsGlobal();
     return;
   }
 

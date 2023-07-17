@@ -48,7 +48,6 @@ export default class Group extends Component {
 
   static get propTypes() {
     return {
-      cx: PropTypes.object,
       disableContextMenu: PropTypes.bool.isRequired,
       displayFullUrl: PropTypes.bool.isRequired,
       getFrameTitle: PropTypes.func,
@@ -65,9 +64,9 @@ export default class Group extends Component {
   }
 
   onContextMenu(event) {
-    const { group, cx } = this.props;
+    const { group } = this.props;
     const frame = group[0];
-    this.props.showFrameContextMenu(event, frame, cx, true);
+    this.props.showFrameContextMenu(event, frame, true);
   }
 
   toggleFrames = event => {
@@ -77,7 +76,6 @@ export default class Group extends Component {
 
   renderFrames() {
     const {
-      cx,
       group,
       selectFrame,
       selectLocation,
@@ -102,7 +100,6 @@ export default class Group extends Component {
           }
           return acc.concat(
             <FrameComponent
-              cx={cx}
               frame={frame}
               showFrameContextMenu={showFrameContextMenu}
               hideLocation={true}

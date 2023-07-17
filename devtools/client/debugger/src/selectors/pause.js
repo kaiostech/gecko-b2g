@@ -110,7 +110,7 @@ export const getCurrentThreadFrames = createSelector(
       getCurrentThread(state)
     );
     if (framesLoading) {
-      return null;
+      return [];
     }
     return frames;
   },
@@ -239,6 +239,22 @@ export function isTopFrameSelected(state, thread) {
 export function getTopFrame(state, thread) {
   const frames = getFrames(state, thread);
   return frames?.[0];
+}
+
+// getTopFrame wouldn't return the top frame if the frames are still being fetched
+export function getCurrentlyFetchedTopFrame(state, thread) {
+  const { frames } = getThreadPauseState(state.pause, thread);
+  return frames?.[0];
+}
+
+export function hasFrame(state, frame) {
+  // Don't use getFrames as it returns null when the frames are still loading
+  const { frames } = getThreadPauseState(state.pause, frame.thread);
+  if (!frames) {
+    return false;
+  }
+  // Compare IDs and not frame objects as they get cloned during mapping
+  return frames.some(f => f.id == frame.id);
 }
 
 export function getSkipPausing(state) {

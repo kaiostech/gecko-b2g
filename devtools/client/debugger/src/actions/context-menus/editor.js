@@ -22,7 +22,6 @@ import { createBreakpointItems } from "./editor-breakpoint";
 import {
   getPrettySource,
   getIsCurrentThreadPaused,
-  getThreadContext,
   isSourceWithMap,
   getBlackBoxRanges,
   isSourceOnSourceMapIgnoreList,
@@ -45,7 +44,6 @@ export function showEditorContextMenu(event, editor, location) {
   return async ({ dispatch, getState }) => {
     const { source } = location;
     const state = getState();
-    const cx = getThreadContext(state);
     const blackboxedRanges = getBlackBoxRanges(state);
     const isPaused = getIsCurrentThreadPaused(state);
     const hasMappedLocation =
@@ -61,7 +59,6 @@ export function showEditorContextMenu(event, editor, location) {
     showMenu(
       event,
       editorMenuItems({
-        cx,
         blackboxedRanges,
         hasMappedLocation,
         location,
@@ -81,7 +78,6 @@ export function showEditorGutterContextMenu(event, editor, location, lineText) {
   return async ({ dispatch, getState }) => {
     const { source } = location;
     const state = getState();
-    const cx = getThreadContext(state);
     const blackboxedRanges = getBlackBoxRanges(state);
     const isPaused = getIsCurrentThreadPaused(state);
     const isSourceOnIgnoreList =
@@ -89,12 +85,11 @@ export function showEditorGutterContextMenu(event, editor, location, lineText) {
       isSourceOnSourceMapIgnoreList(state, source);
 
     showMenu(event, [
-      ...createBreakpointItems(cx, location, lineText, dispatch),
+      ...createBreakpointItems(location, lineText, dispatch),
       { type: "separator" },
-      continueToHereItem(cx, location, isPaused, dispatch),
+      continueToHereItem(location, isPaused, dispatch),
       { type: "separator" },
       blackBoxLineMenuItem(
-        cx,
         source,
         editor,
         blackboxedRanges,
@@ -107,10 +102,10 @@ export function showEditorGutterContextMenu(event, editor, location, lineText) {
 }
 
 // Menu Items
-const continueToHereItem = (cx, location, isPaused, dispatch) => ({
+const continueToHereItem = (location, isPaused, dispatch) => ({
   accesskey: L10N.getStr("editor.continueToHere.accesskey"),
   disabled: !isPaused,
-  click: () => dispatch(continueToHere(cx, location)),
+  click: () => dispatch(continueToHere(location)),
   id: "node-menu-continue-to-here",
   label: L10N.getStr("editor.continueToHere.label"),
 });
@@ -141,12 +136,7 @@ const copySourceUri2Item = selectedSource => ({
   click: () => copyToTheClipboard(getRawSourceURL(selectedSource.url)),
 });
 
-const jumpToMappedLocationItem = (
-  cx,
-  location,
-  hasMappedLocation,
-  dispatch
-) => ({
+const jumpToMappedLocationItem = (location, hasMappedLocation, dispatch) => ({
   id: "node-menu-jump",
   label: L10N.getFormatStr(
     "editor.jumpToMappedLocation1",
@@ -156,19 +146,18 @@ const jumpToMappedLocationItem = (
   ),
   accesskey: L10N.getStr("editor.jumpToMappedLocation1.accesskey"),
   disabled: !hasMappedLocation,
-  click: () => dispatch(jumpToMappedLocation(cx, location)),
+  click: () => dispatch(jumpToMappedLocation(location)),
 });
 
-const showSourceMenuItem = (cx, selectedSource, dispatch) => ({
+const showSourceMenuItem = (selectedSource, dispatch) => ({
   id: "node-menu-show-source",
   label: L10N.getStr("sourceTabs.revealInTree"),
   accesskey: L10N.getStr("sourceTabs.revealInTree.accesskey"),
   disabled: !selectedSource.url,
-  click: () => dispatch(showSource(cx, selectedSource.id)),
+  click: () => dispatch(showSource(selectedSource.id)),
 });
 
 const blackBoxMenuItem = (
-  cx,
   selectedSource,
   blackboxedRanges,
   isSourceOnIgnoreList,
@@ -184,12 +173,11 @@ const blackBoxMenuItem = (
       ? L10N.getStr("ignoreContextItem.unignore.accesskey")
       : L10N.getStr("ignoreContextItem.ignore.accesskey"),
     disabled: isSourceOnIgnoreList || !shouldBlackbox(selectedSource),
-    click: () => dispatch(toggleBlackBox(cx, selectedSource)),
+    click: () => dispatch(toggleBlackBox(selectedSource)),
   };
 };
 
 const blackBoxLineMenuItem = (
-  cx,
   selectedSource,
   editor,
   blackboxedRanges,
@@ -253,7 +241,6 @@ const blackBoxLineMenuItem = (
 
       dispatch(
         toggleBlackBox(
-          cx,
           selectedSource,
           !selectedLineIsBlackBoxed,
           selectedLineIsBlackBoxed ? [blackboxRange] : [selectionRange]
@@ -264,7 +251,6 @@ const blackBoxLineMenuItem = (
 };
 
 const blackBoxLinesMenuItem = (
-  cx,
   selectedSource,
   editor,
   blackboxedRanges,
@@ -309,7 +295,6 @@ const blackBoxLinesMenuItem = (
 
       dispatch(
         toggleBlackBox(
-          cx,
           selectedSource,
           !selectedLinesAreBlackBoxed,
           selectedLinesAreBlackBoxed ? [blackboxRange] : [selectionRange]
@@ -319,11 +304,11 @@ const blackBoxLinesMenuItem = (
   };
 };
 
-const watchExpressionItem = (cx, selectedSource, selectionText, dispatch) => ({
+const watchExpressionItem = (selectedSource, selectionText, dispatch) => ({
   id: "node-menu-add-watch-expression",
   label: L10N.getStr("expressions.label"),
   accesskey: L10N.getStr("expressions.accesskey"),
-  click: () => dispatch(addExpression(cx, selectionText)),
+  click: () => dispatch(addExpression(selectionText)),
 });
 
 const evaluateInConsoleItem = (selectedSource, selectionText, dispatch) => ({
@@ -356,7 +341,6 @@ const editorWrappingItem = (editorWrappingEnabled, dispatch) => ({
 });
 
 function editorMenuItems({
-  cx,
   blackboxedRanges,
   location,
   selectionText,
@@ -376,8 +360,8 @@ function editorMenuItems({
     source.content && isFulfilled(source.content) ? source.content.value : null;
 
   items.push(
-    jumpToMappedLocationItem(cx, location, hasMappedLocation, dispatch),
-    continueToHereItem(cx, location, isPaused, dispatch),
+    jumpToMappedLocationItem(location, hasMappedLocation, dispatch),
+    continueToHereItem(location, isPaused, dispatch),
     { type: "separator" },
     copyToClipboardItem(selectionText),
     ...(!source.isWasm
@@ -388,15 +372,9 @@ function editorMenuItems({
       : []),
     ...(content ? [downloadFileItem(source, content)] : []),
     { type: "separator" },
-    showSourceMenuItem(cx, source, dispatch),
+    showSourceMenuItem(source, dispatch),
     { type: "separator" },
-    blackBoxMenuItem(
-      cx,
-      source,
-      blackboxedRanges,
-      isSourceOnIgnoreList,
-      dispatch
-    )
+    blackBoxMenuItem(source, blackboxedRanges, isSourceOnIgnoreList, dispatch)
   );
 
   const startLine = toSourceLine(
@@ -430,7 +408,6 @@ function editorMenuItems({
 
     items.push(
       blackBoxSourceLinesMenuItem(
-        cx,
         source,
         editor,
         blackboxedRanges,
@@ -444,7 +421,7 @@ function editorMenuItems({
   if (isTextSelected) {
     items.push(
       { type: "separator" },
-      watchExpressionItem(cx, source, selectionText, dispatch),
+      watchExpressionItem(source, selectionText, dispatch),
       evaluateInConsoleItem(source, selectionText, dispatch)
     );
   }

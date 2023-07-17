@@ -4,7 +4,7 @@
 
 import { buildMenu, showMenu } from "../../context-menu/menu";
 
-import { getContext, getBreakpointsForSource } from "../../selectors";
+import { getBreakpointsForSource } from "../../selectors";
 
 import {
   disableBreakpointsInSource,
@@ -15,7 +15,6 @@ import {
 export function showBreakpointHeadingContextMenu(event, source) {
   return async ({ dispatch, getState }) => {
     const state = getState();
-    const cx = getContext(state);
     const breakpointsForSource = getBreakpointsForSource(state, source.id);
 
     const enableInSourceLabel = L10N.getStr(
@@ -42,7 +41,7 @@ export function showBreakpointHeadingContextMenu(event, source) {
       label: disableInSourceLabel,
       accesskey: disableInSourceKey,
       disabled: false,
-      click: () => dispatch(disableBreakpointsInSource(cx, source)),
+      click: () => dispatch(disableBreakpointsInSource(source)),
     };
 
     const enableInSourceItem = {
@@ -50,7 +49,7 @@ export function showBreakpointHeadingContextMenu(event, source) {
       label: enableInSourceLabel,
       accesskey: enableInSourceKey,
       disabled: false,
-      click: () => dispatch(enableBreakpointsInSource(cx, source)),
+      click: () => dispatch(enableBreakpointsInSource(source)),
     };
 
     const removeInSourceItem = {
@@ -58,7 +57,7 @@ export function showBreakpointHeadingContextMenu(event, source) {
       label: removeInSourceLabel,
       accesskey: removeInSourceKey,
       disabled: false,
-      click: () => dispatch(removeBreakpointsInSource(cx, source)),
+      click: () => dispatch(removeBreakpointsInSource(source)),
     };
 
     const hideDisableInSourceItem = breakpointsForSource.every(

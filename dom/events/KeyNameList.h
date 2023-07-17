@@ -28,7 +28,6 @@ DEFINE_KEYNAME_WITH_SAME_NAME(Unidentified)
 /******************************************************************************
  * Our Internal Key Values (must have "Moz" prefix)
  *****************************************************************************/
-DEFINE_KEYNAME_INTERNAL(PrintableKey, "MozPrintableKey")
 DEFINE_KEYNAME_INTERNAL(SoftLeft, "SoftLeft")
 DEFINE_KEYNAME_INTERNAL(SoftRight, "SoftRight")
 
@@ -217,6 +216,7 @@ DEFINE_KEYNAME_WITH_SAME_NAME(Close)
 DEFINE_KEYNAME_WITH_SAME_NAME(MailForward)
 DEFINE_KEYNAME_WITH_SAME_NAME(MailReply)
 DEFINE_KEYNAME_WITH_SAME_NAME(MailSend)
+DEFINE_KEYNAME_WITH_SAME_NAME(MediaClose)
 DEFINE_KEYNAME_WITH_SAME_NAME(MediaFastForward)
 DEFINE_KEYNAME_WITH_SAME_NAME(MediaPause)
 DEFINE_KEYNAME_WITH_SAME_NAME(MediaPlay)

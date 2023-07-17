@@ -59,7 +59,6 @@ export async function blackboxSourceActorsForSource(
 /**
  * Toggle blackboxing for the whole source or for specific lines in a source
  *
- * @param {Object} cx
  * @param {Object} source - The source to be blackboxed/unblackboxed.
  * @param {Boolean} [shouldBlackBox] - Specifies if the source should be blackboxed (true
  *                                     or unblackboxed (false). When this is not provided
@@ -73,7 +72,7 @@ export async function blackboxSourceActorsForSource(
  *                            end: { line: 3, column: 4 },
  *                           }
  */
-export function toggleBlackBox(cx, source, shouldBlackBox, ranges = []) {
+export function toggleBlackBox(source, shouldBlackBox, ranges = []) {
   return async thunkArgs => {
     const { dispatch, getState } = thunkArgs;
 
@@ -97,7 +96,6 @@ export function toggleBlackBox(cx, source, shouldBlackBox, ranges = []) {
         dispatch({ type: "BLACKBOX_WHOLE_SOURCES", sources: [source] });
         await toggleBreakpointsInBlackboxedSources({
           thunkArgs,
-          cx,
           shouldDisable: true,
           sources: [source],
         });
@@ -116,7 +114,6 @@ export function toggleBlackBox(cx, source, shouldBlackBox, ranges = []) {
         dispatch({ type: "BLACKBOX_SOURCE_RANGES", source, ranges });
         await toggleBreakpointsInRangesForBlackboxedSource({
           thunkArgs,
-          cx,
           shouldDisable: true,
           source,
           ranges,
@@ -130,7 +127,6 @@ export function toggleBlackBox(cx, source, shouldBlackBox, ranges = []) {
         dispatch({ type: "UNBLACKBOX_WHOLE_SOURCES", sources: [source] });
         toggleBreakpointsInBlackboxedSources({
           thunkArgs,
-          cx,
           shouldDisable: false,
           sources: [source],
         });
@@ -142,7 +138,6 @@ export function toggleBlackBox(cx, source, shouldBlackBox, ranges = []) {
         }
         await toggleBreakpointsInRangesForBlackboxedSource({
           thunkArgs,
-          cx,
           shouldDisable: false,
           source,
           ranges,
@@ -154,7 +149,6 @@ export function toggleBlackBox(cx, source, shouldBlackBox, ranges = []) {
 
 async function toggleBreakpointsInRangesForBlackboxedSource({
   thunkArgs,
-  cx,
   shouldDisable,
   source,
   ranges,
@@ -162,32 +156,30 @@ async function toggleBreakpointsInRangesForBlackboxedSource({
   const { dispatch, getState } = thunkArgs;
   for (const range of ranges) {
     const breakpoints = getBreakpointsForSource(getState(), source.id, range);
-    await dispatch(toggleBreakpoints(cx, shouldDisable, breakpoints));
+    await dispatch(toggleBreakpoints(shouldDisable, breakpoints));
   }
 }
 
 async function toggleBreakpointsInBlackboxedSources({
   thunkArgs,
-  cx,
   shouldDisable,
   sources,
 }) {
   const { dispatch, getState } = thunkArgs;
   for (const source of sources) {
     const breakpoints = getBreakpointsForSource(getState(), source.id);
-    await dispatch(toggleBreakpoints(cx, shouldDisable, breakpoints));
+    await dispatch(toggleBreakpoints(shouldDisable, breakpoints));
   }
 }
 
 /*
  * Blackboxes a group of sources together
  *
- * @param {Object} cx
  * @param {Array} sourcesToBlackBox - The list of sources to blackbox
  * @param {Boolean} shouldBlackbox - Specifies if the sources should blackboxed (true)
  *                                   or unblackboxed (false).
  */
-export function blackBoxSources(cx, sourcesToBlackBox, shouldBlackBox) {
+export function blackBoxSources(sourcesToBlackBox, shouldBlackBox) {
   return async thunkArgs => {
     const { dispatch, getState } = thunkArgs;
 
@@ -215,7 +207,6 @@ export function blackBoxSources(cx, sourcesToBlackBox, shouldBlackBox) {
     });
     await toggleBreakpointsInBlackboxedSources({
       thunkArgs,
-      cx,
       shouldDisable: shouldBlackBox,
       sources,
     });

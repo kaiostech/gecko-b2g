@@ -11,7 +11,6 @@ import {
   getIgnoreListSourceUrls,
   getSourceByURL,
   getBreakpointsForSource,
-  getContext,
 } from "../selectors";
 import { selectSource } from "../actions/sources/select";
 import {
@@ -104,7 +103,7 @@ export function toggleSourceMapsEnabled(toggleValue) {
   };
 }
 
-export function showSource(cx, sourceId) {
+export function showSource(sourceId) {
   return ({ dispatch, getState }) => {
     const source = getSource(getState(), sourceId);
     if (!source) {
@@ -121,7 +120,7 @@ export function showSource(cx, sourceId) {
 
     dispatch(setPrimaryPaneTab("sources"));
 
-    dispatch(selectSource(cx, source));
+    dispatch(selectSource(source));
   };
 }
 
@@ -244,7 +243,6 @@ export function setHideOrShowIgnoredSources(shouldHide) {
 export function toggleSourceMapIgnoreList(shouldEnable) {
   return async thunkArgs => {
     const { dispatch, getState } = thunkArgs;
-    const cx = getContext(getState());
     const ignoreListSourceUrls = getIgnoreListSourceUrls(getState());
     // Blackbox the source actors on the server
     for (const url of ignoreListSourceUrls) {
@@ -252,7 +250,7 @@ export function toggleSourceMapIgnoreList(shouldEnable) {
       await blackboxSourceActorsForSource(thunkArgs, source, shouldEnable);
       // Disable breakpoints in sources on the ignore list
       const breakpoints = getBreakpointsForSource(getState(), source.id);
-      await dispatch(toggleBreakpoints(cx, shouldEnable, breakpoints));
+      await dispatch(toggleBreakpoints(shouldEnable, breakpoints));
     }
     await dispatch({
       type: "ENABLE_SOURCEMAP_IGNORELIST",

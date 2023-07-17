@@ -784,14 +784,6 @@ function waitForLoadedSource(dbg, url) {
   );
 }
 
-function getContext(dbg) {
-  return dbg.selectors.getContext();
-}
-
-function getThreadContext(dbg) {
-  return dbg.selectors.getThreadContext();
-}
-
 /*
  * Selects the source node for a specific source
  * from the source tree.
@@ -853,16 +845,14 @@ async function triggerSourceTreeContextMenu(
 async function selectSource(dbg, url, line, column) {
   const source = findSource(dbg, url);
 
-  await dbg.actions.selectLocation(
-    getContext(dbg),
-    createLocation({ source, line, column }),
-    { keepContext: false }
-  );
+  await dbg.actions.selectLocation(createLocation({ source, line, column }), {
+    keepContext: false,
+  });
   return waitForSelectedSource(dbg, source);
 }
 
 async function closeTab(dbg, url) {
-  await dbg.actions.closeTab(getContext(dbg), findSource(dbg, url));
+  await dbg.actions.closeTab(findSource(dbg, url));
 }
 
 function countTabs(dbg) {
@@ -880,7 +870,7 @@ function countTabs(dbg) {
 async function stepOver(dbg) {
   const pauseLine = getVisibleSelectedFrameLine(dbg);
   info(`Stepping over from ${pauseLine}`);
-  await dbg.actions.stepOver(getThreadContext(dbg));
+  await dbg.actions.stepOver();
   return waitForPaused(dbg);
 }
 
@@ -895,7 +885,7 @@ async function stepOver(dbg) {
 async function stepIn(dbg) {
   const pauseLine = getVisibleSelectedFrameLine(dbg);
   info(`Stepping in from ${pauseLine}`);
-  await dbg.actions.stepIn(getThreadContext(dbg));
+  await dbg.actions.stepIn();
   return waitForPaused(dbg);
 }
 
@@ -910,7 +900,7 @@ async function stepIn(dbg) {
 async function stepOut(dbg) {
   const pauseLine = getVisibleSelectedFrameLine(dbg);
   info(`Stepping out from ${pauseLine}`);
-  await dbg.actions.stepOut(getThreadContext(dbg));
+  await dbg.actions.stepOut();
   return waitForPaused(dbg);
 }
 
@@ -1052,7 +1042,6 @@ async function addBreakpoint(dbg, source, line, column, options) {
   const bpCount = dbg.selectors.getBreakpointCount();
   const onBreakpoint = waitForDispatch(dbg.store, "SET_BREAKPOINT");
   await dbg.actions.addBreakpoint(
-    getContext(dbg),
     createLocation({ source, line, column }),
     options
   );
@@ -1083,7 +1072,7 @@ function disableBreakpoint(dbg, source, line, column) {
     column,
   });
   const bp = getBreakpointForLocation(dbg, location);
-  return dbg.actions.disableBreakpoint(getContext(dbg), bp);
+  return dbg.actions.disableBreakpoint(bp);
 }
 
 function findBreakpoint(dbg, url, line) {
@@ -1176,7 +1165,7 @@ async function invokeWithBreakpoint(
 
 function prettyPrint(dbg) {
   const sourceId = dbg.selectors.getSelectedSourceId();
-  return dbg.actions.togglePrettyPrint(getContext(dbg), sourceId);
+  return dbg.actions.togglePrettyPrint(sourceId);
 }
 
 async function expandAllScopes(dbg) {
@@ -1279,7 +1268,7 @@ function removeBreakpoint(dbg, sourceId, line, column) {
     column,
   });
   const bp = getBreakpointForLocation(dbg, location);
-  return dbg.actions.removeBreakpoint(getContext(dbg), bp);
+  return dbg.actions.removeBreakpoint(bp);
 }
 
 /**
@@ -2769,19 +2758,14 @@ if (protocolHandler.hasSubstitution("testing-common")) {
   const { PromiseTestUtils } = ChromeUtils.importESModule(
     "resource://testing-common/PromiseTestUtils.sys.mjs"
   );
+  PromiseTestUtils.allowMatchingRejectionsGlobally(/Connection closed/);
+  this.PromiseTestUtils = PromiseTestUtils;
 
   // Debugger operations that are canceled because they were rendered obsolete by
   // a navigation or pause/resume end up as uncaught rejections. These never
   // indicate errors and are allowed in all debugger tests.
-  PromiseTestUtils.allowMatchingRejectionsGlobally(/Page has navigated/);
-  PromiseTestUtils.allowMatchingRejectionsGlobally(
-    /Current thread has changed/
-  );
-  PromiseTestUtils.allowMatchingRejectionsGlobally(
-    /Current thread has paused or resumed/
-  );
-  PromiseTestUtils.allowMatchingRejectionsGlobally(/Connection closed/);
-  this.PromiseTestUtils = PromiseTestUtils;
+  // All the following are related to context middleware throwing on obsolete async actions:
+  PromiseTestUtils.allowMatchingRejectionsGlobally(/DebuggerContextError/);
 }
 
 /**

@@ -2,14 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
 
-import {
-  actions,
-  selectors,
-  createStore,
-  makeSource,
-} from "../../utils/test-head";
-
-import { makeMockFrame } from "../../utils/test-mockup";
+import { actions, selectors, createStore } from "../../utils/test-head";
 
 const mockThreadFront = {
   evaluate: (script, { frameId }) =>
@@ -120,65 +113,25 @@ describe("expressions", () => {
   });
 
   it("should evaluate expressions global scope", async () => {
-    const { dispatch, getState, cx } = createStore(mockThreadFront);
-    await dispatch(actions.addExpression("foo"));
-    await dispatch(actions.addExpression("bar"));
-
-    let foo = selectors.getExpression(getState(), "foo");
-    let bar = selectors.getExpression(getState(), "bar");
-    expect(foo && foo.value).toBe("bla");
-    expect(bar && bar.value).toBe("bla");
-
-    await dispatch(actions.evaluateExpressions(cx));
-    foo = selectors.getExpression(getState(), "foo");
-    bar = selectors.getExpression(getState(), "bar");
-    expect(foo && foo.value).toBe("bla");
-    expect(bar && bar.value).toBe("bla");
-  });
-
-  it("should evaluate expressions in specific scope", async () => {
     const { dispatch, getState } = createStore(mockThreadFront);
-    await createFrames(getState, dispatch);
-
-    const cx = selectors.getThreadContext(getState());
-    await dispatch(actions.newGeneratedSource(makeSource("source")));
     await dispatch(actions.addExpression("foo"));
     await dispatch(actions.addExpression("bar"));
 
     let foo = selectors.getExpression(getState(), "foo");
     let bar = selectors.getExpression(getState(), "bar");
-    expect(foo && foo.value).toBe("boo");
-    expect(bar && bar.value).toBe("boo");
+    expect(foo && foo.value).toBe("bla");
+    expect(bar && bar.value).toBe("bla");
 
-    await dispatch(actions.evaluateExpressions(cx));
+    await dispatch(actions.evaluateExpressions(null));
     foo = selectors.getExpression(getState(), "foo");
     bar = selectors.getExpression(getState(), "bar");
-    expect(foo && foo.value).toBe("boo");
-    expect(bar && bar.value).toBe("boo");
+    expect(foo && foo.value).toBe("bla");
+    expect(bar && bar.value).toBe("bla");
   });
 
   it("should get the autocomplete matches for the input", async () => {
-    const { cx, dispatch, getState } = createStore(mockThreadFront);
-    await dispatch(actions.autocomplete(cx, "to", 2));
+    const { dispatch, getState } = createStore(mockThreadFront);
+    await dispatch(actions.autocomplete("to", 2));
     expect(selectors.getAutocompleteMatchset(getState())).toMatchSnapshot();
   });
 });
-
-async function createFrames(getState, dispatch) {
-  const frame = makeMockFrame();
-  await dispatch(actions.newGeneratedSource(makeSource("example.js")));
-  await dispatch(actions.newGeneratedSource(makeSource("source")));
-
-  await dispatch(
-    actions.paused({
-      thread: "FakeThread",
-      frame,
-      frames: [frame],
-      why: { type: "just because" },
-    })
-  );
-
-  await dispatch(
-    actions.selectFrame(selectors.getThreadContext(getState()), frame)
-  );
-}

@@ -13,7 +13,6 @@ import {
   getSelectedSourceTextContent,
   getPrettySource,
   getPaneCollapse,
-  getContext,
   getGeneratedSource,
   isSourceBlackBoxed,
   canPrettyPrintSource,
@@ -42,7 +41,6 @@ class SourceFooter extends PureComponent {
     return {
       canPrettyPrint: PropTypes.bool.isRequired,
       prettyPrintMessage: PropTypes.string.isRequired,
-      cx: PropTypes.object.isRequired,
       endPanelCollapsed: PropTypes.bool.isRequired,
       horizontal: PropTypes.bool.isRequired,
       jumpToMappedLocation: PropTypes.func.isRequired,
@@ -83,7 +81,6 @@ class SourceFooter extends PureComponent {
 
   prettyPrintButton() {
     const {
-      cx,
       selectedSource,
       canPrettyPrint,
       prettyPrintMessage,
@@ -110,7 +107,7 @@ class SourceFooter extends PureComponent {
           if (!canPrettyPrint) {
             return;
           }
-          togglePrettyPrint(cx, selectedSource.id);
+          togglePrettyPrint(selectedSource.id);
         }}
         className={classnames("action", type, {
           active: sourceLoaded && canPrettyPrint,
@@ -128,7 +125,6 @@ class SourceFooter extends PureComponent {
 
   blackBoxButton() {
     const {
-      cx,
       selectedSource,
       isSelectedSourceBlackBoxed,
       toggleBlackBox,
@@ -152,7 +148,7 @@ class SourceFooter extends PureComponent {
 
     return (
       <button
-        onClick={() => toggleBlackBox(cx, selectedSource)}
+        onClick={() => toggleBlackBox(selectedSource)}
         className={classnames("action", type, {
           active: sourceLoaded,
           blackboxed: isSelectedSourceBlackBoxed || isSourceOnIgnoreList,
@@ -192,8 +188,7 @@ class SourceFooter extends PureComponent {
   }
 
   renderSourceSummary() {
-    const { cx, mappedSource, jumpToMappedLocation, selectedSource } =
-      this.props;
+    const { mappedSource, jumpToMappedLocation, selectedSource } = this.props;
 
     if (!mappedSource || !selectedSource || !selectedSource.isOriginal) {
       return null;
@@ -213,7 +208,7 @@ class SourceFooter extends PureComponent {
     return (
       <button
         className="mapped-source"
-        onClick={() => jumpToMappedLocation(cx, mappedSourceLocation)}
+        onClick={() => jumpToMappedLocation(mappedSourceLocation)}
         title={tooltip}
       >
         <span>{title}</span>
@@ -270,7 +265,6 @@ const mapStateToProps = state => {
   const sourceTextContent = getSelectedSourceTextContent(state);
 
   return {
-    cx: getContext(state),
     selectedSource,
     isSelectedSourceBlackBoxed: selectedSource
       ? isSourceBlackBoxed(state, selectedSource)

@@ -289,7 +289,7 @@
 #endif
 
 #ifdef ENABLE_RSU
-#include "mozilla/dom/RSUChild.h"
+#  include "mozilla/dom/RSUChild.h"
 #endif
 
 #include "ClearOnShutdown.h"
@@ -2292,16 +2292,12 @@ bool ContentChild::DeallocPFMRadioChild(PFMRadioChild* aActor) {
 #endif
 
 #ifdef ENABLE_RSU
-PRSUChild*
-ContentChild::AllocPRSUChild()
-{
+PRSUChild* ContentChild::AllocPRSUChild() {
   MOZ_CRASH("No one should be allocating PRSUChild actors");
   return nullptr;
 }
 
-bool
-ContentChild::DeallocPRSUChild(PRSUChild* aActor)
-{
+bool ContentChild::DeallocPRSUChild(PRSUChild* aActor) {
   delete aActor;
   return true;
 }
@@ -3158,15 +3154,6 @@ mozilla::ipc::IPCResult ContentChild::RecvFilePathUpdate(
   return IPC_OK();
 }
 
-// Method used for setting QoS levels on background main threads.
-#ifdef XP_MACOSX
-static bool PriorityUsesLowPowerMainThread(
-    const hal::ProcessPriority& aPriority) {
-  return aPriority == hal::PROCESS_PRIORITY_BACKGROUND ||
-         aPriority == hal::PROCESS_PRIORITY_PREALLOC;
-}
-#endif
-
 mozilla::ipc::IPCResult ContentChild::RecvNotifyProcessPriorityChanged(
     const hal::ProcessPriority& aPriority) {
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
@@ -3187,24 +3174,6 @@ mozilla::ipc::IPCResult ContentChild::RecvNotifyProcessPriorityChanged(
   if (mProcessPriority != hal::PROCESS_PRIORITY_UNKNOWN) {
     glean::RecordPowerMetrics();
   }
-
-#ifdef XP_MACOSX
-  // In cases where we have low-power threads enabled (such as on MacOS) we can
-  // go ahead and put the main thread in the background here. If the new
-  // priority is the background priority, we can tell the OS to put the main
-  // thread on low-power cores. Alternately, if we are changing from the
-  // background to a higher priority, we change the main thread back to the
-  // |user-interactive| state, defined in MacOS's QoS documentation as reserved
-  // for main threads.
-  if (StaticPrefs::threads_use_low_power_enabled() &&
-      StaticPrefs::threads_lower_mainthread_priority_in_background_enabled()) {
-    if (PriorityUsesLowPowerMainThread(aPriority)) {
-      pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
-    } else if (PriorityUsesLowPowerMainThread(mProcessPriority)) {
-      pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
-    }
-  }
-#endif
 
   mProcessPriority = aPriority;
 

@@ -205,10 +205,9 @@ async function selectSource(dbg, url) {
   dump(`Selecting source: ${url}\n`);
   const line = 1;
   const source = findSource(dbg, url);
-  const cx = dbg.selectors.getContext(dbg.getState());
   // keepContext set to false allows to force selecting original/generated source
   // regardless if we were currently selecting the opposite type of source.
-  await dbg.actions.selectLocation(cx, createLocation({ source, line }), {
+  await dbg.actions.selectLocation(createLocation({ source, line }), {
     keepContext: false,
   });
   return waitForState(
@@ -302,8 +301,7 @@ async function addBreakpoint(dbg, line, url) {
 
   await selectSource(dbg, url);
 
-  const cx = dbg.selectors.getContext(dbg.getState());
-  await dbg.actions.addBreakpoint(cx, location);
+  await dbg.actions.addBreakpoint(location);
 }
 exports.addBreakpoint = addBreakpoint;
 
@@ -315,8 +313,7 @@ async function removeBreakpoints(dbg, line, url) {
     dbg,
     state => dbg.selectors.getBreakpointCount(state) === 0
   );
-  const cx = dbg.selectors.getContext(dbg.getState());
-  await dbg.actions.removeBreakpoints(cx, breakpoints);
+  await dbg.actions.removeBreakpoints(breakpoints);
   return onBreakpointsCleared;
 }
 exports.removeBreakpoints = removeBreakpoints;
@@ -331,22 +328,20 @@ exports.pauseDebugger = pauseDebugger;
 
 async function resume(dbg) {
   const onResumed = waitForResumed(dbg);
-  const cx = dbg.selectors.getThreadContext(dbg.getState());
-  dbg.actions.resume(cx);
+  dbg.actions.resume();
   return onResumed;
 }
 exports.resume = resume;
 
 async function step(dbg, stepType) {
   const resumed = waitForResumed(dbg);
-  const cx = dbg.selectors.getThreadContext(dbg.getState());
-  dbg.actions[stepType](cx);
+  dbg.actions[stepType]();
   await resumed;
   return waitForPaused(dbg);
 }
 exports.step = step;
 
-async function hoverOnToken(dbg, cx, textToWaitFor, textToHover) {
+async function hoverOnToken(dbg, textToWaitFor, textToHover) {
   await waitForText(dbg, textToWaitFor);
   const tokenElement = [
     ...dbg.win.document.querySelectorAll(".CodeMirror span"),

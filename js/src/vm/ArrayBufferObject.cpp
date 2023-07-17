@@ -975,9 +975,8 @@ WasmArrayRawBuffer* ArrayBufferObject::BufferContents::wasmBuffer() const {
 }
 
 template <typename ObjT, typename RawbufT>
-static bool CreateSpecificWasmBuffer(
-    JSContext* cx, const wasm::MemoryDesc& memory,
-    MutableHandleArrayBufferObjectMaybeShared maybeSharedObject) {
+static ArrayBufferObjectMaybeShared* CreateSpecificWasmBuffer(
+    JSContext* cx, const wasm::MemoryDesc& memory) {
   bool useHugeMemory = wasm::IsHugeMemoryEnabled(memory.indexType());
   Pages initialPages = memory.initialPages();
   Maybe<Pages> sourceMaxPages = memory.maximumPages();
@@ -1004,7 +1003,7 @@ static bool CreateSpecificWasmBuffer(
       }
 
       ReportOutOfMemory(cx);
-      return false;
+      return nullptr;
     }
 
     // If we fail, and have a sourceMaxPages, try to reserve the biggest
@@ -1013,7 +1012,7 @@ static bool CreateSpecificWasmBuffer(
       wasm::Log(cx, "new Memory({initial=%" PRIu64 " pages}) failed",
                 initialPages.value());
       ReportOutOfMemory(cx);
-      return false;
+      return nullptr;
     }
 
     uint64_t cur = clampedMaxPages.value() / 2;
@@ -1029,7 +1028,7 @@ static bool CreateSpecificWasmBuffer(
       wasm::Log(cx, "new Memory({initial=%" PRIu64 " pages}) failed",
                 initialPages.value());
       ReportOutOfMemory(cx);
-      return false;
+      return nullptr;
     }
 
     // Try to grow our chunk as much as possible.
@@ -1040,13 +1039,11 @@ static bool CreateSpecificWasmBuffer(
 
   // ObjT::createFromNewRawBuffer assumes ownership of |buffer| even in case
   // of failure.
-  RootedArrayBufferObjectMaybeShared object(
+  Rooted<ArrayBufferObjectMaybeShared*> object(
       cx, ObjT::createFromNewRawBuffer(cx, buffer, initialPages.byteLength()));
   if (!object) {
-    return false;
+    return nullptr;
   }
-
-  maybeSharedObject.set(object);
 
   // See MaximumLiveMappedBuffers comment above.
   if (wasmReservedBytes > WasmReservedBytesStartSyncFullGC) {
@@ -1084,11 +1081,11 @@ static bool CreateSpecificWasmBuffer(
               initialPages.value());
   }
 
-  return true;
+  return object;
 }
 
-bool js::CreateWasmBuffer(JSContext* cx, const wasm::MemoryDesc& memory,
-                          MutableHandleArrayBufferObjectMaybeShared buffer) {
+ArrayBufferObjectMaybeShared* js::CreateWasmBuffer(
+    JSContext* cx, const wasm::MemoryDesc& memory) {
   MOZ_RELEASE_ASSERT(memory.initialPages() <=
                      wasm::MaxMemoryPages(memory.indexType()));
   MOZ_RELEASE_ASSERT(cx->wasm().haveSignalHandlers);
@@ -1097,14 +1094,13 @@ bool js::CreateWasmBuffer(JSContext* cx, const wasm::MemoryDesc& memory,
     if (!cx->realm()->creationOptions().getSharedMemoryAndAtomicsEnabled()) {
       JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_WASM_NO_SHMEM_LINK);
-      return false;
+      return nullptr;
     }
     return CreateSpecificWasmBuffer<SharedArrayBufferObject,
-                                    WasmSharedArrayRawBuffer>(cx, memory,
-                                                              buffer);
+                                    WasmSharedArrayRawBuffer>(cx, memory);
   }
   return CreateSpecificWasmBuffer<ArrayBufferObject, WasmArrayRawBuffer>(
-      cx, memory, buffer);
+      cx, memory);
 }
 
 bool ArrayBufferObject::prepareForAsmJS() {
@@ -1333,9 +1329,9 @@ static void CheckStealPreconditions(Handle<ArrayBufferObject*> buffer,
 }
 
 /* static */
-bool ArrayBufferObject::wasmGrowToPagesInPlace(
-    wasm::IndexType t, Pages newPages, HandleArrayBufferObject oldBuf,
-    MutableHandleArrayBufferObject newBuf, JSContext* cx) {
+ArrayBufferObject* ArrayBufferObject::wasmGrowToPagesInPlace(
+    wasm::IndexType t, Pages newPages, Handle<ArrayBufferObject*> oldBuf,
+    JSContext* cx) {
   CheckStealPreconditions(oldBuf, cx);
 
   MOZ_ASSERT(oldBuf->isWasm());
@@ -1344,7 +1340,7 @@ bool ArrayBufferObject::wasmGrowToPagesInPlace(
   // simultaneously check against the maximum specified in source and our
   // implementation limits.
   if (newPages > oldBuf->wasmClampedMaxPages()) {
-    return false;
+    return nullptr;
   }
   MOZ_ASSERT(newPages <= wasm::MaxMemoryPages(t) &&
              newPages.byteLength() <= ArrayBufferObject::MaxByteLength);
@@ -1358,16 +1354,16 @@ bool ArrayBufferObject::wasmGrowToPagesInPlace(
   // wasm-visible length of the buffer has been increased so it must be the
   // last fallible operation.
 
-  newBuf.set(ArrayBufferObject::createEmpty(cx));
+  auto* newBuf = ArrayBufferObject::createEmpty(cx);
   if (!newBuf) {
     cx->clearPendingException();
-    return false;
+    return nullptr;
   }
 
   MOZ_ASSERT(newBuf->isNoData());
 
   if (!oldBuf->contents().wasmBuffer()->growToPagesInPlace(newPages)) {
-    return false;
+    return nullptr;
   }
 
   // Extract the grown contents from |oldBuf|.
@@ -1385,13 +1381,13 @@ bool ArrayBufferObject::wasmGrowToPagesInPlace(
   newBuf->initialize(newSize, oldContents);
   AddCellMemory(newBuf, newSize, MemoryUse::ArrayBufferContents);
 
-  return true;
+  return newBuf;
 }
 
 /* static */
-bool ArrayBufferObject::wasmMovingGrowToPages(
-    IndexType t, Pages newPages, HandleArrayBufferObject oldBuf,
-    MutableHandleArrayBufferObject newBuf, JSContext* cx) {
+ArrayBufferObject* ArrayBufferObject::wasmMovingGrowToPages(
+    IndexType t, Pages newPages, Handle<ArrayBufferObject*> oldBuf,
+    JSContext* cx) {
   // On failure, do not throw and ensure that the original buffer is
   // unmodified and valid.
 
@@ -1399,7 +1395,7 @@ bool ArrayBufferObject::wasmMovingGrowToPages(
   // simultaneously check against the maximum specified in source and our
   // implementation limits.
   if (newPages > oldBuf->wasmClampedMaxPages()) {
-    return false;
+    return nullptr;
   }
   MOZ_ASSERT(newPages <= wasm::MaxMemoryPages(t) &&
              newPages.byteLength() < ArrayBufferObject::MaxByteLength);
@@ -1410,13 +1406,13 @@ bool ArrayBufferObject::wasmMovingGrowToPages(
 
   if (wasm::ComputeMappedSize(newPages) <= oldBuf->wasmMappedSize() ||
       oldBuf->contents().wasmBuffer()->extendMappedSize(newPages)) {
-    return wasmGrowToPagesInPlace(t, newPages, oldBuf, newBuf, cx);
+    return wasmGrowToPagesInPlace(t, newPages, oldBuf, cx);
   }
 
-  newBuf.set(ArrayBufferObject::createEmpty(cx));
+  Rooted<ArrayBufferObject*> newBuf(cx, ArrayBufferObject::createEmpty(cx));
   if (!newBuf) {
     cx->clearPendingException();
-    return false;
+    return nullptr;
   }
 
   Pages clampedMaxPages =
@@ -1424,7 +1420,7 @@ bool ArrayBufferObject::wasmMovingGrowToPages(
   WasmArrayRawBuffer* newRawBuf = WasmArrayRawBuffer::AllocateWasm(
       oldBuf->wasmIndexType(), newPages, clampedMaxPages, Nothing(), Nothing());
   if (!newRawBuf) {
-    return false;
+    return nullptr;
   }
 
   AddCellMemory(newBuf, newSize, MemoryUse::ArrayBufferContents);
@@ -1435,11 +1431,12 @@ bool ArrayBufferObject::wasmMovingGrowToPages(
 
   memcpy(newBuf->dataPointer(), oldBuf->dataPointer(), oldBuf->byteLength());
   ArrayBufferObject::detach(cx, oldBuf);
-  return true;
+
+  return newBuf;
 }
 
 /* static */
-void ArrayBufferObject::wasmDiscard(HandleArrayBufferObject buf,
+void ArrayBufferObject::wasmDiscard(Handle<ArrayBufferObject*> buf,
                                     uint64_t byteOffset, uint64_t byteLen) {
   MOZ_ASSERT(buf->isWasm());
   buf->contents().wasmBuffer()->discard(byteOffset, byteLen);
@@ -1624,7 +1621,10 @@ ArrayBufferObject::createBufferAndData(
     buffer->initialize(nbytes, BufferContents::createMalloced(toFill));
     AddCellMemory(buffer, nbytes, MemoryUse::ArrayBufferContents);
   } else {
-    toFill = static_cast<uint8_t*>(buffer->initializeToInlineData(nbytes));
+    auto contents =
+        BufferContents::createInlineData(buffer->inlineDataPointer());
+    buffer->initialize(nbytes, contents);
+    toFill = contents.data();
     if constexpr (FillType == FillContents::Zero) {
       memset(toFill, 0, nbytes);
     }
@@ -1815,12 +1815,8 @@ ArrayBufferObject* ArrayBufferObject::createFromNewRawBuffer(
 
   MOZ_ASSERT(initialSize == rawBuffer->byteLength());
 
-  buffer->setByteLength(initialSize);
-  buffer->setFlags(0);
-  buffer->setFirstView(nullptr);
-
   auto contents = BufferContents::createWasm(rawBuffer->dataPointer());
-  buffer->setDataPointer(contents);
+  buffer->initialize(initialSize, contents);
 
   AddCellMemory(buffer, initialSize, MemoryUse::ArrayBufferContents);
 

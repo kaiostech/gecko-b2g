@@ -1305,7 +1305,7 @@ bool WasmModuleObject::customSections(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   RootedValueVector elems(cx);
-  RootedArrayBufferObject buf(cx);
+  Rooted<ArrayBufferObject*> buf(cx);
   for (const CustomSection& cs : module->customSections()) {
     if (name.length() != cs.name.length()) {
       continue;
@@ -2274,7 +2274,7 @@ void WasmMemoryObject::finalize(JS::GCContext* gcx, JSObject* obj) {
 
 /* static */
 WasmMemoryObject* WasmMemoryObject::create(
-    JSContext* cx, HandleArrayBufferObjectMaybeShared buffer, bool isHuge,
+    JSContext* cx, Handle<ArrayBufferObjectMaybeShared*> buffer, bool isHuge,
     HandleObject proto) {
   AutoSetNewObjectMetadata metadata(cx);
   auto* obj = NewObjectWithGivenProto<WasmMemoryObject>(cx, proto);
@@ -2322,8 +2322,9 @@ bool WasmMemoryObject::construct(JSContext* cx, unsigned argc, Value* vp) {
   }
   MemoryDesc memory(limits);
 
-  RootedArrayBufferObjectMaybeShared buffer(cx);
-  if (!CreateWasmBuffer(cx, memory, &buffer)) {
+  Rooted<ArrayBufferObjectMaybeShared*> buffer(cx,
+                                               CreateWasmBuffer(cx, memory));
+  if (!buffer) {
     return false;
   }
 
@@ -2353,14 +2354,14 @@ static bool IsMemory(HandleValue v) {
 bool WasmMemoryObject::bufferGetterImpl(JSContext* cx, const CallArgs& args) {
   Rooted<WasmMemoryObject*> memoryObj(
       cx, &args.thisv().toObject().as<WasmMemoryObject>());
-  RootedArrayBufferObjectMaybeShared buffer(cx, &memoryObj->buffer());
+  Rooted<ArrayBufferObjectMaybeShared*> buffer(cx, &memoryObj->buffer());
 
   if (memoryObj->isShared()) {
     size_t memoryLength = memoryObj->volatileMemoryLength();
     MOZ_ASSERT(memoryLength >= buffer->byteLength());
 
     if (memoryLength > buffer->byteLength()) {
-      RootedSharedArrayBufferObject newBuffer(
+      Rooted<SharedArrayBufferObject*> newBuffer(
           cx, SharedArrayBufferObject::New(
                   cx, memoryObj->sharedArrayRawBuffer(), memoryLength));
       if (!newBuffer) {
@@ -2653,7 +2654,8 @@ uint64_t WasmMemoryObject::grow(Handle<WasmMemoryObject*> memory,
     return growShared(memory, delta);
   }
 
-  RootedArrayBufferObject oldBuf(cx, &memory->buffer().as<ArrayBufferObject>());
+  Rooted<ArrayBufferObject*> oldBuf(cx,
+                                    &memory->buffer().as<ArrayBufferObject>());
 
 #if !defined(JS_64BIT)
   // TODO (large ArrayBuffer): See more information at the definition of
@@ -2668,16 +2670,16 @@ uint64_t WasmMemoryObject::grow(Handle<WasmMemoryObject*> memory,
     return uint64_t(int64_t(-1));
   }
 
-  RootedArrayBufferObject newBuf(cx);
-
+  ArrayBufferObject* newBuf;
   if (memory->movingGrowable()) {
     MOZ_ASSERT(!memory->isHuge());
-    if (!ArrayBufferObject::wasmMovingGrowToPages(memory->indexType(), newPages,
-                                                  oldBuf, &newBuf, cx)) {
-      return uint64_t(int64_t(-1));
-    }
-  } else if (!ArrayBufferObject::wasmGrowToPagesInPlace(
-                 memory->indexType(), newPages, oldBuf, &newBuf, cx)) {
+    newBuf = ArrayBufferObject::wasmMovingGrowToPages(memory->indexType(),
+                                                      newPages, oldBuf, cx);
+  } else {
+    newBuf = ArrayBufferObject::wasmGrowToPagesInPlace(memory->indexType(),
+                                                       newPages, oldBuf, cx);
+  }
+  if (!newBuf) {
     return uint64_t(int64_t(-1));
   }
 
@@ -2700,11 +2702,12 @@ void WasmMemoryObject::discard(Handle<WasmMemoryObject*> memory,
                                uint64_t byteOffset, uint64_t byteLen,
                                JSContext* cx) {
   if (memory->isShared()) {
-    RootedSharedArrayBufferObject buf(
+    Rooted<SharedArrayBufferObject*> buf(
         cx, &memory->buffer().as<SharedArrayBufferObject>());
     SharedArrayBufferObject::wasmDiscard(buf, byteOffset, byteLen);
   } else {
-    RootedArrayBufferObject buf(cx, &memory->buffer().as<ArrayBufferObject>());
+    Rooted<ArrayBufferObject*> buf(cx,
+                                   &memory->buffer().as<ArrayBufferObject>());
     ArrayBufferObject::wasmDiscard(buf, byteOffset, byteLen);
   }
 }

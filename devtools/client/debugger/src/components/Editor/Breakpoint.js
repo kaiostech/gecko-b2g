@@ -17,7 +17,6 @@ breakpointSvg.innerHTML =
 class Breakpoint extends PureComponent {
   static get propTypes() {
     return {
-      cx: PropTypes.object.isRequired,
       breakpoint: PropTypes.object.isRequired,
       editor: PropTypes.object.isRequired,
       selectedSource: PropTypes.object,
@@ -53,7 +52,6 @@ class Breakpoint extends PureComponent {
 
   onClick = event => {
     const {
-      cx,
       continueToHere,
       toggleBreakpointsAtLine,
       removeBreakpointsAtLine,
@@ -71,20 +69,16 @@ class Breakpoint extends PureComponent {
 
     const selectedLocation = getSelectedLocation(breakpoint, selectedSource);
     if (event.metaKey) {
-      continueToHere(cx, selectedLocation);
+      continueToHere(selectedLocation);
       return;
     }
 
     if (event.shiftKey) {
-      toggleBreakpointsAtLine(cx, !breakpoint.disabled, selectedLocation.line);
+      toggleBreakpointsAtLine(!breakpoint.disabled, selectedLocation.line);
       return;
     }
 
-    removeBreakpointsAtLine(
-      cx,
-      selectedLocation.source.id,
-      selectedLocation.line
-    );
+    removeBreakpointsAtLine(selectedLocation.source.id, selectedLocation.line);
   };
 
   onContextMenu = event => {

@@ -53,6 +53,7 @@ using namespace js::temporal;
 // TODO: Better error message for empty strings?
 // TODO: Add string input to error message?
 // TODO: Better error messages, for example display current character?
+// https://bugzilla.mozilla.org/show_bug.cgi?id=1839676
 
 struct StringName final {
   // Start position and length of this name.
@@ -705,10 +706,8 @@ class TemporalParser final {
   }
 
   // TZChar :
-  //   Alpha
-  //   .
+  //   TZLeadingChar
   //   -
-  //   _
   //   [+Legacy] +
   //   [+Legacy] DecimalDigit
   bool tzCharLegacy() {
@@ -766,20 +765,22 @@ class TemporalParser final {
     return true;
   }
 
-  // AValChar :
-  //   Alpha
-  //   DecimalDigit
-  bool aValChar() {
-    if (!reader_.hasMore(1)) {
+  // AnnotationValueComponent :
+  //   Alpha AnnotationValueComponent?
+  //   DecimalDigit AnnotationValueComponent?
+  bool annotationValueComponent() {
+    size_t index = reader_.index();
+    size_t i = 0;
+    for (; index + i < reader_.length(); i++) {
+      auto ch = reader_.at(index + i);
+      if (!mozilla::IsAsciiAlphanumeric(ch)) {
+        break;
+      }
+    }
+    if (i == 0) {
       return false;
     }
-
-    CharT ch = reader_.current();
-    if (!mozilla::IsAsciiAlphanumeric(ch)) {
-      return false;
-    }
-
-    reader_.advance(1);
+    reader_.advance(i);
     return true;
   }
 
@@ -842,7 +843,6 @@ class TemporalParser final {
   bool timeZoneIANANameComponent();
   mozilla::Result<TimeZoneName, ParserError> timeZoneIANAName();
 
-  bool annotationValueComponent();
   mozilla::Result<AnnotationKey, ParserError> annotationKey();
   mozilla::Result<AnnotationValue, ParserError> annotationValue();
   mozilla::Result<Annotation, ParserError> annotation();
@@ -932,13 +932,8 @@ mozilla::Result<PlainDate, ParserError> TemporalParser<CharT>::date() {
   PlainDate result = {};
 
   // DateYear :
-  //  DateFourDigitYear
-  //  DateExtendedYear
-
-  // DateFourDigitYear :
-  //   DecimalDigit{1,4}
-  // DateExtendedYear :
-  //   Sign DecimalDigit{1,6}
+  //  DecimalDigit{4}
+  //  Sign DecimalDigit{6}
   if (auto year = digits(4)) {
     result.year = year.value();
   } else if (hasSign()) {
@@ -1004,10 +999,11 @@ mozilla::Result<PlainTime, ParserError> TemporalParser<CharT>::timeSpec() {
   PlainTime result = {};
 
   // TimeHour :
-  //   Hour
+  //   Hour[+Padded]
   //
-  // Hour :
-  //   0 DecimalDigit
+  // Hour[Padded] :
+  //   [~Padded] DecimalDigit
+  //   [~Padded] 0 DecimalDigit
   //   1 DecimalDigit
   //   20
   //   21
@@ -1199,7 +1195,8 @@ TemporalParser<CharT>::timeZoneAnnotation() {
   //
   // TimeZoneIdentifier :
   //   TimeZoneIANAName
-  //   TimeZoneUTCOffsetName
+  //   TimeZoneUTCOffsetName[+Extended]
+  //   TimeZoneUTCOffsetName[~Extended]
 
   if (!character('[')) {
     return mozilla::Err(JSMSG_TEMPORAL_PARSER_BRACKET_BEFORE_TIMEZONE);
@@ -1235,36 +1232,18 @@ mozilla::Result<TimeZoneName, ParserError>
 TemporalParser<CharT>::timeZoneIANAName() {
   // TimeZoneIANAName :
   //   TimeZoneIANANameTail[~Legacy]
-  //   TimeZoneIANALegacyName
-  //
-  // UnpaddedHour :
-  //   DecimalDigit
-  //   1 DecimalDigit
-  //   20
-  //   21
-  //   22
-  //   23
+  //   TimeZoneIANANameTail[+Legacy] but only if IsLegacyIANATimeZoneName of
+  //                                 TimeZoneIANANameTail is true
   //
   // TimeZoneIANANameTail[Legacy] :
   //   TimeZoneIANANameComponent[?Legacy]
   //   TimeZoneIANANameComponent[?Legacy] / TimeZoneIANANameTail[?Legacy]
-  //
-  // TimeZoneIANALegacyName :
-  //   Etc/GMT ASCIISign UnpaddedHour
-  //   Etc/GMT0
-  //   GMT0
-  //   GMT-0
-  //   GMT+0
-  //   EST5EDT
-  //   CST6CDT
-  //   MST7MDT
-  //   PST8PDT
 
   size_t start = reader_.index();
 
   // NOTE: Time zone names are parsed with legacy mode always enabled. If the
-  // name contains legacy name components, but doesn't match the
-  // |TimeZoneIANALegacyName| production, it'll be rejected during the time zone
+  // name contains legacy name components, but doesn't pass the
+  // |IsLegacyIANATimeZoneName| test, it'll be rejected during the time zone
   // name validation step which happens after parsing.
 
   do {
@@ -1440,7 +1419,8 @@ mozilla::Result<ZonedDateTimeString, ParserError>
 TemporalParser<CharT>::parseTemporalTimeZoneString() {
   // TimeZoneIdentifier :
   //   TimeZoneIANAName
-  //   TimeZoneUTCOffsetName
+  //   TimeZoneUTCOffsetName[+Extended]
+  //   TimeZoneUTCOffsetName[~Extended]
 
   if (hasTzLeadingChar()) {
     if (auto name = timeZoneIANAName(); name.isOk() && reader_.atEnd()) {
@@ -1781,27 +1761,6 @@ TemporalParser<CharT>::parseTemporalDurationString(JSContext* cx) {
     return mozilla::Err(JSMSG_TEMPORAL_PARSER_MISSING_TIME_DESIGNATOR);
   }
 
-  // FIXME: spec issue - can the grammar be rewritten this way?
-  // https://github.com/tc39/proposal-temporal/issues/2282
-  //
-  // clang-format off
-  //
-  // DurationHoursPart :
-  //   DurationWholeHours HoursDesignator DurationMinutesPart
-  //   DurationWholeHours HoursDesignator DurationSecondsPart?
-  //   DurationWholeHours DurationHoursFraction HoursDesignator
-  //
-  // DurationMinutesPart :
-  //   DurationWholeMinutes MinutesDesignator DurationSecondsPart?
-  //   DurationWholeMinutes DurationMinutesFraction MinutesDesignator
-  //
-  // DurationSecondsPart :
-  //   DurationWholeSeconds DurationSecondsFraction? SecondsDesignator
-  //
-  // clang-format on
-  //
-  // This avoids having to disallow minutes/seconds after fractional hours.
-
   double num;
   mozilla::Maybe<int32_t> frac;
   auto digitsAndFraction = [&]() {
@@ -1821,8 +1780,9 @@ TemporalParser<CharT>::parseTemporalDurationString(JSContext* cx) {
   // clang-format off
   //
   // DurationHoursPart :
-  //  DurationWholeHours DurationHoursFraction? HoursDesignator DurationMinutesPart
-  //  DurationWholeHours DurationHoursFraction? HoursDesignator DurationSecondsPart?
+  //   DurationWholeHours DurationHoursFraction HoursDesignator
+  //   DurationWholeHours HoursDesignator DurationMinutesPart
+  //   DurationWholeHours HoursDesignator DurationSecondsPart?
   //
   // DurationWholeHours :
   //   DecimalDigits[~Sep]
@@ -1850,7 +1810,8 @@ TemporalParser<CharT>::parseTemporalDurationString(JSContext* cx) {
   // clang-format off
   //
   // DurationMinutesPart :
-  //   DurationWholeMinutes DurationMinutesFraction? MinutesDesignator DurationSecondsPart?
+  //   DurationWholeMinutes DurationMinutesFraction MinutesDesignator
+  //   DurationWholeMinutes MinutesDesignator DurationSecondsPart?
   //
   // DurationWholeMinutes :
   //   DecimalDigits[~Sep]
@@ -1958,7 +1919,11 @@ bool js::temporal::ParseTemporalDurationString(JSContext* cx,
     MOZ_ASSERT(parsed.hoursFraction > 0);
     MOZ_ASSERT(parsed.hoursFraction < 1'000'000'000);
 
-    // Step 9.a. (Not applicable in our implementation.)
+    // Step 9.a.
+    MOZ_ASSERT(parsed.minutes == 0);
+    MOZ_ASSERT(parsed.minutesFraction == 0);
+    MOZ_ASSERT(parsed.seconds == 0);
+    MOZ_ASSERT(parsed.secondsFraction == 0);
 
     // Steps 9.b-d.
     int64_t h = int64_t(parsed.hoursFraction) * 60;
@@ -1977,7 +1942,9 @@ bool js::temporal::ParseTemporalDurationString(JSContext* cx,
     MOZ_ASSERT(parsed.minutesFraction > 0);
     MOZ_ASSERT(parsed.minutesFraction < 1'000'000'000);
 
-    // Step 11.a. (Not applicable in our implementation.)
+    // Step 11.a.
+    MOZ_ASSERT(parsed.seconds == 0);
+    MOZ_ASSERT(parsed.secondsFraction == 0);
 
     // Step 10.
     minutes = parsed.minutes;
@@ -2037,28 +2004,11 @@ bool js::temporal::ParseTemporalDurationString(JSContext* cx,
 }
 
 template <typename CharT>
-bool TemporalParser<CharT>::annotationValueComponent() {
-  // AnnotationValueComponent :
-  //   AValChar AnnotationValueComponent?
-  //
-  // AValChar :
-  //   Alpha
-  //   DecimalDigit
-  bool hasOne = false;
-  while (aValChar()) {
-    hasOne = true;
-  }
-  return hasOne;
-}
-
-template <typename CharT>
 mozilla::Result<AnnotationKey, ParserError>
 TemporalParser<CharT>::annotationKey() {
   // AnnotationKey :
-  //   AKeyLeadingChar AnnotationKeyTail?
-  //
-  // AnnotationKeyTail :
-  //   AKeyChar AnnotationKeyTail?
+  //    AKeyLeadingChar
+  //    AnnotationKey AKeyChar
 
   size_t start = reader_.index();
 
@@ -2077,11 +2027,8 @@ template <typename CharT>
 mozilla::Result<AnnotationValue, ParserError>
 TemporalParser<CharT>::annotationValue() {
   // AnnotationValue :
-  //   AnnotationValueTail
-  //
-  // AnnotationValueTail :
   //   AnnotationValueComponent
-  //   AnnotationValueComponent - AnnotationValueTail
+  //   AnnotationValueComponent - AnnotationValue
 
   size_t start = reader_.index();
 
@@ -2134,30 +2081,34 @@ TemporalParser<CharT>::annotations() {
 
   MOZ_ASSERT(hasAnnotationStart());
 
-  CalendarName cal;
+  CalendarName calendar;
+  bool calendarWasCritical = false;
   while (hasAnnotationStart()) {
     auto anno = annotation();
     if (anno.isErr()) {
       return anno.propagateErr();
     }
+    auto [key, value, critical] = anno.unwrap();
 
     // FIXME: spec issue - ignore case for "[u-ca=" to match BCP47?
     // https://github.com/tc39/proposal-temporal/issues/2524
 
     static constexpr std::string_view ca = "u-ca";
 
-    auto key = anno.unwrap().key;
     auto keySpan = reader_.substring(key);
     if (keySpan.size() == ca.length() &&
         std::equal(ca.begin(), ca.end(), keySpan.data())) {
-      if (!cal.present()) {
-        cal = anno.unwrap().value;
+      if (!calendar.present()) {
+        calendar = value;
+        calendarWasCritical = critical;
+      } else if (critical || calendarWasCritical) {
+        return mozilla::Err(JSMSG_TEMPORAL_PARSER_INVALID_CRITICAL_ANNOTATION);
       }
-    } else if (anno.unwrap().critical) {
+    } else if (critical) {
       return mozilla::Err(JSMSG_TEMPORAL_PARSER_INVALID_CRITICAL_ANNOTATION);
     }
   }
-  return cal;
+  return calendar;
 }
 
 template <typename CharT>
@@ -2431,13 +2382,8 @@ TemporalParser<CharT>::dateSpecYearMonth() {
   PlainDate result = {};
 
   // DateYear :
-  //  DateFourDigitYear
-  //  DateExtendedYear
-
-  // DateFourDigitYear :
-  //   DecimalDigit{1,4}
-  // DateExtendedYear :
-  //   Sign DecimalDigit{1,6}
+  //  DecimalDigit{4}
+  //  Sign DecimalDigit{6}
   if (auto year = digits(4)) {
     result.year = year.value();
   } else if (hasSign()) {
@@ -2480,10 +2426,8 @@ template <typename CharT>
 mozilla::Result<PlainDate, ParserError>
 TemporalParser<CharT>::dateSpecMonthDay() {
   // DateSpecMonthDay :
-  //   TwoDashes? DateMonth -? DateDay
-  //
-  // TwoDashes :
-  //   --
+  //   -- DateMonth -? DateDay
+  //   DateMonth -? DateDay
   PlainDate result = {};
 
   string("--");
@@ -2759,8 +2703,7 @@ static auto ParseTemporalTimeString(Handle<JSLinearString*> str) {
  * ParseTemporalTimeString ( isoString )
  */
 bool js::temporal::ParseTemporalTimeString(JSContext* cx, Handle<JSString*> str,
-                                           PlainTime* result,
-                                           MutableHandle<JSString*> calendar) {
+                                           PlainTime* result) {
   Rooted<JSLinearString*> linear(cx, str->ensureLinear(cx));
   if (!linear) {
     return false;
@@ -2789,13 +2732,6 @@ bool js::temporal::ParseTemporalTimeString(JSContext* cx, Handle<JSString*> str,
   }
   *result = dateTime.time;
 
-  if (parsed.calendar.present()) {
-    calendar.set(ToString(cx, linear, parsed.calendar));
-    if (!calendar) {
-      return false;
-    }
-  }
-
   // Step 5.
   return true;
 }
@@ -2809,9 +2745,6 @@ TemporalParser<CharT>::parseTemporalMonthDayString() {
 
   if (auto monthDay = annotatedMonthDay(); monthDay.isOk() && reader_.atEnd()) {
     auto result = monthDay.unwrap();
-
-    // FIXME: spec bug - actually needs to check all calendar annotations
-    // https://github.com/tc39/proposal-temporal/issues/2538
 
     // ParseISODateTime, step 3.
     if (result.calendar.present() &&
@@ -2912,9 +2845,6 @@ TemporalParser<CharT>::parseTemporalYearMonthString() {
   if (auto yearMonth = annotatedYearMonth();
       yearMonth.isOk() && reader_.atEnd()) {
     auto result = yearMonth.unwrap();
-
-    // FIXME: spec bug - actually needs to check all calendar annotations
-    // https://github.com/tc39/proposal-temporal/issues/2538
 
     // ParseISODateTime, step 3.
     if (result.calendar.present() &&

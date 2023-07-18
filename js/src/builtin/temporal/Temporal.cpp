@@ -723,45 +723,6 @@ static BigInt* RoundNumberToIncrementSlow(JSContext* cx, Handle<BigInt*> x,
 /**
  * RoundNumberToIncrement ( x, increment, roundingMode )
  */
-BigInt* js::temporal::RoundNumberToIncrement(
-    JSContext* cx, Handle<BigInt*> x, int64_t increment,
-    TemporalRoundingMode roundingMode) {
-  MOZ_ASSERT(increment > 0);
-  MOZ_ASSERT(increment <= ToNanoseconds(TemporalUnit::Day));
-
-  // Fast path for the default case.
-  if (increment == 1) {
-    return x;
-  }
-
-  // Dividing zero is always zero.
-  if (x->isZero()) {
-    return x;
-  }
-
-  // Fast-path when we can perform the whole computation with int64 values.
-  int64_t num;
-  if (BigInt::isInt64(x, &num)) {
-    // Steps 1-8.
-    int64_t rounded = Divide(num, increment, roundingMode);
-
-    // Step 9.
-    mozilla::CheckedInt64 result = rounded;
-    result *= increment;
-    if (result.isValid()) {
-      if (result.value() == num) {
-        return x;
-      }
-      return BigInt::createFromInt64(cx, result.value());
-    }
-  }
-
-  return RoundNumberToIncrementSlow(cx, x, increment, roundingMode);
-}
-
-/**
- * RoundNumberToIncrement ( x, increment, roundingMode )
- */
 bool js::temporal::RoundNumberToIncrement(JSContext* cx, const Instant& x,
                                           int64_t increment,
                                           TemporalRoundingMode roundingMode,
@@ -1515,13 +1476,11 @@ static JSObject* MaybeUnwrapIf(JSObject* object) {
 // https://github.com/tc39/proposal-temporal/issues/2534
 
 /**
- * RejectObjectWithCalendarOrTimeZone ( object )
+ * RejectTemporalLikeObject ( object )
  */
-bool js::temporal::RejectObjectWithCalendarOrTimeZone(
-    JSContext* cx, Handle<JSObject*> object) {
-  // Step 1. (Not applicable in our implementation.)
-
-  // Step 2.
+bool js::temporal::RejectTemporalLikeObject(JSContext* cx,
+                                            Handle<JSObject*> object) {
+  // Step 1.
   if (auto* unwrapped =
           MaybeUnwrapIf<PlainDateObject, PlainDateTimeObject,
                         PlainMonthDayObject, PlainTimeObject,
@@ -1534,30 +1493,31 @@ bool js::temporal::RejectObjectWithCalendarOrTimeZone(
 
   Rooted<Value> property(cx);
 
-  // Step 3.
+  // Step 2.
   if (!GetProperty(cx, object, object, cx->names().calendar, &property)) {
     return false;
   }
 
-  // Step 4.
+  // Step 3.
   if (!property.isUndefined()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_TEMPORAL_UNEXPECTED_PROPERTY, "calendar");
     return false;
   }
 
-  // Step 5.
+  // Step 4.
   if (!GetProperty(cx, object, object, cx->names().timeZone, &property)) {
     return false;
   }
 
-  // Step 6.
+  // Step 5.
   if (!property.isUndefined()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_TEMPORAL_UNEXPECTED_PROPERTY, "timeZone");
     return false;
   }
 
+  // Step 6.
   return true;
 }
 
@@ -1682,8 +1642,8 @@ bool js::temporal::GetMethodForCall(JSContext* cx, Handle<JSObject*> object,
  * Implementation when |excludedKeys| and |excludedValues| are both empty lists.
  */
 bool js::temporal::CopyDataProperties(JSContext* cx,
-                                      JS::Handle<PlainObject*> target,
-                                      JS::Handle<JSObject*> source) {
+                                      Handle<PlainObject*> target,
+                                      Handle<JSObject*> source) {
   // Optimization for the common case when |source| is a native object.
   if (source->is<NativeObject>()) {
     bool optimized = false;
@@ -1746,9 +1706,9 @@ bool js::temporal::CopyDataProperties(JSContext* cx,
  * Implementation when |excludedKeys| is an empty list and |excludedValues| is
  * the list «undefined».
  */
-bool js::temporal::CopyDataPropertiesIgnoreUndefined(
-    JSContext* cx, JS::Handle<PlainObject*> target,
-    JS::Handle<JSObject*> source) {
+static bool CopyDataPropertiesIgnoreUndefined(JSContext* cx,
+                                              Handle<PlainObject*> target,
+                                              Handle<JSObject*> source) {
   // Step 1-2. (Not applicable)
 
   // Step 3.
@@ -1794,6 +1754,49 @@ bool js::temporal::CopyDataPropertiesIgnoreUndefined(
 
   // Step 5.
   return true;
+}
+
+/**
+ * SnapshotOwnProperties ( source, proto [, excludedKeys [, excludedValues ] ] )
+ */
+PlainObject* js::temporal::SnapshotOwnProperties(JSContext* cx,
+                                                 Handle<JSObject*> source) {
+  // Step 1.
+  Rooted<PlainObject*> copy(cx, NewPlainObjectWithProto(cx, nullptr));
+  if (!copy) {
+    return nullptr;
+  }
+
+  // Steps 2-4.
+  if (!CopyDataProperties(cx, copy, source)) {
+    return nullptr;
+  }
+
+  // Step 3.
+  return copy;
+}
+
+/**
+ * SnapshotOwnProperties ( source, proto [, excludedKeys [, excludedValues ] ] )
+ *
+ * Implementation when |excludedKeys| is an empty list and |excludedValues| is
+ * the list «undefined».
+ */
+PlainObject* js::temporal::SnapshotOwnPropertiesIgnoreUndefined(
+    JSContext* cx, Handle<JSObject*> source) {
+  // Step 1.
+  Rooted<PlainObject*> copy(cx, NewPlainObjectWithProto(cx, nullptr));
+  if (!copy) {
+    return nullptr;
+  }
+
+  // Steps 2-4.
+  if (!CopyDataPropertiesIgnoreUndefined(cx, copy, source)) {
+    return nullptr;
+  }
+
+  // Step 3.
+  return copy;
 }
 
 /**
@@ -1885,7 +1888,7 @@ bool js::temporal::GetDifferenceSettings(
 }
 
 static JSObject* CreateTemporalObject(JSContext* cx, JSProtoKey key) {
-  RootedObject proto(cx, &cx->global()->getObjectPrototype());
+  Rooted<JSObject*> proto(cx, &cx->global()->getObjectPrototype());
 
   // The |Temporal| object is just a plain object with some "static" data
   // properties and some constructor properties.

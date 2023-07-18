@@ -4,7 +4,7 @@
 
 browser.jar:
     content/browser/shopping/shopping.html (content/shopping.html)
-    content/browser/shopping/shopping.css (content/shopping.css)
+    content/browser/shopping/shopping-container.css (content/shopping-container.css)
     content/browser/shopping/shopping-sidebar.js (content/shopping-sidebar.js)
     content/browser/shopping/ShoppingUtils.sys.mjs (content/ShoppingUtils.sys.mjs)
     content/browser/shopping/highlights.mjs (content/highlights.mjs)
@@ -12,6 +12,9 @@ browser.jar:
     content/browser/shopping/highlight-item.mjs (content/highlight-item.mjs)
     content/browser/shopping/shopping-card.css (content/shopping-card.css)
     content/browser/shopping/shopping-card.mjs (content/shopping-card.mjs)
+    content/browser/shopping/letter-grade.css (content/letter-grade.css)
+    content/browser/shopping/letter-grade.mjs (content/letter-grade.mjs)
     content/browser/shopping/settings.mjs (content/settings.mjs)
     content/browser/shopping/settings.css (content/settings.css)
     content/browser/shopping/shopping-container.mjs (content/shopping-container.mjs)
+    content/browser/shopping/adjusted-rating.mjs (content/adjusted-rating.mjs)

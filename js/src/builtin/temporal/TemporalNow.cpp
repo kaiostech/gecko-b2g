@@ -55,7 +55,7 @@
 using namespace js;
 using namespace js::temporal;
 
-static bool DefaultTimeZoneOffset(JSContext* cx, int32_t* offset) {
+static bool SystemTimeZoneOffset(JSContext* cx, int32_t* offset) {
   auto timeZone = mozilla::intl::TimeZone::TryCreate();
   if (timeZone.isErr()) {
     intl::ReportInternalError(cx, timeZone.unwrapErr());
@@ -79,7 +79,7 @@ static bool DefaultTimeZoneOffset(JSContext* cx, int32_t* offset) {
  *
  * ES2017 Intl draft rev 4a23f407336d382ed5e3471200c690c9b020b5f3
  */
-static JSString* DefaultTimeZone(JSContext* cx) {
+static JSString* SystemTimeZoneIdentifier(JSContext* cx) {
   intl::FormatBuffer<char16_t, intl::INITIAL_CHAR_BUFFER_SIZE> formatBuffer(cx);
   auto result = mozilla::intl::TimeZone::GetDefaultTimeZone(formatBuffer);
   if (result.isErr()) {
@@ -103,10 +103,10 @@ static JSString* DefaultTimeZone(JSContext* cx) {
   // See DateTimeFormat.js for the JS implementation.
   // TODO: Move the JS implementation into C++.
 
-  // Before defaulting to "UTC", try to represent the default time zone using
+  // Before defaulting to "UTC", try to represent the system time zone using
   // the Etc/GMT + offset format. This format only accepts full hour offsets.
   int32_t offset;
-  if (!DefaultTimeZoneOffset(cx, &offset)) {
+  if (!SystemTimeZoneOffset(cx, &offset)) {
     return nullptr;
   }
 
@@ -147,18 +147,13 @@ static JSString* DefaultTimeZone(JSContext* cx) {
   return cx->names().UTC;
 }
 
-/**
- * SystemTimeZone ( )
- */
-static TimeZoneObject* SystemTimeZone(JSContext* cx) {
-  // Step 1.
-  Rooted<JSString*> identifier(cx, DefaultTimeZone(cx));
-  if (!identifier) {
+static BuiltinTimeZoneObject* SystemTimeZoneObject(JSContext* cx) {
+  Rooted<JSString*> timeZoneIdentifier(cx, SystemTimeZoneIdentifier(cx));
+  if (!timeZoneIdentifier) {
     return nullptr;
   }
 
-  // Step 2.
-  return CreateTemporalTimeZone(cx, identifier);
+  return CreateTemporalTimeZone(cx, timeZoneIdentifier);
 }
 
 /**
@@ -207,19 +202,22 @@ static PlainDateTimeObject* SystemDateTime(JSContext* cx,
                                            Handle<Value> temporalTimeZoneLike,
                                            Handle<Value> calendarLike) {
   // Steps 1-2.
-  Rooted<JSObject*> timeZone(cx);
+  Rooted<TimeZoneValue> timeZone(cx);
   if (temporalTimeZoneLike.isUndefined()) {
-    timeZone = SystemTimeZone(cx);
+    auto* timeZoneObj = SystemTimeZoneObject(cx);
+    if (!timeZoneObj) {
+      return nullptr;
+    }
+    timeZone.set(TimeZoneValue(timeZoneObj));
   } else {
-    timeZone = ToTemporalTimeZone(cx, temporalTimeZoneLike);
-  }
-  if (!timeZone) {
-    return nullptr;
+    if (!ToTemporalTimeZone(cx, temporalTimeZoneLike, &timeZone)) {
+      return nullptr;
+    }
   }
 
   // Step 3.
-  Rooted<JSObject*> calendar(cx, ToTemporalCalendar(cx, calendarLike));
-  if (!calendar) {
+  Rooted<CalendarValue> calendar(cx);
+  if (!ToTemporalCalendar(cx, calendarLike, &calendar)) {
     return nullptr;
   }
 
@@ -240,19 +238,22 @@ static ZonedDateTimeObject* SystemZonedDateTime(
     JSContext* cx, Handle<Value> temporalTimeZoneLike,
     Handle<Value> calendarLike) {
   // Steps 1-2.
-  Rooted<JSObject*> timeZone(cx);
+  Rooted<TimeZoneValue> timeZone(cx);
   if (temporalTimeZoneLike.isUndefined()) {
-    timeZone = SystemTimeZone(cx);
+    auto* timeZoneObj = SystemTimeZoneObject(cx);
+    if (!timeZoneObj) {
+      return nullptr;
+    }
+    timeZone.set(TimeZoneValue(timeZoneObj));
   } else {
-    timeZone = ToTemporalTimeZone(cx, temporalTimeZoneLike);
-  }
-  if (!timeZone) {
-    return nullptr;
+    if (!ToTemporalTimeZone(cx, temporalTimeZoneLike, &timeZone)) {
+      return nullptr;
+    }
   }
 
   // Step 3.
-  Rooted<JSObject*> calendar(cx, ToTemporalCalendar(cx, calendarLike));
-  if (!calendar) {
+  Rooted<CalendarValue> calendar(cx);
+  if (!ToTemporalCalendar(cx, calendarLike, &calendar)) {
     return nullptr;
   }
 
@@ -267,18 +268,18 @@ static ZonedDateTimeObject* SystemZonedDateTime(
 }
 
 /**
- * Temporal.Now.timeZone ( )
+ * Temporal.Now.timeZoneId ( )
  */
-static bool Temporal_Now_timeZone(JSContext* cx, unsigned argc, Value* vp) {
+static bool Temporal_Now_timeZoneId(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  auto* result = SystemTimeZone(cx);
+  auto* result = SystemTimeZoneIdentifier(cx);
   if (!result) {
     return false;
   }
 
-  args.rval().setObject(*result);
+  args.rval().setString(result);
   return true;
 }
 
@@ -323,14 +324,8 @@ static bool Temporal_Now_plainDateTimeISO(JSContext* cx, unsigned argc,
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  JSObject* calendar = GetISO8601Calendar(cx);
-  if (!calendar) {
-    return false;
-  }
-  Rooted<Value> calendarValue(cx, ObjectValue(*calendar));
-
-  // Step 2.
-  auto* result = SystemDateTime(cx, args.get(0), calendarValue);
+  Rooted<Value> calendar(cx, StringValue(cx->names().iso8601));
+  auto* result = SystemDateTime(cx, args.get(0), calendar);
   if (!result) {
     return false;
   }
@@ -364,14 +359,8 @@ static bool Temporal_Now_zonedDateTimeISO(JSContext* cx, unsigned argc,
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  JSObject* calendar = GetISO8601Calendar(cx);
-  if (!calendar) {
-    return false;
-  }
-  Rooted<Value> calendarValue(cx, ObjectValue(*calendar));
-
-  // Step 2.
-  auto* result = SystemZonedDateTime(cx, args.get(0), calendarValue);
+  Rooted<Value> calendar(cx, StringValue(cx->names().iso8601));
+  auto* result = SystemZonedDateTime(cx, args.get(0), calendar);
   if (!result) {
     return false;
   }
@@ -391,7 +380,7 @@ static bool Temporal_Now_plainDate(JSContext* cx, unsigned argc, Value* vp) {
   if (!dateTime) {
     return false;
   }
-  Rooted<JSObject*> calendar(cx, dateTime->calendar());
+  Rooted<CalendarValue> calendar(cx, dateTime->calendar());
 
   // Step 2.
   auto* result = CreateTemporalDate(cx, ToPlainDate(dateTime), calendar);
@@ -410,19 +399,14 @@ static bool Temporal_Now_plainDateISO(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  Rooted<JSObject*> calendar(cx, GetISO8601Calendar(cx));
-  if (!calendar) {
-    return false;
-  }
-  Rooted<Value> calendarValue(cx, ObjectValue(*calendar));
-
-  // Step 2.
+  Rooted<Value> calendarValue(cx, StringValue(cx->names().iso8601));
   auto* dateTime = SystemDateTime(cx, args.get(0), calendarValue);
   if (!dateTime) {
     return false;
   }
 
-  // Step 3.
+  // Step 2.
+  Rooted<CalendarValue> calendar(cx, dateTime->calendar());
   auto* result = CreateTemporalDate(cx, ToPlainDate(dateTime), calendar);
   if (!result) {
     return false;
@@ -439,19 +423,13 @@ static bool Temporal_Now_plainTimeISO(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  Rooted<JSObject*> calendar(cx, GetISO8601Calendar(cx));
-  if (!calendar) {
-    return false;
-  }
-  Rooted<Value> calendarValue(cx, ObjectValue(*calendar));
-
-  // Step 2.
-  auto* dateTime = SystemDateTime(cx, args.get(0), calendarValue);
+  Rooted<Value> calendar(cx, StringValue(cx->names().iso8601));
+  auto* dateTime = SystemDateTime(cx, args.get(0), calendar);
   if (!dateTime) {
     return false;
   }
 
-  // Step 3.
+  // Step 2.
   auto* result = CreateTemporalTime(cx, ToPlainTime(dateTime));
   if (!result) {
     return false;
@@ -469,7 +447,7 @@ const JSClass TemporalNowObject::class_ = {
 };
 
 static const JSFunctionSpec TemporalNow_methods[] = {
-    JS_FN("timeZone", Temporal_Now_timeZone, 0, 0),
+    JS_FN("timeZoneId", Temporal_Now_timeZoneId, 0, 0),
     JS_FN("instant", Temporal_Now_instant, 0, 0),
     JS_FN("plainDateTime", Temporal_Now_plainDateTime, 1, 0),
     JS_FN("plainDateTimeISO", Temporal_Now_plainDateTimeISO, 0, 0),
@@ -487,7 +465,7 @@ static const JSPropertySpec TemporalNow_properties[] = {
 };
 
 static JSObject* CreateTemporalNowObject(JSContext* cx, JSProtoKey key) {
-  RootedObject proto(cx, &cx->global()->getObjectPrototype());
+  Rooted<JSObject*> proto(cx, &cx->global()->getObjectPrototype());
   return NewTenuredObjectWithGivenProto(cx, &TemporalNowObject::class_, proto);
 }
 

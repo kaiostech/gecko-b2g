@@ -327,10 +327,6 @@ bool HTMLFormElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                                      nsAttrValue& aResult) {
   if (aNamespaceID == kNameSpaceID_None) {
     if (aAttribute == nsGkAtoms::method) {
-      if (StaticPrefs::dom_dialog_element_enabled() || IsInChromeDocument()) {
-        return aResult.ParseEnumValue(aValue, kFormMethodTableDialogEnabled,
-                                      false);
-      }
       return aResult.ParseEnumValue(aValue, kFormMethodTable, false);
     }
     if (aAttribute == nsGkAtoms::enctype) {
@@ -858,7 +854,7 @@ nsresult HTMLFormElement::SubmitSubmission(
   return rv;
 }
 
-// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#submit-dialog
+// https://html.spec.whatwg.org/#concept-form-submit step 11
 nsresult HTMLFormElement::SubmitDialog(DialogFormSubmission* aFormSubmission) {
   // Close the dialog subject. If there is a result, let that be the return
   // value.

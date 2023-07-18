@@ -172,6 +172,19 @@ pref("app.update.langpack.enabled", true);
   // By default, snapshot Firefox Messaging System targeting for use by the
   // background update task every 60 minutes.
   pref("app.update.background.messaging.targeting.snapshot.intervalSec", 3600);
+  // For historical reasons, the background update process requires the Mozilla
+  // Maintenance Service to be available and enabled via the service registry
+  // key.  When this value is `true`, allow the background update process to
+  // update unelevated installations (that are writeable, etc).
+  //
+  // N.b. This feature impacts the `applications: firefox_desktop` Nimbus
+  // application ID (and not the `firefox_desktop_background_task` application
+  // ID).  However, the pref will be automatically mirrored to the background
+  // update task profile. This means that experiments and enrollment impact the
+  // Firefox Desktop browsing profile that _schedules_ the background update
+  // task, and then the background update task collects telemetry in accordance
+  // with the mirrored pref.
+  pref("app.update.background.allowUpdatesForUnelevatedInstallations", false);
 #endif
 
 #ifdef XP_MACOSX
@@ -1179,6 +1192,13 @@ pref("browser.sessionstore.debug", false);
 pref("browser.sessionstore.cleanup.forget_closed_after", 1209600000);
 // Platform collects session storage data for session store
 pref("browser.sessionstore.collect_session_storage", true);
+
+// temporary pref that will be removed in a future release, see bug 1836952
+#ifdef NIGHTLY_BUILD
+  pref("browser.sessionstore.persist_closed_tabs_between_sessions", true);
+#else
+  pref("browser.sessionstore.persist_closed_tabs_between_sessions", false);
+#endif
 
 // Don't quit the browser when Ctrl + Q is pressed.
 pref("browser.quitShortcut.disabled", false);
@@ -2483,9 +2503,6 @@ pref("devtools.markup.collapseAttributes", true);
 pref("devtools.markup.collapseAttributeLength", 120);
 // Whether to auto-beautify the HTML on copy.
 pref("devtools.markup.beautifyOnCopy", false);
-// Whether or not the DOM mutation breakpoints context menu are enabled in the
-// markup view.
-pref("devtools.markup.mutationBreakpoints.enabled", true);
 
 // DevTools default color unit
 pref("devtools.defaultColorUnit", "authored");

@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 
+#include "builtin/temporal/Calendar.h"
 #include "builtin/temporal/TemporalTypes.h"
 #include "builtin/temporal/Wrapped.h"
 #include "js/TypeDecls.h"
@@ -67,7 +68,9 @@ class PlainDateTimeObject : public NativeObject {
     return getFixedSlot(ISO_NANOSECOND_SLOT).toInt32();
   }
 
-  JSObject* calendar() const { return &getFixedSlot(CALENDAR_SLOT).toObject(); }
+  CalendarValue calendar() const {
+    return CalendarValue(getFixedSlot(CALENDAR_SLOT));
+  }
 
  private:
   static const ClassSpec classSpec_;
@@ -132,7 +135,7 @@ bool ISODateTimeWithinLimits(double year, double month, double day);
  */
 PlainDateTimeObject* CreateTemporalDateTime(JSContext* cx,
                                             const PlainDateTime& dateTime,
-                                            JS::Handle<JSObject*> calendar);
+                                            JS::Handle<CalendarValue> calendar);
 
 /**
  * ToTemporalDateTime ( item [ , options ] )
@@ -151,22 +154,15 @@ bool ToTemporalDateTime(JSContext* cx, JS::Handle<JS::Value> item,
  * millisecond, microsecond, nanosecond, calendar, precision, showCalendar )
  */
 JSString* TemporalDateTimeToString(JSContext* cx, const PlainDateTime& dateTime,
-                                   JS::Handle<JSObject*> calendar,
+                                   JS::Handle<CalendarValue> calendar,
                                    Precision precision,
                                    CalendarOption showCalendar);
-
-/**
- * TemporalDateTimeToString ( isoYear, isoMonth, isoDay, hour, minute, second,
- * millisecond, microsecond, nanosecond, calendar, precision, showCalendar )
- */
-JSString* TemporalDateTimeToString(JSContext* cx, const PlainDateTime& dateTime,
-                                   Precision precision);
 
 /**
  * InterpretTemporalDateTimeFields ( calendar, fields, options )
  */
 bool InterpretTemporalDateTimeFields(JSContext* cx,
-                                     JS::Handle<JSObject*> calendar,
+                                     JS::Handle<CalendarValue> calendar,
                                      JS::Handle<PlainObject*> fields,
                                      JS::Handle<JSObject*> options,
                                      PlainDateTime* result);
@@ -175,7 +171,7 @@ bool InterpretTemporalDateTimeFields(JSContext* cx,
  * InterpretTemporalDateTimeFields ( calendar, fields, options )
  */
 bool InterpretTemporalDateTimeFields(JSContext* cx,
-                                     JS::Handle<JSObject*> calendar,
+                                     JS::Handle<CalendarValue> calendar,
                                      JS::Handle<PlainObject*> fields,
                                      PlainDateTime* result);
 
@@ -185,7 +181,7 @@ bool InterpretTemporalDateTimeFields(JSContext* cx,
  */
 bool DifferenceISODateTime(JSContext* cx, const PlainDateTime& one,
                            const PlainDateTime& two,
-                           JS::Handle<JSObject*> calendar,
+                           JS::Handle<CalendarValue> calendar,
                            TemporalUnit largestUnit, Duration* result);
 
 /**
@@ -194,7 +190,7 @@ bool DifferenceISODateTime(JSContext* cx, const PlainDateTime& one,
  */
 bool DifferenceISODateTime(JSContext* cx, const PlainDateTime& one,
                            const PlainDateTime& two,
-                           JS::Handle<JSObject*> calendar,
+                           JS::Handle<CalendarValue> calendar,
                            TemporalUnit largestUnit,
                            JS::Handle<PlainObject*> options, Duration* result);
 

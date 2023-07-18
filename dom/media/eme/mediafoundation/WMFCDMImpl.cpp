@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "mozilla/dom/MediaKeySession.h"
+#include "mozilla/dom/KeySystemNames.h"
 
 namespace mozilla {
 
@@ -83,7 +84,7 @@ bool WMFCDMImpl::GetCapabilities(nsTArray<KeySystemConfig>& aOutConfigs) {
   // Retrieve result from our cached key system
   static std::unordered_map<std::string, nsTArray<KeySystemConfig>>
       sKeySystemConfigs{};
-  auto keySystem = std::string{NS_ConvertUTF16toUTF8(mCDM->KeySystem()).get()};
+  auto keySystem = std::string{NS_ConvertUTF16toUTF8(mKeySystem).get()};
   if (auto rv = sKeySystemConfigs.find(keySystem);
       rv != sKeySystemConfigs.end()) {
     EME_LOG("Return cached capabilities for %s", keySystem.c_str());
@@ -98,6 +99,9 @@ bool WMFCDMImpl::GetCapabilities(nsTArray<KeySystemConfig>& aOutConfigs) {
   }
 
   // Not cached result, ask the remote process.
+  if (!mCDM) {
+    mCDM = MakeRefPtr<MFCDMChild>(mKeySystem);
+  }
   bool ok = false;
   static const bool sIsHwSecure[2] = {false, true};
   for (const auto& isHWSecure : sIsHwSecure) {
@@ -122,6 +126,13 @@ bool WMFCDMImpl::GetCapabilities(nsTArray<KeySystemConfig>& aOutConfigs) {
           KeySystemConfig* config = aOutConfigs.AppendElement();
           MFCDMCapabilitiesIPDLToKeySystemConfig(capabilities, *config);
           sKeySystemConfigs[keySystem].AppendElement(*config);
+          // This is equal to "com.microsoft.playready.recommendation.3000", so
+          // we can store it directly without asking the remote process again.
+          if (keySystem.compare(kPlayReadyKeySystemName) == 0 && isHWSecure) {
+            config->mKeySystem.AssignLiteral(kPlayReadyKeySystemHardware);
+            sKeySystemConfigs["com.microsoft.playready.recommendation.3000"]
+                .AppendElement(*config);
+          }
           ok = true;
         },
         [](nsresult rv) {
@@ -133,8 +144,9 @@ bool WMFCDMImpl::GetCapabilities(nsTArray<KeySystemConfig>& aOutConfigs) {
 
 RefPtr<WMFCDMImpl::InitPromise> WMFCDMImpl::Init(
     const WMFCDMImpl::InitParams& aParams) {
-  MOZ_ASSERT(mCDM);
-
+  if (!mCDM) {
+    mCDM = MakeRefPtr<MFCDMChild>(mKeySystem);
+  }
   RefPtr<WMFCDMImpl> self = this;
   mCDM->Init(aParams.mOrigin, aParams.mInitDataTypes,
              aParams.mPersistentStateRequired

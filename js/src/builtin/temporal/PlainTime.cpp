@@ -360,9 +360,6 @@ static PlainTimeObject* CreateTemporalTime(JSContext* cx, const CallArgs& args,
                        Int32Value(nanosecond));
 
   // Step 10.
-  object->setFixedSlot(PlainTimeObject::CALENDAR_SLOT, NullValue());
-
-  // Step 11.
   return object;
 }
 
@@ -407,9 +404,6 @@ PlainTimeObject* js::temporal::CreateTemporalTime(JSContext* cx,
                        Int32Value(nanosecond));
 
   // Step 10.
-  object->setFixedSlot(PlainTimeObject::CALENDAR_SLOT, NullValue());
-
-  // Step 11.
   return object;
 }
 
@@ -618,13 +612,9 @@ static Wrapped<PlainTimeObject*> ToTemporalTime(JSContext* cx,
     // Step 3.b.
     if (auto* zonedDateTime = itemObj->maybeUnwrapIf<ZonedDateTimeObject>()) {
       auto epochInstant = ToInstant(zonedDateTime);
-      Rooted<JSObject*> timeZone(cx, zonedDateTime->timeZone());
-      Rooted<JSObject*> calendar(cx, zonedDateTime->calendar());
+      Rooted<TimeZoneValue> timeZone(cx, zonedDateTime->timeZone());
 
-      if (!cx->compartment()->wrap(cx, &timeZone)) {
-        return nullptr;
-      }
-      if (!cx->compartment()->wrap(cx, &calendar)) {
+      if (!timeZone.wrap(cx)) {
         return nullptr;
       }
 
@@ -644,39 +634,12 @@ static Wrapped<PlainTimeObject*> ToTemporalTime(JSContext* cx,
     }
 
     // Step 3.d.
-    Rooted<JSObject*> calendar(cx,
-                               GetTemporalCalendarWithISODefault(cx, itemObj));
-    if (!calendar) {
-      return nullptr;
-    }
-
-    // Step 3.e.
-    JSString* calendarId = CalendarToString(cx, calendar);
-    if (!calendarId) {
-      return nullptr;
-    }
-
-    JSLinearString* linear = calendarId->ensureLinear(cx);
-    if (!linear) {
-      return nullptr;
-    }
-
-    if (!StringEqualsLiteral(linear, "iso8601")) {
-      if (auto chars = QuoteString(cx, linear, '"')) {
-        JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
-                                 JSMSG_TEMPORAL_PLAIN_TIME_CALENDAR_NOT_ISO8601,
-                                 chars.get());
-      }
-      return nullptr;
-    }
-
-    // Step 3.f.
     TimeRecord timeResult;
     if (!ToTemporalTimeRecord(cx, itemObj, &timeResult)) {
       return nullptr;
     }
 
-    // Step 3.g.
+    // Step 3.e.
     if (!RegulateTime(cx, timeResult, overflow, &result)) {
       return nullptr;
     }
@@ -690,30 +653,12 @@ static Wrapped<PlainTimeObject*> ToTemporalTime(JSContext* cx,
     }
 
     // Step 4.b.
-    Rooted<JSString*> calendar(cx);
-    if (!ParseTemporalTimeString(cx, string, &result, &calendar)) {
+    if (!ParseTemporalTimeString(cx, string, &result)) {
       return nullptr;
     }
 
     // Step 4.c.
     MOZ_ASSERT(IsValidTime(result));
-
-    // Step 4.d.
-    if (calendar) {
-      JSLinearString* linear = calendar->ensureLinear(cx);
-      if (!linear) {
-        return nullptr;
-      }
-
-      if (!StringEqualsAscii(linear, "iso8601")) {
-        if (auto chars = QuoteString(cx, linear)) {
-          JS_ReportErrorNumberUTF8(
-              cx, GetErrorMessage, nullptr,
-              JSMSG_TEMPORAL_PLAIN_TIME_CALENDAR_NOT_ISO8601, chars.get());
-        }
-        return nullptr;
-      }
-    }
   }
 
   // Step 5.
@@ -806,8 +751,8 @@ static int64_t TotalDurationNanoseconds(const Duration& duration) {
 }
 
 /**
- * BalanceDuration ( days, hours, minutes, seconds, milliseconds, microseconds,
- * nanoseconds, largestUnit [ , relativeTo ] )
+ * BalanceTimeDuration ( days, hours, minutes, seconds, milliseconds,
+ * microseconds, nanoseconds, largestUnit [ , relativeTo ] )
  */
 static Duration BalanceTimeDuration(const Duration& duration,
                                     TemporalUnit largestUnit) {
@@ -1773,7 +1718,7 @@ static bool DifferenceTemporalPlainTime(JSContext* cx,
     return false;
   }
 
-  // Steps 3-5.
+  // Steps 3-4.
   DifferenceSettings settings;
   if (args.hasDefined(1)) {
     Rooted<JSObject*> options(
@@ -1784,24 +1729,19 @@ static bool DifferenceTemporalPlainTime(JSContext* cx,
 
     // Step 3.
     Rooted<PlainObject*> resolvedOptions(cx,
-                                         NewPlainObjectWithProto(cx, nullptr));
+                                         SnapshotOwnProperties(cx, options));
     if (!resolvedOptions) {
       return false;
     }
 
     // Step 4.
-    if (!CopyDataProperties(cx, resolvedOptions, options)) {
-      return false;
-    }
-
-    // Step 5.
     if (!GetDifferenceSettings(
             cx, operation, resolvedOptions, TemporalUnitGroup::Time,
             TemporalUnit::Nanosecond, TemporalUnit::Hour, &settings)) {
       return false;
     }
   } else {
-    // Steps 3-5.
+    // Steps 3-4.
     settings = {
         TemporalUnit::Nanosecond,
         TemporalUnit::Hour,
@@ -1810,10 +1750,10 @@ static bool DifferenceTemporalPlainTime(JSContext* cx,
     };
   }
 
-  // Step 6.
+  // Step 5.
   auto diff = DifferenceTime(temporalTime, other);
 
-  // Step 7.
+  // Step 6.
   Duration roundedDuration;
   if (!RoundDuration(cx, diff.toDuration().time(), settings.roundingIncrement,
                      settings.smallestUnit, settings.roundingMode,
@@ -1821,11 +1761,11 @@ static bool DifferenceTemporalPlainTime(JSContext* cx,
     return false;
   }
 
-  // Step 8.
+  // Step 7.
   auto balancedDuration =
       BalanceTimeDuration(roundedDuration, settings.largestUnit);
 
-  // Step 9.
+  // Step 8.
   if (operation == TemporalDifference::Since) {
     balancedDuration = balancedDuration.negate();
   }
@@ -1875,17 +1815,6 @@ static bool AddDurationToOrSubtractDurationFromPlainTime(
 
   args.rval().setObject(*obj);
   return true;
-}
-
-JSObject* js::temporal::PlainTimeObject::createCalendar(
-    JSContext* cx, Handle<PlainTimeObject*> obj) {
-  auto* calendar = GetISO8601Calendar(cx);
-  if (!calendar) {
-    return nullptr;
-  }
-
-  obj->setCalendar(calendar);
-  return calendar;
 }
 
 /**
@@ -2027,32 +1956,6 @@ static bool PlainTime_compare(JSContext* cx, unsigned argc, Value* vp) {
   // Step 3.
   args.rval().setInt32(CompareTemporalTime(one, two));
   return true;
-}
-
-/**
- * get Temporal.PlainTime.prototype.calendar
- */
-static bool PlainTime_calendar(JSContext* cx, const CallArgs& args) {
-  Rooted<PlainTimeObject*> temporalTime(
-      cx, &args.thisv().toObject().as<PlainTimeObject>());
-
-  // Step 3.
-  auto* calendar = PlainTimeObject::getOrCreateCalendar(cx, temporalTime);
-  if (!calendar) {
-    return false;
-  }
-
-  args.rval().setObject(*calendar);
-  return true;
-}
-
-/**
- * get Temporal.PlainTime.prototype.calendar
- */
-static bool PlainTime_calendar(JSContext* cx, unsigned argc, Value* vp) {
-  // Steps 1-2.
-  CallArgs args = CallArgsFromVp(argc, vp);
-  return CallNonGenericMethod<IsPlainTime, PlainTime_calendar>(cx, args);
 }
 
 /**
@@ -2220,7 +2123,7 @@ static bool PlainTime_with(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 4.
-  if (!RejectObjectWithCalendarOrTimeZone(cx, temporalTimeLike)) {
+  if (!RejectTemporalLikeObject(cx, temporalTimeLike)) {
     return false;
   }
 
@@ -2434,7 +2337,7 @@ static bool PlainTime_toPlainDateTime(JSContext* cx, const CallArgs& args) {
 
   // Step 3.
   PlainDate date;
-  Rooted<JSObject*> calendar(cx);
+  Rooted<CalendarValue> calendar(cx);
   if (!ToTemporalDate(cx, args.get(0), &date, &calendar)) {
     return false;
   }
@@ -2490,7 +2393,7 @@ static bool PlainTime_toZonedDateTime(JSContext* cx, const CallArgs& args) {
 
   // Step 6.
   PlainDate date;
-  Rooted<JSObject*> calendar(cx);
+  Rooted<CalendarValue> calendar(cx);
   if (!ToTemporalDate(cx, temporalDateLike, &date, &calendar)) {
     return false;
   }
@@ -2510,8 +2413,8 @@ static bool PlainTime_toZonedDateTime(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 9.
-  Rooted<JSObject*> timeZone(cx, ToTemporalTimeZone(cx, temporalTimeZoneLike));
-  if (!timeZone) {
+  Rooted<TimeZoneValue> timeZone(cx);
+  if (!ToTemporalTimeZone(cx, temporalTimeZoneLike, &timeZone)) {
     return false;
   }
 
@@ -2556,57 +2459,46 @@ static bool PlainTime_getISOFields(JSContext* cx, const CallArgs& args) {
       cx, &args.thisv().toObject().as<PlainTimeObject>());
   auto time = ToPlainTime(temporalTime);
 
-  auto* calendar = PlainTimeObject::getOrCreateCalendar(cx, temporalTime);
-  if (!calendar) {
-    return false;
-  }
-
   // Step 3.
   Rooted<IdValueVector> fields(cx, IdValueVector(cx));
 
   // Step 4.
-  if (!fields.emplaceBack(NameToId(cx->names().calendar),
-                          ObjectValue(*calendar))) {
-    return false;
-  }
-
-  // Step 5.
   if (!fields.emplaceBack(NameToId(cx->names().isoHour),
                           Int32Value(time.hour))) {
     return false;
   }
 
-  // Step 6.
+  // Step 5.
   if (!fields.emplaceBack(NameToId(cx->names().isoMicrosecond),
                           Int32Value(time.microsecond))) {
     return false;
   }
 
-  // Step 7.
+  // Step 6.
   if (!fields.emplaceBack(NameToId(cx->names().isoMillisecond),
                           Int32Value(time.millisecond))) {
     return false;
   }
 
-  // Step 8.
+  // Step 7.
   if (!fields.emplaceBack(NameToId(cx->names().isoMinute),
                           Int32Value(time.minute))) {
     return false;
   }
 
-  // Step 9.
+  // Step 8.
   if (!fields.emplaceBack(NameToId(cx->names().isoNanosecond),
                           Int32Value(time.nanosecond))) {
     return false;
   }
 
-  // Step 10.
+  // Step 9.
   if (!fields.emplaceBack(NameToId(cx->names().isoSecond),
                           Int32Value(time.second))) {
     return false;
   }
 
-  // Step 11.
+  // Step 10.
   auto* obj =
       NewPlainObjectWithUniqueNames(cx, fields.begin(), fields.length());
   if (!obj) {
@@ -2794,7 +2686,6 @@ static const JSFunctionSpec PlainTime_prototype_methods[] = {
 };
 
 static const JSPropertySpec PlainTime_prototype_properties[] = {
-    JS_PSG("calendar", PlainTime_calendar, 0),
     JS_PSG("hour", PlainTime_hour, 0),
     JS_PSG("minute", PlainTime_minute, 0),
     JS_PSG("second", PlainTime_second, 0),

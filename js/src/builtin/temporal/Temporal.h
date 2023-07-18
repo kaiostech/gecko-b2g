@@ -171,13 +171,6 @@ bool ToTemporalRoundingMode(JSContext* cx, JS::Handle<JSObject*> options,
 /**
  * RoundNumberToIncrement ( x, increment, roundingMode )
  */
-JS::BigInt* RoundNumberToIncrement(JSContext* cx, JS::Handle<JS::BigInt*> x,
-                                   int64_t increment,
-                                   TemporalRoundingMode roundingMode);
-
-/**
- * RoundNumberToIncrement ( x, increment, roundingMode )
- */
 bool RoundNumberToIncrement(JSContext* cx, const Instant& x, int64_t increment,
                             TemporalRoundingMode roundingMode, Instant* result);
 
@@ -220,8 +213,6 @@ bool ToCalendarNameOption(JSContext* cx, JS::Handle<JSObject*> options,
 
 /**
  * Precision when displaying fractional seconds.
- *
- *
  */
 class Precision final {
   int8_t value_;
@@ -326,10 +317,9 @@ bool ToShowOffsetOption(JSContext* cx, JS::Handle<JSObject*> options,
                         ShowOffsetOption* result);
 
 /**
- * RejectObjectWithCalendarOrTimeZone ( object )
+ * RejectTemporalLikeObject ( object )
  */
-bool RejectObjectWithCalendarOrTimeZone(JSContext* cx,
-                                        JS::Handle<JSObject*> object);
+bool RejectTemporalLikeObject(JSContext* cx, JS::Handle<JSObject*> object);
 
 /**
  * ToPositiveIntegerWithTruncation ( argument )
@@ -358,17 +348,23 @@ bool GetMethodForCall(JSContext* cx, JS::Handle<JSObject*> object,
                       JS::MutableHandle<JS::Value> result);
 
 /**
- * CopyDataProperties ( target, source, excludedKeys [ , excludedValues ] )
+ * SnapshotOwnProperties ( source, proto [ , excludedKeys [ , excludedValues ] ]
+ * )
  */
-bool CopyDataProperties(JSContext* cx, JS::Handle<PlainObject*> target,
-                        JS::Handle<JSObject*> source);
+PlainObject* SnapshotOwnProperties(JSContext* cx, JS::Handle<JSObject*> source);
+
+/**
+ * SnapshotOwnProperties ( source, proto [ , excludedKeys [ , excludedValues ] ]
+ * )
+ */
+PlainObject* SnapshotOwnPropertiesIgnoreUndefined(JSContext* cx,
+                                                  JS::Handle<JSObject*> source);
 
 /**
  * CopyDataProperties ( target, source, excludedKeys [ , excludedValues ] )
  */
-bool CopyDataPropertiesIgnoreUndefined(JSContext* cx,
-                                       JS::Handle<PlainObject*> target,
-                                       JS::Handle<JSObject*> source);
+bool CopyDataProperties(JSContext* cx, JS::Handle<PlainObject*> target,
+                        JS::Handle<JSObject*> source);
 
 enum class TemporalDifference { Since, Until };
 

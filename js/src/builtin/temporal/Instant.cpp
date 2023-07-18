@@ -915,7 +915,7 @@ bool js::temporal::DifferenceInstant(JSContext* cx, const Instant& ns1,
 
   // Step 8.
   TimeDuration balanced;
-  if (!BalanceDuration(cx, roundResult, largestUnit, &balanced)) {
+  if (!BalanceTimeDuration(cx, roundResult, largestUnit, &balanced)) {
     return false;
   }
   MOZ_ASSERT(balanced.days == 0);
@@ -964,48 +964,49 @@ bool js::temporal::RoundTemporalInstant(JSContext* cx, const Instant& ns,
  */
 static JSString* TemporalInstantToString(JSContext* cx,
                                          Handle<InstantObject*> instant,
-                                         Handle<JSObject*> timeZone,
+                                         Handle<TimeZoneValue> timeZone,
                                          Precision precision) {
   // Steps 1-2. (Not applicable in our implementation.)
 
   // Steps 3-4.
-  Rooted<JSObject*> outputTimeZone(cx, timeZone);
+  Rooted<TimeZoneValue> outputTimeZone(cx, timeZone);
   if (!timeZone) {
-    outputTimeZone = CreateTemporalTimeZoneUTC(cx);
-    if (!outputTimeZone) {
+    auto* utcTimeZone = CreateTemporalTimeZoneUTC(cx);
+    if (!utcTimeZone) {
       return nullptr;
     }
+    outputTimeZone.set(TimeZoneValue(utcTimeZone));
   }
 
-  // Step 5. (Not applicable in our implementation.)
-
-  // Step 6.
+  // Step 5.
   PlainDateTime dateTime;
   if (!GetPlainDateTimeFor(cx, outputTimeZone, instant, &dateTime)) {
     return nullptr;
   }
 
-  // Step 7.
+  // Step 6.
+  Rooted<CalendarValue> isoCalendar(cx, CalendarValue(cx->names().iso8601));
   Rooted<JSString*> dateTimeString(
-      cx, TemporalDateTimeToString(cx, dateTime, precision));
+      cx, TemporalDateTimeToString(cx, dateTime, isoCalendar, precision,
+                                   CalendarOption::Never));
   if (!dateTimeString) {
     return nullptr;
   }
 
-  // Steps 8-9.
+  // Steps 7-8.
   Rooted<JSString*> timeZoneString(cx);
   if (!timeZone) {
-    // Step 8.a.
+    // Step 7.a.
     timeZoneString = cx->staticStrings().lookup("Z", 1);
     MOZ_ASSERT(timeZoneString);
   } else {
-    // Step 9.a.
+    // Step 8.a.
     int64_t offsetNs;
     if (!GetOffsetNanosecondsFor(cx, timeZone, instant, &offsetNs)) {
       return nullptr;
     }
 
-    // Step 9.b.
+    // Step 8.b.
     timeZoneString = FormatISOTimeZoneOffsetString(cx, offsetNs);
     if (!timeZoneString) {
       return nullptr;
@@ -1032,7 +1033,7 @@ static bool DifferenceTemporalInstant(JSContext* cx,
     return false;
   }
 
-  // Steps 3-5.
+  // Steps 3-4.
   DifferenceSettings settings;
   if (args.hasDefined(1)) {
     Rooted<JSObject*> options(
@@ -1043,24 +1044,19 @@ static bool DifferenceTemporalInstant(JSContext* cx,
 
     // Step 3.
     Rooted<PlainObject*> resolvedOptions(cx,
-                                         NewPlainObjectWithProto(cx, nullptr));
+                                         SnapshotOwnProperties(cx, options));
     if (!resolvedOptions) {
       return false;
     }
 
     // Step 4.
-    if (!CopyDataProperties(cx, resolvedOptions, options)) {
-      return false;
-    }
-
-    // Step 5.
     if (!GetDifferenceSettings(
             cx, operation, resolvedOptions, TemporalUnitGroup::Time,
             TemporalUnit::Nanosecond, TemporalUnit::Second, &settings)) {
       return false;
     }
   } else {
-    // Steps 3-5.
+    // Steps 3-4.
     settings = {
         TemporalUnit::Nanosecond,
         TemporalUnit::Second,
@@ -1069,7 +1065,7 @@ static bool DifferenceTemporalInstant(JSContext* cx,
     };
   }
 
-  // Step 6.
+  // Step 5.
   Duration difference;
   if (!DifferenceInstant(cx, instant, other, settings.roundingIncrement,
                          settings.smallestUnit, settings.largestUnit,
@@ -1077,7 +1073,7 @@ static bool DifferenceTemporalInstant(JSContext* cx,
     return false;
   }
 
-  // Step 7.
+  // Step 6.
   if (operation == TemporalDifference::Since) {
     difference = difference.negate();
   }
@@ -1646,7 +1642,7 @@ static bool Instant_equals(JSContext* cx, unsigned argc, Value* vp) {
 static bool Instant_toString(JSContext* cx, const CallArgs& args) {
   auto instant = ToInstant(&args.thisv().toObject().as<InstantObject>());
 
-  Rooted<JSObject*> timeZone(cx);
+  Rooted<TimeZoneValue> timeZone(cx);
   auto roundingMode = TemporalRoundingMode::Trunc;
   SecondsStringPrecision precision = {Precision::Auto(),
                                       TemporalUnit::Nanosecond, Increment{1}};
@@ -1692,8 +1688,7 @@ static bool Instant_toString(JSContext* cx, const CallArgs& args) {
 
     // Step 10.
     if (!value.isUndefined()) {
-      timeZone = ToTemporalTimeZone(cx, value);
-      if (!timeZone) {
+      if (!ToTemporalTimeZone(cx, value, &timeZone)) {
         return false;
       }
     }
@@ -1743,7 +1738,7 @@ static bool Instant_toLocaleString(JSContext* cx, const CallArgs& args) {
                                  &args.thisv().toObject().as<InstantObject>());
 
   // Step 3.
-  Rooted<JSObject*> timeZone(cx);
+  Rooted<TimeZoneValue> timeZone(cx);
   JSString* str =
       TemporalInstantToString(cx, instant, timeZone, Precision::Auto());
   if (!str) {
@@ -1771,7 +1766,7 @@ static bool Instant_toJSON(JSContext* cx, const CallArgs& args) {
                                  &args.thisv().toObject().as<InstantObject>());
 
   // Step 3.
-  Rooted<JSObject*> timeZone(cx);
+  Rooted<TimeZoneValue> timeZone(cx);
   JSString* str =
       TemporalInstantToString(cx, instant, timeZone, Precision::Auto());
   if (!str) {
@@ -1827,8 +1822,8 @@ static bool Instant_toZonedDateTime(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 6.
-  Rooted<JSObject*> calendar(cx, ToTemporalCalendar(cx, calendarLike));
-  if (!calendar) {
+  Rooted<CalendarValue> calendar(cx);
+  if (!ToTemporalCalendar(cx, calendarLike, &calendar)) {
     return false;
   }
 
@@ -1846,8 +1841,8 @@ static bool Instant_toZonedDateTime(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 9.
-  Rooted<JSObject*> timeZone(cx, ToTemporalTimeZone(cx, timeZoneLike));
-  if (!timeZone) {
+  Rooted<TimeZoneValue> timeZone(cx);
+  if (!ToTemporalTimeZone(cx, timeZoneLike, &timeZone)) {
     return false;
   }
 
@@ -1877,18 +1872,13 @@ static bool Instant_toZonedDateTimeISO(JSContext* cx, const CallArgs& args) {
   auto instant = ToInstant(&args.thisv().toObject().as<InstantObject>());
 
   // Step 3.
-  Rooted<JSObject*> timeZone(cx, ToTemporalTimeZone(cx, args.get(0)));
-  if (!timeZone) {
+  Rooted<TimeZoneValue> timeZone(cx);
+  if (!ToTemporalTimeZone(cx, args.get(0), &timeZone)) {
     return false;
   }
 
   // Step 4.
-  Rooted<CalendarObject*> calendar(cx, GetISO8601Calendar(cx));
-  if (!calendar) {
-    return false;
-  }
-
-  // Step 5.
+  Rooted<CalendarValue> calendar(cx, CalendarValue(cx->names().iso8601));
   auto* result = CreateTemporalZonedDateTime(cx, instant, timeZone, calendar);
   if (!result) {
     return false;

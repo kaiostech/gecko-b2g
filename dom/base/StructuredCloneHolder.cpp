@@ -111,14 +111,15 @@ bool StructuredCloneCallbacksWrite(JSContext* aCx,
 }
 
 bool StructuredCloneCallbacksReadTransfer(
-    JSContext* aCx, JSStructuredCloneReader* aReader, uint32_t aTag,
-    void* aContent, uint64_t aExtraData, void* aClosure,
+    JSContext* aCx, JSStructuredCloneReader* aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, uint32_t aTag, void* aContent,
+    uint64_t aExtraData, void* aClosure,
     JS::MutableHandle<JSObject*> aReturnObject) {
   StructuredCloneHolderBase* holder =
       static_cast<StructuredCloneHolderBase*>(aClosure);
   MOZ_ASSERT(holder);
-  return holder->CustomReadTransferHandler(aCx, aReader, aTag, aContent,
-                                           aExtraData, aReturnObject);
+  return holder->CustomReadTransferHandler(aCx, aReader, aCloneDataPolicy, aTag,
+                                           aContent, aExtraData, aReturnObject);
 }
 
 bool StructuredCloneCallbacksWriteTransfer(
@@ -303,9 +304,9 @@ bool StructuredCloneHolderBase::Read(
 }
 
 bool StructuredCloneHolderBase::CustomReadTransferHandler(
-    JSContext* aCx, JSStructuredCloneReader* aReader, uint32_t aTag,
-    void* aContent, uint64_t aExtraData,
-    JS::MutableHandle<JSObject*> aReturnObject) {
+    JSContext* aCx, JSStructuredCloneReader* aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, uint32_t aTag, void* aContent,
+    uint64_t aExtraData, JS::MutableHandle<JSObject*> aReturnObject) {
   MOZ_CRASH("Nothing to read.");
   return false;
 }
@@ -1103,7 +1104,8 @@ JSObject* StructuredCloneHolder::CustomReadHandler(
 
   if (StaticPrefs::dom_media_webcodecs_enabled() &&
       aTag == SCTAG_DOM_VIDEOFRAME &&
-      CloneScope() == StructuredCloneScope::SameProcess) {
+      CloneScope() == StructuredCloneScope::SameProcess &&
+      aCloneDataPolicy.areIntraClusterClonableSharedObjectsAllowed()) {
     JS::Rooted<JSObject*> global(aCx, mGlobal->GetGlobalJSObject());
     if (VideoFrame_Binding::ConstructorEnabled(aCx, global)) {
       return VideoFrame::ReadStructuredClone(aCx, mGlobal, aReader,
@@ -1250,9 +1252,9 @@ already_AddRefed<MessagePort> StructuredCloneHolder::ReceiveMessagePort(
 // TODO: Convert this to MOZ_CAN_RUN_SCRIPT (bug 1415230)
 MOZ_CAN_RUN_SCRIPT_BOUNDARY bool
 StructuredCloneHolder::CustomReadTransferHandler(
-    JSContext* aCx, JSStructuredCloneReader* aReader, uint32_t aTag,
-    void* aContent, uint64_t aExtraData,
-    JS::MutableHandle<JSObject*> aReturnObject) {
+    JSContext* aCx, JSStructuredCloneReader* aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, uint32_t aTag, void* aContent,
+    uint64_t aExtraData, JS::MutableHandle<JSObject*> aReturnObject) {
   MOZ_ASSERT(mSupportsTransferring);
 
   if (aTag == SCTAG_DOM_MAP_MESSAGEPORT) {
@@ -1371,7 +1373,8 @@ StructuredCloneHolder::CustomReadTransferHandler(
 
   if (StaticPrefs::dom_media_webcodecs_enabled() &&
       aTag == SCTAG_DOM_VIDEOFRAME &&
-      CloneScope() == StructuredCloneScope::SameProcess) {
+      CloneScope() == StructuredCloneScope::SameProcess &&
+      aCloneDataPolicy.areIntraClusterClonableSharedObjectsAllowed()) {
     MOZ_ASSERT(aContent);
 
     JS::Rooted<JSObject*> globalObj(aCx, mGlobal->GetGlobalJSObject());

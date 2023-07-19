@@ -191,7 +191,7 @@ interface nsIWifiResult : nsISupports
    * Debug level from supplicant, and the value is defined in
    * nsISupplicantDebugLevel.
    *
-   * Possible values: LOG_*.
+   * Possible values: SUP_LOG_*.
    */
   readonly attribute uint32_t debugLevel;
 

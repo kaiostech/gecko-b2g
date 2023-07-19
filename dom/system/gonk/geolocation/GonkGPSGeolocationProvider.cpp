@@ -231,6 +231,8 @@ void GonkGPSGeolocationProvider::InitGnssHal() {
   }
 #endif
 
+  LOG("AIDL Gnss is null, trying HIDL");
+
   mGnssHal_V2_0 = IGnss_V2_0::getService();
   if (mGnssHal_V2_0 != nullptr) {
     mGnssHal = mGnssHal_V2_0;

@@ -441,7 +441,7 @@ Result_t WifiNative::SetDebugLevel(SupplicantDebugLevelOptions* aLevel) {
 #if ANDROID_VERSION >= 33
   CONFIG_WIFI_DEBUG(aLevel->mLogLevel < (uint32_t)DebugLevel::INFO);
 #else
-  CONFIG_WIFI_DEBUG(aLevel->mLogLevel < nsISupplicantDebugLevel::LOG_INFO);
+  CONFIG_WIFI_DEBUG(aLevel->mLogLevel < nsISupplicantDebugLevel::SUP_LOG_INFO);
 #endif
   return sSupplicantStaManager->SetSupplicantDebugLevel(aLevel);
 }

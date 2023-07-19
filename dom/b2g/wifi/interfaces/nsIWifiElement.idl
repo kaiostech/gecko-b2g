@@ -59,12 +59,12 @@ interface nsISoftapConfiguration : nsISupports
 [scriptable, uuid(9fb6b90f-1e28-41b2-96be-e1a2839ffd38)]
 interface nsISupplicantDebugLevel : nsISupports
 {
-  const int32_t LOG_EXCESSIVE = 0;
-  const int32_t LOG_MSGDUMP   = 1;
-  const int32_t LOG_DEBUG     = 2;
-  const int32_t LOG_INFO      = 3;
-  const int32_t LOG_WARNING   = 4;
-  const int32_t LOG_ERROR     = 5;
+  const int32_t SUP_LOG_EXCESSIVE = 0;
+  const int32_t SUP_LOG_MSGDUMP   = 1;
+  const int32_t SUP_LOG_DEBUG     = 2;
+  const int32_t SUP_LOG_INFO      = 3;
+  const int32_t SUP_LOG_WARNING   = 4;
+  const int32_t SUP_LOG_ERROR     = 5;
 
   /**
    * Contains the possible debug level in supplicant.

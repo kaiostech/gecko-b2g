@@ -82,12 +82,12 @@ const AP_SECURITY_NONE = Ci.nsISoftapConfiguration.SECURITY_NONE;
 const AP_SECURITY_WPA = Ci.nsISoftapConfiguration.SECURITY_WPA;
 const AP_SECURITY_WPA2 = Ci.nsISoftapConfiguration.SECURITY_WPA2;
 
-const LEVEL_EXCESSIVE = Ci.nsISupplicantDebugLevel.LOG_EXCESSIVE;
-const LEVEL_MSGDUMP = Ci.nsISupplicantDebugLevel.LOG_MSGDUMP;
-const LEVEL_DEBUG = Ci.nsISupplicantDebugLevel.LOG_DEBUG;
-const LEVEL_INFO = Ci.nsISupplicantDebugLevel.LOG_INFO;
-const LEVEL_WARNING = Ci.nsISupplicantDebugLevel.LOG_WARNING;
-const LEVEL_ERROR = Ci.nsISupplicantDebugLevel.LOG_ERROR;
+const LEVEL_EXCESSIVE = Ci.nsISupplicantDebugLevel.SUP_LOG_EXCESSIVE;
+const LEVEL_MSGDUMP = Ci.nsISupplicantDebugLevel.SUP_LOG_MSGDUMP;
+const LEVEL_DEBUG = Ci.nsISupplicantDebugLevel.SUP_LOG_DEBUG;
+const LEVEL_INFO = Ci.nsISupplicantDebugLevel.SUP_LOG_INFO;
+const LEVEL_WARNING = Ci.nsISupplicantDebugLevel.SUP_LOG_WARNING;
+const LEVEL_ERROR = Ci.nsISupplicantDebugLevel.SUP_LOG_ERROR;
 
 const USE_SINGLE_SCAN = Ci.nsIScanSettings.USE_SINGLE_SCAN;
 const USE_PNO_SCAN = Ci.nsIScanSettings.USE_PNO_SCAN;

@@ -49,7 +49,7 @@
 #include "vm/DateObject.h"
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
-#include "vm/JSAtom.h"
+#include "vm/JSAtomUtils.h"  // Atomize
 #include "vm/JSContext.h"
 #include "vm/JSFunction.h"
 #include "vm/JSScript.h"
@@ -72,7 +72,7 @@
 #include "vm/BooleanObject-inl.h"
 #include "vm/EnvironmentObject-inl.h"
 #include "vm/Interpreter-inl.h"
-#include "vm/JSAtom-inl.h"
+#include "vm/JSAtomUtils-inl.h"  // AtomToId, PrimitiveValueToId, IndexToId
 #include "vm/JSContext-inl.h"
 #include "vm/NativeObject-inl.h"
 #include "vm/NumberObject-inl.h"
@@ -2078,7 +2078,6 @@ bool js::DefineAccessorProperty(JSContext* cx, HandleObject obj, HandleId id,
               setter ? mozilla::Some(setter) : mozilla::Nothing(), attrs));
 
   if (DefinePropertyOp op = obj->getOpsDefineProperty()) {
-    MOZ_ASSERT(!cx->isHelperThreadContext());
     return op(cx, obj, id, desc, result);
   }
   return NativeDefineProperty(cx, obj.as<NativeObject>(), id, desc, result);
@@ -2089,7 +2088,6 @@ bool js::DefineDataProperty(JSContext* cx, HandleObject obj, HandleId id,
                             ObjectOpResult& result) {
   Rooted<PropertyDescriptor> desc(cx, PropertyDescriptor::Data(value, attrs));
   if (DefinePropertyOp op = obj->getOpsDefineProperty()) {
-    MOZ_ASSERT(!cx->isHelperThreadContext());
     return op(cx, obj, id, desc, result);
   }
   return NativeDefineProperty(cx, obj.as<NativeObject>(), id, desc, result);
@@ -2103,7 +2101,6 @@ bool js::DefineAccessorProperty(JSContext* cx, HandleObject obj, HandleId id,
     return false;
   }
   if (!result) {
-    MOZ_ASSERT(!cx->isHelperThreadContext());
     result.reportError(cx, obj, id);
     return false;
   }
@@ -2117,7 +2114,6 @@ bool js::DefineDataProperty(JSContext* cx, HandleObject obj, HandleId id,
     return false;
   }
   if (!result) {
-    MOZ_ASSERT(!cx->isHelperThreadContext());
     result.reportError(cx, obj, id);
     return false;
   }
@@ -2148,7 +2144,6 @@ bool js::DefineDataElement(JSContext* cx, HandleObject obj, uint32_t index,
 bool js::SetImmutablePrototype(JSContext* cx, HandleObject obj,
                                bool* succeeded) {
   if (obj->hasDynamicPrototype()) {
-    MOZ_ASSERT(!cx->isHelperThreadContext());
     return Proxy::setImmutablePrototype(cx, obj, succeeded);
   }
 
@@ -2208,10 +2203,12 @@ JS_PUBLIC_API bool js::ShouldIgnorePropertyDefinition(JSContext* cx,
   }
 
 #ifdef NIGHTLY_BUILD
-  if (key == JSProto_Array &&
+  // It's gently surprising that this is JSProto_Function, but the trick
+  // to realize is that this is a -constructor function-, not a function
+  // on the prototype; and the proto of the constructor is JSProto_Function.
+  if (key == JSProto_Function &&
       !cx->realm()->creationOptions().getArrayGroupingEnabled() &&
-      (id == NameToId(cx->names().group) ||
-       id == NameToId(cx->names().groupToMap))) {
+      (id == NameToId(cx->names().groupBy))) {
     return true;
   }
 #endif

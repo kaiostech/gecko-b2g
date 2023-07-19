@@ -39,8 +39,8 @@
     this
   );
 
-  const { BrowserTestUtils } = ChromeUtils.import(
-    "resource://testing-common/BrowserTestUtils.jsm"
+  const { BrowserTestUtils } = ChromeUtils.importESModule(
+    "resource://testing-common/BrowserTestUtils.sys.mjs"
   );
   const { PlacesQuery } = ChromeUtils.importESModule(
     "resource://gre/modules/PlacesQuery.sys.mjs"
@@ -56,9 +56,6 @@
   );
   const { PlacesTestUtils } = ChromeUtils.importESModule(
     "resource://testing-common/PlacesTestUtils.sys.mjs"
-  );
-  const { TestUtils } = ChromeUtils.import(
-    "resource://testing-common/TestUtils.jsm"
   );
 
   const fxviewTabList = document.querySelector("fxview-tab-list");

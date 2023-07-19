@@ -49,7 +49,7 @@
 #include "vm/EqualityOperations.h"  // js::StrictlyEqual
 #include "vm/GeneratorObject.h"
 #include "vm/Iteration.h"
-#include "vm/JSAtom.h"
+#include "vm/JSAtomUtils.h"  // AtomToPrintableString
 #include "vm/JSContext.h"
 #include "vm/JSFunction.h"
 #include "vm/JSObject.h"
@@ -190,7 +190,7 @@ static bool IsSelfHostedOrKnownBuiltinCtor(JSFunction* fun, JSContext* cx) {
     return true;
   }
 
-  // GetBuiltinConstructor in ArrayGroupToMap
+  // GetBuiltinConstructor in MapGroupBy
   if (fun == cx->global()->maybeGetConstructor(JSProto_Map)) {
     return true;
   }

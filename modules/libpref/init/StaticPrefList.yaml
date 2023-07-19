@@ -4861,11 +4861,6 @@
   value: true
   mirror: always
 
-- name: dom.webnotifications.allowinsecure
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: dom.webnotifications.allowcrossoriginiframe
   type: RelaxedAtomicBool
   value: false
@@ -4958,12 +4953,6 @@
 
 - name: dom.worklet.enabled
   type: bool
-  value: true
-  mirror: always
-
-# Enable content type normalization of XHR uploads via MIME Sniffing standard
-- name: dom.xhr.standard_content_type_normalization
-  type: RelaxedAtomicBool
   value: true
   mirror: always
 

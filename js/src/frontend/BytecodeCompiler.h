@@ -16,11 +16,11 @@
 #include "ds/LifoAlloc.h"                 // js::LifoAlloc
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
 #include "frontend/ScriptIndex.h"         // ScriptIndex
-#include "js/CompileOptions.h"            // JS::ReadOnlyCompileOptions
-#include "js/RootingAPI.h"                // JS::Handle
-#include "js/SourceText.h"                // JS::SourceText
-#include "js/UniquePtr.h"                 // js::UniquePtr
-#include "vm/ScopeKind.h"                 // js::ScopeKind
+#include "js/CompileOptions.h"  // JS::ReadOnlyCompileOptions, JS::PrefableCompileOptions
+#include "js/RootingAPI.h"  // JS::Handle
+#include "js/SourceText.h"  // JS::SourceText
+#include "js/UniquePtr.h"   // js::UniquePtr
+#include "vm/ScopeKind.h"   // js::ScopeKind
 
 /*
  * Structure of all of the support classes.
@@ -242,9 +242,16 @@ extern bool DelazifyCanonicalScriptedFunction(JSContext* cx,
                                               FrontendContext* fc,
                                               JS::Handle<JSFunction*> fun);
 
+enum class DelazifyFailureReason {
+  Compressed,
+  Other,
+};
+
 extern already_AddRefed<CompilationStencil> DelazifyCanonicalScriptedFunction(
-    JSContext* cx, FrontendContext* fc, ScopeBindingCache* scopeCache,
-    CompilationStencil& context, ScriptIndex scriptIndex);
+    FrontendContext* fc, js::LifoAlloc& tempLifoAlloc,
+    const JS::PrefableCompileOptions& prefableOptions,
+    ScopeBindingCache* scopeCache, CompilationStencil& context,
+    ScriptIndex scriptIndex, DelazifyFailureReason* failureReason);
 
 // Certain compile options will disable the syntax parser entirely.
 inline bool CanLazilyParse(const JS::ReadOnlyCompileOptions& options) {

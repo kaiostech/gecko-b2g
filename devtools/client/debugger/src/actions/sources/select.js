@@ -7,14 +7,11 @@
  * @module actions/sources
  */
 
-import { isOriginalId } from "devtools/client/shared/source-map-loader/index";
-
 import { setSymbols } from "./symbols";
 import { setInScopeLines } from "../ast";
 import { togglePrettyPrint } from "./prettyPrint";
 import { addTab, closeTab } from "../tabs";
 import { loadSourceText } from "./loadSourceText";
-import { mapDisplayNames } from "../pause";
 import { setBreakableLines } from ".";
 
 import { prefs } from "../../utils/prefs";
@@ -30,7 +27,6 @@ import {
   getSelectedLocation,
   getShouldSelectOriginalLocation,
   canPrettyPrintSource,
-  getIsCurrentThreadPaused,
   getSourceTextContent,
   tabExists,
 } from "../../selectors";
@@ -145,7 +141,7 @@ export function selectLocation(location, { keepContext = true } = {}) {
       getState()
     );
     if (keepContext) {
-      if (shouldSelectOriginalLocation != isOriginalId(location.source.id)) {
+      if (shouldSelectOriginalLocation != location.source.isOriginal) {
         // getRelatedMapLocation will convert to the related generated/original location.
         // i.e if the original location is passed, the related generated location will be returned and vice versa.
         location = await getRelatedMapLocation(location, thunkArgs);
@@ -158,7 +154,7 @@ export function selectLocation(location, { keepContext = true } = {}) {
         source = location.source;
       }
     } else {
-      shouldSelectOriginalLocation = isOriginalId(location.source.id);
+      shouldSelectOriginalLocation = location.source.isOriginal;
     }
 
     let sourceActor = location.sourceActor;
@@ -203,10 +199,6 @@ export function selectLocation(location, { keepContext = true } = {}) {
     await dispatch(setSymbols(location));
     // /!\ we don't historicaly wait for this async action
     dispatch(setInScopeLines());
-
-    if (getIsCurrentThreadPaused(getState())) {
-      await dispatch(mapDisplayNames());
-    }
   };
 }
 

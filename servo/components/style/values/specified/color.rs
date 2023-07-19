@@ -198,7 +198,6 @@ pub enum SystemColor {
     Window,
     Windowframe,
     Windowtext,
-    MozButtondefault,
     #[parse(aliases = "-moz-default-color")]
     Canvastext,
     #[parse(aliases = "-moz-default-background-color")]
@@ -230,6 +229,12 @@ pub enum SystemColor {
     MozMenuhovertext,
     /// Used for menubar item text when hovered.
     MozMenubarhovertext,
+
+    /// Colors used for the header bar (sorta like the tab bar / menubar).
+    MozHeaderbar,
+    MozHeaderbartext,
+    MozHeaderbarinactive,
+    MozHeaderbarinactivetext,
 
     /// On platforms where these colors are the same as -moz-field, use
     /// -moz-fieldtext as foreground color

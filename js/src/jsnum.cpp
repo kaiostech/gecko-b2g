@@ -46,7 +46,7 @@
 #include "util/StringBuffer.h"
 #include "vm/BigIntType.h"
 #include "vm/GlobalObject.h"
-#include "vm/JSAtom.h"
+#include "vm/JSAtomUtils.h"  // Atomize, AtomizeString
 #include "vm/JSContext.h"
 #include "vm/JSObject.h"
 #include "vm/StaticStrings.h"
@@ -54,6 +54,7 @@
 
 #include "vm/Compartment-inl.h"  // For js::UnwrapAndTypeCheckThis
 #include "vm/GeckoProfiler-inl.h"
+#include "vm/JSAtomUtils-inl.h"  // BackfillIndexInCharBuffer
 #include "vm/NativeObject-inl.h"
 #include "vm/NumberObject-inl.h"
 #include "vm/StringType-inl.h"
@@ -2001,8 +2002,6 @@ bool js::StringToNumberPure(JSContext* cx, JSString* str, double* result) {
 
 JS_PUBLIC_API bool js::ToNumberSlow(JSContext* cx, HandleValue v_,
                                     double* out) {
-  MOZ_ASSERT(cx->isMainThreadContext());
-
   RootedValue v(cx, v_);
   MOZ_ASSERT(!v.isNumber());
 
@@ -2050,7 +2049,6 @@ JS_PUBLIC_API bool js::ToNumberSlow(JSContext* cx, HandleValue v_,
 
 // BigInt proposal section 3.1.6
 bool js::ToNumericSlow(JSContext* cx, MutableHandleValue vp) {
-  MOZ_ASSERT(cx->isMainThreadContext());
   MOZ_ASSERT(!vp.isNumeric());
 
   // Step 1.

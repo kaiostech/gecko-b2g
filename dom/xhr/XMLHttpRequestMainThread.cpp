@@ -1924,7 +1924,7 @@ XMLHttpRequestMainThread::OnStartRequest(nsIRequest* request) {
   }
 
   // Set up responseXML
-  // Note: Main Fetch step 18 requires to ignore body for head/connect methods.
+  // Fetch spec Main Fetch step 21: ignore body for head/connect methods.
   bool parseBody = (mResponseType == XMLHttpRequestResponseType::_empty ||
                     mResponseType == XMLHttpRequestResponseType::Document) &&
                    !(mRequestMethod.EqualsLiteral("HEAD") ||
@@ -2943,8 +2943,7 @@ void XMLHttpRequestMainThread::SendInternal(const BodyExtractorBase* aBody,
       mAuthorRequestHeaders.Get("content-type", uploadContentType);
       if (uploadContentType.IsVoid()) {
         uploadContentType = defaultContentType;
-      } else if (aBodyIsDocumentOrString &&
-                 StaticPrefs::dom_xhr_standard_content_type_normalization()) {
+      } else if (aBodyIsDocumentOrString) {
         UniquePtr<CMimeType> contentTypeRecord =
             CMimeType::Parse(uploadContentType);
         nsAutoCString charset;

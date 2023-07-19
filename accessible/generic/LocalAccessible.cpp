@@ -1053,7 +1053,7 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
       break;
     }
     case nsIAccessibleEvent::EVENT_VIRTUALCURSOR_CHANGED: {
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
       AccVCChangeEvent* vcEvent = downcast_accEvent(aEvent);
       PlatformVirtualCursorChangeEvent(
           target, vcEvent->OldAccessible(), vcEvent->NewAccessible(),
@@ -1074,7 +1074,7 @@ nsresult LocalAccessible::HandleAccEvent(AccEvent* aEvent) {
       PlatformFocusEvent(target, rect);
       break;
     }
-#if defined(ANDROID)
+#if defined(MOZ_WIDGET_ANDROID)
     case nsIAccessibleEvent::EVENT_SCROLLING_END:
     case nsIAccessibleEvent::EVENT_SCROLLING: {
       AccScrollingEvent* scrollingEvent = downcast_accEvent(aEvent);

@@ -212,10 +212,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
     case ColorID::MozDragtargetzone:
       aColor = BG_SELECTED_COLOR;
       break;
-    case ColorID::MozButtondefault:
-      // default button border color
-      aColor = NS_RGB(0, 0, 0);
-      break;
     case ColorID::MozButtonhoverface:
       aColor = BG_PRELIGHT_COLOR;
       break;

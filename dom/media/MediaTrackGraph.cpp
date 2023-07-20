@@ -3428,8 +3428,7 @@ MediaTrackGraphImpl* MediaTrackGraphImpl::GetInstance(
   if (!graph) {
     GraphRunType runType = DIRECT_DRIVER;
     if (aGraphDriverRequested != OFFLINE_THREAD_DRIVER &&
-        (StaticPrefs::dom_audioworklet_enabled() ||
-         Preferences::GetBool("media.audiograph.single_thread.enabled",
+        (Preferences::GetBool("media.audiograph.single_thread.enabled",
                               false))) {
       runType = SINGLE_THREAD;
     }

@@ -2268,12 +2268,6 @@
   value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
-# Is support for AudioWorklet enabled?
-- name: dom.audioworklet.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # dom.audiochannel.mutedByDefault actually means "suspended by default".
 # We keep this pref name just for compatibility with gecko48.
 # If true, any new AudioChannelAgent will be suspended when created.
@@ -2334,12 +2328,6 @@
 - name: dom.block_reload_from_resize_event_handler
   type: bool
   value: false
-  mirror: always
-
-# SW Cache API
-- name: dom.caches.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # Exposes window.caches and skips SecureContext check.
@@ -3299,12 +3287,6 @@
 
 # B2G specific CellBroadcast API.
 - name: dom.cellbroadcast.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Is support for module scripts (<script type="module">) enabled for content?
-- name: dom.moduleScripts.enabled
   type: bool
   value: true
   mirror: always
@@ -4878,7 +4860,11 @@
 
 - name: dom.webnotifications.requireinteraction.enabled
   type: RelaxedAtomicBool
+#if defined(XP_WIN)
+  value: true
+#else
   value: @IS_NIGHTLY_BUILD@
+#endif
   mirror: always
 
 - name: dom.webnotifications.silent.enabled
@@ -4949,11 +4935,6 @@
 - name: dom.workers.testing.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-- name: dom.worklet.enabled
-  type: bool
-  value: true
   mirror: always
 
 # When this pref is set, parent documents may consider child iframes have
@@ -6785,6 +6766,11 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+  # Force triple buffering in overlay's video swap chain
+-   name: gfx.webrender.dcomp-video-force-triple-buffering
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
 -   name: gfx.video.convert-i420-to-nv12.force-enabled
     type: bool
     value: false
@@ -8421,12 +8407,6 @@
   value: true
   mirror: always
   rust: true
-
-# Whether Constructable Stylesheets are enabled in script.
-- name: layout.css.constructable-stylesheets.enabled
-  type: bool
-  value: true
-  mirror: always
 
 # Whether trigonometric constants and functions are enabled in calc().
 - name: layout.css.trig.enabled
@@ -11047,11 +11027,6 @@
 # navigator.mediaDevices and getUserMedia() support as well.
 # See also media.navigator.enabled
 - name: media.peerconnection.enabled
-  type: bool
-  value: true
-  mirror: always
-
-- name: media.peerconnection.identity.enabled
   type: bool
   value: true
   mirror: always

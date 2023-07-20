@@ -3811,13 +3811,23 @@ toolbar#nav-bar {
         """handle process output timeout"""
         # TODO: bug 913975 : _processOutput should call self.processOutputLine
         # one more time one timeout (I think)
-        error_message = (
-            "TEST-UNEXPECTED-TIMEOUT | %s | application timed out after "
-            "%d seconds with no output"
-        ) % (self.lastTestSeen, int(timeout))
+        message = {
+            "action": "test_end",
+            "status": "TIMEOUT",
+            "expected": "PASS",
+            "thread": None,
+            "pid": None,
+            "source": "mochitest",
+            "time": int(time.time()) * 1000,
+            "test": self.lastTestSeen,
+            "message": "application timed out after %d seconds with no output"
+            % int(timeout),
+        }
+        # need to send a test_end in order to have mozharness process messages properly
+        # this requires a custom message vs log.error/log.warning/etc.
+        self.message_logger.process_message(message)
         self.message_logger.dump_buffered()
         self.message_logger.buffering = False
-        self.log.info(error_message)
         self.log.warning("Force-terminating active process(es).")
 
         browser_pid = browser_pid or proc.pid
@@ -4104,7 +4114,7 @@ def run_test_harness(parser, options):
     )
 
     options.runByManifest = False
-    if options.flavor in ("plain", "browser", "chrome"):
+    if options.flavor in ("plain", "a11y", "browser", "chrome"):
         options.runByManifest = True
 
     if options.verify or options.verify_fission:

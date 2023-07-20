@@ -52,7 +52,7 @@ add_task(
       "TranslationRequest",
       Glean.translations.translationRequest,
       {
-        expectedLength: 0,
+        expectedEventCount: 0,
       }
     );
 
@@ -97,10 +97,22 @@ add_task(
       }
     );
     await TestTranslationsTelemetry.assertEvent(
+      "OpenPanel",
+      Glean.translationsPanel.open,
+      {
+        expectedEventCount: 1,
+        expectNewFlowId: true,
+        finalValuePredicates: [
+          value => value.extra.opened_from === "translationsButton",
+        ],
+      }
+    );
+    await TestTranslationsTelemetry.assertEvent(
       "Error",
       Glean.translations.error,
       {
-        expectedLength: 1,
+        expectedEventCount: 1,
+        expectNewFlowId: false,
         finalValuePredicates: [
           value =>
             value.extra.reason === "Error: Intentionally rejecting downloads.",
@@ -111,7 +123,8 @@ add_task(
       "TranslationRequest",
       Glean.translations.translationRequest,
       {
-        expectedLength: 1,
+        expectedEventCount: 1,
+        expectNewFlowId: false,
         finalValuePredicates: [
           value => value.extra.from_language === "es",
           value => value.extra.to_language === "en",
@@ -171,7 +184,8 @@ add_task(async function test_translations_telemetry_auto_translation_failure() {
     "Error",
     Glean.translations.error,
     {
-      expectedLength: 1,
+      expectedEventCount: 1,
+      expectNewFlowId: true,
       finalValuePredicates: [
         value =>
           value.extra.reason === "Error: Intentionally rejecting downloads.",
@@ -182,7 +196,8 @@ add_task(async function test_translations_telemetry_auto_translation_failure() {
     "TranslationRequest",
     Glean.translations.translationRequest,
     {
-      expectedLength: 1,
+      expectedEventCount: 1,
+      expectNewFlowId: false,
       finalValuePredicates: [
         value => value.extra.from_language === "es",
         value => value.extra.to_language === "en",

@@ -729,7 +729,7 @@ class GMut {
 
   static void CrashOnGuardPage(void* aPtr) {
     // An operation on a guard page? This is a bounds violation. Deliberately
-    // touch the page in question, to cause a crash that triggers the usual PHC
+    // touch the page in question to cause a crash that triggers the usual PHC
     // machinery.
     LOG("CrashOnGuardPage(%p), bounds violation\n", aPtr);
     *static_cast<uint8_t*>(aPtr) = 0;
@@ -757,8 +757,10 @@ class GMut {
     }
   }
 
-  void FillAddrInfo(GMutLock, uintptr_t aIndex, const void* aBaseAddr,
-                    bool isGuardPage, phc::AddrInfo& aOut) {
+  // This expects GMUt::sMutex to be locked but can't check it with a parameter
+  // since we try-lock it.
+  void FillAddrInfo(uintptr_t aIndex, const void* aBaseAddr, bool isGuardPage,
+                    phc::AddrInfo& aOut) {
     const AllocPageInfo& page = mAllocPages[aIndex];
     if (isGuardPage) {
       aOut.mKind = phc::AddrInfo::Kind::GuardPage;
@@ -936,6 +938,16 @@ class GMut {
 Mutex GMut::sMutex;
 
 static GMut* gMut;
+
+// When PHC wants to crash we first have to unlock so that the crash reporter
+// can call into PHC to lockup its pointer. That also means that before calling
+// PHCCrash please ensure that state is consistent.  Because this can report an
+// arbitrary string, use of it must be reviewed by Firefox data stewards.
+static void PHCCrash(GMutLock, const char* aMessage)
+    MOZ_REQUIRES(GMut::sMutex) {
+  GMut::sMutex.Unlock();
+  MOZ_CRASH_UNSAFE(aMessage);
+}
 
 // On MacOS, the first __thread/thread_local access calls malloc, which leads
 // to an infinite loop. So we use pthread-based TLS instead, which somehow
@@ -1206,17 +1218,18 @@ static void* MaybePageAlloc(const Maybe<arena_id_t>& aArenaId, size_t aReqSize,
 
 static void FreePage(GMutLock aLock, uintptr_t aIndex,
                      const Maybe<arena_id_t>& aArenaId,
-                     const StackTrace& aFreeStack, Delay aReuseDelay) {
+                     const StackTrace& aFreeStack, Delay aReuseDelay)
+    MOZ_REQUIRES(GMut::sMutex) {
   void* pagePtr = gConst->AllocPagePtr(aIndex);
 
 #ifdef XP_WIN
   if (!VirtualFree(pagePtr, kPageSize, MEM_DECOMMIT)) {
-    MOZ_CRASH("VirtualFree failed");
+    PHCCrash(aLock, "VirtualFree failed");
   }
 #else
   if (mmap(pagePtr, kPageSize, PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANON,
            -1, 0) == MAP_FAILED) {
-    MOZ_CRASH("mmap failed");
+    PHCCrash(aLock, "mmap failed");
   }
 #endif
 
@@ -1633,12 +1646,17 @@ class PHCBridge : public ReplaceMallocBridge {
     uintptr_t index = pk.AllocPageIndex();
 
     if (aOut) {
-      MutexAutoLock lock(GMut::sMutex);
-      gMut->FillAddrInfo(lock, index, aPtr, isGuardPage, *aOut);
-      LOG("IsPHCAllocation: %zu, %p, %zu, %zu, %zu\n", size_t(aOut->mKind),
-          aOut->mBaseAddr, aOut->mUsableSize,
-          aOut->mAllocStack.isSome() ? aOut->mAllocStack->mLength : 0,
-          aOut->mFreeStack.isSome() ? aOut->mFreeStack->mLength : 0);
+      if (GMut::sMutex.TryLock()) {
+        gMut->FillAddrInfo(index, aPtr, isGuardPage, *aOut);
+        LOG("IsPHCAllocation: %zu, %p, %zu, %zu, %zu\n", size_t(aOut->mKind),
+            aOut->mBaseAddr, aOut->mUsableSize,
+            aOut->mAllocStack.isSome() ? aOut->mAllocStack->mLength : 0,
+            aOut->mFreeStack.isSome() ? aOut->mFreeStack->mLength : 0);
+        GMut::sMutex.Unlock();
+      } else {
+        LOG("IsPHCAllocation: PHC is locked\n");
+        aOut->mPhcWasLocked = true;
+      }
     }
     return true;
   }

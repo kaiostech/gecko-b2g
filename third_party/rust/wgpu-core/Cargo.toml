@@ -49,12 +49,13 @@ thiserror = "1"
 [dependencies.hal]
 version = "0.16"
 path = "../wgpu-hal"
+default_features = false
 package = "wgpu-hal"
 
 [dependencies.naga]
 version = "0.12.0"
 git = "https://github.com/gfx-rs/naga"
-rev = "76003dc0035d53a474d366dcdf49d2e4d12e921f"
+rev = "409239c0e2313bfd0dc4fd64f8c3021185ccef1b"
 features = [
     "clone",
     "span",
@@ -85,11 +86,16 @@ package = "wgpu-types"
 
 [features]
 angle = ["hal/gles"]
-default = []
+default = ["link"]
 dx11 = ["hal/dx11"]
 dx12 = ["hal/dx12"]
+fragile-send-sync-non-atomic-wasm = [
+    "hal/fragile-send-sync-non-atomic-wasm",
+    "wgt/fragile-send-sync-non-atomic-wasm",
+]
 gles = ["hal/gles"]
 id32 = []
+link = ["hal/link"]
 metal = ["hal/metal"]
 renderdoc = ["hal/renderdoc"]
 replay = [

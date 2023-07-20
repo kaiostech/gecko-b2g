@@ -7,6 +7,8 @@ import { Module } from "chrome://remote/content/shared/messagehandler/Module.sys
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  notifyNavigationStarted:
+    "chrome://remote/content/shared/NavigationManager.sys.mjs",
   NetworkListener:
     "chrome://remote/content/shared/listeners/NetworkListener.sys.mjs",
   TabManager: "chrome://remote/content/shared/TabManager.sys.mjs",
@@ -24,8 +26,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
  */
 
 /**
+ * Enum of possible BytesValue types.
+ *
+ * @readonly
+ * @enum {BytesValueType}
+ */
+const BytesValueType = {
+  Base64: "base64",
+  String: "string",
+};
+
+/**
+ * @typedef {object} BytesValue
+ * @property {BytesValueType} type
+ * @property {string} value
+ */
+
+/**
  * @typedef {object} Cookie
- * @property {Array<number>=} binaryValue
  * @property {string} domain
  * @property {number=} expires
  * @property {boolean} httpOnly
@@ -34,7 +52,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * @property {('lax' | 'none' | 'strict')} sameSite
  * @property {boolean} secure
  * @property {number} size
- * @property {string=} value
+ * @property {BytesValue} value
  */
 
 /**
@@ -56,9 +74,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 /**
  * @typedef {object} Header
- * @property {Array<number>=} binaryValue
  * @property {string} name
- * @property {string=} value
+ * @property {BytesValue} value
  */
 
 /**
@@ -181,6 +198,7 @@ class NetworkModule extends Module {
     this.#networkListener.off("before-request-sent", this.#onBeforeRequestSent);
     this.#networkListener.off("response-completed", this.#onResponseEvent);
     this.#networkListener.off("response-started", this.#onResponseEvent);
+    this.#networkListener.destroy();
 
     this.#subscribedEvents = null;
   }
@@ -192,29 +210,56 @@ class NetworkModule extends Module {
     };
   }
 
+  #getOrCreateNavigationId(browsingContext, url) {
+    const navigation =
+      this.messageHandler.navigationManager.getNavigationForBrowsingContext(
+        browsingContext
+      );
+
+    // Check if an ongoing navigation is available for this browsing context.
+    // onBeforeRequestSent might be too early for the NavigationManager.
+    // TODO: Bug 1835704 to detect navigations earlier and avoid this.
+    if (navigation && !navigation.finished) {
+      return navigation.id;
+    }
+
+    // No ongoing navigation for this browsing context, create a new one.
+    return lazy.notifyNavigationStarted({ context: browsingContext, url }).id;
+  }
+
   #onBeforeRequestSent = (name, data) => {
-    const { contextId, requestData, timestamp, redirectCount } = data;
+    const {
+      contextId,
+      isNavigationRequest,
+      redirectCount,
+      requestData,
+      timestamp,
+    } = data;
+
+    const browsingContext = lazy.TabManager.getBrowsingContextById(contextId);
 
     // Bug 1805479: Handle the initiator, including stacktrace details.
     const initiator = {
       type: InitiatorType.Other,
     };
 
+    const navigationId = isNavigationRequest
+      ? this.#getOrCreateNavigationId(browsingContext, requestData.url)
+      : null;
+
     const baseParameters = {
       context: contextId,
-      // Bug 1805405: Handle the navigation id.
-      navigation: null,
+      navigation: navigationId,
       redirectCount,
       request: requestData,
       timestamp,
     };
 
-    const beforeRequestSentEvent = {
+    const beforeRequestSentEvent = this.#serializeNetworkEvent({
       ...baseParameters,
       initiator,
-    };
+    });
 
-    const browsingContext = lazy.TabManager.getBrowsingContextById(contextId);
     this.emitEvent(
       "network.beforeRequestSent",
       beforeRequestSentEvent,
@@ -223,35 +268,109 @@ class NetworkModule extends Module {
   };
 
   #onResponseEvent = (name, data) => {
-    const { contextId, requestData, responseData, timestamp, redirectCount } =
-      data;
+    const {
+      contextId,
+      isNavigationRequest,
+      redirectCount,
+      requestData,
+      responseData,
+      timestamp,
+    } = data;
+
+    const browsingContext = lazy.TabManager.getBrowsingContextById(contextId);
+
+    const navigation = isNavigationRequest
+      ? this.messageHandler.navigationManager.getNavigationForBrowsingContext(
+          browsingContext
+        )
+      : null;
 
     const baseParameters = {
       context: contextId,
-      // Bug 1805405: Handle the navigation id.
-      navigation: null,
+      navigation: navigation ? navigation.id : null,
       redirectCount,
       request: requestData,
       timestamp,
     };
 
-    const responseEvent = {
+    const responseEvent = this.#serializeNetworkEvent({
       ...baseParameters,
       response: responseData,
-    };
+    });
 
     const protocolEventName =
       name === "response-started"
         ? "network.responseStarted"
         : "network.responseCompleted";
 
-    const browsingContext = lazy.TabManager.getBrowsingContextById(contextId);
     this.emitEvent(
       protocolEventName,
       responseEvent,
       this.#getContextInfo(browsingContext)
     );
   };
+
+  #serializeHeadersOrCookies(headersOrCookies) {
+    return headersOrCookies.map(item => ({
+      name: item.name,
+      value: this.#serializeStringAsBytesValue(item.value),
+    }));
+  }
+
+  /**
+   * Serialize in-place all cookies and headers arrays found in a given network
+   * event payload.
+   *
+   * @param {object} networkEvent
+   *     The network event parameters object to serialize.
+   * @returns {object}
+   *     The serialized network event parameters.
+   */
+  #serializeNetworkEvent(networkEvent) {
+    // Make a shallow copy of networkEvent before serializing the headers and
+    // cookies arrays in request/response.
+    const serialized = { ...networkEvent };
+
+    // Make a shallow copy of the request data.
+    serialized.request = { ...networkEvent.request };
+    serialized.request.cookies = this.#serializeHeadersOrCookies(
+      networkEvent.request.cookies
+    );
+    serialized.request.headers = this.#serializeHeadersOrCookies(
+      networkEvent.request.headers
+    );
+
+    if (networkEvent.response?.headers) {
+      // Make a shallow copy of the response data.
+      serialized.response = { ...networkEvent.response };
+      serialized.response.headers = this.#serializeHeadersOrCookies(
+        networkEvent.response.headers
+      );
+    }
+
+    return serialized;
+  }
+
+  /**
+   * Serialize a string value as BytesValue.
+   *
+   * Note: This does not attempt to fully implement serialize protocol bytes
+   * (https://w3c.github.io/webdriver-bidi/#serialize-protocol-bytes) as the
+   * header values read from the Channel are already serialized as strings at
+   * the moment.
+   *
+   * @param {string} value
+   *     The value to serialize.
+   */
+  #serializeStringAsBytesValue(value) {
+    // TODO: For now, we handle all headers and cookies with the "string" type.
+    // See Bug 1835216 to add support for "base64" type and handle non-utf8
+    // values.
+    return {
+      type: BytesValueType.String,
+      value,
+    };
+  }
 
   #startListening(event) {
     if (this.#subscribedEvents.size == 0) {

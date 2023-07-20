@@ -324,10 +324,6 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvCreateGMPService();
 
-  mozilla::ipc::IPCResult RecvRemovePermission(
-      nsIPrincipal* aPrincipal, const nsACString& aPermissionType,
-      nsresult* aRv);
-
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(ContentParent, nsIObserver)
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS

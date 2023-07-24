@@ -321,7 +321,7 @@ dependencies = [
  "libc",
  "libudev",
  "log",
- "memoffset",
+ "memoffset 0.8.999",
  "nom",
  "nss-gk-api",
  "pkcs11-bindings",
@@ -930,9 +930,9 @@ dependencies = [
 
 [[package]]
 name = "crash-context"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d433b84b88830c0c253292a52fe43bd3f385668b6a39a84ce291e6e7db52724"
+checksum = "b85cef661eeca0c6675116310936972c520ebb0a33ddef16fd7efc957f4c1288"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
@@ -978,7 +978,7 @@ dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
  "crossbeam-utils",
- "memoffset",
+ "memoffset 0.8.999",
  "scopeguard",
 ]
 
@@ -2315,9 +2315,16 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.6.0"
+version = "0.6.999"
+dependencies = [
+ "goblin 0.7.1",
+]
+
+[[package]]
+name = "goblin"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "572564d6cba7d09775202c8e7eebc4d534d5ae36578ab402fb21e182a0ac9505"
+checksum = "f27c1b4369c2cd341b5de549380158b105a04c331be5db9110eef7b6d2742134"
 dependencies = [
  "log",
  "plain",
@@ -2404,7 +2411,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap",
+ "indexmap 1.9.3",
  "slab",
  "tokio",
  "tokio-util",
@@ -2605,13 +2612,20 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.9.2"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown",
  "serde",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.999.999"
+dependencies = [
+ "indexmap 1.9.3",
 ]
 
 [[package]]
@@ -2751,7 +2765,7 @@ version = "0.1.0"
 source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=64ba08e24749616de2344112f226d1ef4ba893ae#64ba08e24749616de2344112f226d1ef4ba893ae"
 dependencies = [
  "bumpalo",
- "indexmap",
+ "indexmap 1.9.3",
 ]
 
 [[package]]
@@ -2761,7 +2775,7 @@ source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=64ba08e24749
 dependencies = [
  "bumpalo",
  "byteorder",
- "indexmap",
+ "indexmap 1.9.3",
  "jsparagus-ast",
  "jsparagus-scope",
  "jsparagus-stencil",
@@ -2799,7 +2813,7 @@ name = "jsparagus-scope"
 version = "0.1.0"
 source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=64ba08e24749616de2344112f226d1ef4ba893ae#64ba08e24749616de2344112f226d1ef4ba893ae"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.3",
  "jsparagus-ast",
  "jsparagus-stencil",
 ]
@@ -3194,9 +3208,16 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.8.0"
+version = "0.8.999"
+dependencies = [
+ "memoffset 0.9.0",
+]
+
+[[package]]
+name = "memoffset"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
+checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
 dependencies = [
  "autocfg",
 ]
@@ -3267,9 +3288,9 @@ dependencies = [
 
 [[package]]
 name = "minidump-common"
-version = "0.15.2"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "694717103b2c15f8c16ddfaec1333fe15673bc22b10ffa6164427415701974ba"
+checksum = "9114b15d86ee5e5c3e3b4d05821d17237adbf98c11dd07fc8f5a9b037a010ee5"
 dependencies = [
  "bitflags 1.3.2",
  "debugid",
@@ -3282,21 +3303,21 @@ dependencies = [
 
 [[package]]
 name = "minidump-writer"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8109e02c3cf4a587eea0bec18ccdfecc9041f91b5ebffa223b1e692c9a223c26"
+version = "0.8.1"
+source = "git+https://github.com/rust-minidump/minidump-writer.git?rev=a15bd5cab6a3de251c0c23264be14b977c0af09c#a15bd5cab6a3de251c0c23264be14b977c0af09c"
 dependencies = [
  "bitflags 2.999.999",
  "byteorder",
  "cfg-if 1.0.0",
  "crash-context",
- "goblin",
+ "goblin 0.7.1",
  "libc",
  "mach2",
  "memmap2",
- "memoffset",
+ "memoffset 0.9.0",
  "minidump-common",
  "nix 0.26.2",
+ "procfs-core",
  "scroll",
  "tempfile",
  "thiserror",
@@ -3411,10 +3432,10 @@ dependencies = [
 name = "mozannotation_server"
 version = "0.1.0"
 dependencies = [
- "goblin",
+ "goblin 0.7.1",
  "libc",
  "mach2",
- "memoffset",
+ "memoffset 0.8.999",
  "mozannotation_client",
  "nsstring",
  "thin-vec",
@@ -3467,7 +3488,7 @@ dependencies = [
  "getrandom",
  "hashbrown",
  "hyper",
- "indexmap",
+ "indexmap 1.9.3",
  "libc",
  "log",
  "memchr",
@@ -3588,7 +3609,7 @@ dependencies = [
  "bitflags 2.999.999",
  "codespan-reporting",
  "hexf-parse",
- "indexmap",
+ "indexmap 1.9.3",
  "log",
  "num-traits",
  "rustc-hash",
@@ -3663,7 +3684,7 @@ name = "neqo-transport"
 version = "0.6.4"
 source = "git+https://github.com/mozilla/neqo?tag=v0.6.4#80db3a01f3273c7e742ba560fa99246fc8b30c4f"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.3",
  "lazy_static",
  "log",
  "neqo-common",
@@ -4159,7 +4180,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd39bc6cdc9355ad1dc5eeedefee696bb35c34caf21768741e81826c0bbd7225"
 dependencies = [
  "base64 0.13.999",
- "indexmap",
+ "indexmap 1.9.3",
  "line-wrap",
  "serde",
  "time 0.3.17",
@@ -4215,6 +4236,16 @@ dependencies = [
  "nserror",
  "winapi",
  "xpcom",
+]
+
+[[package]]
+name = "procfs-core"
+version = "0.16.0-RC1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ee00a90a41543fce203e6a8771bad043bfd6d88de8fd4e3118435a233d0c3c4"
+dependencies = [
+ "bitflags 2.999.999",
+ "hex",
 ]
 
 [[package]]
@@ -4721,7 +4752,7 @@ version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cad406b69c91885b5107daf2c29572f6c8cdb3c66826821e286c533490c0bc76"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.3",
  "itoa",
  "ryu",
  "serde",
@@ -4785,7 +4816,7 @@ version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578a7433b776b56a35785ed5ce9a7e777ac0598aac5a6dd1b4b18a307c7fc71b"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.3",
  "ryu",
  "serde",
  "yaml-rust",
@@ -4805,7 +4836,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4f1641177943b4e6faf7622463ae6dfe0f143eb88799e91e2e2e68ede568af5"
 dependencies = [
  "data-encoding",
- "indexmap",
+ "indexmap 1.9.3",
  "rust_decimal",
 ]
 
@@ -4996,7 +5027,7 @@ dependencies = [
  "euclid",
  "fxhash",
  "gecko-profiler",
- "indexmap",
+ "indexmap 1.9.3",
  "itertools",
  "itoa",
  "lazy_static",
@@ -5650,7 +5681,7 @@ dependencies = [
  "camino",
  "fs-err",
  "glob",
- "goblin",
+ "goblin 0.6.999",
  "heck",
  "once_cell",
  "paste",
@@ -5881,22 +5912,22 @@ version = "0.2.100"
 
 [[package]]
 name = "wasm-encoder"
-version = "0.29.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18c41dbd92eaebf3612a39be316540b8377c871cb9bde6b064af962984912881"
+checksum = "06a3d1b4a575ffb873679402b2aedb3117555eb65c27b1b86c8a91e574bc2a2a"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wasm-smith"
-version = "0.12.10"
+version = "0.12.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "027ec1c470cd5d56c43b8e02040250b136ddb5975dd76a1c16915137f5f17e76"
+checksum = "706fc2c6fb0af287ea9147d343485536b5857b72cd32b1d4091619583b334103"
 dependencies = [
  "arbitrary",
  "flagset",
- "indexmap",
+ "indexmap 2.999.999",
  "leb128",
  "wasm-encoder",
  "wasmparser",
@@ -5904,19 +5935,19 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.107.0"
+version = "0.109.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29e3ac9b780c7dda0cac7a52a5d6d2d6707cc6e3451c9db209b6c758f40d7acb"
+checksum = "8bf9564f29de2890ee34406af52d2a92dec6ef044c8ddfc5add5db8dcfd36e6c"
 dependencies = [
- "indexmap",
+ "indexmap 2.999.999",
  "semver",
 ]
 
 [[package]]
 name = "wast"
-version = "60.0.0"
+version = "62.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd06cc744b536e30387e72a48fdd492105b9c938bb4f415c39c616a7a0a697ad"
+checksum = "c7f7ee878019d69436895f019b65f62c33da63595d8e857cbdc87c13ecb29a32"
 dependencies = [
  "leb128",
  "memchr",

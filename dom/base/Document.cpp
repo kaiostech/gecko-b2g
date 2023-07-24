@@ -10995,9 +10995,6 @@ void Document::RemoveColorSchemeMeta(HTMLMetaElement& aMeta) {
 }
 
 void Document::RecomputeColorScheme() {
-  if (!StaticPrefs::layout_css_color_scheme_enabled()) {
-    return;
-  }
   auto oldColorScheme = mColorSchemeBits;
   mColorSchemeBits = 0;
   const nsTArray<HTMLMetaElement*>& elements = mColorSchemeMetaTags;

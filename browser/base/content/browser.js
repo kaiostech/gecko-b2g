@@ -1549,36 +1549,6 @@ var gBrowserInit = {
 
     new LightweightThemeConsumer(document);
 
-    if (AppConstants.platform == "win") {
-      if (
-        window.matchMedia("(-moz-platform: windows-win8)").matches &&
-        window.matchMedia("(-moz-windows-default-theme)").matches
-      ) {
-        let windowFrameColor = new Color(
-          ...ChromeUtils.importESModule(
-            "resource:///modules/Windows8WindowFrameColor.sys.mjs"
-          ).Windows8WindowFrameColor.get()
-        );
-        // Default to black for foreground text.
-        if (!windowFrameColor.isContrastRatioAcceptable(new Color(0, 0, 0))) {
-          document.documentElement.setAttribute("darkwindowframe", "true");
-        }
-      } else if (AppConstants.isPlatformAndVersionAtLeast("win", "10")) {
-        TelemetryEnvironment.onInitialized().then(() => {
-          // 17763 is the build number of Windows 10 version 1809
-          if (
-            TelemetryEnvironment.currentEnvironment.system.os
-              .windowsBuildNumber < 17763
-          ) {
-            document.documentElement.setAttribute(
-              "always-use-accent-color-for-window-border",
-              ""
-            );
-          }
-        });
-      }
-    }
-
     if (
       Services.prefs.getBoolPref(
         "toolkit.legacyUserProfileCustomizations.windowIcon",
@@ -2973,7 +2943,8 @@ function BrowserOpenFileWindow() {
         nsIFilePicker.filterText |
         nsIFilePicker.filterImages |
         nsIFilePicker.filterXML |
-        nsIFilePicker.filterHTML
+        nsIFilePicker.filterHTML |
+        nsIFilePicker.filterPDF
     );
     fp.displayDirectory = gLastOpenDirectory.path;
     fp.open(fpCallback);
@@ -5872,6 +5843,15 @@ var TabsProgressListener = {
   },
 
   onLocationChange(aBrowser, aWebProgress, aRequest, aLocationURI, aFlags) {
+    // Filter out location changes in sub documents.
+    if (!aWebProgress.isTopLevel) {
+      return;
+    }
+
+    // Some shops use pushState to move between individual products, so
+    // the shopping code needs to be told about all of these.
+    ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI);
+
     // Filter out location changes caused by anchor navigation
     // or history.push/pop/replaceState.
     if (aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
@@ -5884,11 +5864,6 @@ var TabsProgressListener = {
         },
         "AboutReader"
       );
-      return;
-    }
-
-    // Filter out location changes in sub documents.
-    if (!aWebProgress.isTopLevel) {
       return;
     }
 
@@ -5908,7 +5883,6 @@ var TabsProgressListener = {
 
     FullZoom.onLocationChange(aLocationURI, false, aBrowser);
     CaptivePortalWatcher.onLocationChange(aBrowser);
-    ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI);
   },
 
   onLinkIconAvailable(browser, dataURI, iconURI) {
@@ -9987,6 +9961,12 @@ var ShoppingSidebarManager = {
     return isProductURL(locationURI);
   },
 
+  /**
+   * Called by TabsProgressListener whenever any browser navigates from one
+   * URL to another.
+   * Note that this includes hash changes / pushState navigations, because
+   * those can be significant for us.
+   */
   onLocationChange(aBrowser, aLocationURI) {
     if (!this._enabled) {
       return;

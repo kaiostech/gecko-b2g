@@ -3490,7 +3490,7 @@
 # Push
 - name: dom.push.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # This enables the SVGPathSeg APIs
@@ -4033,7 +4033,7 @@
 
 - name: dom.serviceWorkers.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: dom.serviceWorkers.navigationPreload.enabled
@@ -4775,7 +4775,7 @@
   type: RelaxedAtomicBool
   value: @IS_NOT_ANDROID@
   mirror: always
-  
+
 # Is the 'assign' API for slot element enabled?
 - name: dom.shadowdom.slot.assign.enabled
   type: bool
@@ -4891,7 +4891,7 @@
   type: bool
   value: true
   mirror: always
-  
+
 - name: dom.window.clientinformation.enabled
   type: bool
   value: true
@@ -8480,20 +8480,6 @@
   mirror: always
   rust: true
 
-# Whether the `accent-color` css property is enabled.
-- name: layout.css.accent-color.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-# Whether the `color-scheme` css property and meta tags are enabled.
-- name: layout.css.color-scheme.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # This pref controls whether the `prefers-color-scheme` value of iframes images
 # reacts to the embedder `color-scheme` in content.
 - name: layout.css.iframe-embedder-prefers-color-scheme.content.enabled
@@ -9693,20 +9679,6 @@
 - name: mathml.mathspace_names.disabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
-# Whether to disable the scriptminsize attribute.
-# Note that this only disables parsing, not the default effect when no attribute
-# is unspecified.
-- name: mathml.scriptminsize_attribute.disabled
-  type: bool
-  value: true
-  mirror: always
-
-# Whether to disable the scriptsizemultiplier attribute.
-- name: mathml.scriptsizemultiplier_attribute.disabled
-  type: bool
-  value: true
   mirror: always
 
 # Whether to disable support for stretching operators with STIXGeneral fonts.
@@ -11027,7 +10999,12 @@
 # navigator.mediaDevices and getUserMedia() support as well.
 # See also media.navigator.enabled
 - name: media.peerconnection.enabled
-  type: bool
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: media.peerconnection.scripttransform.enabled
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -13897,6 +13874,18 @@
 - name: security.csp.truncate_blocked_uri_for_frame_navigations
   type: bool
   value: true
+  mirror: always
+
+# Limit the number of CSP reports that are send in a specific timespan.
+- name: security.csp.reporting.limit.count
+  type: uint32_t
+  value: 100
+  mirror: always
+
+# Time span in seconds for reporting limit.
+- name: security.csp.reporting.limit.timespan
+  type: uint32_t
+  value: 2
   mirror: always
 
 # If true, all toplevel data: URI navigations will be blocked.

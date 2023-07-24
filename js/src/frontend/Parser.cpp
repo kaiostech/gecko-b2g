@@ -275,13 +275,6 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
   SourceExtent extent;
   extent.toStringStart = toStringStart;
 
-  /*
-   * We use JSContext.tempLifoAlloc to allocate parsed objects and place them
-   * on a list in this Parser to ensure GC safety. Thus the tempLifoAlloc
-   * arenas containing the entries must be alive until we are done with
-   * scanning, parsing and code generation for the whole script or top-level
-   * function.
-   */
   FunctionBox* funbox = alloc_.new_<FunctionBox>(
       fc_, extent, compilationState_, inheritedDirectives, generatorKind,
       asyncKind, isInitialStencil, explicitName, flags, index);
@@ -310,13 +303,6 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     return nullptr;
   }
 
-  /*
-   * We use JSContext.tempLifoAlloc to allocate parsed objects and place them
-   * on a list in this Parser to ensure GC safety. Thus the tempLifoAlloc
-   * arenas containing the entries must be alive until we are done with
-   * scanning, parsing and code generation for the whole script or top-level
-   * function.
-   */
   FunctionBox* funbox = alloc_.new_<FunctionBox>(
       fc_, cachedScriptExtra.extent, compilationState_,
       Directives(/* strict = */ false), cachedScriptExtra.generatorKind(),
@@ -498,9 +484,10 @@ void GeneralParser<ParseHandler, Unit>::reportMissingClosing(
 }
 
 template <class ParseHandler, typename Unit>
-void GeneralParser<ParseHandler, Unit>::reportRedeclaration(
-    TaggedParserAtomIndex name, DeclarationKind prevKind, TokenPos pos,
-    uint32_t prevPos) {
+void GeneralParser<ParseHandler, Unit>::reportRedeclarationHelper(
+    TaggedParserAtomIndex& name, DeclarationKind& prevKind, TokenPos& pos,
+    uint32_t& prevPos, const unsigned& errorNumber,
+    const unsigned& noteErrorNumber) {
   UniqueChars bytes = this->parserAtoms().toPrintableString(name);
   if (!bytes) {
     ReportOutOfMemory(this->fc_);
@@ -508,7 +495,7 @@ void GeneralParser<ParseHandler, Unit>::reportRedeclaration(
   }
 
   if (prevPos == DeclaredNameInfo::npos) {
-    errorAt(pos.begin, JSMSG_REDECLARED_VAR, DeclarationKindString(prevKind),
+    errorAt(pos.begin, errorNumber, DeclarationKindString(prevKind),
             bytes.get());
     return;
   }
@@ -529,13 +516,29 @@ void GeneralParser<ParseHandler, Unit>::reportRedeclaration(
   SprintfLiteral(lineNumber, "%" PRIu32, line);
 
   if (!notes->addNoteASCII(this->fc_, getFilename().c_str(), 0, line, column,
-                           GetErrorMessage, nullptr, JSMSG_REDECLARED_PREV,
+                           GetErrorMessage, nullptr, noteErrorNumber,
                            lineNumber, columnNumber)) {
     return;
   }
 
-  errorWithNotesAt(std::move(notes), pos.begin, JSMSG_REDECLARED_VAR,
+  errorWithNotesAt(std::move(notes), pos.begin, errorNumber,
                    DeclarationKindString(prevKind), bytes.get());
+}
+
+template <class ParseHandler, typename Unit>
+void GeneralParser<ParseHandler, Unit>::reportRedeclaration(
+    TaggedParserAtomIndex name, DeclarationKind prevKind, TokenPos pos,
+    uint32_t prevPos) {
+  reportRedeclarationHelper(name, prevKind, pos, prevPos, JSMSG_REDECLARED_VAR,
+                            JSMSG_PREV_DECLARATION);
+}
+
+template <class ParseHandler, typename Unit>
+void GeneralParser<ParseHandler, Unit>::reportMismatchedPlacement(
+    TaggedParserAtomIndex name, DeclarationKind prevKind, TokenPos pos,
+    uint32_t prevPos) {
+  reportRedeclarationHelper(name, prevKind, pos, prevPos,
+                            JSMSG_MISMATCHED_PLACEMENT, JSMSG_PREV_DECLARATION);
 }
 
 // notePositionalFormalParameter is called for both the arguments of a regular
@@ -861,7 +864,7 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredPrivateName(
       }
     }
 
-    reportRedeclaration(name, p->value()->kind(), pos, p->value()->pos());
+    reportMismatchedPlacement(name, p->value()->kind(), pos, p->value()->pos());
     return false;
   }
 
@@ -1082,10 +1085,9 @@ static MOZ_ALWAYS_INLINE void InitializeBindingData(
   data->length = count;
 }
 
-Maybe<GlobalScope::ParserData*> NewGlobalScopeData(FrontendContext* fc,
-                                                   ParseContext::Scope& scope,
-                                                   LifoAlloc& alloc,
-                                                   ParseContext* pc) {
+static Maybe<GlobalScope::ParserData*> NewGlobalScopeData(
+    FrontendContext* fc, ParseContext::Scope& scope, LifoAlloc& alloc,
+    ParseContext* pc) {
   ParserBindingNameVector vars(fc);
   ParserBindingNameVector lets(fc);
   ParserBindingNameVector consts(fc);
@@ -1147,10 +1149,9 @@ Maybe<GlobalScope::ParserData*> ParserBase::newGlobalScopeData(
   return NewGlobalScopeData(fc_, scope, stencilAlloc(), pc_);
 }
 
-Maybe<ModuleScope::ParserData*> NewModuleScopeData(FrontendContext* fc,
-                                                   ParseContext::Scope& scope,
-                                                   LifoAlloc& alloc,
-                                                   ParseContext* pc) {
+static Maybe<ModuleScope::ParserData*> NewModuleScopeData(
+    FrontendContext* fc, ParseContext::Scope& scope, LifoAlloc& alloc,
+    ParseContext* pc) {
   ParserBindingNameVector imports(fc);
   ParserBindingNameVector vars(fc);
   ParserBindingNameVector lets(fc);
@@ -1215,10 +1216,9 @@ Maybe<ModuleScope::ParserData*> ParserBase::newModuleScopeData(
   return NewModuleScopeData(fc_, scope, stencilAlloc(), pc_);
 }
 
-Maybe<EvalScope::ParserData*> NewEvalScopeData(FrontendContext* fc,
-                                               ParseContext::Scope& scope,
-                                               LifoAlloc& alloc,
-                                               ParseContext* pc) {
+static Maybe<EvalScope::ParserData*> NewEvalScopeData(
+    FrontendContext* fc, ParseContext::Scope& scope, LifoAlloc& alloc,
+    ParseContext* pc) {
   ParserBindingNameVector vars(fc);
 
   // Treat all bindings as closed over in non-strict eval.
@@ -1257,7 +1257,7 @@ Maybe<EvalScope::ParserData*> ParserBase::newEvalScopeData(
   return NewEvalScopeData(fc_, scope, stencilAlloc(), pc_);
 }
 
-Maybe<FunctionScope::ParserData*> NewFunctionScopeData(
+static Maybe<FunctionScope::ParserData*> NewFunctionScopeData(
     FrontendContext* fc, ParseContext::Scope& scope, bool hasParameterExprs,
     LifoAlloc& alloc, ParseContext* pc) {
   ParserBindingNameVector positionalFormals(fc);
@@ -1394,10 +1394,10 @@ VarScope::ParserData* NewEmptyVarScopeData(FrontendContext* fc,
   return NewEmptyBindingData<VarScope>(fc, alloc, numBindings);
 }
 
-Maybe<VarScope::ParserData*> NewVarScopeData(FrontendContext* fc,
-                                             ParseContext::Scope& scope,
-                                             LifoAlloc& alloc,
-                                             ParseContext* pc) {
+static Maybe<VarScope::ParserData*> NewVarScopeData(FrontendContext* fc,
+                                                    ParseContext::Scope& scope,
+                                                    LifoAlloc& alloc,
+                                                    ParseContext* pc) {
   ParserBindingNameVector vars(fc);
 
   bool allBindingsClosedOver =
@@ -1449,10 +1449,9 @@ Maybe<VarScope::ParserData*> ParserBase::newVarScopeData(
   return NewVarScopeData(fc_, scope, stencilAlloc(), pc_);
 }
 
-Maybe<LexicalScope::ParserData*> NewLexicalScopeData(FrontendContext* fc,
-                                                     ParseContext::Scope& scope,
-                                                     LifoAlloc& alloc,
-                                                     ParseContext* pc) {
+static Maybe<LexicalScope::ParserData*> NewLexicalScopeData(
+    FrontendContext* fc, ParseContext::Scope& scope, LifoAlloc& alloc,
+    ParseContext* pc) {
   ParserBindingNameVector lets(fc);
   ParserBindingNameVector consts(fc);
 
@@ -1529,7 +1528,7 @@ Maybe<LexicalScope::ParserData*> ParserBase::newLexicalScopeData(
   return NewLexicalScopeData(fc_, scope, stencilAlloc(), pc_);
 }
 
-Maybe<ClassBodyScope::ParserData*> NewClassBodyScopeData(
+static Maybe<ClassBodyScope::ParserData*> NewClassBodyScopeData(
     FrontendContext* fc, ParseContext::Scope& scope, LifoAlloc& alloc,
     ParseContext* pc) {
   ParserBindingNameVector privateBrand(fc);

@@ -7,6 +7,7 @@
  * https://w3c.github.io/webcodecs/#encodedvideochunk
  */
 
+// [Serializable] is implemented without adding attribute here.
 [Exposed=(Window,DedicatedWorker), Pref="dom.media.webcodecs.enabled"]
 interface EncodedVideoChunk {
   [Throws]

@@ -14,6 +14,8 @@ import "chrome://browser/content/shopping/settings.mjs";
 import "chrome://browser/content/shopping/adjusted-rating.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/shopping/reliability.mjs";
+// eslint-disable-next-line import/no-unassigned-import
+import "chrome://browser/content/shopping/analysis-explainer.mjs";
 
 export class ShoppingContainer extends MozLitElement {
   static properties = {
@@ -43,6 +45,7 @@ export class ShoppingContainer extends MozLitElement {
     if (!this.data) {
       return html`<p>loading...</p>`;
     }
+
     return html`<link
         rel="stylesheet"
         href="chrome://browser/content/shopping/shopping-container.css"
@@ -71,7 +74,10 @@ export class ShoppingContainer extends MozLitElement {
           <adjusted-rating
             rating=${this.data.adjusted_rating}
           ></adjusted-rating>
-          <review-highlights></review-highlights>
+          <review-highlights
+            .highlights=${this.data.highlights}
+          ></review-highlights>
+          <analysis-explainer></analysis-explainer>
           <shopping-settings></shopping-settings>
         </div>
       </div>`;

@@ -1376,8 +1376,18 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
   void reportMissingClosing(unsigned errorNumber, unsigned noteNumber,
                             uint32_t openedPos);
 
+  void reportRedeclarationHelper(TaggedParserAtomIndex& name,
+                                 DeclarationKind& prevKind, TokenPos& pos,
+                                 uint32_t& prevPos, const unsigned& errorNumber,
+                                 const unsigned& noteErrorNumber);
+
   void reportRedeclaration(TaggedParserAtomIndex name, DeclarationKind prevKind,
                            TokenPos pos, uint32_t prevPos);
+
+  void reportMismatchedPlacement(TaggedParserAtomIndex name,
+                                 DeclarationKind prevKind, TokenPos pos,
+                                 uint32_t prevPos);
+
   bool notePositionalFormalParameter(FunctionNodeType funNode,
                                      TaggedParserAtomIndex name,
                                      uint32_t beginPos,
@@ -1925,26 +1935,6 @@ LexicalScope::ParserData* NewEmptyLexicalScopeData(FrontendContext* fc,
 FunctionScope::ParserData* NewEmptyFunctionScopeData(FrontendContext* fc,
                                                      LifoAlloc& alloc,
                                                      uint32_t numBindings);
-
-mozilla::Maybe<GlobalScope::ParserData*> NewGlobalScopeData(
-    JSContext* cx, FrontendContext* fc, ParseContext::Scope& scope,
-    LifoAlloc& alloc, ParseContext* pc);
-
-mozilla::Maybe<EvalScope::ParserData*> NewEvalScopeData(
-    JSContext* cx, FrontendContext* fc, ParseContext::Scope& scope,
-    LifoAlloc& alloc, ParseContext* pc);
-
-mozilla::Maybe<FunctionScope::ParserData*> NewFunctionScopeData(
-    JSContext* cx, FrontendContext* fc, ParseContext::Scope& scope,
-    bool hasParameterExprs, LifoAlloc& alloc, ParseContext* pc);
-
-mozilla::Maybe<VarScope::ParserData*> NewVarScopeData(
-    JSContext* cx, FrontendContext* fc, ParseContext::Scope& scope,
-    LifoAlloc& alloc, ParseContext* pc);
-
-mozilla::Maybe<LexicalScope::ParserData*> NewLexicalScopeData(
-    JSContext* cx, FrontendContext* fc, ParseContext::Scope& scope,
-    LifoAlloc& alloc, ParseContext* pc);
 
 bool FunctionScopeHasClosedOverBindings(ParseContext* pc);
 bool LexicalScopeHasClosedOverBindings(ParseContext* pc,

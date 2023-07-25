@@ -1,7 +1,7 @@
 include: '.gitlab/ci/rules.yml'
 
 variables:
-  SCCACHE_REDIS_BASEURL: redis://10.81.70.108
+  SCCACHE_REDIS_BASEURL: redis://10.81.70.128
 
  # note that these setups merely support pipelines triggered by merge requests
 .global_setup: &global_setup

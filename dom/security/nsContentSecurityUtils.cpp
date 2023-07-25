@@ -1624,10 +1624,6 @@ long nsContentSecurityUtils::ClassifyDownload(
     return nsITransfer::DOWNLOAD_ACCEPTABLE;
   }
 
-  if (!StaticPrefs::dom_block_download_in_sandboxed_iframes()) {
-    return nsITransfer::DOWNLOAD_ACCEPTABLE;
-  }
-
   uint32_t triggeringFlags = loadInfo->GetTriggeringSandboxFlags();
   uint32_t currentflags = loadInfo->GetSandboxFlags();
 
@@ -1639,6 +1635,5 @@ long nsContentSecurityUtils::ClassifyDownload(
     }
     return nsITransfer::DOWNLOAD_FORBIDDEN;
   }
-
   return nsITransfer::DOWNLOAD_ACCEPTABLE;
 }

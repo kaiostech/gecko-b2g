@@ -45,6 +45,9 @@ const STYLE_INSPECTOR_PROPERTIES =
 const { LocalizationHelper } = require("resource://devtools/shared/l10n.js");
 const STYLE_INSPECTOR_L10N = new LocalizationHelper(STYLE_INSPECTOR_PROPERTIES);
 
+const INDENT_SIZE = 2;
+const INDENT_STR = " ".repeat(INDENT_SIZE);
+
 /**
  * RuleEditor is responsible for the following:
  *   Owns a Rule object and creates a list of TextPropertyEditors
@@ -144,28 +147,41 @@ RuleEditor.prototype = {
     if (this.rule.domRule.ancestorData.length) {
       const ancestorsFrag = this.doc.createDocumentFragment();
       this.rule.domRule.ancestorData.forEach((ancestorData, index) => {
-        const ancestorLi = this.doc.createElement("li");
-        ancestorsFrag.append(ancestorLi);
-        ancestorLi.setAttribute("data-ancestor-index", index);
-        ancestorLi.classList.add("ruleview-rule-ancestor");
+        const ancestorItem = this.doc.createElement("div");
+        ancestorItem.setAttribute("role", "listitem");
+        ancestorsFrag.append(ancestorItem);
+        ancestorItem.setAttribute("data-ancestor-index", index);
+        ancestorItem.classList.add("ruleview-rule-ancestor");
         if (ancestorData.type) {
-          ancestorLi.classList.add(ancestorData.type);
+          ancestorItem.classList.add(ancestorData.type);
         }
 
-        if (ancestorData.type == "container") {
-          ancestorLi.classList.add("container-query");
+        // Indent each parent selector
+        if (index) {
+          createChild(ancestorItem, "span", {
+            class: "ruleview-rule-indent",
+            textContent: INDENT_STR.repeat(index),
+          });
+        }
 
-          createChild(ancestorLi, "span", {
+        const selectorContainer = createChild(ancestorItem, "span", {
+          class: "ruleview-rule-ancestor-selectorcontainer",
+        });
+
+        if (ancestorData.type == "container") {
+          ancestorItem.classList.add("container-query", "has-tooltip");
+
+          createChild(selectorContainer, "span", {
             class: "container-query-declaration",
             textContent: `@container${
               ancestorData.containerName ? " " + ancestorData.containerName : ""
             }`,
           });
 
-          ancestorLi.classList.add("has-tooltip");
-
-          const jumpToNodeButton = createChild(ancestorLi, "button", {
+          // We can't use a button, otherwise a line break is added when copy/pasting the rule
+          const jumpToNodeButton = createChild(selectorContainer, "span", {
             class: "open-inspector",
+            role: "button",
             title: l10n("rule.containerQuery.selectContainerButton.tooltip"),
           });
 
@@ -192,9 +208,8 @@ RuleEditor.prototype = {
               this.ruleView.inspector.highlighters.TYPES.BOXMODEL
             );
           });
-          ancestorLi.append(jumpToNodeButton);
 
-          ancestorLi.addEventListener("mouseenter", async () => {
+          ancestorItem.addEventListener("mouseenter", async () => {
             const front = await getNodeFront();
             if (!front) {
               return;
@@ -205,61 +220,57 @@ RuleEditor.prototype = {
               front
             );
           });
-          ancestorLi.addEventListener("mouseleave", async () => {
+          ancestorItem.addEventListener("mouseleave", async () => {
             await this.ruleView.inspector.highlighters.hideHighlighterType(
               this.ruleView.inspector.highlighters.TYPES.BOXMODEL
             );
           });
 
-          createChild(ancestorLi, "span", {
+          createChild(selectorContainer, "span", {
             // Add a space between the container name (or @container if there's no name)
             // and the query so the title, which is computed from the DOM, displays correctly.
             textContent: " " + ancestorData.containerQuery,
           });
-          return;
-        }
-
-        if (ancestorData.type == "layer") {
-          ancestorLi.append(
+        } else if (ancestorData.type == "layer") {
+          selectorContainer.append(
             this.doc.createTextNode(
               `@layer${ancestorData.value ? " " + ancestorData.value : ""}`
             )
           );
-          return;
-        }
-        if (ancestorData.type == "media") {
-          ancestorLi.append(
+        } else if (ancestorData.type == "media") {
+          selectorContainer.append(
             this.doc.createTextNode(`@media ${ancestorData.value}`)
           );
-          return;
-        }
-
-        if (ancestorData.type == "supports") {
-          ancestorLi.append(
+        } else if (ancestorData.type == "supports") {
+          selectorContainer.append(
             this.doc.createTextNode(`@supports ${ancestorData.conditionText}`)
           );
-          return;
-        }
-
-        if (ancestorData.type == "import") {
-          ancestorLi.append(
+        } else if (ancestorData.type == "import") {
+          selectorContainer.append(
             this.doc.createTextNode(`@import ${ancestorData.value}`)
           );
+        } else if (ancestorData.selectorText) {
+          selectorContainer.append(
+            this.doc.createTextNode(ancestorData.selectorText)
+          );
+        } else {
+          // We shouldn't get here as `type` should only match to what can be set in
+          // the StyleRuleActor form, but just in case, let's return an empty string.
+          console.warn("Unknown ancestor data type:", ancestorData.type);
           return;
         }
 
-        if (ancestorData.selectorText) {
-          ancestorLi.append(this.doc.createTextNode(ancestorData.selectorText));
-          return;
-        }
-
-        // We shouldn't get here as `type` should only match to what can be set in
-        // the StyleRuleActor form, but just in case, let's return an empty string.
-        console.warn("Unknown ancestor data type:", ancestorData.type);
+        createChild(ancestorItem, "span", {
+          class: "ruleview-ancestor-ruleopen",
+          textContent: " {",
+        });
       });
 
-      this.ancestorDataEl = createChild(this.element, "ol", {
+      // We can't use a proper "ol" as it will mess with selection copy text,
+      // adding spaces on list item instead of the one we craft (.ruleview-rule-indent)
+      this.ancestorDataEl = createChild(this.element, "div", {
         class: "ruleview-rule-ancestor-data theme-link",
+        role: "list",
       });
       this.ancestorDataEl.append(ancestorsFrag);
     }
@@ -269,6 +280,11 @@ RuleEditor.prototype = {
     });
 
     const header = createChild(code, "div", {});
+
+    createChild(header, "span", {
+      class: "ruleview-rule-indent",
+      textContent: INDENT_STR.repeat(this.rule.domRule.ancestorData.length),
+    });
 
     this.selectorText = createChild(header, "span", {
       class: "ruleview-selectorcontainer",
@@ -305,6 +321,8 @@ RuleEditor.prototype = {
         class:
           "ruleview-selectorhighlighter js-toggle-selector-highlighter" +
           (isHighlighted ? " highlighted" : ""),
+        role: "button",
+        "aria-pressed": isHighlighted,
         // This is used in rules.js for the selector highlighter
         "data-computed-selector": desugaredSelector,
         title: l10n("rule.selectorHighlighter.tooltip"),
@@ -316,8 +334,11 @@ RuleEditor.prototype = {
       textContent: " {",
     });
 
-    this.propertyList = createChild(code, "ul", {
+    // We can't use a proper "ol" as it will mess with selection copy text,
+    // adding spaces on list item instead of the one we craft (.ruleview-rule-indent)
+    this.propertyList = createChild(code, "div", {
       class: "ruleview-propertylist",
+      role: "list",
     });
 
     this.populate();
@@ -325,8 +346,29 @@ RuleEditor.prototype = {
     this.closeBrace = createChild(code, "div", {
       class: "ruleview-ruleclose",
       tabindex: this.isEditable ? "0" : "-1",
-      textContent: "}",
     });
+
+    if (this.rule.domRule.ancestorData.length) {
+      createChild(this.closeBrace, "span", {
+        class: "ruleview-rule-indent",
+        textContent: INDENT_STR.repeat(this.rule.domRule.ancestorData.length),
+      });
+    }
+    this.closeBrace.append(this.doc.createTextNode("}"));
+
+    if (this.rule.domRule.ancestorData.length) {
+      let closingBracketsText = "";
+      for (let i = this.rule.domRule.ancestorData.length - 1; i >= 0; i--) {
+        if (i) {
+          closingBracketsText += INDENT_STR.repeat(i);
+        }
+        closingBracketsText += "}\n";
+      }
+      createChild(code, "div", {
+        class: "ruleview-ancestor-ruleclose",
+        textContent: closingBracketsText,
+      });
+    }
 
     if (this.isEditable) {
       // A newProperty editor should only be created when no editor was
@@ -670,8 +712,9 @@ RuleEditor.prototype = {
     // close brace for now.
     this.closeBrace.removeAttribute("tabindex");
 
-    this.newPropItem = createChild(this.propertyList, "li", {
+    this.newPropItem = createChild(this.propertyList, "div", {
       class: "ruleview-property ruleview-newproperty",
+      role: "listitem",
     });
 
     this.newPropSpan = createChild(this.newPropItem, "span", {

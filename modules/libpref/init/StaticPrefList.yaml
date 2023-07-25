@@ -2300,12 +2300,6 @@
   value: true
   mirror: always
 
-# Block all downloads in iframes with the sandboxed attribute
-- name: dom.block_download_in_sandboxed_iframes
-  type: bool
-  value: true
-  mirror: always
-
 # Block multiple window.open() per single event.
 - name: dom.block_multiple_popups
   type: bool
@@ -3102,12 +3096,6 @@
 - name: dom.forms.fieldset_disable_only_descendants.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
-# Is support for HTMLInputElement.showPicker enabled?
-- name: dom.input.showPicker
-  type: bool
-  value: true
   mirror: always
 
 # Whether to allow or disallow web apps to cancel `beforeinput` events caused
@@ -8593,6 +8581,13 @@
   value: false
   mirror: always
 
+# Is support for rect() enabled?
+- name: layout.css.basic-shape-rect.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Is support for xywh() enabled?
 - name: layout.css.basic-shape-xywh.enabled
   type: RelaxedAtomicBool
@@ -10468,12 +10463,7 @@
 
 -   name: media.wmf.low-latency.enabled
     type: RelaxedAtomicBool
-    value: false
-    mirror: always
-
--   name: media.wmf.low-latency.force-disabled
-    type: RelaxedAtomicBool
-    value: false
+    value: true
     mirror: always
 
 -   name: media.wmf.skip-blacklist
@@ -12093,6 +12083,13 @@
 # Enables `<link rel="preload">` tag and `Link: rel=preload` response header
 # handling.
 - name: network.preload
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Enables `<link rel="preconnect">` tag and `Link: rel=preconnect` response header
+# handling.
+- name: network.preconnect
   type: RelaxedAtomicBool
   value: true
   mirror: always

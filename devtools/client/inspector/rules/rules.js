@@ -23,7 +23,6 @@ const {
 } = require("resource://devtools/client/inspector/shared/utils.js");
 const { debounce } = require("resource://devtools/shared/debounce.js");
 const EventEmitter = require("resource://devtools/shared/event-emitter.js");
-const DOUBLESPACE = "  ";
 
 loader.lazyRequireGetter(
   this,
@@ -656,9 +655,6 @@ CssRuleView.prototype = {
 
         // Remove any double newlines.
         text = text.replace(/(\r?\n)\r?\n/g, "$1");
-
-        // Replace 4 space indentation with 2 Spaces.
-        text = text.replace(/\ {4}/g, DOUBLESPACE);
       }
 
       clipboardHelper.copyString(text);
@@ -1502,9 +1498,12 @@ CssRuleView.prototype = {
       return false;
     }
 
+    const ancestorSelectors = element.querySelectorAll(
+      ".ruleview-rule-ancestor-selectorcontainer"
+    );
+
     let isHighlighted = false;
-    for (let i = 0; i < element.childNodes.length; i++) {
-      const child = element.childNodes[i];
+    for (const child of ancestorSelectors) {
       const dataText = child.innerText.toLowerCase();
       const matches = this.searchData.strictSearchValue
         ? dataText === this.searchData.strictSearchValue

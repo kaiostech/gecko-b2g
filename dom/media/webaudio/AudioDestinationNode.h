@@ -111,6 +111,10 @@ class AudioDestinationNode final : public AudioNode,
   // presses the tab play icon.
   bool mAudioChannelDisabled = false;
 
+#ifdef MOZ_B2G
+  bool mAudioChannelPaused = false;
+#endif
+
   // When the destination node is audible, we would request a wakelock to
   // prevent computer from sleeping in order to keep audio playing.
   void CreateAudioWakeLockIfNeeded();

@@ -410,6 +410,9 @@ void AudioDestinationNode::DestroyAudioChannelAgentIfExists() {
       StopAudioCapturingTrack();
     }
   }
+#ifdef MOZ_B2G
+  mAudioChannelPaused = false;
+#endif
 }
 
 void AudioDestinationNode::DestroyMediaTrack() {
@@ -552,6 +555,17 @@ AudioDestinationNode::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
     return NS_OK;
   }
 
+#ifdef MOZ_B2G
+  if (aSuspend == nsISuspendedTypes::SUSPENDED_PAUSE && !mAudioChannelPaused) {
+    mAudioChannelPaused = true;
+    Context()->DispatchTrustedEvent(u"mozinterruptbegin"_ns);
+  } else if (aSuspend == nsISuspendedTypes::NONE_SUSPENDED &&
+             mAudioChannelPaused) {
+    mAudioChannelPaused = false;
+    Context()->DispatchTrustedEvent(u"mozinterruptend"_ns);
+  }
+#endif
+
   const bool shouldDisable = aSuspend != nsISuspendedTypes::NONE_SUSPENDED;
   if (mAudioChannelDisabled == shouldDisable) {
     return NS_OK;
@@ -566,8 +580,6 @@ AudioDestinationNode::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
   if (!shouldDisable) {
     Context()->StartBlockedAudioContextIfAllowed();
   }
-  Context()->DispatchTrustedEvent(shouldDisable ? u"mozinterruptbegin"_ns
-                                                : u"mozinterruptend"_ns);
 #endif
 
   DisabledTrackMode disabledMode = mAudioChannelDisabled

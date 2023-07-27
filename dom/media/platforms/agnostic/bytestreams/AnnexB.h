@@ -54,11 +54,46 @@ class AnnexB {
   static void ParseNALEntries(const Span<const uint8_t>& aSpan,
                               nsTArray<AnnexB::NALEntry>& aEntries);
 
- private:
-  // AVCC box parser helper.
+ protected:
+  // AVCC/HVCC box parser helper.
   static mozilla::Result<mozilla::Ok, nsresult> ConvertSPSOrPPS(
-      mozilla::BufferReader& aReader, uint8_t aCount,
+      mozilla::BufferReader& aReader, uint16_t aCount,
       mozilla::MediaByteBuffer* aAnnexB);
+
+  using ConvertFunc = std::function<already_AddRefed<mozilla::MediaByteBuffer>(
+      const mozilla::MediaByteBuffer*)>;
+
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleToAnnexBInternal(
+      mozilla::MediaRawData* aSample, bool aAddSPS,
+      ConvertFunc aConvertExtraData);
+};
+
+class H265AnnexB final : private AnnexB {
+ public:
+  using AnnexB::IsAnnexB;
+  using AnnexB::NALEntry;
+  using AnnexB::ParseNALEntries;
+
+  // All conversions assume size of NAL length field is 4 bytes.
+  // Convert a sample from HVCC format to Annex B.
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleToAnnexB(
+      mozilla::MediaRawData* aSample, bool aAddSPS = true);
+
+  // Convert a sample from Annex B to HVCC.
+  // an HVCC extradata must not be set.
+  static bool ConvertSampleToHVCC(
+      mozilla::MediaRawData* aSample,
+      const RefPtr<mozilla::MediaByteBuffer>& aAVCCHeader = nullptr);
+
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleTo4BytesHVCC(
+      mozilla::MediaRawData* aSample);
+
+  // Parse an AVCC extradata and construct the Annex B sample header.
+  static already_AddRefed<mozilla::MediaByteBuffer> ConvertExtraDataToAnnexB(
+      const mozilla::MediaByteBuffer* aExtraData);
+
+  // Returns true if format is AVCC and sample has valid extradata.
+  static bool IsHVCC(const mozilla::MediaRawData* aSample);
 };
 
 }  // namespace mozilla

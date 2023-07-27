@@ -15,12 +15,17 @@ EXPORTS += [
     "Adts.h",
     "AnnexB.h",
     "H264.h",
+    "H265.h",
 ]
 
 UNIFIED_SOURCES += [
     "Adts.cpp",
     "AnnexB.cpp",
     "H264.cpp",
+]
+
+SOURCES += [
+    "H265.cpp",
 ]
 
 LOCAL_INCLUDES += [

@@ -20,6 +20,7 @@ namespace mozilla::media {
 // to generate MediaCodec and MediaCodecSupports enums.
 #define CODEC_LIST \
   X(H264)          \
+  X(H265)          \
   X(VP8)           \
   X(VP9)           \
   X(AV1)           \
@@ -158,7 +159,7 @@ class MCSInfo final {
 
   // Returns array of hardcoded codec definitions used to generate hashtables
   // that convert between types
-  static std::array<CodecDefinition, 12> GetAllCodecDefinitions();
+  static std::array<CodecDefinition, 13> GetAllCodecDefinitions();
 
   MCSInfo(MCSInfo const&) = delete;
   void operator=(MCSInfo const&) = delete;

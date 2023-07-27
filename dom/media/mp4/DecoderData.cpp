@@ -329,6 +329,10 @@ MediaResult MP4VideoInfo::Update(const Mp4parseTrackInfo* track,
   // track, or if we have different numbers or channels in a single track.
   if (codecType == MP4PARSE_CODEC_AVC) {
     mMimeType = "video/avc"_ns;
+#if defined(MP4PARSE_FEATURE_HEVC)
+  } else if (codecType == MP4PARSE_CODEC_HEVC) {
+    mMimeType = "video/hevc"_ns;
+#endif
   } else if (codecType == MP4PARSE_CODEC_VP9) {
     mMimeType = "video/vp9"_ns;
   } else if (codecType == MP4PARSE_CODEC_AV1) {

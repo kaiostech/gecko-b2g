@@ -220,6 +220,11 @@ bool MP4Decoder::IsH264(const nsACString& aMimeType) {
 }
 
 /* static */
+bool MP4Decoder::IsH265(const nsACString& aMimeType) {
+  return aMimeType.EqualsLiteral("video/hevc");
+}
+
+/* static */
 bool MP4Decoder::IsH263(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("video/3gpp");
 }

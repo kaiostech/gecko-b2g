@@ -209,9 +209,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
     case ColorID::MozDialogtext:
       aColor = FG_NORMAL_COLOR;
       break;
-    case ColorID::MozDragtargetzone:
-      aColor = BG_SELECTED_COLOR;
-      break;
     case ColorID::MozButtonhoverface:
       aColor = BG_PRELIGHT_COLOR;
       break;

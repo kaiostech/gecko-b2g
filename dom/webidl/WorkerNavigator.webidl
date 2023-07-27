@@ -33,4 +33,4 @@ partial interface WorkerNavigator {
 WorkerNavigator includes NavigatorLocks;
 
 // https://gpuweb.github.io/gpuweb/#navigator-gpu
-WorkerNavigator includes GPUProvider;
+WorkerNavigator includes NavigatorGPU;

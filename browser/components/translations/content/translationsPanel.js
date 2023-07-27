@@ -209,6 +209,14 @@ var TranslationsPanel = new (class {
   }
 
   /**
+   * Show the introductory message on the first load, and keep on showing it for
+   * this URI, until the user navigates away.
+   *
+   * @type {string | null}
+   */
+  #firstShowUriSpec = null;
+
+  /**
    * Where the lazy elements are stored.
    *
    * @type {Record<string, Element>?}
@@ -286,12 +294,15 @@ var TranslationsPanel = new (class {
       getter("errorMessageHint", "translations-panel-error-message-hint");
       getter("errorHintAction", "translations-panel-translate-hint-action");
       getter("fromMenuList", "translations-panel-from");
+      getter("fromLabel", "translations-panel-from-label");
       getter("header", "translations-panel-header");
+      getter("intro", "translations-panel-intro");
       getter("langSelection", "translations-panel-lang-selection");
       getter("multiview", "translations-panel-multiview");
       getter("cancelButton", "translations-panel-cancel");
       getter("restoreButton", "translations-panel-restore-button");
       getter("toMenuList", "translations-panel-to");
+      getter("toLabel", "translations-panel-to-label");
       getter("unsupportedHint", "translations-panel-error-unsupported-hint");
 
       // Getters by class
@@ -327,9 +338,10 @@ var TranslationsPanel = new (class {
     actionText: hintCommandText,
     actionCommand: hintCommand,
   }) {
-    const { error, errorMessage, errorMessageHint, errorHintAction } =
+    const { error, errorMessage, errorMessageHint, errorHintAction, intro } =
       this.elements;
     error.hidden = false;
+    intro.hidden = true;
     document.l10n.setAttributes(errorMessage, message);
 
     if (hint) {
@@ -472,14 +484,8 @@ var TranslationsPanel = new (class {
   #updateViewFromTranslationStatus(
     languageState = this.#getTranslationsActor().languageState
   ) {
-    const {
-      defaultTranslate,
-      toMenuList,
-      fromMenuList,
-      header,
-      cancelButton,
-      restoreButton,
-    } = this.elements;
+    const { defaultTranslate, toMenuList, fromMenuList, header, cancelButton } =
+      this.elements;
     const { requestedTranslationPair, isEngineReady } = languageState;
 
     if (
@@ -495,7 +501,7 @@ var TranslationsPanel = new (class {
       );
       defaultTranslate.disabled = true;
       cancelButton.hidden = false;
-      restoreButton.hidden = true;
+      this.updateUIForReTranslation(false /* isReTranslation */);
     } else {
       document.l10n.setAttributes(
         defaultTranslate,
@@ -520,7 +526,7 @@ var TranslationsPanel = new (class {
         type: "language",
       });
       cancelButton.hidden = true;
-      restoreButton.hidden = false;
+      this.updateUIForReTranslation(true /* isReTranslation */);
 
       document.l10n.setAttributes(header, "translations-panel-revisit-header", {
         fromLanguage: displayNames.of(fromLanguage),
@@ -528,6 +534,25 @@ var TranslationsPanel = new (class {
       });
     } else {
       document.l10n.setAttributes(header, "translations-panel-header");
+    }
+  }
+
+  /**
+   * @param {boolean} isReTranslation
+   */
+  updateUIForReTranslation(isReTranslation) {
+    const { restoreButton, fromLabel, fromMenuList, toLabel } = this.elements;
+    restoreButton.hidden = !isReTranslation;
+    // When offering to re-translate a page, hide the "from" language so users don't
+    // get confused.
+    fromLabel.hidden = isReTranslation;
+    fromMenuList.hidden = isReTranslation;
+    if (isReTranslation) {
+      fromLabel.style.marginBlockStart = "";
+      toLabel.style.marginBlockStart = 0;
+    } else {
+      fromLabel.style.marginBlockStart = 0;
+      toLabel.style.marginBlockStart = "";
     }
   }
 
@@ -545,14 +570,19 @@ var TranslationsPanel = new (class {
       toMenuList,
       defaultTranslate,
       langSelection,
+      intro,
+      header,
     } = this.elements;
 
     this.#updateViewFromTranslationStatus();
 
+    // Unconditionally hide the intro text in case the panel is re-shown.
+    intro.hidden = true;
+
     if (this.#langListsPhase === "error") {
       // There was an error, display it in the view rather than the language
       // dropdowns.
-      const { restoreButton, cancelButton, errorHintAction } = this.elements;
+      const { cancelButton, errorHintAction } = this.elements;
 
       this.#showError({
         message: "translations-panel-error-load-languages",
@@ -562,7 +592,7 @@ var TranslationsPanel = new (class {
       });
 
       defaultTranslate.disabled = true;
-      restoreButton.hidden = true;
+      this.updateUIForReTranslation(false /* isReTranslation */);
       cancelButton.hidden = false;
       langSelection.hidden = true;
       errorHintAction.disabled = false;
@@ -578,7 +608,7 @@ var TranslationsPanel = new (class {
     const langTags = await this.#fetchDetectedLanguages();
     if (langTags?.isDocLangTagSupported || force) {
       // Show the default view with the language selection
-      const { restoreButton, cancelButton } = this.elements;
+      const { cancelButton } = this.elements;
 
       if (langTags?.isDocLangTagSupported) {
         fromMenuList.value = langTags?.docLangTag ?? "";
@@ -589,9 +619,25 @@ var TranslationsPanel = new (class {
 
       this.onChangeLanguages();
 
-      restoreButton.hidden = true;
+      this.updateUIForReTranslation(false /* isReTranslation */);
       cancelButton.hidden = false;
       multiview.setAttribute("mainViewId", "translations-panel-view-default");
+
+      if (!this._hasShownPanel) {
+        this.#firstShowUriSpec = gBrowser.currentURI.spec;
+      }
+
+      if (
+        this._hasShownPanel &&
+        gBrowser.currentURI.spec !== this.#firstShowUriSpec
+      ) {
+        document.l10n.setAttributes(header, "translations-panel-header");
+        this.#firstShowUriSpec === null;
+      } else {
+        Services.prefs.setBoolPref("browser.translations.panelShown", true);
+        intro.hidden = false;
+        document.l10n.setAttributes(header, "translations-panel-intro-header");
+      }
     } else {
       // Show the "unsupported language" view.
       const { unsupportedHint } = this.elements;
@@ -773,8 +819,8 @@ var TranslationsPanel = new (class {
    * @param {TranslationPair} translationPair
    */
   async #showRevisitView({ fromLanguage, toLanguage }) {
-    const { fromMenuList, toMenuList } = this.elements;
-
+    const { fromMenuList, toMenuList, intro } = this.elements;
+    intro.hidden = true;
     fromMenuList.value = fromLanguage;
     toMenuList.value = toLanguage;
     this.onChangeLanguages();
@@ -794,6 +840,31 @@ var TranslationsPanel = new (class {
    */
   onChangeLanguages() {
     this.#updateViewFromTranslationStatus();
+  }
+
+  /**
+   * Hide the pop up (for event handlers).
+   */
+  close() {
+    PanelMultiView.hidePopup(this.elements.panel);
+  }
+
+  /*
+   * Handler for clicking the learn more link from the gear menu.
+   */
+  onLearnMore() {
+    PanelMultiView.hidePopup(this.elements.panel);
+    const window =
+      gBrowser.selectedBrowser.browsingContext.top.embedderElement.ownerGlobal;
+    window.openTrustedLinkIn(
+      "https://support.mozilla.org/kb/website-translation",
+      "tab",
+      {
+        forceForeground: true,
+        triggeringPrincipal:
+          Services.scriptSecurityManager.getSystemPrincipal(),
+      }
+    );
   }
 
   /**
@@ -841,6 +912,10 @@ var TranslationsPanel = new (class {
       return;
     }
 
+    const window =
+      gBrowser.selectedBrowser.browsingContext.top.embedderElement.ownerGlobal;
+    window.ensureCustomElements("moz-support-link");
+
     const { panel, button } = this.elements;
 
     await this.#ensureLangListsBuilt();
@@ -866,11 +941,7 @@ var TranslationsPanel = new (class {
         ? [button, false]
         : [this.elements.appMenuButton, true];
 
-    panel.addEventListener(
-      "ViewShown",
-      () => TranslationsParent.telemetry().panel().onOpen(openedFromAppMenu),
-      { once: true }
-    );
+    TranslationsParent.telemetry().panel().onOpen(openedFromAppMenu);
 
     PanelMultiView.openPopup(panel, targetButton, {
       position: "bottomright topright",
@@ -1145,9 +1216,25 @@ var TranslationsPanel = new (class {
           } else {
             // The translation is not active, update the urlbar button.
             button.removeAttribute("translationsactive");
-            document.l10n.setAttributes(button, "urlbar-translations-button");
             buttonLocale.hidden = true;
             buttonCircleArrows.hidden = true;
+
+            // Follow the same rules for displaying the first-run intro text for the
+            // button's accessible tooltip label.
+            if (
+              this._hasShownPanel &&
+              gBrowser.currentURI.spec !== this.#firstShowUriSpec
+            ) {
+              document.l10n.setAttributes(
+                button,
+                "urlbar-translations-button2"
+              );
+            } else {
+              document.l10n.setAttributes(
+                button,
+                "urlbar-translations-button-intro"
+              );
+            }
           }
         } else {
           if (handleEventId !== this.handleEventId) {
@@ -1183,3 +1270,10 @@ var TranslationsPanel = new (class {
     }
   };
 })();
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  TranslationsPanel,
+  "_hasShownPanel",
+  "browser.translations.panelShown",
+  false
+);

@@ -156,7 +156,7 @@ function PreviewController(win, tab) {
 
   this.tab.addEventListener("TabAttrModified", this);
 
-  XPCOMUtils.defineLazyGetter(this, "canvasPreview", function () {
+  ChromeUtils.defineLazyGetter(this, "canvasPreview", function () {
     let canvas = lazy.PageThumbs.createCanvas(this.win.win);
     canvas.mozOpaque = true;
     return canvas;
@@ -604,13 +604,6 @@ TabWindow.prototype = {
     }
   },
 
-  directRequestProtocols: new Set([
-    "file",
-    "chrome",
-    "resource",
-    "about",
-    "data",
-  ]),
   onLinkIconAvailable(aBrowser, aIconURL) {
     let tab = this.win.gBrowser.getTabForBrowser(aBrowser);
     this.updateFavicon(tab, aIconURL);
@@ -618,17 +611,13 @@ TabWindow.prototype = {
   updateFavicon(aTab, aIconURL) {
     let requestURL = null;
     if (aIconURL) {
-      let shouldRequestFaviconURL = true;
       try {
-        let urlObject = NetUtil.newURI(aIconURL);
-        shouldRequestFaviconURL = !this.directRequestProtocols.has(
-          urlObject.scheme
-        );
-      } catch (ex) {}
-
-      requestURL = shouldRequestFaviconURL
-        ? "moz-anno:favicon:" + aIconURL
-        : aIconURL;
+        requestURL = PlacesUtils.favicons.getFaviconLinkForIcon(
+          Services.io.newURI(aIconURL)
+        ).spec;
+      } catch (ex) {
+        requestURL = aIconURL;
+      }
     }
     let isDefaultFavicon = !requestURL;
     getFaviconAsImage(
@@ -895,7 +884,7 @@ export var AeroPeek = {
   ]),
 };
 
-XPCOMUtils.defineLazyGetter(AeroPeek, "cacheTimer", () =>
+ChromeUtils.defineLazyGetter(AeroPeek, "cacheTimer", () =>
   Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
 );
 

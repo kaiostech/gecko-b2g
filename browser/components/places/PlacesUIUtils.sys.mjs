@@ -1843,13 +1843,24 @@ export var PlacesUIUtils = {
     }
   },
 
+  /**
+   * Generates a moz-anno:favicon: link for an icon URL, that will allow to
+   * fetch the icon from the local favicons cache, rather than from the network.
+   * If the icon URL is invalid, fallbacks to the default favicon URL.
+   *
+   * @param {string} icon The url of the icon to load from local cache.
+   * @returns {string} a "moz-anno:favicon:" prefixed URL, unless the original
+   *   URL protocol refers to a local resource, then it will just pass-through
+   *   unchanged.
+   */
   getImageURL(icon) {
-    let iconURL = icon;
     // don't initiate a connection just to fetch a favicon (see bug 467828)
-    if (/^https?:/.test(iconURL)) {
-      iconURL = "moz-anno:favicon:" + iconURL;
-    }
-    return iconURL;
+    try {
+      return lazy.PlacesUtils.favicons.getFaviconLinkForIcon(
+        Services.io.newURI(icon)
+      ).spec;
+    } catch (ex) {}
+    return lazy.PlacesUtils.favicons.defaultFavicon.spec;
   },
 
   /**
@@ -1932,32 +1943,32 @@ PlacesUIUtils.canLoadToolbarContentPromise = new Promise(resolve => {
 });
 
 // These are lazy getters to avoid importing PlacesUtils immediately.
-XPCOMUtils.defineLazyGetter(PlacesUIUtils, "PLACES_FLAVORS", () => {
+ChromeUtils.defineLazyGetter(PlacesUIUtils, "PLACES_FLAVORS", () => {
   return [
     lazy.PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER,
     lazy.PlacesUtils.TYPE_X_MOZ_PLACE_SEPARATOR,
     lazy.PlacesUtils.TYPE_X_MOZ_PLACE,
   ];
 });
-XPCOMUtils.defineLazyGetter(PlacesUIUtils, "URI_FLAVORS", () => {
+ChromeUtils.defineLazyGetter(PlacesUIUtils, "URI_FLAVORS", () => {
   return [
     lazy.PlacesUtils.TYPE_X_MOZ_URL,
     TAB_DROP_TYPE,
     lazy.PlacesUtils.TYPE_PLAINTEXT,
   ];
 });
-XPCOMUtils.defineLazyGetter(PlacesUIUtils, "SUPPORTED_FLAVORS", () => {
+ChromeUtils.defineLazyGetter(PlacesUIUtils, "SUPPORTED_FLAVORS", () => {
   return [...PlacesUIUtils.PLACES_FLAVORS, ...PlacesUIUtils.URI_FLAVORS];
 });
 
-XPCOMUtils.defineLazyGetter(PlacesUIUtils, "ellipsis", function () {
+ChromeUtils.defineLazyGetter(PlacesUIUtils, "ellipsis", function () {
   return Services.prefs.getComplexValue(
     "intl.ellipsis",
     Ci.nsIPrefLocalizedString
   ).data;
 });
 
-XPCOMUtils.defineLazyGetter(PlacesUIUtils, "promptLocalization", () => {
+ChromeUtils.defineLazyGetter(PlacesUIUtils, "promptLocalization", () => {
   return new Localization(
     ["browser/placesPrompts.ftl", "branding/brand.ftl"],
     true

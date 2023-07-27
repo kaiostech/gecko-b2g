@@ -40,11 +40,9 @@
 
   */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "overlayLocalization", () => {
+ChromeUtils.defineLazyGetter(lazy, "overlayLocalization", () => {
   return new Localization(["browser/screenshotsOverlay.ftl"], true);
 });
 

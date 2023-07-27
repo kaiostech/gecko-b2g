@@ -212,9 +212,6 @@ exports.CSS_PROPERTIES = {
       "-moz-mac-source-list",
       "-moz-mac-source-list-selection",
       "-moz-menulist-arrow-button",
-      "-moz-win-browsertabbar-toolbox",
-      "-moz-win-communications-toolbox",
-      "-moz-win-media-toolbox",
       "-moz-window-button-box",
       "-moz-window-button-close",
       "-moz-window-button-maximize",
@@ -1472,9 +1469,6 @@ exports.CSS_PROPERTIES = {
       "-moz-mac-source-list",
       "-moz-mac-source-list-selection",
       "-moz-menulist-arrow-button",
-      "-moz-win-browsertabbar-toolbox",
-      "-moz-win-communications-toolbox",
-      "-moz-win-media-toolbox",
       "-moz-window-button-box",
       "-moz-window-button-close",
       "-moz-window-button-maximize",
@@ -3515,9 +3509,6 @@ exports.CSS_PROPERTIES = {
       "-moz-mac-source-list",
       "-moz-mac-source-list-selection",
       "-moz-menulist-arrow-button",
-      "-moz-win-browsertabbar-toolbox",
-      "-moz-win-communications-toolbox",
-      "-moz-win-media-toolbox",
       "-moz-window-button-box",
       "-moz-window-button-close",
       "-moz-window-button-maximize",
@@ -6998,6 +6989,7 @@ exports.CSS_PROPERTIES = {
       "large",
       "larger",
       "lighter",
+      "math",
       "medium",
       "menu",
       "message-box",
@@ -7127,6 +7119,7 @@ exports.CSS_PROPERTIES = {
       "initial",
       "large",
       "larger",
+      "math",
       "medium",
       "revert",
       "revert-layer",
@@ -9091,6 +9084,22 @@ exports.CSS_PROPERTIES = {
       "next",
       "ordered",
       "pack",
+      "revert",
+      "revert-layer",
+      "unset"
+    ]
+  },
+  "math-depth": {
+    "isInherited": true,
+    "subproperties": [
+      "math-depth"
+    ],
+    "supports": [],
+    "values": [
+      "add",
+      "auto-add",
+      "inherit",
+      "initial",
       "revert",
       "revert-layer",
       "unset"

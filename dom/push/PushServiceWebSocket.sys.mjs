@@ -9,6 +9,10 @@ const { AppConstants } = ChromeUtils.import(
 );
 const isGonk = AppConstants.platform === "gonk";
 
+import { PushDB } from "resource://gre/modules/PushDB.sys.mjs";
+import { PushRecord } from "resource://gre/modules/PushRecord.sys.mjs";
+import { PushCrypto } from "resource://gre/modules/PushCrypto.sys.mjs";
+
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -62,7 +66,7 @@ const kDELIVERY_REASON_TO_CODE = {
 
 const prefs = Services.prefs.getBranch("dom.push.");
 
-XPCOMUtils.defineLazyGetter(lazy, "console", () => {
+ChromeUtils.defineLazyGetter(lazy, "console", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
   );

@@ -25,7 +25,7 @@
 #include "OuterDocAccessible.h"
 #include "Pivot.h"
 #include "Relation.h"
-#include "Role.h"
+#include "mozilla/a11y/Role.h"
 #include "RootAccessible.h"
 #include "States.h"
 #include "TextLeafRange.h"
@@ -3282,8 +3282,9 @@ already_AddRefed<AccAttributes> LocalAccessible::BundleFieldsForCache(
 
       nsLayoutUtils::GetFramesForArea(
           RelativeTo{rootFrame}, scrollPort, frames,
-          {{// We only care about visible content for hittesting.
-            nsLayoutUtils::FrameForPointOption::OnlyVisible,
+          {{// We don't add the ::OnlyVisible option here, because
+            // it means we always consider frames with pointer-events: none.
+            // See usage of HitTestIsForVisibility in nsDisplayList::HitTest.
             // This flag ensures the display lists are built, even if
             // the page hasn't finished loading.
             nsLayoutUtils::FrameForPointOption::IgnorePaintSuppression,

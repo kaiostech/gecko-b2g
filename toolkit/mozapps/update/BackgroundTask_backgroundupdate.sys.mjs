@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { BackgroundUpdate } from "resource://gre/modules/BackgroundUpdate.sys.mjs";
+import { DevToolsSocketStatus } from "resource://devtools/shared/security/DevToolsSocketStatus.sys.mjs";
 
 const { EXIT_CODE } = BackgroundUpdate;
 
@@ -26,7 +27,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIApplicationUpdateService"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "log", () => {
+ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
   );
@@ -228,7 +229,11 @@ export async function runBackgroundTask(commandLine) {
   let syncManager = Cc["@mozilla.org/updates/update-sync-manager;1"].getService(
     Ci.nsIUpdateSyncManager
   );
-  if (syncManager.isOtherInstanceRunning()) {
+  if (DevToolsSocketStatus.hasSocketOpened()) {
+    lazy.log.warn(
+      `${SLUG}: Ignoring the 'multiple instances' check because a DevTools server is listening.`
+    );
+  } else if (syncManager.isOtherInstanceRunning()) {
     lazy.log.error(`${SLUG}: another instance is running`);
     return EXIT_CODE.OTHER_INSTANCE;
   }

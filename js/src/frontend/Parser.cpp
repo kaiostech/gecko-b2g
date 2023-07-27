@@ -703,8 +703,7 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredName(
     case DeclarationKind::SloppyLexicalFunction: {
       // Functions in block have complex allowances in sloppy mode for being
       // labelled that other lexical declarations do not have. Those checks
-      // are more complex than calling checkLexicalDeclarationDirectlyWithin-
-      // Block and are done in checkFunctionDefinition.
+      // are done in functionStmt.
 
       ParseContext::Scope* scope = pc_->innermostScope();
       if (AddDeclaredNamePtr p = scope->lookupDeclaredNameForAdd(name)) {
@@ -791,7 +790,8 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredName(
     case DeclarationKind::VarForAnnexBLexicalFunction:
       MOZ_CRASH(
           "Synthesized Annex B vars should go through "
-          "tryDeclareVarForAnnexBLexicalFunction");
+          "addPossibleAnnexBFunctionBox, and "
+          "propagateAndMarkAnnexBFunctionBoxes");
       break;
   }
 
@@ -8291,7 +8291,7 @@ GeneralParser<ParseHandler, Unit>::classDefinition(
           0) {
         // We declare `.privateBrand` as ClosedOver because the constructor
         // always uses it, even a default constructor. We could equivalently
-        // `noteNameUsed` when parsing the constructor, except that at that
+        // `noteUsedName` when parsing the constructor, except that at that
         // time, we don't necessarily know if the class has a private brand.
         if (!noteDeclaredName(
                 TaggedParserAtomIndex::WellKnown::dotPrivateBrand(),

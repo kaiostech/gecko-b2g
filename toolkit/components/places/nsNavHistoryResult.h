@@ -101,7 +101,7 @@ class nsNavHistoryResult final
   nsresult OnVisit(nsIURI* aURI, int64_t aVisitId, PRTime aTime,
                    uint32_t aTransitionType, const nsACString& aGUID,
                    bool aHidden, uint32_t aVisitCount,
-                   const nsAString& aLastKnownTitle);
+                   const nsAString& aLastKnownTitle, int64_t aFrecency);
 
   void OnIconChanged(nsIURI* aURI, nsIURI* aFaviconURI,
                      const nsACString& aGUID);
@@ -278,9 +278,6 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsNavHistoryResult, NS_NAVHISTORYRESULT_IID)
   NS_IMETHOD GetVisitId(int64_t* aVisitId) override {                         \
     return nsNavHistoryResultNode::GetVisitId(aVisitId);                      \
   }                                                                           \
-  NS_IMETHOD GetFromVisitId(int64_t* aFromVisitId) override {                 \
-    return nsNavHistoryResultNode::GetFromVisitId(aFromVisitId);              \
-  }                                                                           \
   NS_IMETHOD GetVisitType(uint32_t* aVisitType) override {                    \
     return nsNavHistoryResultNode::GetVisitType(aVisitType);                  \
   }
@@ -311,7 +308,6 @@ class nsNavHistoryResultNode : public nsINavHistoryResultNode {
   NS_IMETHOD GetPageGuid(nsACString& aPageGuid) override;
   NS_IMETHOD GetBookmarkGuid(nsACString& aBookmarkGuid) override;
   NS_IMETHOD GetVisitId(int64_t* aVisitId) override;
-  NS_IMETHOD GetFromVisitId(int64_t* aFromVisitId) override;
   NS_IMETHOD GetVisitType(uint32_t* aVisitType) override;
 
   virtual void OnRemoving();
@@ -401,7 +397,6 @@ class nsNavHistoryResultNode : public nsINavHistoryResultNode {
   int32_t mBookmarkIndex;
   int64_t mItemId;
   int64_t mVisitId;
-  int64_t mFromVisitId;
   PRTime mDateAdded;
   PRTime mLastModified;
 
@@ -410,7 +405,7 @@ class nsNavHistoryResultNode : public nsINavHistoryResultNode {
   int32_t mIndentLevel;
 
   // Frecency of the page.  Valid only for URI nodes.
-  int32_t mFrecency;
+  int64_t mFrecency;
 
   // Hidden status of the page.  Valid only for URI nodes.
   bool mHidden;
@@ -710,7 +705,10 @@ class nsNavHistoryQueryResultNode final
   // query nodes when the visited uri belongs to them. If no such query exists,
   // the history result creates a new query node dynamically.
   nsresult OnVisit(nsIURI* aURI, int64_t aVisitId, PRTime aTime,
-                   uint32_t aTransitionType, bool aHidden, uint32_t* aAdded);
+                   uint32_t aTransitionType, const nsACString& aGUID,
+                   bool aHidden, uint32_t aVisitCount,
+                   const nsAString& aLastKnownTitle, int64_t aFrecency,
+                   uint32_t* aAdded);
   nsresult OnTitleChanged(nsIURI* aURI, const nsAString& aPageTitle,
                           const nsACString& aGUID);
   nsresult OnClearHistory();
@@ -806,7 +804,8 @@ class nsNavHistoryFolderResultNode final
                        const nsACString& aURI, const nsACString& aTitle,
                        const nsAString& aTags, int64_t aFrecency, bool aHidden,
                        uint32_t aVisitCount, PRTime aLastVisitDate);
-  nsresult OnItemVisited(nsIURI* aURI, int64_t aVisitId, PRTime aTime);
+  nsresult OnItemVisited(nsIURI* aURI, int64_t aVisitId, PRTime aTime,
+                         int64_t aFrecency);
 
   virtual void OnRemoving() override;
 

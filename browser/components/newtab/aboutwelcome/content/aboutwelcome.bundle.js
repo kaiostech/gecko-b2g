@@ -409,7 +409,7 @@ const SecondaryCTA = props => {
 
   const targetElement = props.position ? `secondary_button_${props.position}` : `secondary_button`;
   let buttonStyling = (_props$content$second = props.content.secondary_button) !== null && _props$content$second !== void 0 && _props$content$second.has_arrow_icon ? `secondary arrow-icon` : `secondary`;
-  const isTextLink = props.content.position !== "split" && ((_props$content$tiles = props.content.tiles) === null || _props$content$tiles === void 0 ? void 0 : _props$content$tiles.type) !== "addons-picker";
+  const isTextLink = !["split", "callout"].includes(props.content.position) && ((_props$content$tiles = props.content.tiles) === null || _props$content$tiles === void 0 ? void 0 : _props$content$tiles.type) !== "addons-picker";
   const isPrimary = ((_props$content$second2 = props.content.secondary_button) === null || _props$content$second2 === void 0 ? void 0 : _props$content$second2.style) === "primary";
 
   if (isTextLink) {
@@ -842,18 +842,23 @@ const MultiStageProtonScreen = props => {
   });
 };
 const ProtonScreenActionButtons = props => {
-  var _content$checkbox, _content$additional_b, _content$primary_butt, _content$primary_butt2;
+  var _content$checkbox, _content$additional_b, _content$primary_butt, _content$primary_butt2, _content$primary_butt3, _content$primary_butt4;
 
   const {
     content,
-    addonName
+    addonName,
+    activeMultiSelect
   } = props;
   const defaultValue = (_content$checkbox = content.checkbox) === null || _content$checkbox === void 0 ? void 0 : _content$checkbox.defaultValue;
   const [isChecked, setIsChecked] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(defaultValue || false);
 
   if (!content.primary_button && !content.secondary_button && !content.additional_button) {
     return null;
-  }
+  } // If we have a multi-select screen, we want to disable the primary button
+  // until the user has selected at least one item.
+
+
+  const isPrimaryDisabled = primaryDisabledValue => primaryDisabledValue === "hasActiveMultiSelect" ? !((activeMultiSelect === null || activeMultiSelect === void 0 ? void 0 : activeMultiSelect.length) > 0) : primaryDisabledValue;
 
   return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
     className: `action-buttons ${content.additional_button ? "additional-cta-container" : ""}`,
@@ -861,13 +866,13 @@ const ProtonScreenActionButtons = props => {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
     text: (_content$primary_butt = content.primary_button) === null || _content$primary_butt === void 0 ? void 0 : _content$primary_butt.label
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("button", {
-    className: "primary" // Whether or not the checkbox is checked determines which action
+    className: `${((_content$primary_butt2 = content.primary_button) === null || _content$primary_butt2 === void 0 ? void 0 : _content$primary_butt2.style) ?? "primary"}${(_content$primary_butt3 = content.primary_button) !== null && _content$primary_butt3 !== void 0 && _content$primary_butt3.has_arrow_icon ? " arrow-icon" : ""}` // Whether or not the checkbox is checked determines which action
     // should be handled. By setting value here, we indicate to
     // this.handleAction() where in the content tree it should take
     // the action to execute from.
     ,
     value: isChecked ? "checkbox" : "primary_button",
-    disabled: ((_content$primary_butt2 = content.primary_button) === null || _content$primary_butt2 === void 0 ? void 0 : _content$primary_butt2.disabled) === true,
+    disabled: isPrimaryDisabled((_content$primary_butt4 = content.primary_button) === null || _content$primary_butt4 === void 0 ? void 0 : _content$primary_butt4.disabled),
     onClick: props.handleAction,
     "data-l10n-args": addonName ? JSON.stringify({
       "addon-name": addonName
@@ -910,6 +915,23 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
     }
 
     return `${isFirstScreen ? `dialog-initial` : ``} ${isLastScreen ? `dialog-last` : ``} ${includeNoodles ? `with-noodles` : ``} ${screenClass}`;
+  }
+
+  renderTitle({
+    title,
+    title_logo
+  }) {
+    return title_logo ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
+      className: "inline-icon-container"
+    }, this.renderLogo(title_logo), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
+      text: title
+    }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h1", {
+      id: "mainContentHeader"
+    }))) : /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
+      text: title
+    }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h1", {
+      id: "mainContentHeader"
+    }));
   }
 
   renderLogo({
@@ -1104,6 +1126,7 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
       className: `screen ${this.props.id || ""}
           ${screenClassName} ${textColorClass}`,
       role: "alertdialog",
+      layout: content.layout,
       pos: content.position || "center",
       tabIndex: "-1",
       "aria-labelledby": "mainContentHeader",
@@ -1135,11 +1158,7 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
       className: "main-content-inner"
     }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", {
       className: `welcome-text ${content.title_style || ""}`
-    }, content.title ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
-      text: content.title
-    }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h1", {
-      id: "mainContentHeader"
-    })) : null, content.subtitle ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
+    }, content.title ? this.renderTitle(content) : null, content.subtitle ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MSLocalized__WEBPACK_IMPORTED_MODULE_1__.Localized, {
       text: content.subtitle
     }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("h2", {
       "data-l10n-args": JSON.stringify({
@@ -1156,7 +1175,8 @@ class ProtonScreen extends (react__WEBPACK_IMPORTED_MODULE_0___default().PureCom
     }) : null, this.renderContentTiles(), this.renderLanguageSwitcher(), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(ProtonScreenActionButtons, {
       content: content,
       addonName: this.props.addonName,
-      handleAction: this.props.handleAction
+      handleAction: this.props.handleAction,
+      activeMultiSelect: this.props.activeMultiSelect
     })), !hideStepsIndicator ? this.renderStepsIndicator() : null), content.dismiss_button ? this.renderDismissButton() : null));
   }
 

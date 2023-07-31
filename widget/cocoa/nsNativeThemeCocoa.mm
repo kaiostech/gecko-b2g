@@ -2381,9 +2381,6 @@ Maybe<nsNativeThemeCocoa::WidgetInfo> nsNativeThemeCocoa::ComputeWidgetInfo(
       return Some(WidgetInfo::Button(
           ButtonParams{ComputeControlParams(aFrame, elementState), ButtonType::eArrowButton}));
 
-    case StyleAppearance::Groupbox:
-      return Some(WidgetInfo::GroupBox());
-
     case StyleAppearance::Textfield:
     case StyleAppearance::NumberInput:
       return Some(WidgetInfo::TextField(ComputeTextFieldParams(aFrame, elementState)));
@@ -2482,18 +2479,13 @@ Maybe<nsNativeThemeCocoa::WidgetInfo> nsNativeThemeCocoa::ComputeWidgetInfo(
   NS_OBJC_END_TRY_BLOCK_RETURN(Nothing());
 }
 
-static bool IsWidgetNonNative(StyleAppearance aAppearance) {
-  return nsNativeTheme::IsWidgetScrollbarPart(aAppearance) ||
-         aAppearance == StyleAppearance::FocusOutline;
-}
-
 NS_IMETHODIMP
 nsNativeThemeCocoa::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
                                          StyleAppearance aAppearance, const nsRect& aRect,
                                          const nsRect& aDirtyRect, DrawOverflow aDrawOverflow) {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
-  if (IsWidgetNonNative(aAppearance)) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return ThemeCocoa::DrawWidgetBackground(aContext, aFrame, aAppearance, aRect, aDirtyRect,
                                             aDrawOverflow);
   }
@@ -2721,7 +2713,7 @@ bool nsNativeThemeCocoa::CreateWebRenderCommandsForWidget(
     const mozilla::layers::StackingContextHelper& aSc,
     mozilla::layers::RenderRootStateManager* aManager, nsIFrame* aFrame,
     StyleAppearance aAppearance, const nsRect& aRect) {
-  if (IsWidgetNonNative(aAppearance)) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return ThemeCocoa::CreateWebRenderCommandsForWidget(aBuilder, aResources, aSc, aManager, aFrame,
                                                         aAppearance, aRect);
   }
@@ -2758,7 +2750,6 @@ bool nsNativeThemeCocoa::CreateWebRenderCommandsForWidget(
     case StyleAppearance::Menulist:
     case StyleAppearance::MenulistButton:
     case StyleAppearance::MozMenulistArrowButton:
-    case StyleAppearance::Groupbox:
     case StyleAppearance::Textfield:
     case StyleAppearance::NumberInput:
     case StyleAppearance::Searchfield:
@@ -2920,7 +2911,7 @@ bool nsNativeThemeCocoa::GetWidgetPadding(nsDeviceContext* aContext, nsIFrame* a
 
 bool nsNativeThemeCocoa::GetWidgetOverflow(nsDeviceContext* aContext, nsIFrame* aFrame,
                                            StyleAppearance aAppearance, nsRect* aOverflowRect) {
-  if (IsWidgetNonNative(aAppearance)) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return ThemeCocoa::GetWidgetOverflow(aContext, aFrame, aAppearance, aOverflowRect);
   }
   nsIntMargin overflow;
@@ -2981,7 +2972,7 @@ LayoutDeviceIntSize nsNativeThemeCocoa::GetMinimumWidgetSize(nsPresContext* aPre
                                                              StyleAppearance aAppearance) {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
-  if (IsWidgetNonNative(aAppearance)) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return ThemeCocoa::GetMinimumWidgetSize(aPresContext, aFrame, aAppearance);
   }
 
@@ -3139,7 +3130,6 @@ nsNativeThemeCocoa::WidgetStateChanged(nsIFrame* aFrame, StyleAppearance aAppear
     case StyleAppearance::Tabpanel:
     case StyleAppearance::Dialog:
     case StyleAppearance::Menupopup:
-    case StyleAppearance::Groupbox:
     case StyleAppearance::Progresschunk:
     case StyleAppearance::ProgressBar:
     case StyleAppearance::Meter:
@@ -3181,7 +3171,7 @@ nsNativeThemeCocoa::ThemeChanged() {
 
 bool nsNativeThemeCocoa::ThemeSupportsWidget(nsPresContext* aPresContext, nsIFrame* aFrame,
                                              StyleAppearance aAppearance) {
-  if (IsWidgetNonNative(aAppearance)) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return ThemeCocoa::ThemeSupportsWidget(aPresContext, aFrame, aAppearance);
   }
   // if this is a dropdown button in a combobox the answer is always no
@@ -3195,7 +3185,6 @@ bool nsNativeThemeCocoa::ThemeSupportsWidget(nsPresContext* aPresContext, nsIFra
     case StyleAppearance::Menulist:
     case StyleAppearance::MenulistButton:
     case StyleAppearance::MozMenulistArrowButton:
-    case StyleAppearance::MenulistText:
       if (aFrame && aFrame->GetWritingMode().IsVertical()) {
         return false;
       }
@@ -3216,7 +3205,6 @@ bool nsNativeThemeCocoa::ThemeSupportsWidget(nsPresContext* aPresContext, nsIFra
     case StyleAppearance::CheckboxContainer:
     case StyleAppearance::Radio:
     case StyleAppearance::RadioContainer:
-    case StyleAppearance::Groupbox:
     case StyleAppearance::MozMacHelpButton:
     case StyleAppearance::MozMacDisclosureButtonOpen:
     case StyleAppearance::MozMacDisclosureButtonClosed:
@@ -3310,7 +3298,6 @@ bool nsNativeThemeCocoa::ThemeNeedsComboboxDropmarker() { return false; }
 bool nsNativeThemeCocoa::WidgetAppearanceDependsOnWindowFocus(StyleAppearance aAppearance) {
   switch (aAppearance) {
     case StyleAppearance::Dialog:
-    case StyleAppearance::Groupbox:
     case StyleAppearance::Tabpanels:
     case StyleAppearance::ButtonArrowUp:
     case StyleAppearance::ButtonArrowDown:

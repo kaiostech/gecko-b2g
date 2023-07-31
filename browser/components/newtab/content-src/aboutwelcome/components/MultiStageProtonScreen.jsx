@@ -67,7 +67,7 @@ export const MultiStageProtonScreen = props => {
 };
 
 export const ProtonScreenActionButtons = props => {
-  const { content, addonName } = props;
+  const { content, addonName, activeMultiSelect } = props;
   const defaultValue = content.checkbox?.defaultValue;
 
   const [isChecked, setIsChecked] = useState(defaultValue || false);
@@ -80,6 +80,13 @@ export const ProtonScreenActionButtons = props => {
     return null;
   }
 
+  // If we have a multi-select screen, we want to disable the primary button
+  // until the user has selected at least one item.
+  const isPrimaryDisabled = primaryDisabledValue =>
+    primaryDisabledValue === "hasActiveMultiSelect"
+      ? !(activeMultiSelect?.length > 0)
+      : primaryDisabledValue;
+
   return (
     <div
       className={`action-buttons ${
@@ -89,13 +96,15 @@ export const ProtonScreenActionButtons = props => {
     >
       <Localized text={content.primary_button?.label}>
         <button
-          className="primary"
+          className={`${content.primary_button?.style ?? "primary"}${
+            content.primary_button?.has_arrow_icon ? " arrow-icon" : ""
+          }`}
           // Whether or not the checkbox is checked determines which action
           // should be handled. By setting value here, we indicate to
           // this.handleAction() where in the content tree it should take
           // the action to execute from.
           value={isChecked ? "checkbox" : "primary_button"}
-          disabled={content.primary_button?.disabled === true}
+          disabled={isPrimaryDisabled(content.primary_button?.disabled)}
           onClick={props.handleAction}
           data-l10n-args={
             addonName
@@ -156,6 +165,21 @@ export class ProtonScreen extends React.PureComponent {
     return `${isFirstScreen ? `dialog-initial` : ``} ${
       isLastScreen ? `dialog-last` : ``
     } ${includeNoodles ? `with-noodles` : ``} ${screenClass}`;
+  }
+
+  renderTitle({ title, title_logo }) {
+    return title_logo ? (
+      <div className="inline-icon-container">
+        {this.renderLogo(title_logo)}
+        <Localized text={title}>
+          <h1 id="mainContentHeader" />
+        </Localized>
+      </div>
+    ) : (
+      <Localized text={title}>
+        <h1 id="mainContentHeader" />
+      </Localized>
+    );
   }
 
   renderLogo({
@@ -420,6 +444,7 @@ export class ProtonScreen extends React.PureComponent {
         className={`screen ${this.props.id || ""}
           ${screenClassName} ${textColorClass}`}
         role="alertdialog"
+        layout={content.layout}
         pos={content.position || "center"}
         tabIndex="-1"
         aria-labelledby="mainContentHeader"
@@ -473,11 +498,8 @@ export class ProtonScreen extends React.PureComponent {
 
             <div className="main-content-inner">
               <div className={`welcome-text ${content.title_style || ""}`}>
-                {content.title ? (
-                  <Localized text={content.title}>
-                    <h1 id="mainContentHeader" />
-                  </Localized>
-                ) : null}
+                {content.title ? this.renderTitle(content) : null}
+
                 {content.subtitle ? (
                   <Localized text={content.subtitle}>
                     <h2
@@ -512,6 +534,7 @@ export class ProtonScreen extends React.PureComponent {
                 content={content}
                 addonName={this.props.addonName}
                 handleAction={this.props.handleAction}
+                activeMultiSelect={this.props.activeMultiSelect}
               />
             </div>
             {!hideStepsIndicator ? this.renderStepsIndicator() : null}

@@ -393,7 +393,11 @@ let JSWINDOWACTORS = {
         DOMDocElementInserted: {},
       },
     },
-    matches: ["about:welcome"],
+    matches: [
+      "about:welcome",
+      // TBD: Move shopping window functions setup to child actor. See Bug 1843461
+      "about:shoppingsidebar",
+    ],
     remoteTypes: ["privilegedabout"],
 
     // See Bug 1618306
@@ -692,6 +696,14 @@ let JSWINDOWACTORS = {
     },
     child: {
       esModuleURI: "resource:///actors/ScreenshotsComponentChild.sys.mjs",
+      events: {
+        "Screenshots:Close": { wantUntrusted: true },
+        "Screenshots:Copy": { wantUntrusted: true },
+        "Screenshots:Download": { wantUntrusted: true },
+        "Screenshots:HidePanel": { wantUntrusted: true },
+        "Screenshots:ShowPanel": { wantUntrusted: true },
+        "Screenshots:RecordEvent": { wantUntrusted: true },
+      },
     },
     enablePreference: "screenshots.browser.component.enabled",
   },
@@ -737,10 +749,12 @@ let JSWINDOWACTORS = {
       esModuleURI: "resource:///actors/ShoppingSidebarChild.sys.mjs",
       events: {
         ContentReady: { wantUntrusted: true },
-        DisableShopping: { wantUntrusted: true },
+        // This is added so the actor instantiates immediately and makes
+        // methods available to the page js on load.
+        DOMDocElementInserted: {},
       },
     },
-    matches: ["chrome://browser/content/shopping/shopping.html"],
+    matches: ["about:shoppingsidebar"],
     remoteTypes: ["privilegedabout"],
   },
 

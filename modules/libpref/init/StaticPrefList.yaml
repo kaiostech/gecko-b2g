@@ -605,7 +605,11 @@
 #    (multiplied then by pixelsPerLineStep which in GNOME-web is 40).
 -   name: apz.gtk.pangesture.delta_mode
     type: uint32_t
+#ifdef NIGHTLY_BUILD
+    value: 2
+#else
     value: 0
+#endif
     mirror: always
 
 -   name: apz.gtk.pangesture.page_delta_mode_multiplier
@@ -8641,6 +8645,13 @@
   mirror: always
   rust: true
 
+# Is support for light-dark() on content enabled?
+- name: layout.css.light-dark.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for color-mix with non-SRGB color spaces on content enabled?
 - name: layout.css.color-mix.color-spaces.enabled
   type: RelaxedAtomicBool
@@ -9647,26 +9658,6 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "mathml."
 #---------------------------------------------------------------------------
-
-# Whether to disable layout of invalid markup as an error message.
-- name: mathml.error_message_layout_for_invalid_markup.disabled
-  type: bool
-  value: true
-  mirror: always
-
-# Whether to disable MathML3 implementations for maction and semantics.
-- name: mathml.legacy_maction_and_semantics_implementations.disabled
-  type: bool
-  value: true
-  mirror: always
-  rust: true
-
-# Whether to disable the lquote/rquote attributes of the <ms> element.
-- name: mathml.ms_lquote_rquote_attributes.disabled
-  type: bool
-  value: true
-  mirror: always
-  rust: true
 
 # Whether to disable legacy names "thickmathspace", "mediummathspace",
 # "thickmathspace" etc for length attributes.
@@ -15956,9 +15947,9 @@
   value: false
   mirror: always
 
-# Whether to apply logic intended to improve taskbar behavior involving
-# non-foreground fullscreen windows. (See bug 1732517.)
-- name: widget.windows.alternate_fullscreen_heuristics
+# Whether to give explorer.exe a delated nudge to recalculate the fullscreenness
+# of a window after maximizing it.
+- name: widget.windows.fullscreen_remind_taskbar
   type: RelaxedAtomicBool
   value: true
   mirror: always

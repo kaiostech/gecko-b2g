@@ -84,17 +84,6 @@ static mozilla::LazyLogModule sTaskbarConcealerLog("TaskbarConcealer");
 /* static */
 nsTHashMap<HWND, HMONITOR> nsWindow::TaskbarConcealer::sKnownWindows;
 
-// Preference for changes associated with bug 1732517. When false, revert to the
-// previous simple behavior of "Firefox fullscreen == Windows fullscreen".
-//
-// For simplicity-of-implementation's sake, changes to this pref require a
-// restart of Firefox to take effect.
-static bool UseAlternateFullscreenHeuristics() {
-  static const bool val =
-      StaticPrefs::widget_windows_alternate_fullscreen_heuristics();
-  return val;
-}
-
 // Returns Nothing if the window in question is irrelevant (for any reason),
 // or Some(the window's current state) otherwise.
 /* static */
@@ -295,10 +284,6 @@ void TaskbarConcealerImpl::MarkAsHidingTaskbar(HWND aWnd, bool aMark) {
  **************************************************************/
 
 void nsWindow::TaskbarConcealer::OnWindowDestroyed(HWND aWnd) {
-  if (!UseAlternateFullscreenHeuristics()) {
-    return;
-  }
-
   MOZ_LOG(sTaskbarConcealerLog, LogLevel::Info,
           ("==> OnWindowDestroyed() for HWND %p", aWnd));
 
@@ -306,10 +291,6 @@ void nsWindow::TaskbarConcealer::OnWindowDestroyed(HWND aWnd) {
 }
 
 void nsWindow::TaskbarConcealer::OnFocusAcquired(nsWindow* aWin) {
-  if (!UseAlternateFullscreenHeuristics()) {
-    return;
-  }
-
   // Update state unconditionally.
   //
   // This is partially because focus-acquisition only updates the z-order, which
@@ -326,11 +307,6 @@ void nsWindow::TaskbarConcealer::OnFocusAcquired(nsWindow* aWin) {
 
 void nsWindow::TaskbarConcealer::OnFullscreenChanged(nsWindow* aWin,
                                                      bool enteredFullscreen) {
-  if (!UseAlternateFullscreenHeuristics()) {
-    TaskbarConcealerImpl().MarkAsHidingTaskbar(aWin->mWnd, enteredFullscreen);
-    return;
-  }
-
   MOZ_LOG(sTaskbarConcealerLog, LogLevel::Info,
           ("==> OnFullscreenChanged() for HWND %p on HMONITOR %p", aWin->mWnd,
            ::MonitorFromWindow(aWin->mWnd, MONITOR_DEFAULTTONULL)));
@@ -339,10 +315,6 @@ void nsWindow::TaskbarConcealer::OnFullscreenChanged(nsWindow* aWin,
 }
 
 void nsWindow::TaskbarConcealer::OnWindowPosChanged(nsWindow* aWin) {
-  if (!UseAlternateFullscreenHeuristics()) {
-    return;
-  }
-
   // Optimization: don't bother updating the state if the window hasn't moved
   // (including appearances and disappearances).
   const HWND myHwnd = aWin->mWnd;
@@ -362,11 +334,49 @@ void nsWindow::TaskbarConcealer::OnWindowPosChanged(nsWindow* aWin) {
   UpdateAllState();
 }
 
-void nsWindow::TaskbarConcealer::OnCloakChanged() {
-  if (!UseAlternateFullscreenHeuristics()) {
-    return;
-  }
+void nsWindow::TaskbarConcealer::OnAsyncStateUpdateRequest(HWND hwnd) {
+  MOZ_LOG(sTaskbarConcealerLog, LogLevel::Info,
+          ("==> OnAsyncStateUpdateRequest()"));
 
+  // Work around a race condition in explorer.exe.
+  //
+  // When a window is unminimized (and on several other events), the taskbar
+  // receives a notification that it needs to recalculate the current
+  // is-a-fullscreen-window-active-here-state ("rudeness") of each monitor.
+  // Unfortunately, this notification is sent concurrently with the
+  // WM_WINDOWPOSCHANGING message that performs the unminimization.
+  //
+  // Until that message is resolved, the window's position is still "minimized".
+  // If the taskbar processes its notification faster than the window handles
+  // its WM_WINDOWPOSCHANGING message, then the window will appear to the
+  // taskbar to still be minimized, and won't be taken into account for
+  // computing rudeness. This usually presents as a just-unminimized Firefox
+  // fullscreen-window occasionally having the taskbar stuck above it.
+  //
+  // Unfortunately, it's a bit difficult to improve Firefox's speed-of-response
+  // to WM_WINDOWPOSCHANGING messages (we can, and do, execute JavaScript during
+  // these), and even if we could that wouldn't always fix it. We instead adopt
+  // a variant of a strategy by Etienne Duchamps, who has investigated and
+  // documented this issue extensively[0]: we simply send another signal to the
+  // shell to notify it to recalculate the current rudeness state of all
+  // monitors.
+  //
+  // [0] https://github.com/dechamps/RudeWindowFixer#a-race-condition-activating-a-minimized-window
+  //
+  static UINT const shellHookMsg = ::RegisterWindowMessageW(L"SHELLHOOK");
+  if (shellHookMsg != 0) {
+    // Identifying the particular thread of the particular instance of the
+    // shell associated with our current desktop is probably possible, but
+    // also probably not worth the effort. Just broadcast the message
+    // globally.
+    DWORD info = BSM_APPLICATIONS;
+    ::BroadcastSystemMessage(BSF_POSTMESSAGE | BSF_IGNORECURRENTTASK, &info,
+                             shellHookMsg, HSHELL_WINDOWACTIVATED,
+                             (LPARAM)hwnd);
+  }
+}
+
+void nsWindow::TaskbarConcealer::OnCloakChanged() {
   MOZ_LOG(sTaskbarConcealerLog, LogLevel::Info, ("==> OnCloakChanged()"));
 
   UpdateAllState();

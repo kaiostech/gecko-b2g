@@ -46,25 +46,6 @@ math[display="inline" i] {
 }
 
 /**************************************************************************/
-/* Token elements                                                         */
-/**************************************************************************/
-
-@media not (-moz-mathml-core-ms) {
-  ms {
-    display: inline;
-  }
-  ms:before, ms:after {
-    content: "\0022"
-  }
-  ms[lquote]:before {
-    content: attr(lquote)
-  }
-  ms[rquote]:after {
-    content: attr(rquote)
-  }
-}
-
-/**************************************************************************/
 /* Links                                                                  */
 /**************************************************************************/
 :any-link {
@@ -319,14 +300,12 @@ mphantom {
     visibility: hidden;
 }
 
-@media (-moz-mathml-core-maction-and-semantics) {
-  /* Implement MathML Core's semantics/maction support
-     https://w3c.github.io/mathml-core/#dfn-semantics
-     https://w3c.github.io/mathml-core/#dfn-maction */
-  maction > :not(:first-child),
-  semantics > :not(:first-child) {
-    display: none;
-  }
+/* Implement MathML Core's semantics/maction support
+   https://w3c.github.io/mathml-core/#dfn-semantics
+   https://w3c.github.io/mathml-core/#dfn-maction */
+maction > :not(:first-child),
+semantics > :not(:first-child) {
+  display: none;
 }
 
 @media (-moz-mathml-core-mi) {

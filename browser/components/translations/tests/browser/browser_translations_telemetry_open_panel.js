@@ -48,6 +48,24 @@ add_task(async function test_translations_telemetry_open_panel() {
     }
   );
 
+  await TestTranslationsTelemetry.assertEvent(
+    "CancelButton",
+    Glean.translationsPanel.cancelButton,
+    {
+      expectedEventCount: 1,
+      expectNewFlowId: false,
+    }
+  );
+
+  await TestTranslationsTelemetry.assertEvent(
+    "ClosePanel",
+    Glean.translationsPanel.close,
+    {
+      expectedEventCount: 1,
+      expectNewFlowId: false,
+    }
+  );
+
   await waitForTranslationsPopupEvent("popupshown", () => {
     click(button, "Opening the popup");
   });
@@ -68,6 +86,24 @@ add_task(async function test_translations_telemetry_open_panel() {
       allValuePredicates: [
         value => value.extra.opened_from === "translationsButton",
       ],
+    }
+  );
+
+  await TestTranslationsTelemetry.assertEvent(
+    "CancelButton",
+    Glean.translationsPanel.cancelButton,
+    {
+      expectedEventCount: 2,
+      expectNewFlowId: false,
+    }
+  );
+
+  await TestTranslationsTelemetry.assertEvent(
+    "ClosePanel",
+    Glean.translationsPanel.close,
+    {
+      expectedEventCount: 2,
+      expectNewFlowId: false,
     }
   );
 

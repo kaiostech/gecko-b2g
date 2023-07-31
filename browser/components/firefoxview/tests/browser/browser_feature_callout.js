@@ -100,7 +100,7 @@ add_task(async function feature_callout_syncs_across_visits_and_tabs() {
     "Second tab's Feature Callout shows the tour screen saved in the user pref"
   );
 
-  await clickPrimaryButton(tab2Doc);
+  await clickCTA(tab2Doc);
   await waitForCalloutScreen(tab2Doc, "FEATURE_CALLOUT_2");
 
   gBrowser.selectedTab = tab1;
@@ -111,7 +111,7 @@ add_task(async function feature_callout_syncs_across_visits_and_tabs() {
     "First tab's Feature Callout advances to the next screen when the tour is advanced in second tab"
   );
 
-  await clickPrimaryButton(tab1Doc);
+  await clickCTA(tab1Doc);
   gBrowser.selectedTab = tab1;
   await waitForCalloutRemoved(tab1Doc);
 
@@ -350,7 +350,7 @@ add_task(
 
         info("Clicking primary button");
         let calloutRemoved = waitForCalloutRemoved(document);
-        await clickPrimaryButton(document);
+        await clickCTA(document);
         let openedTab = await tabOpened;
         ok(openedTab, "FxA sign in page opened");
         // The callout should be removed when primary CTA is clicked
@@ -363,28 +363,21 @@ add_task(
   }
 );
 
-add_task(async function feature_callout_dismiss_on_page_click() {
+add_task(async function feature_callout_dismiss_on_timeout() {
   await SpecialPowers.pushPrefEnv({
     set: [[featureTourPref, `{"screen":"","complete":true}`]],
   });
   const screenId = "FIREFOX_VIEW_TAB_PICKUP_REMINDER";
-  const testClickSelector = "#recently-closed-tabs-container";
   let testMessage = getCalloutMessageById(screenId);
   // Configure message with a dismiss action on tab container click
   testMessage.message.content.screens[0].content.page_event_listeners = [
     {
-      params: {
-        type: "click",
-        selectors: testClickSelector,
-      },
-      action: {
-        dismiss: true,
-        type: "CANCEL",
-      },
+      params: { type: "timeout", options: { once: true, interval: 5000 } },
+      action: { dismiss: true, type: "CANCEL" },
     },
   ];
   const sandbox = createSandboxWithCalloutTriggerStub(testMessage);
-  const spy = new TelemetrySpy(sandbox);
+  const telemetrySpy = new TelemetrySpy(sandbox);
 
   await BrowserTestUtils.withNewTab(
     {
@@ -394,40 +387,47 @@ add_task(async function feature_callout_dismiss_on_page_click() {
     async browser => {
       const { document } = browser.contentWindow;
 
+      let onInterval;
+      let startedInterval = new Promise(resolve => {
+        sandbox
+          .stub(browser.contentWindow, "setInterval")
+          .callsFake((fn, ms) => {
+            ok(ms === 5000, "setInterval called with 5 second interval");
+            onInterval = fn;
+            resolve();
+            return 1;
+          });
+      });
+
       launchFeatureTourIn(browser.contentWindow);
 
       info("Waiting for callout to render");
+      await startedInterval;
       await waitForCalloutScreen(document, screenId);
 
-      info("Clicking page element");
-      document.querySelector(testClickSelector).click();
+      info("Ending timeout");
+      onInterval();
       await waitForCalloutRemoved(document);
 
       // Test that appropriate telemetry is sent
-      spy.assertCalledWith({
+      telemetrySpy.assertCalledWith({
         event: "PAGE_EVENT",
         event_context: {
           action: "CANCEL",
-          reason: "CLICK",
-          source: sinon.match(testClickSelector),
+          reason: "TIMEOUT",
+          source: "timeout",
           page: "about:firefoxview",
         },
         message_id: screenId,
       });
-      spy.assertCalledWith({
+      telemetrySpy.assertCalledWith({
         event: "DISMISS",
         event_context: {
-          source: sinon
-            .match("PAGE_EVENT:")
-            .and(sinon.match(testClickSelector)),
+          source: "PAGE_EVENT:timeout",
           page: "about:firefoxview",
         },
         message_id: screenId,
       });
-
-      browser.tabDialogBox
-        ?.getTabDialogManager()
-        .dialogs.forEach(dialog => dialog.close());
     }
   );
   Services.prefs.clearUserPref("browser.firefox-view.view-count");
@@ -588,7 +588,7 @@ add_task(async function test_firefox_view_spotlight_promo() {
         "Feature Callout element exists"
       );
       info("Feature tour started");
-      await clickPrimaryButton(document);
+      await clickCTA(document);
     }
   );
 

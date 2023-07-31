@@ -101,7 +101,7 @@ export let RemotePageAccessManager = {
         "security.xfocsp.errorReporting.enabled",
         "network.trr.display_fallback_warning",
       ],
-      RPMSetBoolPref: [
+      RPMSetPref: [
         "security.xfocsp.errorReporting.automatic",
         "network.trr.display_fallback_warning",
       ],
@@ -190,7 +190,7 @@ export let RemotePageAccessManager = {
       ],
       RPMAddMessageListener: ["*"],
       RPMRemoveMessageListener: ["*"],
-      RPMSetBoolPref: [
+      RPMSetPref: [
         "browser.contentblocking.report.show_mobile_app",
         "browser.contentblocking.report.hide_vpn_banner",
       ],
@@ -235,6 +235,10 @@ export let RemotePageAccessManager = {
         "browser.contentblocking.report.cryptominer.url",
       ],
       RPMRecordTelemetryEvent: ["*"],
+    },
+    "about:shoppingsidebar": {
+      RPMSetPref: ["browser.shopping.experience2023.optedIn"],
+      RPMGetFormatURLPref: ["app.support.baseURL"],
     },
     "about:tabcrashed": {
       RPMSendAsyncMessage: ["Load", "closeTab", "restoreTab", "restoreAll"],

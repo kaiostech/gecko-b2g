@@ -152,6 +152,8 @@ class AudioSinkWrapper : public MediaSink {
   media::TimeUnit mLastPacketEndTime;
 
   bool mAudioEnded = true;
+  // mAudioSinkEndedRequest is connected when and only when mAudioSink is set
+  // and not ended.
   MozPromiseRequestHolder<EndedPromise> mAudioSinkEndedRequest;
   MediaQueue<AudioData>& mAudioQueue;
 

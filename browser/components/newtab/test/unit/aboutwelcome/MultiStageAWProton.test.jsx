@@ -214,6 +214,21 @@ describe("MultiStageAboutWelcomeProton module", () => {
       );
     });
 
+    it("should render disabled primary button if activeMultiSelect is in disabled property", () => {
+      const SCREEN_PROPS = {
+        content: {
+          title: "test title",
+          primary_button: {
+            label: "test primary button",
+            disabled: "activeMultiSelect",
+          },
+        },
+      };
+      const wrapper = mount(<MultiStageProtonScreen {...SCREEN_PROPS} />);
+      assert.ok(wrapper.exists());
+      assert.isTrue(wrapper.find("button.primary[disabled]").exists());
+    });
+
     it("should not render a progress bar if there is 1 step", () => {
       const SCREEN_PROPS = {
         content: {
@@ -250,6 +265,18 @@ describe("MultiStageAboutWelcomeProton module", () => {
       const wrapper = mount(<MultiStageProtonScreen {...SCREEN_PROPS} />);
       assert.ok(wrapper.exists());
       assert.equal(wrapper.find(".steps.progress-bar").exists(), true);
+    });
+
+    it("should render confirmation-screen if layout property is set to inline", () => {
+      const SCREEN_PROPS = {
+        content: {
+          title: "test title",
+          layout: "inline",
+        },
+      };
+      const wrapper = mount(<MultiStageProtonScreen {...SCREEN_PROPS} />);
+      assert.ok(wrapper.exists());
+      assert.equal(wrapper.find("[layout='inline']").exists(), true);
     });
   });
 

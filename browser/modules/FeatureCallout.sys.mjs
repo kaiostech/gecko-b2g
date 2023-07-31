@@ -129,7 +129,7 @@ export class FeatureCallout {
    */
   get _loadPageEventManager() {
     if (!this._pageEventManager) {
-      this._pageEventManager = new lazy.PageEventManager(this.doc);
+      this._pageEventManager = new lazy.PageEventManager(this.win);
     }
     return this._pageEventManager;
   }
@@ -201,6 +201,10 @@ export class FeatureCallout {
       }
       this.ready = false;
       this._container?.classList.add("hidden");
+      this._pageEventManager?.emit({
+        type: "touradvance",
+        target: this._container,
+      });
       this._pageEventManager?.clear();
       // wait for fade out transition
       this.win.setTimeout(async () => {
@@ -223,6 +227,7 @@ export class FeatureCallout {
           }
         }
         this._container?.remove();
+        this.renderObserver?.disconnect();
         this._removePositionListeners();
         this.doc.querySelector(`[src="${BUNDLE_SRC}"]`)?.remove();
         if (nextMessage) {
@@ -1056,6 +1061,10 @@ export class FeatureCallout {
       passive: true,
     });
     this.win.removeEventListener("keypress", this, { capture: true });
+    this._pageEventManager?.emit({
+      type: "tourend",
+      target: this._container,
+    });
     this._pageEventManager?.clear();
 
     // Delete almost everything to get this ready to show a different message.
@@ -1234,21 +1243,24 @@ export class FeatureCallout {
 
   /**
    * For each member of the screen's page_event_listeners array, add a listener.
-   * @param {Array<PageEventListener>} listeners An array of listeners to set up
+   * @param {Array<PageEventListenerConfig>} listeners
    *
-   * @typedef {Object} PageEventListener
+   * @typedef {Object} PageEventListenerConfig
    * @property {PageEventListenerParams} params Event listener parameters
    * @property {PageEventListenerAction} action Sent when the event fires
    *
    * @typedef {Object} PageEventListenerParams See PageEventManager.sys.mjs
    * @property {String} type Event type string e.g. `click`
-   * @property {String} selectors Target selector, e.g. `tag.class, #id[attr]`
+   * @property {String} [selectors] Target selector, e.g. `tag.class, #id[attr]`
    * @property {PageEventListenerOptions} [options] addEventListener options
    *
    * @typedef {Object} PageEventListenerOptions
    * @property {Boolean} [capture] Use event capturing phase?
    * @property {Boolean} [once] Remove listener after first event?
    * @property {Boolean} [preventDefault] Prevent default action?
+   * @property {Number} [interval] Used only for `timeout` and `interval` event
+   *   types. These don't set up real event listeners, but instead invoke the
+   *   action on a timer.
    *
    * @typedef {Object} PageEventListenerAction Action sent to AboutWelcomeParent
    * @property {String} [type] Action type, e.g. `OPEN_URL`
@@ -1278,7 +1290,10 @@ export class FeatureCallout {
   _handlePageEventAction(action, event) {
     const page = this.location;
     const message_id = this.config?.id.toUpperCase();
-    const source = this._getUniqueElementIdentifier(event.target);
+    const source =
+      typeof event.target === "string"
+        ? event.target
+        : this._getUniqueElementIdentifier(event.target);
     if (action.type) {
       this.win.AWSendEventTelemetry?.({
         event: "PAGE_EVENT",
@@ -1351,34 +1366,43 @@ export class FeatureCallout {
       return !!this.currentScreen;
     }
 
-    this.renderObserver = new this.win.MutationObserver(() => {
-      // Check if the Feature Callout screen has loaded for the first time
-      if (!this.ready && this._container.querySelector(".screen")) {
-        // Once the screen element is added to the DOM, wait for the
-        // animation frame after next to ensure that _positionCallout
-        // has access to the rendered screen with the correct height
-        this.win.requestAnimationFrame(() => {
+    if (!this.renderObserver) {
+      this.renderObserver = new this.win.MutationObserver(() => {
+        // Check if the Feature Callout screen has loaded for the first time
+        if (!this.ready && this._container.querySelector(".screen")) {
+          // Once the screen element is added to the DOM, wait for the
+          // animation frame after next to ensure that _positionCallout
+          // has access to the rendered screen with the correct height
           this.win.requestAnimationFrame(() => {
-            this.ready = true;
-            this._attachPageEventListeners(
-              this.currentScreen?.content?.page_event_listeners
-            );
-            this.win.addEventListener("keypress", this, { capture: true });
-            this._positionCallout();
-            let button = this._container.querySelector(".primary");
-            button.focus();
-            this.win.addEventListener("focus", this, {
-              capture: true, // get the event before retargeting
-              passive: true,
+            this.win.requestAnimationFrame(() => {
+              this.ready = true;
+              this._attachPageEventListeners(
+                this.currentScreen?.content?.page_event_listeners
+              );
+              this.win.addEventListener("keypress", this, { capture: true });
+              this._positionCallout();
+              let initialFocus =
+                this._container.querySelector(".primary") ||
+                this._container.querySelector(".secondary") ||
+                this._container.querySelector(
+                  "button:not(:disabled, [hidden])"
+                ) ||
+                this._container;
+              initialFocus?.focus();
+              this.win.addEventListener("focus", this, {
+                capture: true, // get the event before retargeting
+                passive: true,
+              });
             });
           });
-        });
-      }
-    });
+        }
+      });
+    }
 
     this._pageEventManager?.clear();
     this.ready = false;
     this._container?.remove();
+    this.renderObserver?.disconnect();
 
     if (!this.cfrFeaturesUserPref) {
       this.endTour();
@@ -1489,6 +1513,18 @@ export class FeatureCallout {
     "button-background-active",
     "button-color-active",
     "button-border-active",
+    "primary-button-background",
+    "primary-button-color",
+    "primary-button-border",
+    "primary-button-background-hover",
+    "primary-button-color-hover",
+    "primary-button-border-hover",
+    "primary-button-background-active",
+    "primary-button-color-active",
+    "primary-button-border-active",
+    "link-color",
+    "link-color-hover",
+    "link-color-active",
   ];
 
   /** @type {Object<String, FeatureCalloutTheme>} */
@@ -1514,6 +1550,27 @@ export class FeatureCallout {
         "button-color-active":
           "var(--newtab-text-primary-color, var(--in-content-page-color))",
         "button-border-active": "transparent",
+        "primary-button-background":
+          "var(--in-content-primary-button-background)",
+        "primary-button-color": "var(--in-content-primary-button-text-color)",
+        "primary-button-border":
+          "var(--in-content-primary-button-border-color)",
+        "primary-button-background-hover":
+          "var(--in-content-primary-button-background-hover)",
+        "primary-button-color-hover":
+          "var(--in-content-primary-button-text-color-hover)",
+        "primary-button-border-hover":
+          "var(--in-content-primary-button-border-hover)",
+        "primary-button-background-active":
+          "var(--in-content-primary-button-background-active)",
+        "primary-button-color-active":
+          "var(--in-content-primary-button-text-color-active)",
+        "primary-button-border-active":
+          "var(--in-content-primary-button-border-active)",
+        "link-color": "LinkText",
+        "link-color-hover": "LinkText",
+        "link-color-active": "ActiveText",
+        "link-color-visited": "VisitedText",
       },
       dark: {
         border:
@@ -1554,6 +1611,11 @@ export class FeatureCallout {
         "button-background-active": "rgb(221, 222, 223)",
         "button-color-active": "rgb(12, 12, 13)",
         "button-border-active": "transparent",
+        // use default primary button colors in _feature-callout-theme.scss
+        "link-color": "LinkText",
+        "link-color-hover": "LinkText",
+        "link-color-active": "ActiveText",
+        "link-color-visited": "VisitedText",
       },
       dark: {
         background: "#1C1B22",
@@ -1588,7 +1650,7 @@ export class FeatureCallout {
         color: "var(--newtab-text-primary-color, WindowText)",
         border:
           "color-mix(in srgb, var(--newtab-background-color-secondary, #FFF) 80%, #000)",
-        "accent-color": "SelectedItem",
+        "accent-color": "#0061e0",
         "button-background": "color-mix(in srgb, transparent 93%, #000)",
         "button-color": "var(--newtab-text-primary-color, WindowText)",
         "button-border": "transparent",
@@ -1598,20 +1660,30 @@ export class FeatureCallout {
         "button-background-active": "color-mix(in srgb, transparent 80%, #000)",
         "button-color-active": "var(--newtab-text-primary-color, WindowText)",
         "button-border-active": "transparent",
+        // use default primary button colors in _feature-callout-theme.scss
+        "link-color": "rgb(0, 97, 224)",
+        "link-color-hover": "rgb(0, 97, 224)",
+        "link-color-active": "color-mix(in srgb, rgb(0, 97, 224) 80%, #000)",
+        "link-color-visited": "rgb(0, 97, 224)",
       },
       dark: {
+        "accent-color": "rgb(0, 221, 255)",
         background: "var(--newtab-background-color-secondary, #42414D)",
         border:
           "color-mix(in srgb, var(--newtab-background-color-secondary, #42414D) 80%, #FFF)",
         "button-background": "color-mix(in srgb, transparent 80%, #000)",
         "button-background-hover": "color-mix(in srgb, transparent 65%, #000)",
         "button-background-active": "color-mix(in srgb, transparent 55%, #000)",
+        "link-color": "rgb(0, 221, 255)",
+        "link-color-hover": "rgb(0,221,255)",
+        "link-color-active": "color-mix(in srgb, rgb(0, 221, 255) 60%, #FFF)",
+        "link-color-visited": "rgb(0, 221, 255)",
       },
       hcm: {
         background: "-moz-dialog",
         color: "-moz-dialogtext",
         border: "-moz-dialogtext",
-        "accent-color": "LinkText",
+        "accent-color": "SelectedItem",
         "button-background": "ButtonFace",
         "button-color": "ButtonText",
         "button-border": "ButtonText",
@@ -1621,6 +1693,10 @@ export class FeatureCallout {
         "button-background-active": "ButtonText",
         "button-color-active": "ButtonFace",
         "button-border-active": "ButtonText",
+        "link-color": "LinkText",
+        "link-color-hover": "LinkText",
+        "link-color-active": "ActiveText",
+        "link-color-visited": "VisitedText",
       },
     },
     // These colors are intended to inherit the user's theme properties from the
@@ -1634,14 +1710,29 @@ export class FeatureCallout {
         border: "var(--arrowpanel-border-color)",
         "accent-color": "var(--focus-outline-color)",
         "button-background": "var(--button-bgcolor)",
-        "button-color": "var(--arrowpanel-color)",
+        "button-color": "var(--button-color)",
         "button-border": "transparent",
         "button-background-hover": "var(--button-hover-bgcolor)",
-        "button-color-hover": "var(--arrowpanel-color)",
+        "button-color-hover": "var(--button-color)",
         "button-border-hover": "transparent",
         "button-background-active": "var(--button-active-bgcolor)",
-        "button-color-active": "var(--arrowpanel-color)",
+        "button-color-active": "var(--button-color)",
         "button-border-active": "transparent",
+        "primary-button-background": "var(--button-primary-bgcolor)",
+        "primary-button-color": "var(--button-primary-color)",
+        "primary-button-border": "transparent",
+        "primary-button-background-hover":
+          "var(--button-primary-hover-bgcolor)",
+        "primary-button-color-hover": "var(--button-primary-color)",
+        "primary-button-border-hover": "transparent",
+        "primary-button-background-active":
+          "var(--button-primary-active-bgcolor)",
+        "primary-button-color-active": "var(--button-primary-color)",
+        "primary-button-border-active": "transparent",
+        "link-color": "LinkText",
+        "link-color-hover": "LinkText",
+        "link-color-active": "ActiveText",
+        "link-color-visited": "VisitedText",
       },
     },
   };

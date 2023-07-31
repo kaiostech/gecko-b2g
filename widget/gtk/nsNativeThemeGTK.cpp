@@ -372,8 +372,6 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
         *aWidgetFlags =
             IsFrameContentNodeInNamespace(aFrame, kNameSpaceID_XHTML);
       break;
-    case StyleAppearance::MenulistText:
-      return false;  // nothing to do, but prevents the bg from being drawn
     case StyleAppearance::MozMenulistArrowButton:
       aGtkWidgetType = MOZ_GTK_DROPDOWN_ARROW;
       break;
@@ -1055,8 +1053,7 @@ bool nsNativeThemeGTK::GetWidgetOverflow(nsDeviceContext* aContext,
 auto nsNativeThemeGTK::IsWidgetNonNative(nsIFrame* aFrame,
                                          StyleAppearance aAppearance)
     -> NonNative {
-  if (IsWidgetScrollbarPart(aAppearance) ||
-      aAppearance == StyleAppearance::FocusOutline) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return NonNative::Always;
   }
 
@@ -1093,7 +1090,7 @@ auto nsNativeThemeGTK::IsWidgetNonNative(nsIFrame* aFrame,
 LayoutDeviceIntSize nsNativeThemeGTK::GetMinimumWidgetSize(
     nsPresContext* aPresContext, nsIFrame* aFrame,
     StyleAppearance aAppearance) {
-  if (IsWidgetNonNative(aFrame, aAppearance) == NonNative::Always) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return Theme::GetMinimumWidgetSize(aPresContext, aFrame, aAppearance);
   }
 
@@ -1318,7 +1315,7 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     return false;
   }
 
-  if (IsWidgetNonNative(aFrame, aAppearance) == NonNative::Always) {
+  if (IsWidgetAlwaysNonNative(aFrame, aAppearance)) {
     return Theme::ThemeSupportsWidget(aPresContext, aFrame, aAppearance);
   }
 
@@ -1326,7 +1323,6 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     // Combobox dropdowns don't support native theming in vertical mode.
     case StyleAppearance::Menulist:
     case StyleAppearance::MenulistButton:
-    case StyleAppearance::MenulistText:
       if (aFrame && aFrame->GetWritingMode().IsVertical()) {
         return false;
       }

@@ -55,6 +55,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "fallback/FallbackProcessPriority.cpp",
         "gonk/GonkDiskSpaceWatcher.cpp",
         "gonk/GonkSensor.cpp",
+        "gonk/GonkSensorManager.cpp",
         "gonk/GonkSensorsHal.cpp",
         "gonk/GonkSwitch.cpp",
         "gonk/SystemService.cpp",
@@ -68,7 +69,11 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     ]
     EXPORTS.gonk += [
         "gonk/android_sensors/ISensorsWrapper.h",
+        "gonk/GonkSensorManager.h",
         "gonk/GonkSensorsHal.h",
+    ]
+    XPCOM_MANIFESTS += [
+        "gonk/components.conf",
     ]
 
     if CONFIG["PRODUCT_MANUFACTURER_MTK"]:

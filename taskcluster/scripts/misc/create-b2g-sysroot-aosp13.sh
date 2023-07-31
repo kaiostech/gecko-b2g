@@ -100,6 +100,9 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.system.wifi.keystore@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.sensorservice@1.0.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsensor.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsensorservicehidl.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_stub.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_connectivity_interface-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_system_interface-V1-cpp.so
@@ -189,8 +192,11 @@ frameworks/native/libs/gui/include
 frameworks/native/libs/math/include
 frameworks/native/libs/nativebase/include
 frameworks/native/libs/nativewindow/include
+frameworks/native/libs/sensor/include
+frameworks/native/libs/sensor/include/sensor
 frameworks/native/libs/ui/include
 frameworks/native/opengl/include
+frameworks/native/services/sensorservice/hidl/
 gonk-misc/gonk-binder/binder_b2g_stub/include/
 hardware/interfaces/graphics/composer/2.1/utils/command-buffer/include
 hardware/interfaces/graphics/composer/2.2/utils/command-buffer/include
@@ -297,6 +303,7 @@ out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.3/android.hardwar
 out/soong/.intermediates/system/hardware/interfaces/wifi/keystore/1.0/android.system.wifi.keystore@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
+out/soong/.intermediates/frameworks/hardware/interfaces/sensorservice/1.0/android.frameworks.sensorservice@1.0_genc++_headers/gen
 EOF
 
 copy_to_sysroot "${includes_list}" "include"

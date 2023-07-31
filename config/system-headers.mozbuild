@@ -1525,6 +1525,15 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'utils/StrongPointer.h',
         ]
 
+    if CONFIG['ANDROID_VERSION'] >= '33':
+        system_headers += [
+            'android/frameworks/sensorservice/1.0/ISensorManager.h',
+            'sensor/SensorManager.h',
+            'EventQueue.h',
+            'DirectReportChannel.h',
+            'utils.h',
+        ]
+
     if CONFIG['B2G_OEMHOOK']:
         system_headers += [
             'vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHook.h',

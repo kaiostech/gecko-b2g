@@ -22,10 +22,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ObjectUtils: "resource://gre/modules/ObjectUtils.sys.mjs",
 });
 
-import { PushDB } from "resource://gre/modules/PushDB.sys.mjs";
-import { PushRecord } from "resource://gre/modules/PushRecord.sys.mjs";
-import { PushCrypto } from "resource://gre/modules/PushCrypto.sys.mjs";
-
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "gPowerManagerService",

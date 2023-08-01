@@ -2993,6 +2993,7 @@ class Document : public nsINode,
   SheetPreloadStatus PreloadStyle(nsIURI* aURI, const Encoding* aEncoding,
                                   const nsAString& aCrossOriginAttr,
                                   ReferrerPolicyEnum aReferrerPolicy,
+                                  const nsAString& aNonce,
                                   const nsAString& aIntegrity,
                                   css::StylePreloadKind,
                                   uint64_t aEarlyHintPreloaderId);

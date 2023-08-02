@@ -65,22 +65,20 @@ class PostResultRunnable final : public ActivityRequestHandlerProxyRunnable,
 
  protected:
   void ExecActivityProxy(nsIActivityRequestHandlerProxy* aProxy) {
-    AutoSafeJSContext cx;
-    JS::RootedObject globalObject(cx, JS::CurrentGlobalOrNull(cx));
-    if (NS_WARN_IF(!globalObject)) {
-      return;
-    }
-    nsCOMPtr<nsIGlobalObject> global = xpc::NativeGlobal(globalObject);
-    if (NS_WARN_IF(!global)) {
+    AutoJSAPI jsapi;
+    if (NS_WARN_IF(!jsapi.Init(xpc::PrivilegedJunkScope()))) {
       return;
     }
 
+    JSContext* cx = jsapi.cx();
     ErrorResult rv;
     JS::RootedValue result(cx);
-    Read(global, cx, &result, rv);
+    Read(xpc::CurrentNativeGlobal(cx), cx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
+      rv.Throw(NS_ERROR_UNEXPECTED);
       return;
     }
+
     JS_WrapValue(cx, &result);
     aProxy->PostActivityResult(mId, result);
   }

@@ -277,10 +277,6 @@
 @RESPATH@/components/nsIDService.js
 @RESPATH@/components/Identity.manifest
 
-#ifdef HAS_KOOST_MODULES
-@RESPATH@/components/AuthorizationService.js
-#endif
-
 #ifdef MOZ_DEBUG
 @RESPATH@/components/TestInterfaceJS.js
 @RESPATH@/components/TestInterfaceJS.manifest

@@ -71,6 +71,7 @@ ChromeUtils.defineESModuleGetters(this, {
   SearchUIUtils: "resource:///modules/SearchUIUtils.sys.mjs",
   SessionStartup: "resource:///modules/sessionstore/SessionStartup.sys.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
+  ShoppingSidebarParent: "resource:///actors/ShoppingSidebarParent.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   SiteDataManager: "resource:///modules/SiteDataManager.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
@@ -102,7 +103,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   CFRPageActions: "resource://activity-stream/lib/CFRPageActions.jsm",
 });
 
-XPCOMUtils.defineLazyGetter(this, "fxAccounts", () => {
+ChromeUtils.defineLazyGetter(this, "fxAccounts", () => {
   return ChromeUtils.importESModule(
     "resource://gre/modules/FxAccounts.sys.mjs"
   ).getFxAccountsSingleton();
@@ -308,34 +309,34 @@ if (AppConstants.ENABLE_WEBDRIVER) {
   this.RemoteAgent = { running: false };
 }
 
-XPCOMUtils.defineLazyGetter(this, "RTL_UI", () => {
+ChromeUtils.defineLazyGetter(this, "RTL_UI", () => {
   return Services.locale.isAppLocaleRTL;
 });
 
-XPCOMUtils.defineLazyGetter(this, "gBrandBundle", () => {
+ChromeUtils.defineLazyGetter(this, "gBrandBundle", () => {
   return Services.strings.createBundle(
     "chrome://branding/locale/brand.properties"
   );
 });
 
-XPCOMUtils.defineLazyGetter(this, "gBrowserBundle", () => {
+ChromeUtils.defineLazyGetter(this, "gBrowserBundle", () => {
   return Services.strings.createBundle(
     "chrome://browser/locale/browser.properties"
   );
 });
 
-XPCOMUtils.defineLazyGetter(this, "gCustomizeMode", () => {
+ChromeUtils.defineLazyGetter(this, "gCustomizeMode", () => {
   let { CustomizeMode } = ChromeUtils.importESModule(
     "resource:///modules/CustomizeMode.sys.mjs"
   );
   return new CustomizeMode(window);
 });
 
-XPCOMUtils.defineLazyGetter(this, "gNavToolbox", () => {
+ChromeUtils.defineLazyGetter(this, "gNavToolbox", () => {
   return document.getElementById("navigator-toolbox");
 });
 
-XPCOMUtils.defineLazyGetter(this, "gURLBar", () => {
+ChromeUtils.defineLazyGetter(this, "gURLBar", () => {
   let urlbar = new UrlbarInput({
     textbox: document.getElementById("urlbar"),
     eventTelemetryCategory: "urlbar",
@@ -378,7 +379,7 @@ XPCOMUtils.defineLazyGetter(this, "gURLBar", () => {
   return urlbar;
 });
 
-XPCOMUtils.defineLazyGetter(this, "ReferrerInfo", () =>
+ChromeUtils.defineLazyGetter(this, "ReferrerInfo", () =>
   Components.Constructor(
     "@mozilla.org/referrer-info;1",
     "nsIReferrerInfo",
@@ -387,7 +388,7 @@ XPCOMUtils.defineLazyGetter(this, "ReferrerInfo", () =>
 );
 
 // High priority notification bars shown at the top of the window.
-XPCOMUtils.defineLazyGetter(this, "gNotificationBox", () => {
+ChromeUtils.defineLazyGetter(this, "gNotificationBox", () => {
   return new MozElements.NotificationBox(element => {
     element.classList.add("global-notificationbox");
     element.setAttribute("notificationside", "top");
@@ -397,14 +398,14 @@ XPCOMUtils.defineLazyGetter(this, "gNotificationBox", () => {
   });
 });
 
-XPCOMUtils.defineLazyGetter(this, "InlineSpellCheckerUI", () => {
+ChromeUtils.defineLazyGetter(this, "InlineSpellCheckerUI", () => {
   let { InlineSpellChecker } = ChromeUtils.importESModule(
     "resource://gre/modules/InlineSpellChecker.sys.mjs"
   );
   return new InlineSpellChecker();
 });
 
-XPCOMUtils.defineLazyGetter(this, "PopupNotifications", () => {
+ChromeUtils.defineLazyGetter(this, "PopupNotifications", () => {
   // eslint-disable-next-line no-shadow
   let { PopupNotifications } = ChromeUtils.importESModule(
     "resource://gre/modules/PopupNotifications.sys.mjs"
@@ -459,7 +460,7 @@ XPCOMUtils.defineLazyGetter(this, "PopupNotifications", () => {
   }
 });
 
-XPCOMUtils.defineLazyGetter(this, "MacUserActivityUpdater", () => {
+ChromeUtils.defineLazyGetter(this, "MacUserActivityUpdater", () => {
   if (AppConstants.platform != "macosx") {
     return null;
   }
@@ -469,7 +470,7 @@ XPCOMUtils.defineLazyGetter(this, "MacUserActivityUpdater", () => {
   );
 });
 
-XPCOMUtils.defineLazyGetter(this, "Win7Features", () => {
+ChromeUtils.defineLazyGetter(this, "Win7Features", () => {
   if (AppConstants.platform != "win") {
     return null;
   }
@@ -2510,7 +2511,7 @@ var gBrowserInit = {
   },
 };
 
-XPCOMUtils.defineLazyGetter(
+ChromeUtils.defineLazyGetter(
   gBrowserInit,
   "_firstContentWindowPaintDeferred",
   () => PromiseUtils.defer()
@@ -9945,12 +9946,21 @@ var ShoppingSidebarManager = {
       null,
       this._updateVisibility
     );
-
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "isActive",
+      ShoppingSidebarParent.SHOPPING_ACTIVE_PREF,
+      true,
+      this._updateVisibility
+    );
     this._updateVisibility();
+
+    gBrowser.tabContainer.addEventListener("TabSelect", this);
   },
 
   uninit() {
     NimbusFeatures.shopping2023.offUpdate(this._updateVisibility);
+    gBrowser.tabContainer.removeEventListener("TabSelect", this);
   },
 
   _updateVisibility() {
@@ -9964,7 +9974,11 @@ var ShoppingSidebarManager = {
       document.querySelectorAll("shopping-sidebar").forEach(sidebar => {
         sidebar.remove();
       });
+      return;
     }
+
+    let { selectedBrowser, currentURI } = gBrowser;
+    this.onLocationChange(selectedBrowser, currentURI);
   },
 
   /**
@@ -9986,7 +10000,9 @@ var ShoppingSidebarManager = {
         sidebar.querySelector("browser").browsingContext.currentWindowGlobal;
       actor = global.getExistingActor("ShoppingSidebar");
     }
-    if (isProductURL(aLocationURI)) {
+    let button = document.getElementById("shopping-sidebar-button");
+    let isProduct = isProductURL(aLocationURI);
+    if (isProduct && this.isActive) {
       if (!sidebar) {
         sidebar = document.createXULElement("shopping-sidebar");
         sidebar.setAttribute("style", "width: 320px");
@@ -9999,6 +10015,25 @@ var ShoppingSidebarManager = {
     } else if (sidebar && !sidebar.hidden) {
       actor?.updateProductURL(null);
       sidebar.hidden = true;
+    }
+
+    button.hidden = !isProduct;
+    button.setAttribute("shoppingsidebaropen", !!this.isActive);
+    document.l10n.setAttributes(
+      button,
+      `shopping-sidebar-${this.isActive ? "close" : "open"}-button`
+    );
+  },
+
+  handleEvent(event) {
+    switch (event.type) {
+      case "TabSelect": {
+        if (!this._enabled) {
+          return;
+        }
+        this._updateVisibility();
+        break;
+      }
     }
   },
 };

@@ -214,6 +214,27 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
         CHECK(iter.readCallIndirect(&unusedIndex, &unusedIndex2, &nothing,
                                     &unusedArgs));
       }
+#ifdef ENABLE_WASM_TAIL_CALLS
+      case uint16_t(Op::ReturnCall): {
+        if (!env.tailCallsEnabled()) {
+          return iter.unrecognizedOpcode(&op);
+        }
+        uint32_t unusedIndex;
+        NothingVector unusedArgs{};
+        NothingVector unusedValues{};
+        CHECK(iter.readReturnCall(&unusedIndex, &unusedArgs, &unusedValues));
+      }
+      case uint16_t(Op::ReturnCallIndirect): {
+        if (!env.tailCallsEnabled()) {
+          return iter.unrecognizedOpcode(&op);
+        }
+        uint32_t unusedIndex, unusedIndex2;
+        NothingVector unusedArgs{};
+        NothingVector unusedValues{};
+        CHECK(iter.readReturnCallIndirect(&unusedIndex, &unusedIndex2, &nothing,
+                                          &unusedArgs, &unusedValues));
+      }
+#endif
 #ifdef ENABLE_WASM_FUNCTION_REFERENCES
       case uint16_t(Op::CallRef): {
         if (!env.functionReferencesEnabled()) {
@@ -1762,14 +1783,24 @@ static bool DecodeTypeSection(Decoder& d, ModuleEnvironment* env) {
       uint8_t form;
       const TypeDef* superTypeDef = nullptr;
 
-      // By default, all types are final unless the sub keyword is specified.
-      bool finalTypeFlag = true;
+      bool finalTypeFlag = false;
+
+      // This feature is hidden behind a flag for now
+      if (env->finalTypesEnabled()) {
+        // By default, all types are final unless the sub keyword is specified.
+        finalTypeFlag = true;
+      }
 
       // Decode an optional declared super type index, if the GC proposal is
       // enabled.
       if (env->gcEnabled() && d.peekByte(&form) &&
           (form == (uint8_t)TypeCode::SubNoFinalType ||
            form == (uint8_t)TypeCode::SubFinalType)) {
+        if (!env->finalTypesEnabled() &&
+            form == (uint8_t)TypeCode::SubFinalType) {
+          return d.fail("final types are not enabled");
+        }
+
         if (form == (uint8_t)TypeCode::SubNoFinalType) {
           finalTypeFlag = false;
         }

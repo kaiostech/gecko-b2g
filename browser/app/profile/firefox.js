@@ -395,6 +395,7 @@ pref("browser.urlbar.maxHistoricalSearchSuggestions", 2);
 // The default behavior for the urlbar can be configured to use any combination
 // of the match filters with each additional filter adding more results (union).
 pref("browser.urlbar.suggest.bookmark",             true);
+pref("browser.urlbar.suggest.clipboard",            true);
 pref("browser.urlbar.suggest.history",              true);
 pref("browser.urlbar.suggest.openpage",             true);
 pref("browser.urlbar.suggest.remotetab",            true);
@@ -424,6 +425,9 @@ pref("browser.urlbar.suggest.calculator",           false);
 
 // Feature gate pref for weather suggestions in the urlbar.
 pref("browser.urlbar.weather.featureGate", false);
+
+// Feature gate pref for clipboard suggestions in the urlbar.
+pref("browser.urlbar.clipboard.featureGate", false);
 
 // When false, the weather suggestion will not be fetched when a VPN is
 // detected. When true, it will be fetched anyway.
@@ -726,6 +730,10 @@ pref("browser.shopping.experience2023.enabled", false);
 // 1 means the user has opted in.
 // 2 means the user has opted out.
 pref("browser.shopping.experience2023.optedIn", 0);
+
+// Activates the new experimental shopping sidebar.
+// True by default, will be set to false on opt out.
+pref("browser.shopping.experience2023.active", true);
 
 // Enables the display of the Mozilla VPN banner in private browsing windows
 pref("browser.privatebrowsing.vpnpromourl", "https://vpn.mozilla.org/?utm_source=firefox-browser&utm_medium=firefox-%CHANNEL%-browser&utm_campaign=private-browsing-vpn-link");
@@ -1275,9 +1283,6 @@ pref("browser.places.speculativeConnect.enabled", true);
 
 // if true, use full page zoom instead of text zoom
 pref("browser.zoom.full", true);
-
-// Whether or not to save and restore zoom levels on a per-site basis.
-pref("browser.zoom.siteSpecific", true);
 
 // Whether or not to update background tabs to the current zoom level.
 pref("browser.zoom.updateBackgroundTabs", true);

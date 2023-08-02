@@ -180,7 +180,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -203,7 +203,7 @@ checksum = "b9ccdd8f2a161be9bd5c023df56f1b2a0bd1d83872ae53b71a84a12c9bf6e842"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -431,7 +431,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -767,7 +767,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1042,7 +1042,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13b588ba4ac1a99f7f2964d24b3d896ddc6bf847ee3855dbd4366f058cfcd331"
 dependencies = [
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1182,7 +1182,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1193,7 +1193,7 @@ checksum = "29a358ff9f12ec09c3e61fef9b5a9902623a695a46a917b07f269bff1445611a"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1253,7 +1253,7 @@ checksum = "53e0efad4403bfc52dc201159c4b842a246a14b98c64b55dfd0f2d89729dfeb8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1263,19 +1263,35 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
  "synstructure",
 ]
 
 [[package]]
 name = "derive_more"
-version = "0.99.17"
+version = "0.99.999"
+dependencies = [
+ "derive_more 1.0.0-beta.2",
+]
+
+[[package]]
+name = "derive_more"
+version = "1.0.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+checksum = "d79dfbcc1f34f3b3a0ce7574276f6f198acb811d70dd19d9dcbfe6263a83d983"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "395aee42a456ecfd4c7034be5011e1a98edcbab2611867c8988a0f40d0bb242a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.107",
+ "syn",
 ]
 
 [[package]]
@@ -1335,7 +1351,7 @@ checksum = "487585f4d0c6655fe74905e2504d8ad6908e4db67f744eb140876906c2f3175d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1463,7 +1479,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1488,7 +1504,7 @@ dependencies = [
 [[package]]
 name = "error-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "error-support-macros",
  "lazy_static",
@@ -1500,11 +1516,11 @@ dependencies = [
 [[package]]
 name = "error-support-macros"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1536,7 +1552,7 @@ checksum = "311a6d2f1f9d60bff73d2c78a0af97ed27f79672f15c238192a5bbb64db56d00"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1779,7 +1795,7 @@ checksum = "1a5c6c585bc94aaf2c7b51dd4c2ba22680844aba4c687be581871a6f518c5742"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -1884,7 +1900,7 @@ checksum = "89ca545a94061b6365f2c7355b4b32bd20df3ff95f02da9329b34ccc3bd6ee72"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -2615,7 +2631,7 @@ checksum = "20cc83c51f04b1ad3b24cbac53d2ec1a138d699caabe05d315cb8538e8624d01"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -2630,7 +2646,7 @@ dependencies = [
 [[package]]
 name = "interrupt-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "lazy_static",
  "parking_lot",
@@ -3114,7 +3130,7 @@ name = "malloc_size_of_derive"
 version = "0.1.3"
 dependencies = [
  "proc-macro2",
- "syn 2.0.18",
+ "syn",
  "synstructure",
 ]
 
@@ -3482,8 +3498,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "syn 1.0.107",
- "syn 2.0.18",
+ "syn",
  "tokio",
  "tokio-util",
  "tracing",
@@ -3772,7 +3787,7 @@ dependencies = [
 [[package]]
 name = "nss_build_common"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 
 [[package]]
 name = "nsstring"
@@ -3813,7 +3828,7 @@ checksum = "9e6a0fd4f737c707bd9086cc16c925f294943eb62eb71499e9fd4cf71f8b9f4e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4018,7 +4033,7 @@ version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
  "synstructure",
  "unicode-xid",
 ]
@@ -4075,7 +4090,7 @@ dependencies = [
  "phf_shared",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4104,7 +4119,7 @@ checksum = "39407670928234ebc5e6e580247dd567ad73a3578460c5990f9503df207e8f07"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4231,7 +4246,7 @@ name = "profiler-macros"
 version = "0.1.0"
 dependencies = [
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4264,14 +4279,13 @@ dependencies = [
 [[package]]
 name = "prost-derive"
 version = "0.11.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5d2d8d10f3c6ded6da8b05b5fb3b8a5082514344d56c9f871412d29b4e075b4"
+source = "git+https://github.com/glandium/prost?rev=95964e9d33df3c2a9c3f14285e262867cab6f96b#95964e9d33df3c2a9c3f14285e262867cab6f96b"
 dependencies = [
  "anyhow",
  "itertools",
  "proc-macro2",
  "quote",
- "syn 1.0.107",
+ "syn",
 ]
 
 [[package]]
@@ -4648,7 +4662,7 @@ checksum = "1db149f81d46d2deba7cd3c50772474707729550221e69588478ebf9ada425ae"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4657,7 +4671,7 @@ version = "0.22.0"
 dependencies = [
  "bitflags 2.999.999",
  "cssparser",
- "derive_more",
+ "derive_more 0.99.999",
  "fxhash",
  "log",
  "new_debug_unreachable",
@@ -4721,7 +4735,7 @@ checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4753,7 +4767,7 @@ checksum = "bcec881020c684085e55a25f7fd888954d56609ef363479dc5a1305eb0d40cab"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4794,7 +4808,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4903,7 +4917,7 @@ checksum = "0eb01866308440fc64d6c44d9e86c5cc17adfe33c4d6eed55da9145044d0ffc1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -4939,7 +4953,7 @@ dependencies = [
 [[package]]
 name = "sql-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "ffi-support",
  "interrupt-support",
@@ -5009,7 +5023,7 @@ dependencies = [
  "bitflags 2.999.999",
  "byteorder",
  "cssparser",
- "derive_more",
+ "derive_more 0.99.999",
  "dom",
  "euclid",
  "fxhash",
@@ -5063,7 +5077,7 @@ dependencies = [
  "derive_common",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
  "synstructure",
 ]
 
@@ -5117,17 +5131,6 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.107"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f4064b5b16e03ae50984a5a8ed5d4f8803e6bc1fd170a3cda91a1be4b18e3f5"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-ident",
-]
-
-[[package]]
-name = "syn"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32d41677bcbe24c20c52e7c70b0d8db04134c5d1066bf98662e2871ad200ea3e"
@@ -5140,7 +5143,7 @@ dependencies = [
 [[package]]
 name = "sync-guid"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "base64 0.13.999",
  "rand",
@@ -5151,7 +5154,7 @@ dependencies = [
 [[package]]
 name = "sync15"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "anyhow",
  "error-support",
@@ -5176,14 +5179,14 @@ checksum = "285ba80e733fac80aa4270fbcdf83772a79b80aa35c97075320abfee4a915b06"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
  "unicode-xid",
 ]
 
 [[package]]
 name = "tabs"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "anyhow",
  "error-support",
@@ -5252,7 +5255,7 @@ checksum = "f9456a42c5b0d803c8cd86e73dd7cc9edd429499f37a3550d286d5e86720569f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -5334,7 +5337,7 @@ dependencies = [
  "derive_common",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
  "synstructure",
 ]
 
@@ -5421,7 +5424,7 @@ checksum = "0f57e3ca2a01450b1a921183a9c9cbfda207fd822cef4ccb00a65402cbba7a74"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -5561,9 +5564,9 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "uniffi"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e669f1deb394464d015e445390ea31736421cd32ee3e4373f573860534a587c"
+checksum = "7e835154c561cd75f253008093a908c06fb1f14327afb0ffea88eac72e534cc0"
 dependencies = [
  "anyhow",
  "uniffi_build",
@@ -5660,9 +5663,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d824f847a2390304a0870a86440fc0d858011fb0f22c2e14c78252a518fd051e"
+checksum = "c2f91fdcd44de3aab35847bf80485f412879dcdd92b5140ee67f948e5eed750e"
 dependencies = [
  "anyhow",
  "askama",
@@ -5684,9 +5687,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fce1d3af6c67de32c8a1bfa352a58f9b4b13c05d044765d6c85e47d7530f9e40"
+checksum = "4b20f693fb51c21a21b9816bed5522f0231cc769d8ba38821a05ab7d39dad51d"
 dependencies = [
  "anyhow",
  "camino",
@@ -5695,19 +5698,19 @@ dependencies = [
 
 [[package]]
 name = "uniffi_checksum_derive"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aa14882751499e451251785112c452f13b2911941eb9c41af6e454da78d00a6"
+checksum = "d1b354a9bd654cc6547d461ccd60a10eb6c7473178f12d8ff91cf4340ae947e8"
 dependencies = [
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
 name = "uniffi_core"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3eb1039faa52d30649695c3c49b2a50f5416116457000ba8845e4e86415e303"
+checksum = "32793120650ceda4f4e0d8eacd784c1a736834b2cca7b12e2550d3a190553af4"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5721,9 +5724,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_macros"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "019fb49a47ad1ee9b474c4bae0cfcf482ed3bf1ed01b4986c52feab2de3db91d"
+checksum = "c65987b46a026ab1dfff218963d34c45375355dd6f1995618262e1e038507ba3"
 dependencies = [
  "bincode",
  "camino",
@@ -5732,7 +5735,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 2.0.18",
+ "syn",
  "toml",
  "uniffi_build",
  "uniffi_meta",
@@ -5740,9 +5743,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_meta"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbb88511d3599f45a70b200e3cd181a06e206ecc290057be966693827591a89c"
+checksum = "f815bba89a6585954c089c53a775d166c0334c907be0e462bf0f0ac0494656e7"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5753,9 +5756,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_testing"
-version = "0.24.2"
+version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "282becdb2dbab3bb6bceba1d1a3ea7a7d0d5ef2d06cf5f2389ed9e3fa6a88cb3"
+checksum = "1048d7c54816dc27ed4041fe952d42c7cb88e711cf3299e36ee70df7692c4a39"
 dependencies = [
  "anyhow",
  "camino",
@@ -5816,7 +5819,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "viaduct"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "ffi-support",
  "log",
@@ -5972,7 +5975,7 @@ dependencies = [
 [[package]]
 name = "webext-storage"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=14fae5c7f01bb2645a3f09e91c64033ed796a862#14fae5c7f01bb2645a3f09e91c64033ed796a862"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
 dependencies = [
  "anyhow",
  "error-support",
@@ -6023,7 +6026,7 @@ dependencies = [
  "bitflags 1.3.2",
  "build-parallel",
  "byteorder",
- "derive_more",
+ "derive_more 0.99.999",
  "etagere",
  "euclid",
  "firefox-on-glean",
@@ -6260,7 +6263,7 @@ name = "windows-targets"
 version = "0.48.999"
 dependencies = [
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]
@@ -6378,7 +6381,7 @@ dependencies = [
  "mozbuild",
  "proc-macro2",
  "quote",
- "syn 2.0.18",
+ "syn",
 ]
 
 [[package]]

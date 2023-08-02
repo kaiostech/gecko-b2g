@@ -52,7 +52,7 @@ resolver = "2"
 
 [workspace.dependencies]
 # Shared across multiple UniFFI consumers.
-uniffi = "0.24.2"
+uniffi = "0.24.3"
 
 # Explicitly specify what our profiles use.  The opt-level setting here is
 # a total fiction; see the setup of MOZ_RUST_DEFAULT_FLAGS for what the
@@ -147,6 +147,9 @@ nix = { path = "build/rust/nix" }
 # Patch indexmap 2.0 to 1.0
 indexmap = { path = "build/rust/indexmap" }
 
+# Patch derive_more 0.99 to 1.0.0-beta
+derive_more = { path = "build/rust/derive_more" }
+
 # Patch autocfg to hide rustc output. Workaround for https://github.com/cuviper/autocfg/issues/30
 autocfg = { path = "third_party/rust/autocfg" }
 
@@ -173,6 +176,9 @@ moz_asserts = { path = "mozglue/static/rust/moz_asserts" }
 # Workaround for https://github.com/rust-lang/cargo/issues/11232
 rure = { path = "third_party/rust/rure" }
 
+# Prost-derive v0.11.9 + https://github.com/tokio-rs/prost/pull/868
+prost-derive = { git = "https://github.com/glandium/prost", rev = "95964e9d33df3c2a9c3f14285e262867cab6f96b" }
+
 # Other overrides
 chardetng = { git = "https://github.com/hsivonen/chardetng", rev = "3484d3e3ebdc8931493aa5df4d7ee9360a90e76b" }
 chardetng_c = { git = "https://github.com/hsivonen/chardetng_c", rev = "ed8a4c6f900a90d4dbc1d64b856e61490a1c3570" }
@@ -190,12 +196,12 @@ minidump-common = { git = "https://github.com/rust-minidump/rust-minidump", rev 
 warp = { git = "https://github.com/glandium/warp", rev = "4af45fae95bc98b0eba1ef0db17e1dac471bb23d" }
 
 # application-services overrides to make updating them all simpler.
-interrupt-support = { git = "https://github.com/mozilla/application-services", rev = "14fae5c7f01bb2645a3f09e91c64033ed796a862" }
-sql-support = { git = "https://github.com/mozilla/application-services", rev = "14fae5c7f01bb2645a3f09e91c64033ed796a862" }
-sync15 = { git = "https://github.com/mozilla/application-services", rev = "14fae5c7f01bb2645a3f09e91c64033ed796a862" }
-tabs = { git = "https://github.com/mozilla/application-services", rev = "14fae5c7f01bb2645a3f09e91c64033ed796a862" }
-viaduct = { git = "https://github.com/mozilla/application-services", rev = "14fae5c7f01bb2645a3f09e91c64033ed796a862" }
-webext-storage = { git = "https://github.com/mozilla/application-services", rev = "14fae5c7f01bb2645a3f09e91c64033ed796a862" }
+interrupt-support = { git = "https://github.com/mozilla/application-services", rev = "25972c388a4cf3a6d8256504f3a09b711db2fc6a" }
+sql-support = { git = "https://github.com/mozilla/application-services", rev = "25972c388a4cf3a6d8256504f3a09b711db2fc6a" }
+sync15 = { git = "https://github.com/mozilla/application-services", rev = "25972c388a4cf3a6d8256504f3a09b711db2fc6a" }
+tabs = { git = "https://github.com/mozilla/application-services", rev = "25972c388a4cf3a6d8256504f3a09b711db2fc6a" }
+viaduct = { git = "https://github.com/mozilla/application-services", rev = "25972c388a4cf3a6d8256504f3a09b711db2fc6a" }
+webext-storage = { git = "https://github.com/mozilla/application-services", rev = "25972c388a4cf3a6d8256504f3a09b711db2fc6a" }
 
 # Patch mio 0.6 to use winapi 0.3 and miow 0.3, getting rid of winapi 0.2.
 # There is not going to be new version of mio 0.6, mio now being >= 0.7.11.
@@ -203,8 +209,8 @@ webext-storage = { git = "https://github.com/mozilla/application-services", rev 
 path = "third_party/rust/mio-0.6.23"
 
 [patch."https://github.com/mozilla/uniffi-rs.git"]
-uniffi = "=0.24.2"
-uniffi_bindgen = "=0.24.2"
-uniffi_build = "=0.24.2"
-uniffi_macros = "=0.24.2"
+uniffi = "=0.24.3"
+uniffi_bindgen = "=0.24.3"
+uniffi_build = "=0.24.3"
+uniffi_macros = "=0.24.3"
 weedle2 = "=4.0.0"

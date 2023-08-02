@@ -12,6 +12,10 @@ shopping-page-title = { -brand-product-name } Shopping
 shopping-main-container-title = Review quality check
 shopping-close-button =
   .title = Close
+# This string is for notifying screen reader users that the
+# sidebar is still loading data.
+shopping-a11y-loading =
+  .aria-label = Loading…
 
 ## Strings for the letter grade component.
 ## For now, we only support letter grades A, B, C, D and F.
@@ -94,6 +98,13 @@ shopping-analysis-explainer-review-grading-scale = Review grading scale:
 shopping-analysis-explainer-review-grading-scale-reliable = We believe the reviews to be reliable
 shopping-analysis-explainer-review-grading-scale-mixed = We believe there’s a mix of reliable and unreliable reviews
 shopping-analysis-explainer-review-grading-scale-unreliable = We believe the reviews are unreliable
+
+## Strings for UrlBar button
+
+shopping-sidebar-open-button =
+  .tooltiptext = Open shopping sidebar
+shopping-sidebar-close-button =
+  .tooltiptext = Close shopping sidebar
 
 ## Strings for the unanalyzed product card.
 

@@ -331,8 +331,13 @@ void CanonicalBrowsingContext::ReplacedBy(
   txn.SetDisplayMode(GetDisplayMode());
   txn.SetForceDesktopViewport(GetForceDesktopViewport());
   txn.SetIsUnderHiddenEmbedderElement(GetIsUnderHiddenEmbedderElement());
-  txn.SetFullZoom(GetFullZoom());
-  txn.SetTextZoom(GetTextZoom());
+
+  // When using site-specific zoom, we let the front-end manage it, otherwise it
+  // can cause weirdness like bug 1846141.
+  if (!StaticPrefs::browser_zoom_siteSpecific()) {
+    txn.SetFullZoom(GetFullZoom());
+    txn.SetTextZoom(GetTextZoom());
+  }
 
   // Propagate the default load flags so that the TRR mode flags are forwarded
   // to the new browsing context. See bug 1828643.
@@ -1497,7 +1502,7 @@ void CanonicalBrowsingContext::GoBack(
     mCurrentLoad->Cancel(NS_BINDING_CANCELLED_OLD_LOAD, ""_ns);
   }
 
-  if (nsDocShell* docShell = nsDocShell::Cast(GetDocShell())) {
+  if (RefPtr<nsDocShell> docShell = nsDocShell::Cast(GetDocShell())) {
     if (aCancelContentJSEpoch.WasPassed()) {
       docShell->SetCancelContentJSEpoch(aCancelContentJSEpoch.Value());
     }
@@ -1523,7 +1528,7 @@ void CanonicalBrowsingContext::GoForward(
     mCurrentLoad->Cancel(NS_BINDING_CANCELLED_OLD_LOAD, ""_ns);
   }
 
-  if (auto* docShell = nsDocShell::Cast(GetDocShell())) {
+  if (RefPtr<nsDocShell> docShell = nsDocShell::Cast(GetDocShell())) {
     if (aCancelContentJSEpoch.WasPassed()) {
       docShell->SetCancelContentJSEpoch(aCancelContentJSEpoch.Value());
     }
@@ -1549,7 +1554,7 @@ void CanonicalBrowsingContext::GoToIndex(
     mCurrentLoad->Cancel(NS_BINDING_CANCELLED_OLD_LOAD, ""_ns);
   }
 
-  if (auto* docShell = nsDocShell::Cast(GetDocShell())) {
+  if (RefPtr<nsDocShell> docShell = nsDocShell::Cast(GetDocShell())) {
     if (aCancelContentJSEpoch.WasPassed()) {
       docShell->SetCancelContentJSEpoch(aCancelContentJSEpoch.Value());
     }
@@ -1573,7 +1578,7 @@ void CanonicalBrowsingContext::Reload(uint32_t aReloadFlags) {
     mCurrentLoad->Cancel(NS_BINDING_CANCELLED_OLD_LOAD, ""_ns);
   }
 
-  if (auto* docShell = nsDocShell::Cast(GetDocShell())) {
+  if (RefPtr<nsDocShell> docShell = nsDocShell::Cast(GetDocShell())) {
     docShell->Reload(aReloadFlags);
   } else if (ContentParent* cp = GetContentParent()) {
     Unused << cp->SendReload(this, aReloadFlags);

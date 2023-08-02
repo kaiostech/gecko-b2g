@@ -8,6 +8,7 @@
 #include "nsCOMPtr.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsArrayEnumerator.h"
+#include "nsComponentManagerUtils.h"
 #include "nsISimpleEnumerator.h"
 #include "nsIFile.h"
 #include "nsDumpUtils.h"

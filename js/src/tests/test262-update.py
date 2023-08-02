@@ -38,9 +38,7 @@ FEATURE_CHECK_NEEDED = {
     "Temporal": "!this.hasOwnProperty('Temporal')",
     "WeakRef": "!this.hasOwnProperty('WeakRef')",
     "array-grouping": "!Object.groupBy",  # Bug 1792650
-    "change-array-by-copy": "!Array.prototype.with",  # Bug 1811054
     "decorators": "!(this.hasOwnProperty('getBuildConfiguration')&&getBuildConfiguration()['decorators'])",  # Bug 1435869
-    "Array.fromAsync": "!Array.fromAsync",  # Bug 1746209
     "String.prototype.isWellFormed": "!String.prototype.isWellFormed",
     "String.prototype.toWellFormed": "!String.prototype.toWellFormed",
     "iterator-helpers": "!this.hasOwnProperty('Iterator')",  # Bug 1568906
@@ -51,8 +49,6 @@ SHELL_OPTIONS = {
     "import-assertions": "--enable-import-assertions",
     "ShadowRealm": "--enable-shadow-realms",
     "array-grouping": "--enable-array-grouping",
-    "change-array-by-copy": "--enable-change-array-by-copy",
-    "Array.fromAsync": "--enable-array-from-async",
     "String.prototype.isWellFormed": "--enable-well-formed-unicode-strings",
     "String.prototype.toWellFormed": "--enable-well-formed-unicode-strings",
     "iterator-helpers": "--enable-iterator-helpers",

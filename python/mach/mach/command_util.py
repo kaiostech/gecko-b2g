@@ -10,7 +10,7 @@ import sys
 import uuid
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 from .base import MissingFileError
 
@@ -34,8 +34,13 @@ class MachCommandReference:
 
     module: Path
 
-    def __init__(self, module: Union[str, Path]):
+    def __init__(
+        self,
+        module: Union[str, Path],
+        command_dependencies: Optional[list] = None,
+    ):
         self.module = Path(module)
+        self.command_dependencies = command_dependencies or []
 
 
 MACH_COMMANDS = {
@@ -96,13 +101,17 @@ MACH_COMMANDS = {
     "fluent-migration-test": MachCommandReference("testing/mach_commands.py"),
     "format": MachCommandReference("tools/lint/mach_commands.py"),
     "geckodriver": MachCommandReference("testing/geckodriver/mach_commands.py"),
-    "geckoview-junit": MachCommandReference("testing/mochitest/mach_commands.py"),
+    "geckoview-junit": MachCommandReference(
+        "testing/mochitest/mach_commands.py", ["test"]
+    ),
     "generate-test-certs": MachCommandReference(
         "security/manager/tools/mach_commands.py"
     ),
     "gradle": MachCommandReference("mobile/android/mach_commands.py"),
     "gradle-install": MachCommandReference("mobile/android/mach_commands.py"),
-    "gtest": MachCommandReference("python/mozbuild/mozbuild/mach_commands.py"),
+    "gtest": MachCommandReference(
+        "python/mozbuild/mozbuild/mach_commands.py", ["test"]
+    ),
     "hazards": MachCommandReference("js/src/devtools/rootAnalysis/mach_commands.py"),
     "ide": MachCommandReference("python/mozbuild/mozbuild/backend/mach_commands.py"),
     "import-pr": MachCommandReference("tools/vcs/mach_commands.py"),
@@ -124,7 +133,7 @@ MACH_COMMANDS = {
         "python/mach/mach/commands/commandinfo.py"
     ),
     "marionette-test": MachCommandReference("testing/marionette/mach_commands.py"),
-    "mochitest": MachCommandReference("testing/mochitest/mach_commands.py"),
+    "mochitest": MachCommandReference("testing/mochitest/mach_commands.py", ["test"]),
     "mots": MachCommandReference("tools/mach_commands.py"),
     "mozbuild-reference": MachCommandReference(
         "python/mozbuild/mozbuild/frontend/mach_commands.py",
@@ -173,7 +182,9 @@ MACH_COMMANDS = {
     "static-analysis": MachCommandReference(
         "python/mozbuild/mozbuild/code_analysis/mach_commands.py"
     ),
-    "storybook": MachCommandReference("browser/components/storybook/mach_commands.py"),
+    "storybook": MachCommandReference(
+        "browser/components/storybook/mach_commands.py", ["run"]
+    ),
     "talos-test": MachCommandReference("testing/talos/mach_commands.py"),
     "taskcluster-build-image": MachCommandReference("taskcluster/mach_commands.py"),
     "taskcluster-image-digest": MachCommandReference("taskcluster/mach_commands.py"),
@@ -238,7 +249,9 @@ MACH_COMMANDS = {
     "wpt-unittest": MachCommandReference("testing/web-platform/mach_commands.py"),
     "wpt-update": MachCommandReference("testing/web-platform/mach_commands.py"),
     "xpcshell": MachCommandReference("js/xpconnect/mach_commands.py"),
-    "xpcshell-test": MachCommandReference("testing/xpcshell/mach_commands.py"),
+    "xpcshell-test": MachCommandReference(
+        "testing/xpcshell/mach_commands.py", ["test"]
+    ),
 }
 
 
@@ -336,14 +349,20 @@ class DetermineCommandVenvAction(argparse.Action):
         if command == "help":
             return
 
-        site = "common"
+        command_reference = MACH_COMMANDS.get(command)
+
+        if not command_reference:
+            # If there's no match for the command in the dictionary it
+            # means that the command doesn't exist, or that it's misspelled.
+            # We exit early and let both scenarios be handled elsewhere.
+            return
 
         if len(values) > 1:
             potential_sub_command_name = values[1]
         else:
             potential_sub_command_name = None
 
-        module_path = Path(self.topsrcdir) / MACH_COMMANDS.get(command).module
+        module_path = Path(self.topsrcdir) / command_reference.module
         module_dict = command_virtualenv_info_for_module(module_path)
         command_dict = module_dict.get(command, {})
 

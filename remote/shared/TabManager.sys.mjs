@@ -141,7 +141,7 @@ export var TabManager = {
     if (referenceTab != null) {
       // If a reference tab was specified, the window should be the window
       // owning the reference tab.
-      window = this._getWindowForTab(referenceTab);
+      window = this.getWindowForTab(referenceTab);
     }
 
     const tabBrowser = this.getTabBrowser(window);
@@ -307,6 +307,13 @@ export var TabManager = {
     return tabBrowser.getTabForBrowser(browser);
   },
 
+  getWindowForTab(tab) {
+    // `.linkedBrowser.ownerGlobal` works both with Firefox Desktop and Mobile.
+    // Other accessors (eg `.ownerGlobal` or `.browser.ownerGlobal`) fail on one
+    // of the platforms.
+    return tab?.linkedBrowser.ownerGlobal;
+  },
+
   /**
    * Remove the given tab.
    *
@@ -318,7 +325,7 @@ export var TabManager = {
       return;
     }
 
-    const ownerWindow = this._getWindowForTab(tab);
+    const ownerWindow = this.getWindowForTab(tab);
     const tabBrowser = this.getTabBrowser(ownerWindow);
     tabBrowser.removeTab(tab);
   },
@@ -337,7 +344,7 @@ export var TabManager = {
       return Promise.resolve();
     }
 
-    const ownerWindow = this._getWindowForTab(tab);
+    const ownerWindow = this.getWindowForTab(tab);
     const tabBrowser = this.getTabBrowser(ownerWindow);
 
     if  (!tabBrowser) {
@@ -355,12 +362,5 @@ export var TabManager = {
 
   supportsTabs() {
     return lazy.AppInfo.isAndroid || lazy.AppInfo.isFirefox;
-  },
-
-  _getWindowForTab(tab) {
-    // `.linkedBrowser.ownerGlobal` works both with Firefox Desktop and Mobile.
-    // Other accessors (eg `.ownerGlobal` or `.browser.ownerGlobal`) fail on one
-    // of the platforms.
-    return tab?.linkedBrowser.ownerGlobal;
   },
 };

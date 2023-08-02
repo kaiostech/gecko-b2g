@@ -5535,7 +5535,7 @@ HttpBaseChannel::GetCacheReadEnd(TimeStamp* _retval) {
 
 NS_IMETHODIMP
 HttpBaseChannel::GetTransactionPending(TimeStamp* _retval) {
-  *_retval = mTransactionPendingTime;
+  *_retval = mTransactionTimings.transactionPending;
   return NS_OK;
 }
 

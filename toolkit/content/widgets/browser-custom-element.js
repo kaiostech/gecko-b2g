@@ -24,13 +24,10 @@
     PopupBlocker: "resource://gre/actors/PopupBlockingParent.sys.mjs",
     SelectParentHelper: "resource://gre/actors/SelectParent.sys.mjs",
     RemoteWebNavigation: "resource://gre/modules/RemoteWebNavigation.sys.mjs",
+    NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   });
 
-  XPCOMUtils.defineLazyModuleGetters(lazy, {
-    NetUtil: "resource://gre/modules/NetUtil.jsm",
-  });
-
-  XPCOMUtils.defineLazyGetter(lazy, "blankURI", () =>
+  ChromeUtils.defineLazyGetter(lazy, "blankURI", () =>
     Services.io.newURI("about:blank")
   );
 
@@ -125,7 +122,7 @@
       this.mIconURL = null;
       this.lastURI = null;
 
-      XPCOMUtils.defineLazyGetter(this, "popupBlocker", () => {
+      ChromeUtils.defineLazyGetter(this, "popupBlocker", () => {
         return new lazy.PopupBlocker(this);
       });
 

@@ -2213,32 +2213,6 @@ JS_PUBLIC_API bool js::ShouldIgnorePropertyDefinition(JSContext* cx,
   }
 #endif
 
-  // It's gently surprising that this is JSProto_Function, but the trick
-  // to realize is that this is a -constructor function-, not a function
-  // on the prototype; and the proto of the constructor is JSProto_Function.
-  if (key == JSProto_Function &&
-      !cx->realm()->creationOptions().getArrayFromAsyncEnabled() &&
-      id == NameToId(cx->names().fromAsync)) {
-    return true;
-  }
-
-  if (key == JSProto_Array &&
-      !cx->realm()->creationOptions().getChangeArrayByCopyEnabled() &&
-      (id == NameToId(cx->names().with) ||
-       id == NameToId(cx->names().toReversed) ||
-       id == NameToId(cx->names().toSorted) ||
-       id == NameToId(cx->names().toSpliced))) {
-    return true;
-  }
-
-  if (key == JSProto_TypedArray &&
-      !cx->realm()->creationOptions().getChangeArrayByCopyEnabled() &&
-      (id == NameToId(cx->names().with) ||
-       id == NameToId(cx->names().toReversed) ||
-       id == NameToId(cx->names().toSorted))) {
-    return true;
-  }
-
 #ifdef ENABLE_NEW_SET_METHODS
   if (key == JSProto_Set &&
       !cx->realm()->creationOptions().getNewSetMethodsEnabled() &&

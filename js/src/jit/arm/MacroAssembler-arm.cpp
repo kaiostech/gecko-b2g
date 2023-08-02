@@ -4306,6 +4306,14 @@ void MacroAssembler::PopStackPtr() {
   adjustFrame(-sizeof(intptr_t));
 }
 
+void MacroAssembler::freeStackTo(uint32_t framePushed) {
+  MOZ_ASSERT(framePushed <= framePushed_);
+  ScratchRegisterScope scratch(*this);
+  ma_sub(FramePointer, Imm32(int32_t(framePushed)), sp, scratch, LeaveCC,
+         Always);
+  framePushed_ = framePushed;
+}
+
 // ===============================================================
 // Simple call functions.
 
@@ -6010,6 +6018,22 @@ void MacroAssembler::shiftIndex32AndAdd(Register indexTemp32, int shift,
   lshift32(Imm32(shift), indexTemp32);
   addPtr(indexTemp32, pointer);
 }
+
+#ifdef ENABLE_WASM_TAIL_CALLS
+void MacroAssembler::wasmMarkSlowCall() { ma_and(lr, lr, lr); }
+
+const int32_t SlowCallMarker = 0xe00ee00e;
+
+void MacroAssembler::wasmCheckSlowCallsite(Register ra, Label* notSlow,
+                                           Register temp1, Register temp2) {
+  MOZ_ASSERT(temp1 != temp2);
+  // Check if RA has slow marker.
+  load32(Address(ra, 0), temp2);
+  ma_mov(Imm32(SlowCallMarker), temp1, Always);
+  ma_cmp(temp2, temp1);
+  j(Assembler::NotEqual, notSlow);
+}
+#endif  // ENABLE_WASM_TAIL_CALLS
 
 //}}} check_macroassembler_style
 

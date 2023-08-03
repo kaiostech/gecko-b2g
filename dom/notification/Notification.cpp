@@ -42,7 +42,6 @@
 #include "nsContentUtils.h"
 #include "nsDOMJSUtils.h"
 #include "nsFocusManager.h"
-#include "nsGlobalWindow.h"
 #include "nsIAlertsService.h"
 #include "nsIContentPermissionPrompt.h"
 #include "nsILoadContext.h"

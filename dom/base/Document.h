@@ -607,7 +607,7 @@ class Document : public nsINode,
                                                     aFocusedRadio, aRadioOut);
   }
   void AddToRadioGroup(const nsAString& aName, HTMLInputElement* aRadio) final {
-    DocumentOrShadowRoot::AddToRadioGroup(aName, aRadio);
+    DocumentOrShadowRoot::AddToRadioGroup(aName, aRadio, nullptr);
   }
   void RemoveFromRadioGroup(const nsAString& aName,
                             HTMLInputElement* aRadio) final {

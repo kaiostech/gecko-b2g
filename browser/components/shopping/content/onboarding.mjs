@@ -14,7 +14,7 @@ const OPTIN_DEFAULT = {
       id: "FS_OPT_IN",
       content: {
         position: "split",
-        title: "Shop Smarter",
+        title: { string_id: "shopping-onboarding-headline" },
         subtitle: `Not all reviews are created equal. To help you find real reviews, from real people, Firefox can use AI technology to analyze this product’s reviews.`,
         cta_paragraph: {
           text: {
@@ -37,7 +37,13 @@ const OPTIN_DEFAULT = {
         secondary_button: {
           label: "Not Now",
           action: {
-            navigate: true,
+            type: "SET_PREF",
+            data: {
+              pref: {
+                name: "browser.shopping.experience2023.active",
+                value: false,
+              },
+            },
           },
         },
       },
@@ -112,7 +118,6 @@ class Onboarding {
   // TBD: Move windows function setup to child actor. See Bug 1843461
   _setupWindowFunctions() {
     this.win.AWGetFeatureConfig = () => OPTIN_DEFAULT;
-    // TBD: Close side bar using same API call as 'X' button
     this.win.AWFinish = () => {};
   }
 

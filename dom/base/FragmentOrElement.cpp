@@ -1042,9 +1042,14 @@ Element* nsIContent::GetFocusDelegate(bool aWithMouse,
     whereToLook = root;
   }
 
-  auto IsFocusable = [&](Element* aElement) {
+  auto IsFocusable = [&](Element* aElement) -> nsIFrame::Focusable {
     nsIFrame* frame = aElement->GetPrimaryFrame();
-    return frame && frame->IsFocusable(aWithMouse);
+
+    if (!frame) {
+      return {};
+    }
+
+    return frame->IsFocusable(aWithMouse);
   };
 
   Element* potentialFocus = nullptr;
@@ -1065,10 +1070,20 @@ Element* nsIContent::GetFocusDelegate(bool aWithMouse,
         // Found an autofocus candidate.
         return el;
       }
-    } else if (!potentialFocus && IsFocusable(el)) {
-      // This element could be the one if we can't find an
-      // autofocus candidate which has the precedence.
-      potentialFocus = el;
+    } else if (!potentialFocus) {
+      if (nsIFrame::Focusable focusable = IsFocusable(el)) {
+        if (IsHTMLElement(nsGkAtoms::dialog)) {
+          if (focusable.mTabIndex >= 0) {
+            // If focusTarget is a dialog element and descendant is sequentially
+            // focusable, then set focusableArea to descendant.
+            potentialFocus = el;
+          }
+        } else {
+          // This element could be the one if we can't find an
+          // autofocus candidate which has the precedence.
+          potentialFocus = el;
+        }
+      }
     }
 
     if (!autofocus && potentialFocus) {

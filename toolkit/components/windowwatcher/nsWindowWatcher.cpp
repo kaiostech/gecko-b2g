@@ -17,7 +17,8 @@
 #include "nsJSUtils.h"
 
 #include "nsDocShell.h"
-#include "nsGlobalWindow.h"
+#include "nsGlobalWindowInner.h"
+#include "nsGlobalWindowOuter.h"
 #include "nsHashPropertyBag.h"
 #include "nsIBaseWindow.h"
 #include "nsIBrowserDOMWindow.h"
@@ -75,7 +76,6 @@
 #include "mozilla/dom/SessionStorageManager.h"
 #include "nsIAppWindow.h"
 #include "nsIXULBrowserWindow.h"
-#include "nsGlobalWindow.h"
 #include "ReferrerInfo.h"
 
 using namespace mozilla;

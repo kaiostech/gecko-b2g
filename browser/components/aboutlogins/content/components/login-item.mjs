@@ -85,8 +85,10 @@ export default class LoginItem extends HTMLElement {
     this.render();
 
     this._cancelButton.addEventListener("click", e =>
-      this.handleCancelClick(e)
+      this.handleCancelEvent(e)
     );
+
+    window.addEventListener("keydown", e => this.handleKeydown(e));
 
     // TODO: Using the addEventListener to listen for clicks and pass the event handler due to a CSP error.
     // This will be fixed as login-item itself is converted into a lit component. We will then be able to use the onclick
@@ -270,20 +272,22 @@ export default class LoginItem extends HTMLElement {
   #updateTimeline() {
     let timeline = this.shadowRoot.querySelector("login-timeline");
     timeline.hidden = !this._login.guid;
-    timeline.history = [
-      {
-        actionId: "login-item-timeline-action-created",
-        time: this._login.timeCreated,
-      },
-      {
-        actionId: "login-item-timeline-action-updated",
-        time: this._login.timePasswordChanged,
-      },
-      {
-        actionId: "login-item-timeline-action-used",
-        time: this._login.timeLastUsed,
-      },
-    ];
+    const createdTime = {
+      actionId: "login-item-timeline-action-created",
+      time: this._login.timeCreated,
+    };
+    const lastUpdatedTime = {
+      actionId: "login-item-timeline-action-updated",
+      time: this._login.timePasswordChanged,
+    };
+    const lastUsedTime = {
+      actionId: "login-item-timeline-action-used",
+      time: this._login.timeLastUsed,
+    };
+    timeline.history =
+      this._login.timeCreated == this._login.timePasswordChanged
+        ? [createdTime, lastUsedTime]
+        : [createdTime, lastUpdatedTime, lastUsedTime];
   }
 
   setBreaches(breachesByLoginGUID) {
@@ -330,6 +334,12 @@ export default class LoginItem extends HTMLElement {
   showLoginItemError(error) {
     this._error = error;
     this.render();
+  }
+
+  async handleKeydown(e) {
+    if (e.key === "Escape" && this.dataset.editing) {
+      this.handleCancelEvent();
+    }
   }
 
   async handlePasswordDisplayFocus(e) {
@@ -421,7 +431,7 @@ export default class LoginItem extends HTMLElement {
     this._recordTelemetryEvent({ object: "password", method });
   }
 
-  async handleCancelClick() {
+  async handleCancelEvent(e) {
     let wasExistingLogin = !!this._login.guid;
     if (wasExistingLogin) {
       if (this.hasPendingChanges()) {

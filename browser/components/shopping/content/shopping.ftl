@@ -40,6 +40,12 @@ shopping-message-bar-warning-stale-analysis-title = Updates available
 shopping-message-bar-warning-stale-analysis-message = Re-analyze the reviews for this product, so you have the latest info.
 shopping-message-bar-warning-stale-analysis-link = Re-analyze reviews
 
+shopping-message-bar-generic-error-title = Something went wrong
+shopping-message-bar-generic-error-message = Couldn’t load information. Please try again later.
+
+shopping-message-bar-warning-not-enough-reviews-title = Not enough reviews yet
+shopping-message-bar-warning-not-enough-reviews-message = When this product has more reviews, we’ll be able to analyze them.
+
 ## Strings for the product review snippets card
 
 shopping-highlights-label =
@@ -112,4 +118,6 @@ shopping-unanalyzed-product-header = No analysis for these reviews yet
 shopping-unanalyzed-product-message = You’re about 60 seconds away from knowing whether you can trust the reviews for this product.
 shopping-unanalyzed-product-analyze-link = Analyze reviews
 
-##
+## Onboarding message strings.
+
+shopping-onboarding-headline = Shop based on <b>real</b> reviews

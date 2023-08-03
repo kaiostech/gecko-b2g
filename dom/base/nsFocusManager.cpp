@@ -132,17 +132,19 @@ LogContent(const char* aMsg, Element* aElement)
     nsAutoString id;
     nsAutoString tag;
     nsAutoString className;
+    nsAutoString src;
     if (element) {
       element->GetId(id);
       element->GetTagName(tag);
       element->GetClassName(className);
+      element->GetAttribute(u"src"_ns, src);
     }
 
-    LogGeneral("%s,%s tag: %s, id: %s, class: %s", aMsg,
-        (aElement ? "" : " NULL,"),
-        NS_ConvertUTF16toUTF8(tag).get(),
-        NS_ConvertUTF16toUTF8(id).get(),
-        NS_ConvertUTF16toUTF8(className).get());
+    LogGeneral("%s,%s tag: %s, id: %s, class: %s, src: %s", aMsg,
+               (aElement ? "" : " NULL,"), NS_ConvertUTF16toUTF8(tag).get(),
+               NS_ConvertUTF16toUTF8(id).get(),
+               NS_ConvertUTF16toUTF8(className).get(),
+               NS_ConvertUTF16toUTF8(src).get());
 }
 #else
 #define LogGeneral(args...)
@@ -2950,7 +2952,7 @@ void nsFocusManager::FireFocusOrBlurEvent(EventMessage aEventMessage,
   if (!dontDispatchEvent) {
     aPresShell->ScheduleContentRelevancyUpdate(
         ContentRelevancyReason::FocusInSubtree);
-  
+
     nsContentUtils::AddScriptRunner(
         new FocusBlurEvent(aTarget, aEventMessage, aPresShell->GetPresContext(),
                            aWindowRaised, aIsRefocus, aRelatedTarget));

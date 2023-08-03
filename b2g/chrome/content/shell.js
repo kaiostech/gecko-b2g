@@ -287,6 +287,28 @@ function toggle_bool_pref(name) {
   debug(`${name} is now ${!current}`);
 }
 
+function debug_keyevent(evt) {
+  let msg = "type: " + evt.type + ", key: " + evt.key;
+  msg += ", target: " + evt.target;
+  if (evt.target.tagName) {
+    msg += ", tag: " + evt.target.tagName;
+  }
+  if (evt.target.id) {
+    msg += ", id: " + evt.target.id;
+  }
+  if (evt.target.className) {
+    msg += ", class: " + evt.target.className;
+  }
+  if (evt.target.src) {
+    msg += ", src: " + evt.target.src;
+  }
+  debug(`${msg}`);
+}
+
+document.addEventListener("keydown", debug_keyevent);
+
+document.addEventListener("keyup", debug_keyevent);
+
 document.addEventListener(
   "DOMContentLoaded",
   () => {

@@ -8024,7 +8024,10 @@ Element* PresShell::EventHandler::ComputeFocusedEventTargetElement(
         if (keyDownIsChrome != nsContentUtils::IsChromeDoc(
                                    eventTargetElement->GetComposedDoc()) ||
             (keyDownIsChrome && BrowserParent::GetFrom(eventTargetElement))) {
-          eventTargetElement = sLastKeyDownEventTargetElement;
+          if (static_cast<nsIContent*>(sLastKeyDownEventTargetElement)
+                  ->GetPrimaryFrame()) {
+            eventTargetElement = sLastKeyDownEventTargetElement;
+          }
         }
       }
 

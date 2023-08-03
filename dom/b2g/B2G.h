@@ -8,7 +8,6 @@
 #define mozilla_dom_B2G_h
 
 #include "mozilla/dom/BindingDeclarations.h"
-#include "nsGlobalWindow.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/DOMEventTargetHelper.h"

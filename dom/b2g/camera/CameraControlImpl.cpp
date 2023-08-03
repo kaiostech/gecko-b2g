@@ -9,7 +9,6 @@
 #include "nsPrintfCString.h"
 #include "nsIWeakReferenceUtils.h"
 #include "CameraCommon.h"
-#include "nsGlobalWindow.h"
 #include "DeviceStorageFileDescriptor.h"
 #include "CameraControlListener.h"
 

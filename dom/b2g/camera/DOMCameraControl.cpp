@@ -25,7 +25,6 @@
 #include "DOMCameraManager.h"
 #include "DOMCameraCapabilities.h"
 #include "CameraCommon.h"
-#include "nsGlobalWindow.h"
 #include "CameraPreviewMediaTrack.h"
 #include "mozilla/dom/CameraUtilBinding.h"
 #include "mozilla/dom/CameraControlBinding.h"

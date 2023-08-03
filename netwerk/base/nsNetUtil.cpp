@@ -114,7 +114,6 @@
 #include "MediaContainerType.h"
 #include "DecoderTraits.h"
 #include "imgLoader.h"
-#include "nsGlobalWindow.h"
 #include "nsIPermission.h"
 
 #if defined(MOZ_THUNDERBIRD) || defined(MOZ_SUITE)

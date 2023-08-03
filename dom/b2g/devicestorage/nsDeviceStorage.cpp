@@ -31,7 +31,6 @@
 
 #include "nsArrayUtils.h"
 #include "nsCharSeparatedTokenizer.h"
-#include "nsGlobalWindow.h"
 #include "nsServiceManagerUtils.h"
 #include "nsIFile.h"
 #include "nsIDirectoryEnumerator.h"
@@ -52,6 +51,7 @@
 #include "nsIObserverService.h"
 #include "nsIMIMEService.h"
 #include "nsCExternalHandlerService.h"
+#include "nsGlobalWindowInner.h"
 #include "nsIPermissionManager.h"
 #include "nsIStringBundle.h"
 #include "nsISupportsPrimitives.h"

@@ -15,9 +15,9 @@
 #include "nsCOMPtr.h"
 #include "nsDebug.h"
 #include "nsDeviceStorage.h"
+#include "nsGlobalWindowInner.h"
 #include "nsIFile.h"
 #include "nsPIDOMWindow.h"
-#include "nsGlobalWindow.h"
 
 namespace mozilla {
 namespace dom {

@@ -407,6 +407,10 @@ already_AddRefed<MediaByteBuffer> H265AnnexB::ConvertExtraDataToAnnexB(
 bool H265AnnexB::ConvertSampleToHVCC(
     mozilla::MediaRawData* aSample,
     const RefPtr<MediaByteBuffer>& aHVCCHeader) {
+  if (IsHVCC(aSample)) {
+    return ConvertSampleTo4BytesHVCC(aSample).isOk();
+  }
+
   if (!IsAnnexB(aSample)) {
     // Not AnnexB, nothing to convert.
     return true;

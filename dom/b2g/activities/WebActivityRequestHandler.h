@@ -18,6 +18,7 @@ namespace mozilla {
 namespace dom {
 
 struct WebActivityOptions;
+class Promise;
 
 class WebActivityRequestHandler final : public nsWrapperCache
 
@@ -42,14 +43,19 @@ class WebActivityRequestHandler final : public nsWrapperCache
 
   void GetSource(JSContext* aCx, WebActivityOptions& aResult, ErrorResult& aRv);
 
+  Promise* PostDone();
+
  private:
-  WebActivityRequestHandler(const JS::Value& aMessage, const nsAString& aId,
+  WebActivityRequestHandler(nsIGlobalObject* aGlobal, Promise* aPromise,
+                            const JS::Value& aMessage, const nsAString& aId,
                             bool aReturnValue);
   ~WebActivityRequestHandler();
 
+  nsCOMPtr<nsIGlobalObject> mGlobal;
+  RefPtr<Promise> mPromise;
+  JS::Heap<JS::Value> mMessage;
   nsString mActivityId;
   bool mReturnValue;
-  JS::Heap<JS::Value> mMessage;
 };
 }  // namespace dom
 }  // namespace mozilla

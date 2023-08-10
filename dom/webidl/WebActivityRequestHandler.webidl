@@ -13,4 +13,13 @@ interface WebActivityRequestHandler {
 
   [Pure, Cached, Frozen, Throws]
   readonly attribute WebActivityOptions source;
+
+  /**
+   * Sometimes we need to keep service worker alive to wait for data for
+   * handler to post back.
+   * In such case, using `event.waitUntil(handler.postDone());` can keep the
+   * service worker alive until postDone is resolved, and postDone will be
+   * resolved when postResult or postError is called.
+   */
+  Promise<undefined> postDone();
 };

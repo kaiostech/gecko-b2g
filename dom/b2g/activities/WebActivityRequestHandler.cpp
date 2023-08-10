@@ -7,6 +7,7 @@
 #include "mozilla/dom/WebActivityRequestHandler.h"
 #include "mozilla/dom/WebActivityRequestHandlerBinding.h"
 #include "mozilla/dom/WebActivityBinding.h"
+#include "mozilla/dom/Promise.h"
 #include "mozilla/dom/StructuredCloneHolder.h"
 #include "mozilla/HoldDropJSObjects.h"
 #include "js/JSON.h"
@@ -108,6 +109,8 @@ class PostErrorRunnable final : public ActivityRequestHandlerProxyRunnable {
 NS_IMPL_CYCLE_COLLECTION_CLASS(WebActivityRequestHandler)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WebActivityRequestHandler)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGlobal)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPromise)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(WebActivityRequestHandler)
@@ -120,10 +123,16 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(WebActivityRequestHandler)
   tmp->mMessage.setUndefined();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-WebActivityRequestHandler::WebActivityRequestHandler(const JS::Value& aMessage,
+WebActivityRequestHandler::WebActivityRequestHandler(nsIGlobalObject* aGlobal,
+                                                     Promise* aPromise,
+                                                     const JS::Value& aMessage,
                                                      const nsAString& aId,
                                                      bool aReturnValue)
-    : mActivityId(aId), mReturnValue(aReturnValue), mMessage(aMessage) {
+    : mGlobal(aGlobal),
+      mPromise(aPromise),
+      mMessage(aMessage),
+      mActivityId(aId),
+      mReturnValue(aReturnValue) {
   MOZ_COUNT_CTOR(WebActivityRequestHandler);
   mozilla::HoldJSObjects(this);
 }
@@ -171,8 +180,11 @@ already_AddRefed<WebActivityRequestHandler> WebActivityRequestHandler::Create(
   RefPtr<NotifyReadyRunnable> r = new NotifyReadyRunnable(id);
   NS_DispatchToMainThread(r);
 
-  RefPtr<WebActivityRequestHandler> handler =
-      new WebActivityRequestHandler(aMessage, id, returnValue);
+  ErrorResult rv;
+  RefPtr<Promise> promise = Promise::Create(aGlobal, rv);
+
+  RefPtr<WebActivityRequestHandler> handler = new WebActivityRequestHandler(
+      aGlobal, promise, aMessage, id, returnValue);
 
   return handler.forget();
 }
@@ -188,6 +200,7 @@ void WebActivityRequestHandler::PostResult(JSContext* aCx,
       return;
     }
     NS_DispatchToMainThread(r);
+    mPromise->MaybeResolveWithUndefined();
   } else {
     // postResult() can't be called when 'returnValue': 'true' isn't declared
     // in manifest.webapp.
@@ -198,6 +211,7 @@ void WebActivityRequestHandler::PostResult(JSContext* aCx,
 void WebActivityRequestHandler::PostError(const nsAString& aError) {
   RefPtr<PostErrorRunnable> r = new PostErrorRunnable(mActivityId, aError);
   NS_DispatchToMainThread(r);
+  mPromise->MaybeResolveWithUndefined();
 }
 
 void WebActivityRequestHandler::GetSource(JSContext* aCx,
@@ -213,6 +227,14 @@ void WebActivityRequestHandler::GetSource(JSContext* aCx,
   if (!aResult.Init(aCx, payloadVal)) {
     aRv.NoteJSContextException(aCx);
   }
+}
+
+Promise* WebActivityRequestHandler::PostDone() {
+  if (!mReturnValue) {
+    mPromise->MaybeResolveWithUndefined();
+  }
+
+  return mPromise;
 }
 
 }  // namespace dom

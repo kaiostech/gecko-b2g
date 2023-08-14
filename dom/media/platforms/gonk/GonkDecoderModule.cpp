@@ -14,6 +14,8 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_media.h"
 
+#include <media/stagefright/MediaCodecList.h>
+
 #ifdef B2G_MEDIADRM
 #  include "EMEDecoderModule.h"
 #endif
@@ -63,30 +65,49 @@ already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateAudioDecoder(
   return decoder.forget();
 }
 
+static bool IsCodecEnabled(const nsACString& aMimeType) {
+  if (aMimeType.EqualsLiteral("audio/3gpp") ||
+      aMimeType.EqualsLiteral("audio/aac") ||
+      aMimeType.EqualsLiteral("audio/amr-wb") ||
+      aMimeType.EqualsLiteral("audio/flac") ||
+      aMimeType.EqualsLiteral("audio/mp4") ||
+      aMimeType.EqualsLiteral("audio/mp4a-latm") ||
+      aMimeType.EqualsLiteral("audio/mpeg") ||
+      aMimeType.EqualsLiteral("audio/opus") ||
+      aMimeType.EqualsLiteral("audio/vorbis") ||
+      aMimeType.EqualsLiteral("video/3gpp") ||
+      aMimeType.EqualsLiteral("video/avc") ||
+      aMimeType.EqualsLiteral("video/mp4") ||
+      aMimeType.EqualsLiteral("video/mp4v-es") ||
+      aMimeType.EqualsLiteral("video/vp8") ||
+      aMimeType.EqualsLiteral("video/vp9")) {
+    return true;
+  }
+  if (aMimeType.EqualsLiteral("video/hevc")) {
+    return StaticPrefs::media_gonk_h265_enabled();
+  }
+  return false;
+}
+
 media::DecodeSupportSet GonkDecoderModule::SupportsMimeType(
     const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const {
-  // TODO: get codec info from AOSP.
-  // Just assume SoftwareDecode for audio and HardwareDecode for video now.
-  if (aMimeType.EqualsLiteral("audio/mp4a-latm") ||
-      aMimeType.EqualsLiteral("audio/aac") ||
-      aMimeType.EqualsLiteral("audio/mp4") ||
-      aMimeType.EqualsLiteral("audio/3gpp") ||
-      aMimeType.EqualsLiteral("audio/amr-wb") ||
-      aMimeType.EqualsLiteral("audio/mpeg") ||
-      aMimeType.EqualsLiteral("audio/flac")) {
-    return media::DecodeSupport::SoftwareDecode;
+  if (!IsCodecEnabled(aMimeType)) {
+    return media::DecodeSupport::Unsupported;
   }
-  if (aMimeType.EqualsLiteral("video/mp4") ||
-      aMimeType.EqualsLiteral("video/mp4v-es") ||
-      aMimeType.EqualsLiteral("video/avc") ||
-      aMimeType.EqualsLiteral("video/3gpp")) {
-    return media::DecodeSupport::HardwareDecode;
+
+  auto matches = GonkMediaUtils::FindMatchingCodecs(aMimeType.Data(), false);
+  bool foundHardware = false;
+  bool foundSoftware = false;
+  for (auto& name : matches) {
+    if (android::MediaCodecList::isSoftwareCodec(name)) {
+      foundSoftware = true;
+    } else {
+      foundHardware = true;
+    }
   }
-  if (aMimeType.EqualsLiteral("video/hevc") &&
-      StaticPrefs::media_gonk_h265_enabled()) {
-    return media::DecodeSupport::HardwareDecode;
-  }
-  return media::DecodeSupport::Unsupported;
+  return foundHardware   ? media::DecodeSupport::HardwareDecode
+         : foundSoftware ? media::DecodeSupport::SoftwareDecode
+                         : media::DecodeSupport::Unsupported;
 }
 
 }  // namespace mozilla

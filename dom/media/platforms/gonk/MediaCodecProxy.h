@@ -82,8 +82,7 @@ class MediaCodecProxy : public RefBase {
   // Static MediaCodec methods
   // Only support MediaCodec::CreateByType()
   static sp<MediaCodecProxy> CreateByType(sp<ALooper> aLooper,
-                                          const char* aMime, bool aEncoder,
-                                          uint32_t aFlags = 0);
+                                          const char* aMime, bool aEncoder);
 
   // MediaCodec methods
   status_t configure(const sp<AMessage>& aFormat,
@@ -174,21 +173,17 @@ class MediaCodecProxy : public RefBase {
   const MediaCodecProxy& operator=(const MediaCodecProxy&) = delete;
 
   // Constructor for MediaCodecProxy::CreateByType
-  MediaCodecProxy(sp<ALooper> aLooper, const char* aMime, bool aEncoder,
-                  uint32_t aFlags);
+  MediaCodecProxy(sp<ALooper> aLooper, const char* aMime, bool aEncoder);
 
   // Allocate Codec Resource
   bool allocateCodec();
   // Release Codec Resource
   void releaseCodec();
 
-  static void filterCodecs(Vector<AString>& aCodecs);
-
   // MediaCodec Parameter
   sp<ALooper> mCodecLooper;
   nsCString mCodecMime;
   bool mCodecEncoder;
-  uint32_t mCodecFlags;
 
   // MediaCodec instance
   mutable RWLock mCodecLock;

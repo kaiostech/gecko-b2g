@@ -6,11 +6,13 @@
 
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/MediaCodecList.h>
 
 #include "AudioCompactor.h"
-#include "mozilla/Logging.h"
 #include "MediaData.h"
 #include "MediaInfo.h"
+#include "mozilla/Logging.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "XiphExtradata.h"
 
 namespace android {
@@ -264,6 +266,58 @@ sp<GonkCryptoInfo> GonkMediaUtils::GetCryptoInfo(
       break;
   }
   return cryptoInfo;
+}
+
+static void FilterCodecs(std::vector<AString>& aCodecs, bool aAllowC2) {
+  // List of problematic codecs that will be removed from aCodecs.
+  static char const* const kDeniedCodecs[] = {"OMX.qti.audio.decoder.flac"};
+
+  std::vector<AString> temp;
+  for (auto& name : aCodecs) {
+    if (name.startsWithIgnoreCase("c2.") && !aAllowC2) {
+      continue;
+    }
+    bool denied = false;
+    for (const char* deniedCodec : kDeniedCodecs) {
+      if (name == deniedCodec) {
+        denied = true;
+        break;
+      }
+    }
+    if (denied) {
+      continue;
+    }
+    temp.push_back(name);
+  }
+  aCodecs.swap(temp);
+}
+
+/* static */
+std::vector<AString> GonkMediaUtils::FindMatchingCodecs(const char* aMime,
+                                                        bool aEncoder) {
+  AString mime(aMime);
+  if (mime == "video/vp8") {
+    mime = "video/x-vnd.on2.vp8";
+  } else if (mime == "video/vp9") {
+    mime = "video/x-vnd.on2.vp9";
+  }
+
+  // The old video decoder path (GonkMediaDataDecoder/GonkVideoDecoderManager)
+  // doesn't support codec2 nor any software components, because this path uses
+  // a hack to acquire GraphicBuffers from ACodec and doesn't work as expected
+  // on those components.
+  bool allowSoftwareOrC2 =
+      mime.startsWithIgnoreCase("audio/") || aEncoder ||
+      mozilla::StaticPrefs::media_gonkmediacodec_video_enabled();
+
+  uint32_t flags = allowSoftwareOrC2 ? 0 : MediaCodecList::kHardwareCodecsOnly;
+  Vector<AString> matches;
+  MediaCodecList::findMatchingCodecs(mime.c_str(), aEncoder, flags, &matches);
+
+  // Convert android::Vector to std::vector.
+  std::vector<AString> codecs(matches.begin(), matches.end());
+  FilterCodecs(codecs, allowSoftwareOrC2);
+  return codecs;
 }
 
 }  // namespace android

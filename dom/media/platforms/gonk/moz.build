@@ -25,6 +25,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "GonkDataDecoder.cpp",
         "GonkDecoderModule.cpp",
         "GonkMediaDataDecoder.cpp",
+        "GonkMediaUtils.cpp",
         "I420ColorConverterHelper.cpp",
         "MediaCodecProxy.cpp",
     ]
@@ -32,7 +33,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     SOURCES += [
         "GonkAudioDecoderManager.cpp",
         "GonkMediaCodec.cpp",
-        "GonkMediaUtils.cpp",
         "GonkVideoDecoderManager.cpp",
     ]
 

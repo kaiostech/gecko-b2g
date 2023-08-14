@@ -7,6 +7,7 @@
 
 #include <media/hardware/CryptoAPI.h>
 #include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/foundation/AString.h>
 #include <media/stagefright/foundation/MediaDefs.h>
 #include <utils/RefBase.h>
 
@@ -45,6 +46,9 @@ class GonkMediaUtils {
   static sp<AMessage> GetMediaCodecConfig(const mozilla::TrackInfo* aInfo);
 
   static sp<GonkCryptoInfo> GetCryptoInfo(const mozilla::MediaRawData* aSample);
+
+  static std::vector<AString> FindMatchingCodecs(const char* aMime,
+                                                 bool aEncoder);
 };
 
 }  // namespace android

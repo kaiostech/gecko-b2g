@@ -19,7 +19,6 @@
 #include "VideoUtils.h"
 #include "nsThreadUtils.h"
 #include "mozilla/Logging.h"
-#include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/foundation/AString.h>
@@ -158,9 +157,8 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
 
   RefPtr<InitPromise> p = mInitPromise.Ensure(__func__);
   android::sp<GonkVideoDecoderManager> self = this;
-  mDecoder =
-      MediaCodecProxy::CreateByType(mDecodeLooper, mConfig.mMimeType.get(),
-                                    false, MediaCodecList::kHardwareCodecsOnly);
+  mDecoder = MediaCodecProxy::CreateByType(mDecodeLooper,
+                                           mConfig.mMimeType.get(), false);
 
   uint32_t capability = MediaCodecProxy::kEmptyCapability;
   if (mDecoder->getCapability(&capability) == OK &&

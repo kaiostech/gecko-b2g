@@ -10,7 +10,6 @@
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
-#include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
 
 #include "GonkMediaUtils.h"
@@ -81,19 +80,14 @@ struct MediaCodecInterfaceWrapper {
 
 sp<MediaCodecProxy> MediaCodecProxy::CreateByType(sp<ALooper> aLooper,
                                                   const char* aMime,
-                                                  bool aEncoder,
-                                                  uint32_t aFlags) {
-  sp<MediaCodecProxy> codec =
-      new MediaCodecProxy(aLooper, aMime, aEncoder, aFlags);
+                                                  bool aEncoder) {
+  sp<MediaCodecProxy> codec = new MediaCodecProxy(aLooper, aMime, aEncoder);
   return codec;
 }
 
 MediaCodecProxy::MediaCodecProxy(sp<ALooper> aLooper, const char* aMime,
-                                 bool aEncoder, uint32_t aFlags)
-    : mCodecLooper(aLooper),
-      mCodecMime(aMime),
-      mCodecEncoder(aEncoder),
-      mCodecFlags(aFlags) {
+                                 bool aEncoder)
+    : mCodecLooper(aLooper), mCodecMime(aMime), mCodecEncoder(aEncoder) {
   MOZ_ASSERT(mCodecLooper != nullptr, "ALooper should not be nullptr.");
 }
 
@@ -131,38 +125,13 @@ MediaCodecProxy::AsyncAllocateVideoMediaCodec() {
 
 void MediaCodecProxy::ReleaseMediaCodec() { releaseCodec(); }
 
-/* static */
-void MediaCodecProxy::filterCodecs(Vector<AString>& aCodecs) {
-  // List of problematic codecs that will be removed from aCodecs.
-  static char const* const kDeniedCodecs[] = {"OMX.qti.audio.decoder.flac"};
-
-  size_t i = 0;
-  while (i < aCodecs.size()) {
-    bool denied = false;
-    for (const char* deniedCodec : kDeniedCodecs) {
-      if (aCodecs[i] == deniedCodec) {
-        denied = true;
-        break;
-      }
-    }
-    if (denied) {
-      aCodecs.removeAt(i);
-    } else {
-      i++;
-    }
-  }
-}
-
 bool MediaCodecProxy::allocateCodec() {
   if (!mCodecLooper) {
     return false;
   }
 
-  Vector<AString> matchingCodecs;
-  MediaCodecList::findMatchingCodecs(mCodecMime.get(), mCodecEncoder,
-                                     mCodecFlags, &matchingCodecs);
-
-  filterCodecs(matchingCodecs);
+  auto matchingCodecs =
+      GonkMediaUtils::FindMatchingCodecs(mCodecMime.get(), mCodecEncoder);
 
   // Create MediaCodec
   for (auto& componentName : matchingCodecs) {

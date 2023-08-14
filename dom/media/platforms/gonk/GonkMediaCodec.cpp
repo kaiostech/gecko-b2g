@@ -9,7 +9,6 @@
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/stagefright/MediaCodecList.h>
 #include <mediadrm/ICrypto.h>
 
 #include "GonkBufferItem.h"
@@ -468,27 +467,6 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
   }
 }
 
-static void FilterCodecs(Vector<AString>& aCodecs) {
-  // List of problematic codecs that will be removed from aCodecs.
-  static char const* const kDeniedCodecs[] = {"OMX.qti.audio.decoder.flac"};
-
-  size_t i = 0;
-  while (i < aCodecs.size()) {
-    bool denied = false;
-    for (const char* deniedCodec : kDeniedCodecs) {
-      if (aCodecs[i] == deniedCodec) {
-        denied = true;
-        break;
-      }
-    }
-    if (denied) {
-      aCodecs.removeAt(i);
-    } else {
-      i++;
-    }
-  }
-}
-
 status_t GonkMediaCodec::OnConfigure(const sp<Callback>& aCallback,
                                      const sp<AMessage>& aFormat,
                                      const sp<ICrypto>& aCrypto,
@@ -511,10 +489,7 @@ status_t GonkMediaCodec::OnConfigure(const sp<Callback>& aCallback,
     mOutputInfoQueue.reset(new OutputInfoQueue);
   }
 
-  Vector<AString> matches;
-  MediaCodecList::findMatchingCodecs(mime.c_str(), aEncoder, 0, &matches);
-  FilterCodecs(matches);
-
+  auto matches = GonkMediaUtils::FindMatchingCodecs(mime.c_str(), aEncoder);
   for (auto& name : matches) {
     mCodec = MediaCodec::CreateByComponentName(mCodecLooper, name);
     if (mCodec) {

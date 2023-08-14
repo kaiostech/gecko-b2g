@@ -646,6 +646,9 @@ void PDMFactory::CreateContentPDMs() {
         RemoteDecodeIn::UtilityProcess_MFMediaEngineCDM);
   }
 #endif
+#ifdef MOZ_WIDGET_GONK
+  CreateAndStartupPDM<GonkDecoderModule>();
+#endif
 
 #if !defined(MOZ_WIDGET_ANDROID)  // Still required for video?
   if (StaticPrefs::media_allow_audio_non_utility()) {
@@ -697,9 +700,6 @@ void PDMFactory::CreateContentPDMs() {
     StartupPDM(AndroidDecoderModule::Create(),
                StaticPrefs::media_android_media_codec_preferred());
   }
-#endif
-#ifdef MOZ_WIDGET_GONK
-  StartupPDM(GonkDecoderModule::Create());
 #endif
 
   if (StaticPrefs::media_gmp_decoder_enabled() &&

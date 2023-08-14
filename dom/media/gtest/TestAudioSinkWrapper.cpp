@@ -31,6 +31,7 @@ TEST(TestAudioSinkWrapper, AsyncInitFailureWithSyncInitSuccess)
   auto audioSinkCreator = [&]() {
     return UniquePtr<AudioSink>{new AudioSink(AbstractThread::GetCurrent(),
                                               audioQueue, info.mAudio,
+                                              mozilla::dom::AudioChannel::Normal,
                                               /*resistFingerprinting*/ false)};
   };
   const double initialVolume = 0.0;  // so that there is initially no AudioSink
@@ -105,6 +106,7 @@ TEST(TestAudioSinkWrapper, AsyncInitWithEndOfAudio)
   auto audioSinkCreator = [&]() {
     return UniquePtr<AudioSink>{new AudioSink(AbstractThread::GetCurrent(),
                                               audioQueue, info.mAudio,
+                                              mozilla::dom::AudioChannel::Normal,
                                               /*resistFingerprinting*/ false)};
   };
   const double initialVolume = 0.0;  // so that there is initially no AudioSink

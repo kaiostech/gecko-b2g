@@ -36,7 +36,6 @@ fi
 
 # Optimize the build
 ac_add_options --disable-profiling
-ac_add_options --enable-small-chunk-size
 
 # With the following Android SDK and NDK:
 ac_add_options --with-android-ndk=$ANDROID_NDK

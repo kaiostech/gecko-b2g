@@ -1137,6 +1137,28 @@ if test "$NUM_IME_ENABLED" -gt 1 ; then
   AC_MSG_ERROR([It's invalid to enable more than one ($NUM_IME_ENABLED) IME engine])
 fi
 
+dnl ========================================================
+dnl Build B2G Z-Axis Geolocation modules if the dir exists
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(b2g-zaxis-geolocation,
+[  --enable-b2g-zaxis-geolocation   Enable b2g-zaxis-geolocation modules],
+    B2G_ZAXIS_GEOLOCATION=1,
+    B2G_ZAXIS_GEOLOCATION= )
+if test -n "$B2G_ZAXIS_GEOLOCATION" && \
+   test -d "$_topsrcdir/koost/zaxis" ; then
+  B2G_ZAXIS_GEOLOCATION=1
+  AC_DEFINE(B2G_ZAXIS_GEOLOCATION)
+
+  if test -d "$GONK_PATH/vendor/qcom/opensource/location/nlp_api/inc" ; then
+    CPPFLAGS="$CPPFLAGS -I$GONK_PATH/vendor/qcom/opensource/location/nlp_api/inc"
+  else
+    AC_MSG_ERROR(Enabling b2g-zaxis-geolocation requires qcom nlp-api support)
+  fi
+else
+  B2G_ZAXIS_GEOLOCATION=
+fi
+AC_SUBST(B2G_ZAXIS_GEOLOCATION)
+
 if test -z "$SKIP_COMPILER_CHECKS"; then
 dnl ========================================================
 dnl Check for gcc -pipe support
@@ -1651,22 +1673,6 @@ else
   B2G_CUSTOM_MODULE=
 fi
 AC_SUBST(B2G_CUSTOM_MODULE, C002)
-
-dnl ========================================================
-dnl Build B2G Z-Axis Geolocation modules if the dir exists
-dnl ========================================================
-MOZ_ARG_ENABLE_BOOL(b2g-zaxis-geolocation,
-[  --enable-b2g-zaxis-geolocation   Enable b2g-zaxis-geolocation modules],
-    B2G_ZAXIS_GEOLOCATION=1,
-    B2G_ZAXIS_GEOLOCATION= )
-if test -n "$B2G_ZAXIS_GEOLOCATION" && \
-   test -d "$_topsrcdir/koost/zaxis" ; then
-  B2G_ZAXIS_GEOLOCATION=1
-  AC_DEFINE(B2G_ZAXIS_GEOLOCATION)
-else
-  B2G_ZAXIS_GEOLOCATION=
-fi
-AC_SUBST(B2G_ZAXIS_GEOLOCATION)
 
 MOZ_CREATE_CONFIG_STATUS()
 

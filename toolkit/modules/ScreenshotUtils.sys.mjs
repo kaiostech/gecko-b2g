@@ -24,9 +24,7 @@ export var ScreenshotUtils = {
     // Try to wait for the event loop to go idle before we take the screenshot,
     // but once we've waited maxDelayMS milliseconds, go ahead and take it
     // anyway.
-    Cc["@mozilla.org/message-loop;1"]
-      .getService(Ci.nsIMessageLoop)
-      .postIdleTask(takeScreenshotClosure, maxDelayMs);
+    ChromeUtils.idleDispatch(takeScreenshotClosure, { timeout: maxDelayMs });
 
     return deferred.promise;
   },
@@ -34,7 +32,13 @@ export var ScreenshotUtils = {
   // Actually take a screenshot and foward the result up to our parent, given
   // the desired maxWidth and maxHeight (in CSS pixels), and given the
   // message manager id associated with the request from the parent.
-  takeScreenshot(content, maxWidth, maxHeight, mimeType, deferred) {
+  takeScreenshot(
+    content,
+    maxWidth,
+    maxHeight,
+    mimeType = "image/jpeg",
+    deferred
+  ) {
     // You can think of the screenshotting algorithm as carrying out the
     // following steps:
     //

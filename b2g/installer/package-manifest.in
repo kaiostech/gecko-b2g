@@ -111,6 +111,7 @@
 @BINPATH@/@DLL_PREFIX@mozsqlite3@DLL_SUFFIX@
 #endif
 @BINPATH@/@DLL_PREFIX@lgpllibs@DLL_SUFFIX@
+@BINPATH@/@DLL_PREFIX@gkcodecs@DLL_SUFFIX@
 @RESPATH@/ua-update.json
 #ifdef XP_UNIX
 #ifndef XP_MACOSX

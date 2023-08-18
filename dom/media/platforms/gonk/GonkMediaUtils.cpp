@@ -68,7 +68,9 @@ sp<AMessage> GonkMediaUtils::GetMediaCodecConfig(
       // AOSP Opus decoder requires 1) codec specific data, 2) codec delay and
       // 3) seek preroll, but Gecko demuxer only provides codec delay, so set
       // seek preroll to 0.
-      int64_t codecDelayNs = opusCsd.mContainerCodecDelayMicroSeconds * 1000;
+      static const int32_t kOpusSampleRate = 48000;
+      int64_t codecDelayNs =
+          opusCsd.mContainerCodecDelayFrames * 1000000000ll / kOpusSampleRate;
       int64_t seekPreroll = 0;
       auto delayBuffer = ABuffer::CreateAsCopy(&codecDelayNs, sizeof(int64_t));
       auto prerollBuffer = ABuffer::CreateAsCopy(&seekPreroll, sizeof(int64_t));

@@ -868,6 +868,19 @@ pub unsafe extern "C" fn Servo_AnimationValue_GetOffsetPosition(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn Servo_AnimationValue_IsOffsetPathUrl(
+    value: &AnimationValue,
+) -> bool {
+    use style::values::generics::motion::{GenericOffsetPath, GenericOffsetPathFunction};
+    if let AnimationValue::OffsetPath(ref op) = value {
+        if let GenericOffsetPath::OffsetPath { path, coord_box: _ } = op {
+            return matches!(**path, GenericOffsetPathFunction::Url(_));
+        }
+    }
+    false
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn Servo_AnimationValue_Rotate(
     r: &computed::Rotate,
 ) -> Strong<AnimationValue> {
@@ -1160,63 +1173,6 @@ pub extern "C" fn Servo_StyleSet_GetBaseComputedValuesForElement(
 }
 
 #[no_mangle]
-pub extern "C" fn Servo_StyleSet_GetComputedValuesByAddingAnimation(
-    raw_style_set: &PerDocumentStyleData,
-    element: &RawGeckoElement,
-    computed_values: &ComputedValues,
-    snapshots: *const ServoElementSnapshotTable,
-    animation_value: &AnimationValue,
-) -> Strong<ComputedValues> {
-    debug_assert!(!snapshots.is_null());
-    let rules = match computed_values.rules {
-        None => return Strong::null(),
-        Some(ref rules) => rules,
-    };
-
-    let global_style_data = &*GLOBAL_STYLE_DATA;
-    let guard = global_style_data.shared_lock.read();
-    let uncomputed_value = animation_value.uncompute();
-    let doc_data = raw_style_set.borrow();
-
-    let with_animations_rules = {
-        let guards = StylesheetGuards::same(&guard);
-        let declarations = Arc::new(global_style_data.shared_lock.wrap(
-            PropertyDeclarationBlock::with_one(uncomputed_value, Importance::Normal),
-        ));
-        doc_data
-            .stylist
-            .rule_tree()
-            .add_animation_rules_at_transition_level(rules, declarations, &guards)
-    };
-
-    let element = GeckoElement(element);
-    if element.borrow_data().is_none() {
-        return Strong::null();
-    }
-
-    let shared = create_shared_context(
-        &global_style_data,
-        &guard,
-        &doc_data.stylist,
-        TraversalFlags::empty(),
-        unsafe { &*snapshots },
-    );
-    let mut tlc: ThreadLocalStyleContext<GeckoElement> = ThreadLocalStyleContext::new();
-    let context = StyleContext {
-        shared: &shared,
-        thread_local: &mut tlc,
-    };
-
-    resolve_rules_for_element_with_context(
-        element,
-        context,
-        with_animations_rules,
-        &computed_values,
-    )
-    .into()
-}
-
-#[no_mangle]
 pub extern "C" fn Servo_ComputedValues_ExtractAnimationValue(
     computed_values: &ComputedValues,
     property_id: nsCSSPropertyID,
@@ -1490,7 +1446,6 @@ pub extern "C" fn Servo_StyleSheet_Empty(mode: SheetParsingMode) -> Strong<Style
         /* loader = */ None,
         None,
         QuirksMode::NoQuirks,
-        0,
         /* use_counters = */ None,
         AllowImportRules::Yes,
         /* sanitization_data = */ None,
@@ -1509,7 +1464,6 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8Bytes(
     bytes: &nsACString,
     mode: SheetParsingMode,
     extra_data: *mut URLExtraData,
-    line_number_offset: u32,
     quirks_mode: nsCompatibility,
     reusable_sheets: *mut LoaderReusableStyleSheets,
     use_counters: Option<&UseCounters>,
@@ -1553,7 +1507,6 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8Bytes(
         loader,
         reporter.as_ref().map(|r| r as &dyn ParseErrorReporter),
         quirks_mode.into(),
-        line_number_offset,
         use_counters,
         allow_import_rules,
         sanitization_data.as_mut(),
@@ -1574,7 +1527,6 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8BytesAsync(
     extra_data: *mut URLExtraData,
     bytes: &nsACString,
     mode: SheetParsingMode,
-    line_number_offset: u32,
     quirks_mode: nsCompatibility,
     should_record_use_counters: bool,
     allow_import_rules: AllowImportRules,
@@ -1591,7 +1543,6 @@ pub unsafe extern "C" fn Servo_StyleSheet_FromUTF8BytesAsync(
         sheet_bytes,
         mode_to_origin(mode),
         quirks_mode.into(),
-        line_number_offset,
         should_record_use_counters,
         allow_import_rules,
     );
@@ -7828,6 +7779,34 @@ pub extern "C" fn Servo_ParseLengthWithoutStyleContext(
             true
         },
         Err(..) => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_SlowRgbToColorName(r: u8, g: u8, b: u8, result: &mut nsACString) -> bool {
+    let mut candidates = SmallVec::<[&'static str; 5]>::new();
+    for (name, color) in cssparser::all_named_colors() {
+        if color == (r, g, b) {
+            candidates.push(name);
+        }
+    }
+    if candidates.is_empty() {
+        return false;
+    }
+    // DevTools expect the first alphabetically.
+    candidates.sort();
+    result.assign(candidates[0]);
+    true
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_ColorNameToRgb(name: &nsACString, out: &mut structs::nscolor) -> bool {
+    match cssparser::parse_named_color::<specified::Color>(unsafe { name.as_str_unchecked() }) {
+        Ok(specified::Color::Absolute(ref color)) => {
+            *out = style::gecko::values::convert_absolute_color_to_nscolor(&color.color);
+            true
+        },
+        _ => false,
     }
 }
 

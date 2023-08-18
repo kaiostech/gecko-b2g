@@ -840,6 +840,15 @@
   z-index: 4;
 }
 
+.annotationEditorLayer.waiting {
+  content: "";
+  cursor: wait;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .annotationEditorLayer.freeTextEditing {
   cursor: var(--editorFreeText-editing-cursor);
 }
@@ -849,7 +858,7 @@
 }
 
 .annotationEditorLayer
-  :is(.freeTextEditor, .inkEditor, .stampEditor)[draggable="true"] {
+  :is(.freeTextEditor, .inkEditor, .stampEditor).draggable.selectedEditor {
   cursor: move;
 }
 
@@ -936,122 +945,135 @@
   height: auto;
 }
 
-.annotationEditorLayer .stampEditor.loading {
-  aspect-ratio: 1;
-  width: 10%;
-  height: auto;
-  background-color: rgba(128, 128, 128, 0.5);
-  background-image: var(--loading-icon);
-  background-repeat: no-repeat;
-  background-position: 50%;
-  background-size: 16px 16px;
-  transition-property: background-size;
-  transition-delay: var(--loading-icon-delay);
-}
-
 .annotationEditorLayer .stampEditor canvas {
   width: 100%;
   height: 100%;
 }
 
-.annotationEditorLayer .resizers {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  inset: 0;
-}
+.annotationEditorLayer {
+  :is(.freeTextEditor, .inkEditor, .stampEditor) {
+    & > .resizers {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
 
-.annotationEditorLayer .resizers.hidden {
-  display: none;
-}
+      &.hidden {
+        display: none;
+      }
 
-.annotationEditorLayer .resizer {
-  width: var(--resizer-size);
-  height: var(--resizer-size);
-  border-radius: 50%;
-  background: var(--resizer-color);
-  border: var(--focus-outline);
-  position: absolute;
-}
+      & > .resizer {
+        width: var(--resizer-size);
+        height: var(--resizer-size);
+        border-radius: 50%;
+        background: var(--resizer-color);
+        border: var(--focus-outline);
+        position: absolute;
 
-.annotationEditorLayer .resizer.topLeft {
-  cursor: nw-resize;
-  top: var(--resizer-shift);
-  left: var(--resizer-shift);
-}
+        &.topLeft {
+          top: var(--resizer-shift);
+          left: var(--resizer-shift);
+        }
 
-.annotationEditorLayer .resizer.topMiddle {
-  cursor: n-resize;
-  top: var(--resizer-shift);
-  left: calc(50% + var(--resizer-shift));
-}
+        &.topMiddle {
+          top: var(--resizer-shift);
+          left: calc(50% + var(--resizer-shift));
+        }
 
-.annotationEditorLayer .resizer.topRight {
-  cursor: ne-resize;
-  top: var(--resizer-shift);
-  right: var(--resizer-shift);
-}
+        &.topRight {
+          top: var(--resizer-shift);
+          right: var(--resizer-shift);
+        }
 
-.annotationEditorLayer .resizer.middleRight {
-  cursor: e-resize;
-  top: calc(50% + var(--resizer-shift));
-  right: var(--resizer-shift);
-}
+        &.middleRight {
+          top: calc(50% + var(--resizer-shift));
+          right: var(--resizer-shift);
+        }
 
-.annotationEditorLayer .resizer.bottomRight {
-  cursor: se-resize;
-  bottom: var(--resizer-shift);
-  right: var(--resizer-shift);
-}
+        &.bottomRight {
+          bottom: var(--resizer-shift);
+          right: var(--resizer-shift);
+        }
 
-.annotationEditorLayer .resizer.bottomMiddle {
-  cursor: s-resize;
-  bottom: var(--resizer-shift);
-  left: calc(50% + var(--resizer-shift));
-}
+        &.bottomMiddle {
+          bottom: var(--resizer-shift);
+          left: calc(50% + var(--resizer-shift));
+        }
 
-.annotationEditorLayer .resizer.bottomLeft {
-  cursor: sw-resize;
-  bottom: var(--resizer-shift);
-  left: var(--resizer-shift);
-}
+        &.bottomLeft {
+          bottom: var(--resizer-shift);
+          left: var(--resizer-shift);
+        }
 
-.annotationEditorLayer .resizer.middleLeft {
-  cursor: w-resize;
-  top: calc(50% + var(--resizer-shift));
-  left: var(--resizer-shift);
-}
+        &.middleLeft {
+          top: calc(50% + var(--resizer-shift));
+          left: var(--resizer-shift);
+        }
+      }
+    }
+  }
 
-.annotationEditorLayer.resizingTopLeft {
-  cursor: nw-resize;
-}
+  &[data-main-rotation="0"]
+    :is([data-editor-rotation="0"], [data-editor-rotation="180"]),
+  &[data-main-rotation="90"]
+    :is([data-editor-rotation="270"], [data-editor-rotation="90"]),
+  &[data-main-rotation="180"]
+    :is([data-editor-rotation="180"], [data-editor-rotation="0"]),
+  &[data-main-rotation="270"]
+    :is([data-editor-rotation="90"], [data-editor-rotation="270"]) {
+    & > .resizers > .resizer {
+      &.topLeft,
+      &.bottomRight {
+        cursor: nwse-resize;
+      }
 
-.annotationEditorLayer.resizingTopMiddle {
-  cursor: n-resize;
-}
+      &.topMiddle,
+      &.bottomMiddle {
+        cursor: ns-resize;
+      }
 
-.annotationEditorLayer.resizingTopRight {
-  cursor: ne-resize;
-}
+      &.topRight,
+      &.bottomLeft {
+        cursor: nesw-resize;
+      }
 
-.annotationEditorLayer.resizingMiddleRight {
-  cursor: e-resize;
-}
+      &.middleRight,
+      &.middleLeft {
+        cursor: ew-resize;
+      }
+    }
+  }
 
-.annotationEditorLayer.resizingBottomRight {
-  cursor: se-resize;
-}
+  &[data-main-rotation="0"]
+    :is([data-editor-rotation="90"], [data-editor-rotation="270"]),
+  &[data-main-rotation="90"]
+    :is([data-editor-rotation="0"], [data-editor-rotation="180"]),
+  &[data-main-rotation="180"]
+    :is([data-editor-rotation="270"], [data-editor-rotation="90"]),
+  &[data-main-rotation="270"]
+    :is([data-editor-rotation="180"], [data-editor-rotation="0"]) {
+    & > .resizers > .resizer {
+      &.topLeft,
+      &.bottomRight {
+        cursor: nesw-resize;
+      }
 
-.annotationEditorLayer.resizingBottomMiddle {
-  cursor: s-resize;
-}
+      &.topMiddle,
+      &.bottomMiddle {
+        cursor: ew-resize;
+      }
 
-.annotationEditorLayer.resizingBottomLeft {
-  cursor: sw-resize;
-}
+      &.topRight,
+      &.bottomLeft {
+        cursor: nwse-resize;
+      }
 
-.annotationEditorLayer.resizingMiddleLeft {
-  cursor: w-resize;
+      &.middleRight,
+      &.middleLeft {
+        cursor: ns-resize;
+      }
+    }
+  }
 }
 
 :root {
@@ -1122,6 +1144,10 @@
   position: relative;
   width: 0;
   height: var(--viewer-container-height);
+}
+
+.pdfViewer.noUserSelect {
+  user-select: none;
 }
 
 .pdfViewer:is(.scrollHorizontal, .scrollWrapped),

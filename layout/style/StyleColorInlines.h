@@ -16,16 +16,26 @@
 namespace mozilla {
 
 inline StyleAbsoluteColor StyleAbsoluteColor::FromColor(nscolor aColor) {
-  return StyleAbsoluteColor::Srgb(
+  return StyleAbsoluteColor::SrgbLegacy(
       NS_GET_R(aColor) / 255.0f, NS_GET_G(aColor) / 255.0f,
       NS_GET_B(aColor) / 255.0f, NS_GET_A(aColor) / 255.0f);
 }
 
 // static
-inline StyleAbsoluteColor StyleAbsoluteColor::Srgb(float red, float green,
-                                                   float blue, float alpha) {
-  return StyleAbsoluteColor{StyleColorComponents{red, green, blue}, alpha,
-                            StyleColorSpace::Srgb, StyleColorFlags{0}};
+inline StyleAbsoluteColor StyleAbsoluteColor::SrgbLegacy(float red, float green,
+                                                         float blue,
+                                                         float alpha) {
+  const auto ToLegacyComponent = [](float aF) {
+    if (MOZ_UNLIKELY(!std::isfinite(aF))) {
+      return 0.0f;
+    }
+    return aF;
+  };
+
+  return StyleAbsoluteColor{
+      StyleColorComponents{ToLegacyComponent(red), ToLegacyComponent(green),
+                           ToLegacyComponent(blue)},
+      alpha, StyleColorSpace::Srgb, StyleColorFlags::IS_LEGACY_SRGB};
 }
 
 template <>
@@ -33,26 +43,23 @@ inline StyleColor StyleColor::FromColor(nscolor aColor) {
   return StyleColor::Absolute(StyleAbsoluteColor::FromColor(aColor));
 }
 
-// Workaround for window.h conflict.
+template <>
+inline StyleColor StyleColor::Transparent() {
 #pragma push_macro("TRANSPARENT")
 #undef TRANSPARENT
-
-// static
-template <>
-inline const StyleColor StyleColor::TRANSPARENT =
-    StyleColor::Absolute(StyleAbsoluteColor::TRANSPARENT);
-
+  return StyleColor::Absolute(StyleAbsoluteColor::TRANSPARENT);
 #pragma pop_macro("TRANSPARENT")
+}
 
-// static
 template <>
-inline const StyleColor StyleColor::BLACK =
-    StyleColor::Absolute(StyleAbsoluteColor::BLACK);
+inline StyleColor StyleColor::Black() {
+  return StyleColor::Absolute(StyleAbsoluteColor::BLACK);
+}
 
-// static
 template <>
-inline const StyleColor StyleColor::WHITE =
-    StyleColor::Absolute(StyleAbsoluteColor::WHITE);
+inline StyleColor StyleColor::White() {
+  return StyleColor::Absolute(StyleAbsoluteColor::WHITE);
+}
 
 template <>
 StyleAbsoluteColor StyleColor::ResolveColor(const StyleAbsoluteColor&) const;

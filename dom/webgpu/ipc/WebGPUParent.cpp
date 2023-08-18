@@ -306,6 +306,8 @@ ipc::IPCResult WebGPUParent::RecvInstanceRequestAdapter(
   if (aOptions.mPowerPreference.WasPassed()) {
     options.power_preference = static_cast<ffi::WGPUPowerPreference>(
         aOptions.mPowerPreference.Value());
+  } else {
+    options.power_preference = ffi::WGPUPowerPreference_LowPower;
   }
   options.force_fallback_adapter = aOptions.mForceFallbackAdapter;
 
@@ -383,22 +385,31 @@ ipc::IPCResult WebGPUParent::RecvCreateBuffer(
 
   bool hasMapFlags = aDesc.mUsage & (dom::GPUBufferUsage_Binding::MAP_WRITE |
                                      dom::GPUBufferUsage_Binding::MAP_READ);
+  bool shmAllocationFailed = false;
   if (hasMapFlags || aDesc.mMappedAtCreation) {
-    uint64_t offset = 0;
-    uint64_t size = 0;
-    if (aDesc.mMappedAtCreation) {
-      size = aDesc.mSize;
-      MOZ_RELEASE_ASSERT(shmem.Size() >= aDesc.mSize);
-    }
+    if (shmem.Size() < aDesc.mSize) {
+      MOZ_RELEASE_ASSERT(shmem.Size() == 0);
+      // If we requested a non-zero mappable buffer and get a size of zero, it
+      // indicates that the shmem allocation failed on the client side.
+      shmAllocationFailed = true;
+    } else {
+      uint64_t offset = 0;
+      uint64_t size = 0;
 
-    BufferMapData data = {std::move(shmem), hasMapFlags, offset, size};
-    mSharedMemoryMap.insert({aBufferId, std::move(data)});
+      if (aDesc.mMappedAtCreation) {
+        size = aDesc.mSize;
+      }
+
+      BufferMapData data = {std::move(shmem), hasMapFlags, offset, size};
+      mSharedMemoryMap.insert({aBufferId, std::move(data)});
+    }
   }
 
   ErrorBuffer error;
   ffi::wgpu_server_device_create_buffer(mContext.get(), aDeviceId, aBufferId,
                                         label.Get(), aDesc.mSize, aDesc.mUsage,
-                                        aDesc.mMappedAtCreation, error.ToFFI());
+                                        aDesc.mMappedAtCreation,
+                                        shmAllocationFailed, error.ToFFI());
   ForwardError(aDeviceId, error);
   return IPC_OK();
 }
@@ -650,6 +661,31 @@ ipc::IPCResult WebGPUParent::RecvQueueSubmit(
                                 aCommandBuffers.Elements(),
                                 aCommandBuffers.Length(), error.ToFFI());
   ForwardError(aDeviceId, error);
+  return IPC_OK();
+}
+
+struct OnSubmittedWorkDoneRequest {
+  RefPtr<WebGPUParent> mParent;
+  WebGPUParent::QueueOnSubmittedWorkDoneResolver mResolver;
+};
+
+void OnSubmittedWorkDoneCallback(uint8_t* userdata) {
+  auto req = std::unique_ptr<OnSubmittedWorkDoneRequest>(
+      reinterpret_cast<OnSubmittedWorkDoneRequest*>(userdata));
+  if (req->mParent->CanSend()) {
+    req->mResolver(void_t());
+  }
+}
+
+ipc::IPCResult WebGPUParent::RecvQueueOnSubmittedWorkDone(
+    RawId aQueueId, std::function<void(mozilla::void_t)>&& aResolver) {
+  std::unique_ptr<OnSubmittedWorkDoneRequest> request(
+      new OnSubmittedWorkDoneRequest{this, std::move(aResolver)});
+
+  ffi::WGPUSubmittedWorkDoneClosureC callback = {
+      &OnSubmittedWorkDoneCallback,
+      reinterpret_cast<uint8_t*>(request.release())};
+  ffi::wgpu_server_on_submitted_work_done(mContext.get(), aQueueId, callback);
   return IPC_OK();
 }
 
@@ -933,7 +969,7 @@ ipc::IPCResult WebGPUParent::RecvSwapChainPresent(
       ErrorBuffer error;
       ffi::wgpu_server_device_create_buffer(mContext.get(), data->mDeviceId,
                                             bufferId, nullptr, bufferSize,
-                                            usage, false, error.ToFFI());
+                                            usage, false, false, error.ToFFI());
       if (ForwardError(data->mDeviceId, error)) {
         return IPC_OK();
       }

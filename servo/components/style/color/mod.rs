@@ -18,6 +18,7 @@ pub struct ColorComponents(pub f32, pub f32, pub f32);
 
 impl ColorComponents {
     /// Apply a function to each of the 3 components of the color.
+    #[must_use]
     pub fn map(self, f: impl Fn(f32) -> f32) -> Self {
         Self(f(self.0), f(self.1), f(self.2))
     }
@@ -110,6 +111,26 @@ impl ColorSpace {
         matches!(self, Self::Hsl | Self::Hwb | Self::Lch | Self::Oklch)
     }
 
+    /// Returns true if the color has RGB components.
+    #[inline]
+    pub fn is_rgb_like(&self) -> bool {
+        matches!(
+            self,
+            Self::Srgb |
+                Self::SrgbLinear |
+                Self::DisplayP3 |
+                Self::A98Rgb |
+                Self::ProphotoRgb |
+                Self::Rec2020
+        )
+    }
+
+    /// Returns true if the color has RGB components.
+    #[inline]
+    pub fn is_xyz_like(&self) -> bool {
+        matches!(self, Self::XyzD50 | Self::XyzD65)
+    }
+
     /// Returns an index of the hue component in the color space, otherwise
     /// `None`.
     #[inline]
@@ -131,9 +152,9 @@ bitflags! {
     #[derive(Clone, Copy, Default, MallocSizeOf, PartialEq, ToShmem)]
     #[repr(C)]
     pub struct ColorFlags : u8 {
-        /// If set, serializes sRGB colors into `color(srgb ...)` instead of
-        /// `rgba(...)`.
-        const AS_COLOR_FUNCTION = 1 << 0;
+        /// Marks that this color is in the legacy color format. This flag is
+        /// only valid for the `Srgb` color space.
+        const IS_LEGACY_SRGB = 1 << 0;
         /// Whether the 1st color component is `none`.
         const C1_IS_NONE = 1 << 1;
         /// Whether the 2nd color component is `none`.
@@ -230,7 +251,7 @@ impl AbsoluteColor {
         components: ColorComponents(0.0, 0.0, 0.0),
         alpha: 0.0,
         color_space: ColorSpace::Srgb,
-        flags: ColorFlags { bits: 0 }, // cbindgen does not like ColorFlags::empty().
+        flags: ColorFlags::IS_LEGACY_SRGB,
     };
 
     /// An opaque black color in the legacy syntax.
@@ -238,7 +259,7 @@ impl AbsoluteColor {
         components: ColorComponents(0.0, 0.0, 0.0),
         alpha: 1.0,
         color_space: ColorSpace::Srgb,
-        flags: ColorFlags { bits: 0 }, // cbindgen does not like ColorFlags::empty().
+        flags: ColorFlags::IS_LEGACY_SRGB,
     };
 
     /// An opaque white color in the legacy syntax.
@@ -246,7 +267,7 @@ impl AbsoluteColor {
         components: ColorComponents(1.0, 1.0, 1.0),
         alpha: 1.0,
         color_space: ColorSpace::Srgb,
-        flags: ColorFlags { bits: 0 }, // cbindgen does not like ColorFlags::empty().
+        flags: ColorFlags::IS_LEGACY_SRGB,
     };
 
     /// Create a new [`AbsoluteColor`] with the given [`ColorSpace`] and
@@ -276,12 +297,16 @@ impl AbsoluteColor {
             cd!(c3, ColorFlags::C3_IS_NONE),
         );
 
-        // Lightness must not be less than 0.
-        if matches!(
-            color_space,
-            ColorSpace::Lab | ColorSpace::Lch | ColorSpace::Oklab | ColorSpace::Oklch
-        ) {
-            components.0 = components.0.max(0.0);
+        let alpha = cd!(alpha, ColorFlags::ALPHA_IS_NONE);
+
+        // Lightness for Lab and Lch is clamped to [0..100].
+        if matches!(color_space, ColorSpace::Lab | ColorSpace::Lch) {
+            components.0 = components.0.clamp(0.0, 100.0);
+        }
+
+        // Lightness for Oklab and Oklch is clamped to [0..1].
+        if matches!(color_space, ColorSpace::Oklab | ColorSpace::Oklch) {
+            components.0 = components.0.clamp(0.0, 1.0);
         }
 
         // Chroma must not be less than 0.
@@ -289,26 +314,40 @@ impl AbsoluteColor {
             components.1 = components.1.max(0.0);
         }
 
-        let alpha = cd!(alpha, ColorFlags::ALPHA_IS_NONE);
+        // Alpha is always clamped to [0..1].
+        let alpha = alpha.clamp(0.0, 1.0);
 
         Self {
             components,
-            alpha: alpha.clamp(0.0, 1.0),
+            alpha,
             color_space,
             flags,
         }
     }
 
-    /// Convert this color to the modern color syntax.
+    /// Convert this color into the sRGB color space and set it to the legacy
+    /// syntax.
     #[inline]
-    pub fn into_modern_syntax(mut self) -> Self {
-        self.flags |= ColorFlags::AS_COLOR_FUNCTION;
-        self
+    #[must_use]
+    pub fn into_srgb_legacy(self) -> Self {
+        let mut result = if !matches!(self.color_space, ColorSpace::Srgb) {
+            self.to_color_space(ColorSpace::Srgb)
+        } else {
+            self
+        };
+
+        // Explicitly set the flags to IS_LEGACY_SRGB only to clear out the
+        // *_IS_NONE flags, because the legacy syntax doesn't allow "none".
+        result.flags = ColorFlags::IS_LEGACY_SRGB;
+
+        result
     }
 
-    /// Create a new [`AbsoluteColor`] from rgba values in the sRGB color space.
-    pub fn srgb(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self::new(ColorSpace::Srgb, red, green, blue, alpha)
+    /// Create a new [`AbsoluteColor`] from rgba legacy syntax values in the sRGB color space.
+    pub fn srgb_legacy(red: u8, green: u8, blue: u8, alpha: f32) -> Self {
+        let mut result = Self::new(ColorSpace::Srgb, red, green, blue, alpha);
+        result.flags = ColorFlags::IS_LEGACY_SRGB;
+        result
     }
 
     /// Return all the components of the color in an array.  (Includes alpha)
@@ -322,7 +361,7 @@ impl AbsoluteColor {
     pub fn is_legacy_syntax(&self) -> bool {
         // rgb(), rgba(), hsl(), hsla(), hwb(), hwba()
         match self.color_space {
-            ColorSpace::Srgb => !self.flags.contains(ColorFlags::AS_COLOR_FUNCTION),
+            ColorSpace::Srgb => self.flags.contains(ColorFlags::IS_LEGACY_SRGB),
             ColorSpace::Hsl | ColorSpace::Hwb => true,
             _ => false,
         }
@@ -453,17 +492,14 @@ impl ToCss for AbsoluteColor {
         let maybe_alpha = value_or_none!(self.alpha, ALPHA_IS_NONE);
 
         match self.color_space {
-            ColorSpace::Hsl => self.to_color_space(ColorSpace::Srgb).to_css(dest),
-
-            ColorSpace::Hwb => self.to_color_space(ColorSpace::Srgb).to_css(dest),
-
-            ColorSpace::Srgb if !self.flags.contains(ColorFlags::AS_COLOR_FUNCTION) => {
+            ColorSpace::Srgb if self.flags.contains(ColorFlags::IS_LEGACY_SRGB) => {
                 // The "none" keyword is not supported in the rgb/rgba legacy syntax.
                 cssparser::ToCss::to_css(
                     &cssparser::RgbaLegacy::from_floats(self.components.0, self.components.1, self.components.2, self.alpha),
                     dest,
                 )
             },
+            ColorSpace::Hsl | ColorSpace::Hwb => self.into_srgb_legacy().to_css(dest),
             ColorSpace::Lab => cssparser::ToCss::to_css(
                 &cssparser::Lab::new(maybe_c1, maybe_c2, maybe_c3, maybe_alpha),
                 dest,
@@ -484,10 +520,9 @@ impl ToCss for AbsoluteColor {
                 let color_space = match self.color_space {
                     ColorSpace::Srgb => {
                         debug_assert!(
-                            self.flags.contains(ColorFlags::AS_COLOR_FUNCTION),
-                             "The case without this flag should be handled in the wrapping match case!!"
-                          );
-
+                            !self.flags.contains(ColorFlags::IS_LEGACY_SRGB),
+                            "legacy srgb is not a color function"
+                        );
                         cssparser::PredefinedColorSpace::Srgb
                     },
                     ColorSpace::SrgbLinear => cssparser::PredefinedColorSpace::SrgbLinear,

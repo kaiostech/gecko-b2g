@@ -18,6 +18,8 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/FragmentOrElement.h"
 #include "mozilla/dom/HTMLLinkElement.h"
+#include "mozilla/dom/HTMLStyleElement.h"
+#include "mozilla/dom/SVGStyleElement.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/dom/SRILogHelper.h"
 #include "mozilla/Preferences.h"
@@ -63,9 +65,7 @@ LinkStyle::SheetInfo::SheetInfo(
 }
 
 LinkStyle::SheetInfo::~SheetInfo() = default;
-
-LinkStyle::LinkStyle()
-    : mUpdatesEnabled(true), mLineNumber(1), mColumnNumber(1) {}
+LinkStyle::LinkStyle() = default;
 
 LinkStyle::~LinkStyle() { LinkStyle::SetStyleSheet(nullptr); }
 
@@ -185,16 +185,40 @@ uint32_t LinkStyle::ParseLinkTypes(const nsAString& aTypes) {
   return linkMask;
 }
 
-Result<LinkStyle::Update, nsresult> LinkStyle::UpdateStyleSheet(
-    nsICSSLoaderObserver* aObserver) {
-  return DoUpdateStyleSheet(nullptr, nullptr, aObserver, ForceUpdate::No);
-}
-
 Result<LinkStyle::Update, nsresult> LinkStyle::UpdateStyleSheetInternal(
     Document* aOldDocument, ShadowRoot* aOldShadowRoot,
     ForceUpdate aForceUpdate) {
   return DoUpdateStyleSheet(aOldDocument, aOldShadowRoot, nullptr,
                             aForceUpdate);
+}
+
+LinkStyle* LinkStyle::FromNode(Element& aElement) {
+  nsAtom* name = aElement.NodeInfo()->NameAtom();
+  if (name == nsGkAtoms::link) {
+    MOZ_ASSERT(aElement.IsHTMLElement() == !!aElement.AsLinkStyle());
+    return aElement.IsHTMLElement() ? static_cast<HTMLLinkElement*>(&aElement)
+                                    : nullptr;
+  }
+  if (name == nsGkAtoms::style) {
+    if (aElement.IsHTMLElement()) {
+      MOZ_ASSERT(aElement.AsLinkStyle());
+      return static_cast<HTMLStyleElement*>(&aElement);
+    }
+    if (aElement.IsSVGElement()) {
+      MOZ_ASSERT(aElement.AsLinkStyle());
+      return static_cast<SVGStyleElement*>(&aElement);
+    }
+  }
+  MOZ_ASSERT(!aElement.AsLinkStyle());
+  return nullptr;
+}
+
+void LinkStyle::BindToTree() {
+  if (mUpdatesEnabled) {
+    nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
+        "LinkStyle::BindToTree",
+        [this, pin = RefPtr{&AsContent()}] { UpdateStyleSheetInternal(); }));
+  }
 }
 
 Result<LinkStyle::Update, nsresult> LinkStyle::DoUpdateStyleSheet(
@@ -299,8 +323,7 @@ Result<LinkStyle::Update, nsresult> LinkStyle::DoUpdateStyleSheet(
     }
 
     // Parse the style sheet.
-    return doc->CSSLoader()->LoadInlineStyle(*info, text, mLineNumber,
-                                             aObserver);
+    return doc->CSSLoader()->LoadInlineStyle(*info, text, aObserver);
   }
   if (thisContent.IsElement()) {
     nsAutoString integrity;

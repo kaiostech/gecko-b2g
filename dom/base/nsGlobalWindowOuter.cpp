@@ -5140,7 +5140,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
       }
     }
 
-    AutoPrintEventDispatcher dispatcher(*docToPrint, ps, /* aIsTop = */ true);
+    AutoPrintEventDispatcher dispatcher(*docToPrint);
 
     nsAutoScriptBlocker blockScripts;
     RefPtr<Document> clone = docToPrint->CreateStaticClone(
@@ -6308,8 +6308,7 @@ class CommandDispatcher : public Runnable {
 };
 }  // anonymous namespace
 
-void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction,
-                                         Selection* aSel, int16_t aReason) {
+void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction) {
   // If this is a child process, redirect to the parent process.
   if (nsIDocShell* docShell = GetDocShell()) {
     if (nsCOMPtr<nsIBrowserChild> child = docShell->GetBrowserChild()) {
@@ -6332,16 +6331,13 @@ void nsGlobalWindowOuter::UpdateCommands(const nsAString& anAction,
   if (!doc) {
     return;
   }
-  // selectionchange action is only used for mozbrowser, not for XUL. So we
-  // bypass XUL command dispatch if anAction is "selectionchange".
-  if (!anAction.EqualsLiteral("selectionchange")) {
-    // Retrieve the command dispatcher and call updateCommands on it.
-    nsIDOMXULCommandDispatcher* xulCommandDispatcher =
-        doc->GetCommandDispatcher();
-    if (xulCommandDispatcher) {
-      nsContentUtils::AddScriptRunner(
-          new CommandDispatcher(xulCommandDispatcher, anAction));
-    }
+
+  // Retrieve the command dispatcher and call updateCommands on it.
+  nsIDOMXULCommandDispatcher* xulCommandDispatcher =
+      doc->GetCommandDispatcher();
+  if (xulCommandDispatcher) {
+    nsContentUtils::AddScriptRunner(
+        new CommandDispatcher(xulCommandDispatcher, anAction));
   }
 }
 

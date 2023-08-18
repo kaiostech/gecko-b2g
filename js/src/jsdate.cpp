@@ -55,7 +55,6 @@
 #include "vm/JSObject.h"
 #include "vm/StringType.h"
 #include "vm/Time.h"
-#include "vm/WellKnownAtom.h"  // js_*_str
 
 #include "vm/Compartment-inl.h"  // For js::UnwrapAndTypeCheckThis
 #include "vm/GeckoProfiler-inl.h"
@@ -2841,7 +2840,7 @@ static bool date_toUTCString(JSContext* cx, unsigned argc, Value* vp) {
 
   double utctime = unwrapped->UTCTime().toNumber();
   if (!std::isfinite(utctime)) {
-    args.rval().setString(cx->names().InvalidDate);
+    args.rval().setString(cx->names().Invalid_Date_);
     return true;
   }
 
@@ -2971,7 +2970,7 @@ JSString* DateTimeHelper::timeZoneComment(JSContext* cx,
   // Reject if the result string is empty.
   size_t len = js_strlen(timeZoneStart);
   if (len == 0) {
-    return cx->names().empty;
+    return cx->names().empty_;
   }
 
   // Parenthesize the returned display name.
@@ -3049,7 +3048,7 @@ JSString* DateTimeHelper::timeZoneComment(JSContext* cx,
     }
   }
 
-  return cx->names().empty;
+  return cx->names().empty_;
 }
 #endif /* JS_HAS_INTL_API */
 
@@ -3059,7 +3058,7 @@ static bool FormatDate(JSContext* cx, DateTimeInfo::ForceUTC forceUTC,
                        double utcTime, FormatSpec format,
                        MutableHandleValue rval) {
   if (!std::isfinite(utcTime)) {
-    rval.setString(cx->names().InvalidDate);
+    rval.setString(cx->names().Invalid_Date_);
     return true;
   }
 
@@ -3148,7 +3147,7 @@ static bool ToLocaleFormatHelper(JSContext* cx, DateTimeInfo::ForceUTC forceUTC,
                                  MutableHandleValue rval) {
   char buf[100];
   if (!std::isfinite(utcTime)) {
-    strcpy(buf, js_InvalidDate_str);
+    strcpy(buf, "InvalidDate");
   } else {
     double localTime = LocalTime(forceUTC, utcTime);
 
@@ -3445,21 +3444,21 @@ static const JSFunctionSpec date_methods[] = {
     JS_FN("toTemporalInstant", date_toTemporalInstant, 0, 0),
 #endif
 #if JS_HAS_INTL_API
-    JS_SELF_HOSTED_FN(js_toLocaleString_str, "Date_toLocaleString", 0, 0),
+    JS_SELF_HOSTED_FN("toLocaleString", "Date_toLocaleString", 0, 0),
     JS_SELF_HOSTED_FN("toLocaleDateString", "Date_toLocaleDateString", 0, 0),
     JS_SELF_HOSTED_FN("toLocaleTimeString", "Date_toLocaleTimeString", 0, 0),
 #else
-    JS_FN(js_toLocaleString_str, date_toLocaleString, 0, 0),
+    JS_FN("toLocaleString", date_toLocaleString, 0, 0),
     JS_FN("toLocaleDateString", date_toLocaleDateString, 0, 0),
     JS_FN("toLocaleTimeString", date_toLocaleTimeString, 0, 0),
 #endif
     JS_FN("toDateString", date_toDateString, 0, 0),
     JS_FN("toTimeString", date_toTimeString, 0, 0),
     JS_FN("toISOString", date_toISOString, 0, 0),
-    JS_FN(js_toJSON_str, date_toJSON, 1, 0),
-    JS_FN(js_toSource_str, date_toSource, 0, 0),
-    JS_FN(js_toString_str, date_toString, 0, 0),
-    JS_FN(js_valueOf_str, date_valueOf, 0, 0),
+    JS_FN("toJSON", date_toJSON, 1, 0),
+    JS_FN("toSource", date_toSource, 0, 0),
+    JS_FN("toString", date_toString, 0, 0),
+    JS_FN("valueOf", date_valueOf, 0, 0),
     JS_SYM_FN(toPrimitive, date_toPrimitive, 1, JSPROP_READONLY),
     JS_FS_END};
 
@@ -3673,7 +3672,7 @@ static const ClassSpec DateObjectClassSpec = {
     nullptr,
     FinishDateClassInit};
 
-const JSClass DateObject::class_ = {js_Date_str,
+const JSClass DateObject::class_ = {"Date",
                                     JSCLASS_HAS_RESERVED_SLOTS(RESERVED_SLOTS) |
                                         JSCLASS_HAS_CACHED_PROTO(JSProto_Date),
                                     JS_NULL_CLASS_OPS, &DateObjectClassSpec};

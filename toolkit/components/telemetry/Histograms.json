@@ -3237,6 +3237,45 @@
     "keyed": true,
     "description": "The upload bandwidth for requests larger than 10MB. Measured in megabits per second, Mbps. Keyed by HTTP protocol version."
   },
+  "NETWORKING_HTTP_1_DOWNLOAD_THROUGHPUT": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "acreskey@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 10000,
+    "n_buckets": 100,
+    "bug_numbers": [1846798],
+    "keyed": true,
+    "description": "The download throughput for http/1.1 requests larger than 10MB. Measured in megabits per second, Mbps."
+  },
+  "NETWORKING_HTTP_2_DOWNLOAD_THROUGHPUT": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "acreskey@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 10000,
+    "n_buckets": 100,
+    "bug_numbers": [1846798],
+    "keyed": true,
+    "description": "The download throughput for http/2 requests larger than 10MB. Measured in megabits per second, Mbps."
+  },
+  "NETWORKING_HTTP_3_DOWNLOAD_THROUGHPUT": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "acreskey@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 10000,
+    "n_buckets": 100,
+    "bug_numbers": [1846798],
+    "keyed": true,
+    "description": "The download throughput for http/3 requests larger than 10MB. Measured in megabits per second, Mbps."
+  },
   "NETWORK_RACE_CACHE_WITH_NETWORK_USAGE_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -6817,34 +6856,6 @@
     "n_values": 16,
     "bug_numbers": [1351147],
     "description": "Server HTTP status code from Safe Browsing ThreatHit report. (0=1xx, 1=200, 2=2xx, 3=204, 4=3xx, 5=400, 6=4xx, 7=403, 8=404, 9=408, 10=413, 11=5xx, 12=502|504|511, 13=503, 14=505, 15=Other)"
-  },
-
-  "CSP_DOCUMENTS_COUNT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["seceng-telemetry@mozilla.com"],
-    "bug_numbers": [1252829],
-    "expires_in_version": "65",
-    "kind": "count",
-    "description": "Number of unique pages that contain a CSP"
-  },
-  "CSP_UNSAFE_INLINE_DOCUMENTS_COUNT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["seceng-telemetry@mozilla.com"],
-    "bug_numbers": [1252829],
-    "expires_in_version": "65",
-    "kind": "count",
-    "description": "Number of unique pages that contain an unsafe-inline CSP directive"
-  },
-  "CSP_UNSAFE_EVAL_DOCUMENTS_COUNT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["seceng-telemetry@mozilla.com"],
-    "bug_numbers": [1252829],
-    "expires_in_version": "65",
-    "kind": "count",
-    "description": "Number of unique pages that contain an unsafe-eval CSP directive"
   },
   "HTTPS_ONLY_MODE_UPGRADE_TIME_MS": {
     "record_in_processes": ["main"],
@@ -13479,33 +13490,6 @@
     "kind": "boolean",
     "description": "Is OCSP required when the cert has an OCSP URI? (pref security.OCSP.require)"
   },
-  "OSFILE_WORKER_LAUNCH_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "thunderbird"],
-    "expires_in_version": "default",
-    "kind": "exponential",
-    "description": "The duration between the instant the first message is sent to OS.File and the moment the OS.File worker starts executing JavaScript, in milliseconds",
-    "high": 5000,
-    "n_buckets": 10
-  },
-  "OSFILE_WORKER_READY_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "thunderbird"],
-    "expires_in_version": "default",
-    "kind": "exponential",
-    "description": "The duration between the instant the first message is sent to OS.File and the moment the OS.File worker has finished executing its startup JavaScript and is ready to receive requests, in milliseconds",
-    "high": 5000,
-    "n_buckets": 10
-  },
-  "OSFILE_WRITEATOMIC_JANK_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "thunderbird"],
-    "expires_in_version": "default",
-    "kind": "exponential",
-    "description": "The duration during which the main thread is blocked during a call to OS.File.writeAtomic, in milliseconds",
-    "high": 5000,
-    "n_buckets": 10
-  },
   "CERT_EV_STATUS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -14455,10 +14439,11 @@
     "products": ["firefox", "geckoview_streaming"],
     "record_in_processes": ["main", "content"],
     "alert_emails": ["media-alerts@mozilla.com"],
-    "bug_numbers": [1699249],
+    "bug_numbers": [1699249, 1848211],
     "expires_in_version": "never",
     "kind": "categorical",
     "labels": [
+      "VideoHevc",
       "VideoWebm",
       "AudioWebm",
       "VideoMp4",
@@ -16883,19 +16868,6 @@
     "n_values": 20,
     "description": "Cumulative no. bookmark of searches performed before selecting a link."
   },
-  "NOTIFY_OBSERVERS_LATENCY_MS": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["nika@thelayzells.com"],
-    "bug_numbers": [1368524],
-    "expires_in_version": "70",
-    "kind": "exponential",
-    "low": 3,
-    "high": 512,
-    "n_buckets": 20,
-    "keyed": true,
-    "description": "Measures the number of milliseconds we spend synchronously notifying observers, keyed by topic. Note: only NotifyObservers calls which take over 500 microseconds are included in this probe."
-  },
   "HOVER_UNTIL_UNSELECTED_TAB_OPENED": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
@@ -17463,19 +17435,6 @@
     "n_buckets": 100,
     "keyed": true,
     "description": "How many milliseconds it took before 100 wakeups for the thread was done because of new Runnables."
-  },
-  "REFRESH_DRIVER_TICK_PHASE_WEIGHT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["layout-telemetry-alerts@mozilla.com"],
-    "bug_numbers": [1568107, 1616147],
-    "expires_in_version": "82",
-    "keyed": true,
-    "keys": ["Event", "Style", "Reflow", "Display", "Paint", "Other"],
-    "kind": "linear",
-    "high": 100,
-    "n_buckets": 12,
-    "description": "Percentages of times for phases in an expensive refresh tick relative to the time spent in the entire tick (REFRESH_DRIVER_TICK)."
   },
   "PRESSHELL_REQS_PER_STYLE_FLUSH": {
     "record_in_processes": ["main", "content"],

@@ -12,6 +12,9 @@ menu-tools-firefox-view =
 
 firefoxview-page-title = { -firefoxview-brand-name }
 
+firefoxview-page-label =
+  .label = { -firefoxview-brand-name }
+
 firefoxview-close-button =
   .title = Close
   .aria-label = Close
@@ -175,6 +178,11 @@ firefoxview-show-less = Show less
 firefoxview-sort-history-by-date-label = Sort by date
 firefoxview-sort-history-by-site-label = Sort by site
 
+# Variables:
+#   $url (string) - URL that will be opened in the new tab
+firefoxview-opentabs-tab-row =
+  .title = Switch to { $url }
+
 ## Variables:
 ##   $date (string) - Date to be formatted based on locale
 
@@ -230,4 +238,6 @@ firefoxview-recentlyclosed-empty-header = Closed a tab too soon?
 firefoxview-recentlyclosed-empty-description = Here you’ll find the tabs you recently closed, so you can reopen any of them quickly.
 firefoxview-recentlyclosed-empty-description-two = To find tabs from longer ago, view your <a data-l10n-name="history-url">browsing history</a>.
 
-##
+## This message is displayed below the name of another connected device when it doesn't have any open tabs.
+
+firefoxview-syncedtabs-device-notabs = No tabs open on this device

@@ -10,6 +10,12 @@ any specification:
   mostly used for Tor browser's "high security" mode, see
   [bug 1173199](https://bugzilla.mozilla.org/1173199).
 
+- `fonts`: font-related tests, such as OpenType features not handled yet in
+  MathML Core or other Gecko-specific behavior.
+
+- `mathml-console-messages.html`: Tests for Gecko-specific console warning and
+  error messages triggered by MathML markup.
+
 - `mathspaces_names`: Tests for
   [MathML3 namedspaces](https://www.w3.org/TR/MathML3/chapter2.html#type.namedspace)
   which are removed from MathML Core. See
@@ -29,3 +35,8 @@ any specification:
    [table features](https://www.w3.org/TR/MathML3/chapter3.html#presm.tabmat)
    that are in the initial version of MathML Core.
    See [issue 125](https://github.com/w3c/mathml-core/issues/125).
+
+- `whitespace-trimming`: Tests for
+   [whitespace trimming in token elements](https://www.w3.org/TR/MathML3/chapter2.html#fund.collapse)
+   which is not described in the initial version of MathML Core.
+   See [issue 149](https://github.com/w3c/mathml-core/issues/149).

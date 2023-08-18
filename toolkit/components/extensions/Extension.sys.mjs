@@ -144,14 +144,12 @@ XPCOMUtils.defineLazyPreferenceGetter(
 // - false      = remove: always use false, even when true is specified.
 //                (if .same_as_mv2 is set, also warn if the default changed)
 // Deprecation plan: https://bugzilla.mozilla.org/show_bug.cgi?id=1827910#c1
-// Bug 1830711 will set browser_style_mv3.supported to false.
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "browserStyleMV3supported",
   "extensions.browser_style_mv3.supported",
   false
 );
-// Bug 1830711 will then set browser_style_mv3.supported to false.
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "browserStyleMV3sameAsMV2",
@@ -2877,10 +2875,7 @@ export class Extension extends ExtensionData {
 
   get backgroundContext() {
     for (let view of this.views) {
-      if (
-        view.viewType === "background" ||
-        view.viewType === "background_worker"
-      ) {
+      if (view.isBackgroundContext) {
         return view;
       }
     }

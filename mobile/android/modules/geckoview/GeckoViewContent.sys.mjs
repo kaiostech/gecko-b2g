@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { GeckoViewModule } from "resource://gre/modules/GeckoViewModule.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -21,6 +22,7 @@ export class GeckoViewContent extends GeckoViewModule {
       "GeckoView:RestoreState",
       "GeckoView:ContainsFormData",
       "GeckoView:RequestAnalysis",
+      "GeckoView:RequestRecommendations",
       "GeckoView:ScrollBy",
       "GeckoView:ScrollTo",
       "GeckoView:SetActive",
@@ -194,6 +196,9 @@ export class GeckoViewContent extends GeckoViewModule {
       case "GeckoView:RequestAnalysis":
         this._requestAnalysis(aData, aCallback);
         break;
+      case "GeckoView:RequestRecommendations":
+        this._requestRecommendations(aData, aCallback);
+        break;
       case "GeckoView:IsPdfJs":
         aCallback.onSuccess(this.isPdfJs);
         break;
@@ -311,6 +316,10 @@ export class GeckoViewContent extends GeckoViewModule {
   }
 
   async _requestAnalysis(aData, aCallback) {
+    if (!AppConstants.NIGHTLY_BUILD) {
+      aCallback.onError(`This API enabled for Nightly builds only.`);
+      return;
+    }
     const url = Services.io.newURI(aData.url);
     if (!lazy.isProductURL(url)) {
       aCallback.onError(`Cannot requestAnalysis on a non-product url.`);
@@ -319,12 +328,28 @@ export class GeckoViewContent extends GeckoViewModule {
       const analysis = await product.requestAnalysis();
       if (!analysis) {
         aCallback.onError(`Product analysis returned null.`);
+        return;
       }
-      var sanitizedGrade = analysis.grade?.toUpperCase();
-      if (!["A", "B", "C", "D", "E"].includes(sanitizedGrade)) {
-        sanitizedGrade = null;
+      aCallback.onSuccess({ analysis });
+    }
+  }
+
+  async _requestRecommendations(aData, aCallback) {
+    if (!AppConstants.NIGHTLY_BUILD) {
+      aCallback.onError(`This API enabled for Nightly builds only.`);
+      return;
+    }
+    const url = Services.io.newURI(aData.url);
+    if (!lazy.isProductURL(url)) {
+      aCallback.onError(`Cannot requestRecommendations on a non-product url.`);
+    } else {
+      const product = new lazy.ShoppingProduct(url);
+      const recommendations = await product.requestRecommendations();
+      if (!recommendations) {
+        aCallback.onError(`Product recommendations returned null.`);
+        return;
       }
-      aCallback.onSuccess({ analysis: { ...analysis, grade: sanitizedGrade } });
+      aCallback.onSuccess({ recommendations });
     }
   }
 

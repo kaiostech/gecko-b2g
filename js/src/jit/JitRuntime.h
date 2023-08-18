@@ -46,7 +46,6 @@ class GCMarker;
 namespace jit {
 
 class FrameSizeClass;
-class JitRealm;
 class Label;
 class MacroAssembler;
 struct VMFunctionData;
@@ -121,8 +120,6 @@ class PerfSpewerRangeRecorder;
 
 class JitRuntime {
  private:
-  friend class JitRealm;
-
   MainThreadData<uint64_t> nextCompilationId_{0};
 
   // Buffer for OSR from baseline to Ion. To avoid holding on to this for too
@@ -157,6 +154,7 @@ class JitRuntime {
   WriteOnceData<uint32_t> stringPreBarrierOffset_{0};
   WriteOnceData<uint32_t> objectPreBarrierOffset_{0};
   WriteOnceData<uint32_t> shapePreBarrierOffset_{0};
+  WriteOnceData<uint32_t> wasmAnyRefPreBarrierOffset_{0};
 
   // Thunk to call malloc/free.
   WriteOnceData<uint32_t> freeStubOffset_{0};
@@ -386,6 +384,8 @@ class JitRuntime {
         return trampolineCode(objectPreBarrierOffset_);
       case MIRType::Shape:
         return trampolineCode(shapePreBarrierOffset_);
+      case MIRType::WasmAnyRef:
+        return trampolineCode(wasmAnyRefPreBarrierOffset_);
       default:
         MOZ_CRASH();
     }

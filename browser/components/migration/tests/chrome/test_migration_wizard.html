@@ -974,7 +974,7 @@
           ".cancel-close button should be visible in dialog mode."
         );
         let closeEvent = BrowserTestUtils.waitForEvent(gWiz, "MigrationWizard:Close");
-        synthesizeMouseAtCenter(button, {});
+        button.click();
         await closeEvent;
 
         gWiz.toggleAttribute("dialog-mode", false);
@@ -1365,6 +1365,64 @@
         ok(isHidden(errorMessageContainer), "Error message should be hidden.");
         errorText = gShadowRoot.querySelector("#file-import-error-message").textContent;
         is(errorText, "");
+      });
+
+      /**
+       * Tests that the variant of the wizard can be forced via
+       * attributes on the migration-wizard element.
+       */
+      add_task(async function force_show_import_all() {
+        gWiz.setState({
+          page: MigrationWizardConstants.PAGES.SELECTION,
+          migrators: MIGRATOR_PROFILE_INSTANCES,
+          showImportAll: true,
+        });
+
+        let selectionPage = gShadowRoot.querySelector("div[name='page-selection']");
+        let details = gShadowRoot.querySelector("details");
+        ok(
+          selectionPage.hasAttribute("show-import-all"),
+          "Should be paying attention to showImportAll=true on state object"
+        );
+        ok(!details.open, "Details collapsed by default");
+
+        gWiz.setState({
+          page: MigrationWizardConstants.PAGES.SELECTION,
+          migrators: MIGRATOR_PROFILE_INSTANCES,
+          showImportAll: false,
+        });
+
+        ok(
+          !selectionPage.hasAttribute("show-import-all"),
+          "Should be paying attention to showImportAll=false on state object"
+        );
+        ok(details.open, "Details expanded by default");
+
+        gWiz.setAttribute("force-show-import-all", "false");
+        gWiz.setState({
+          page: MigrationWizardConstants.PAGES.SELECTION,
+          migrators: MIGRATOR_PROFILE_INSTANCES,
+          showImportAll: true,
+        });
+        ok(
+          !selectionPage.hasAttribute("show-import-all"),
+          "Should be paying attention to force-show-import-all=false on DOM node"
+        );
+        ok(details.open, "Details expanded by default");
+
+        gWiz.setAttribute("force-show-import-all", "true");
+        gWiz.setState({
+          page: MigrationWizardConstants.PAGES.SELECTION,
+          migrators: MIGRATOR_PROFILE_INSTANCES,
+          showImportAll: false,
+        });
+        ok(
+          selectionPage.hasAttribute("show-import-all"),
+          "Should be paying attention to force-show-import-all=true on DOM node"
+        );
+        ok(!details.open, "Details collapsed by default");
+
+        gWiz.removeAttribute("force-show-import-all");
       });
     </script>
   </head>

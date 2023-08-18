@@ -7,6 +7,7 @@
 ### and strings are likely to change often.
 
 shopping-page-title = { -brand-product-name } Shopping
+
 # Title for page showing where a user can check the
 # review quality of online shopping product reviews
 shopping-main-container-title = Review quality check
@@ -16,6 +17,9 @@ shopping-close-button =
 # sidebar is still loading data.
 shopping-a11y-loading =
   .aria-label = Loading…
+
+more-to-consider-ad-label =
+  .label = More to consider
 
 ## Strings for the letter grade component.
 ## For now, we only support letter grades A, B, C, D and F.
@@ -46,6 +50,22 @@ shopping-message-bar-generic-error-message = Couldn’t load information. Please
 shopping-message-bar-warning-not-enough-reviews-title = Not enough reviews yet
 shopping-message-bar-warning-not-enough-reviews-message = When this product has more reviews, we’ll be able to analyze them.
 
+shopping-message-bar-warning-product-not-available-title = Product is not available
+shopping-message-bar-warning-product-not-available-message = If you see that this product is back in stock, report it to us and we’ll work on updating the analysis.
+shopping-message-bar-warning-product-not-available-button = Report this product is back in stock
+
+shopping-message-bar-thanks-for-reporting-title = Thanks for reporting!
+shopping-message-bar-thanks-for-reporting-message = We should have an updated analysis within 24 hours. Please check back.
+
+shopping-message-bar-warning-product-not-available-reported-title = Analysis coming soon
+shopping-message-bar-warning-product-not-available-reported-message = An updated analysis should be ready within 24 hours. Please check back.
+
+shopping-message-bar-warning-offline-title = No network connection
+shopping-message-bar-warning-offline-message = Check your network connection. Then, try reloading the page.
+
+shopping-message-bar-analysis-in-progress-title = Analysis coming soon
+shopping-message-bar-analysis-in-progress-message = When it’s done, we’ll automatically show the updated info here.
+
 ## Strings for the product review snippets card
 
 shopping-highlights-label =
@@ -56,6 +76,11 @@ shopping-highlight-quality = Quality
 shopping-highlight-shipping = Shipping
 shopping-highlight-competitiveness = Competitiveness
 shopping-highlight-packaging = Packaging
+
+## Strings for show more card
+
+shopping-show-more-button = Show more
+shopping-show-less-button = Show less
 
 ## Strings for the settings card
 
@@ -121,3 +146,5 @@ shopping-unanalyzed-product-analyze-link = Analyze reviews
 ## Onboarding message strings.
 
 shopping-onboarding-headline = Shop based on <b>real</b> reviews
+# Future localization note - "Yes, try it" will need to be directly referenced when the button is added to fluent so it maintains parity with this copy
+shopping-onboarding-opt-in-privacy-policy-and-terms-of-use = By selecting “Yes, try it” you agree to the <a data-l10n-name="privacy_policy">privacy policy</a> and <a data-l10n-name="terms_of_use">terms of use</a> of { -fakespot-brand-name }, a { -vendor-short-name } company.

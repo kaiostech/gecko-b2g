@@ -26,7 +26,7 @@
 #include "gc/PublicIterators.h"
 #include "gc/Tenuring.h"
 #include "jit/JitFrames.h"
-#include "jit/JitRealm.h"
+#include "jit/JitZone.h"
 #include "js/Printer.h"
 #include "util/DifferentialTesting.h"
 #include "util/GetPidProvider.h"  // getpid()
@@ -455,11 +455,9 @@ void js::Nursery::updateAllocFlagsForZone(JS::Zone* zone) {
 void js::Nursery::discardCodeAndSetJitFlagsForZone(JS::Zone* zone) {
   zone->forceDiscardJitCode(runtime()->gcContext());
 
-  for (RealmsInZoneIter r(zone); !r.done(); r.next()) {
-    if (jit::JitRealm* jitRealm = r->jitRealm()) {
-      jitRealm->discardStubs();
-      jitRealm->setStringsCanBeInNursery(zone->allocNurseryStrings());
-    }
+  if (jit::JitZone* jitZone = zone->jitZone()) {
+    jitZone->discardStubs();
+    jitZone->setStringsCanBeInNursery(zone->allocNurseryStrings());
   }
 }
 
@@ -1118,7 +1116,8 @@ inline bool js::Nursery::isUnderused() const {
   // have idle time. This allows the nursery to shrink when it's not being
   // used. There are other heuristics we could use for this, but this is the
   // simplest.
-  TimeDuration timeSinceLastCollection = TimeStamp::Now() - previousGC.endTime;
+  TimeDuration timeSinceLastCollection =
+      TimeStamp::NowLoRes() - previousGC.endTime;
   return timeSinceLastCollection > tunables().nurseryTimeoutForIdleCollection();
 }
 
@@ -1506,6 +1505,10 @@ void js::Nursery::traceRoots(AutoGCSession& session, TenuringTracer& mover) {
     startProfile(ProfileKey::TraceValues);
     sb.traceValues(mover);
     endProfile(ProfileKey::TraceValues);
+
+    startProfile(ProfileKey::TraceWasmAnyRefs);
+    sb.traceWasmAnyRefs(mover);
+    endProfile(ProfileKey::TraceWasmAnyRefs);
 
     startProfile(ProfileKey::TraceCells);
     sb.traceCells(mover);

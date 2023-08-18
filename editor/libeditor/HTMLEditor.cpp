@@ -1341,8 +1341,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
       // insert a horizontal tabulation.
       if (IsPlaintextMailComposer()) {
         if (aKeyboardEvent->IsShift() || aKeyboardEvent->IsControl() ||
-            aKeyboardEvent->IsAlt() || aKeyboardEvent->IsMeta() ||
-            aKeyboardEvent->IsOS()) {
+            aKeyboardEvent->IsAlt() || aKeyboardEvent->IsMeta()) {
           return NS_OK;
         }
 
@@ -1357,7 +1356,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
       // Otherwise, e.g., we're an embedding editor in chrome, we can handle
       // "Tab" key as an input.
       if (aKeyboardEvent->IsControl() || aKeyboardEvent->IsAlt() ||
-          aKeyboardEvent->IsMeta() || aKeyboardEvent->IsOS()) {
+          aKeyboardEvent->IsMeta()) {
         return NS_OK;
       }
 
@@ -4545,6 +4544,24 @@ MOZ_CAN_RUN_SCRIPT_BOUNDARY void HTMLEditor::ContentRemoved(
         NS_SUCCEEDED(rv),
         "HTMLEditor::OnDocumentModified() failed, but ignored");
   }
+}
+
+MOZ_CAN_RUN_SCRIPT_BOUNDARY void HTMLEditor::CharacterDataChanged(
+    nsIContent* aContent, const CharacterDataChangeInfo& aInfo) {
+  if (!mInlineSpellChecker || !aContent->IsEditable() ||
+      !IsInObservedSubtree(aContent) ||
+      GetTopLevelEditSubAction() != EditSubAction::eNone) {
+    return;
+  }
+
+  nsIContent* parent = aContent->GetParent();
+  if (!parent || !parent->InclusiveDescendantMayNeedSpellchecking(this)) {
+    return;
+  }
+
+  RefPtr<nsRange> range = nsRange::Create(aContent);
+  range->SelectNodesInContainer(parent, aContent, aContent);
+  DebugOnly<nsresult> rvIgnored = mInlineSpellChecker->SpellCheckRange(range);
 }
 
 nsresult HTMLEditor::SelectEntireDocument() {

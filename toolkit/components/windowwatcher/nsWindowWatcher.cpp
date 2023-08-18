@@ -1303,6 +1303,12 @@ nsresult nsWindowWatcher::OpenWindowInternal(
       loadState->SetTriggeringSandboxFlags(parentBC->GetSandboxFlags());
     }
 
+    if (parentInnerWin) {
+      loadState->SetTriggeringWindowId(parentInnerWin->WindowID());
+      loadState->SetTriggeringStorageAccess(
+          parentInnerWin->UsingStorageAccess());
+    }
+
     if (subjectPrincipal) {
       loadState->SetTriggeringPrincipal(subjectPrincipal);
     }

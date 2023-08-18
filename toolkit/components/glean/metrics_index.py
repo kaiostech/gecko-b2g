@@ -40,6 +40,7 @@ gecko_metrics = [
 # Order is lexicographical, enforced by t/c/glean/tests/pytest/test_yaml_indices.py
 firefox_desktop_metrics = [
     "browser/components/metrics.yaml",
+    "browser/components/migration/metrics.yaml",
     "browser/components/newtab/metrics.yaml",
     "browser/components/search/metrics.yaml",
     "browser/components/urlbar/metrics.yaml",
@@ -47,6 +48,7 @@ firefox_desktop_metrics = [
     "toolkit/components/crashes/metrics.yaml",
     "toolkit/components/nimbus/metrics.yaml",
     "toolkit/components/search/metrics.yaml",
+    "toolkit/components/shopping/metrics.yaml",
     "toolkit/components/telemetry/dap/metrics.yaml",
     "toolkit/components/telemetry/metrics.yaml",
     "toolkit/modules/metrics.yaml",

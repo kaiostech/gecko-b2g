@@ -18,11 +18,23 @@ exclude: true
 - Added [`ERROR_BLOCKLISTED`][118.2] to `WebExtension.InstallException.ErrorCodes`. ([bug 1845745]({{bugzilla}}1845745))
 - Added [`ContentDelegate.onProductUrl`][118.3] to notify the app when on a supported product page.
 - Added [`GeckoSession.requestAnalysis`][118.4] for requesting product review analysis.
+- Added [`GeckoSession.requestRecommendations`][118.5] for requesting product recommendations given a specific product url.
+- Added [`ERROR_INCOMPATIBLE`][118.6] to `WebExtension.InstallException.ErrorCodes`. ([bug 1845749]({{bugzilla}}1845749))
+- Added [`GeckoRuntimeSettings.Builder.extensionsWebAPIEnabled`][118.7]. ([bug 1847173]({{bugzilla}}1847173))
+- Changed [`GeckoSession.AccountSelectorPrompt`][118.8]: added the Provider to which the Account belongs ([bug 1847059]({{bugzilla}}1847059))
+- Added [`getExperimentDelegate`][118.9] and [`setExperimentDelegate`][118.10] to the GeckoSession allow GeckoView to get and set the experiment delegate for the session. Default is to use the runtime delegate.
+- ⚠️ Deprecated [`onGetNimbusFeature`][115.5] by 122, please use `ExperimentDelegate.onGetExperimentFeature` instead.
 
 [118.1]: {{javadoc_uri}}/ExperimentDelegate.html
 [118.2]: {{javadoc_uri}}/WebExtension.InstallException.ErrorCodes.html#ERROR_BLOCKLISTED
-[118.3]:{{javadoc_uri}}/GeckoSession.ContentDelegate.html#onProductUrl(org.mozilla.geckoview.GeckoSession)
+[118.3]: {{javadoc_uri}}/GeckoSession.ContentDelegate.html#onProductUrl(org.mozilla.geckoview.GeckoSession)
 [118.4]: {{javadoc_uri}}/GeckoSession.html#requestAnalysis(String)
+[118.5]: {{javadoc_uri}}/GeckoSession.html#requestRecommendations(String)
+[118.6]: {{javadoc_uri}}/WebExtension.InstallException.ErrorCodes.html#ERROR_INCOMPATIBLE
+[118.7]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#extensionsWebAPIEnabled(boolean)
+[118.8]: {{javadoc_uri}}/GeckoSession.html#AccountSelectorPrompt
+[118.9]: {{javadoc_uri}}/GeckoSession.html#getExperimentDelegate()
+[118.10]: {{javadoc_uri}}/GeckoSession.html#setExperimentDelegate(org.mozilla.geckoview.ExperimentDelegate)
 
 ## v116
 - Added [`GeckoSession.didPrintPageContent`][116.1] to included extra print status for a standard print and new `GeckoPrintException.ERROR_NO_PRINT_DELEGATE`
@@ -1403,4 +1415,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: e06024c20809d282b312123df6c5f78d3a3e07c4
+[api-version]: fd5137f14714faddcffb5d0ba63dd0cfa6721611

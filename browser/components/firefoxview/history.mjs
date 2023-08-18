@@ -79,7 +79,7 @@ class HistoryInView extends ViewPage {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.placesQuery.close();
-    this.migrationWizardDialog.removeEventListener(
+    this.migrationWizardDialog?.removeEventListener(
       "MigrationWizard:Close",
       this.migrationWizardDialog
     );
@@ -286,15 +286,15 @@ class HistoryInView extends ViewPage {
       this.historyMapByDate.forEach(historyItem => {
         if (historyItem.items.length) {
           let dateArg = JSON.stringify({ date: historyItem.items[0].time });
-          cardsTemplate.push(html`<card-container>
-            <h2
+          cardsTemplate.push(html`<card-container shortPageName="history">
+            <h3
               slot="header"
               data-l10n-id=${historyItem.l10nId}
               data-l10n-args=${dateArg}
-            ></h2>
+            ></h3>
             <fxview-tab-list
               slot="main"
-              class="history"
+              class="with-context-menu"
               dateTimeFormat=${historyItem.l10nId.includes("prev-month")
                 ? "dateTime"
                 : "time"}
@@ -312,10 +312,10 @@ class HistoryInView extends ViewPage {
     } else if (this.historyMapBySite.length) {
       this.historyMapBySite.forEach(historyItem => {
         if (historyItem.items.length) {
-          cardsTemplate.push(html`<card-container>
-            <h2 slot="header" data-l10n-id="${ifDefined(historyItem.l10nId)}">
+          cardsTemplate.push(html`<card-container shortPageName="history">
+            <h3 slot="header" data-l10n-id="${ifDefined(historyItem.l10nId)}">
               ${historyItem.domain}
-            </h2>
+            </h3>
             <fxview-tab-list
               slot="main"
               class="history"
@@ -456,11 +456,10 @@ class HistoryInView extends ViewPage {
         class="show-all-history-footer"
         ?hidden=${!this.allHistoryItems.size}
       >
-        <span
-          class="show-all-history-link"
+        <button
           data-l10n-id="firefoxview-show-all-history"
           @click=${this.showAllHistory}
-        ></span>
+        ></button>
       </div>
     `;
   }

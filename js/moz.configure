@@ -403,20 +403,6 @@ option(
 set_define("JS_GC_ZEAL", depends_if("--enable-gczeal")(lambda _: True))
 
 
-# Use a smaller chunk size for GC chunks
-# ========================================================
-# Use large (1MB) chunks by default.  This option can be used to give
-# smaller (currently 256K) chunks.
-option(
-    "--enable-small-chunk-size",
-    help="Allocate memory for JS GC things in smaller chunks",
-)
-
-set_define(
-    "JS_GC_SMALL_CHUNK_SIZE", depends(when="--enable-small-chunk-size")(lambda: True)
-)
-
-
 # Enable breakpoint for artificial OOMs
 # =======================================================
 option(
@@ -707,7 +693,7 @@ def wasm_tail_calls(value, target):
     if not value:
         return
 
-    if target.cpu in ("x86", "x86_64", "arm", "aarch64"):
+    if target.cpu in ("x86", "x86_64", "arm", "aarch64", "loongarch64", "mips64"):
         return True
 
 
@@ -1272,28 +1258,6 @@ def is_wasi_target(os):
 
 set_define("_WASI_EMULATED_PROCESS_CLOCKS", True, when=is_wasi_target)
 set_define("_WASI_EMULATED_GETPID", True, when=is_wasi_target)
-
-# Enable New Set methods
-# ===================================================
-def use_new_set_methods():
-    return False
-
-
-option(
-    "--enable-new-set-methods",
-    default=use_new_set_methods(),
-    help="{Enable|Disable} New Set methods pref/command-line option (disabled by default)",
-)
-
-
-@depends("--enable-new-set-methods")
-def enable_new_set_methods(value):
-    if value:
-        return True
-
-
-set_config("ENABLE_NEW_SET_METHODS", enable_new_set_methods)
-set_define("ENABLE_NEW_SET_METHODS", enable_new_set_methods)
 
 
 @depends(milestone.version)

@@ -78,6 +78,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   ShellService: "resource:///modules/ShellService.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
+  ShoppingUtils: "resource:///modules/ShoppingUtils.sys.mjs",
   SpecialMessageActions:
     "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
   TRRRacer: "resource:///modules/TRRPerformance.sys.mjs",
@@ -381,6 +382,22 @@ let JSWINDOWACTORS = {
     matches: ["about:tabcrashed*"],
   },
 
+  AboutWelcomeShopping: {
+    parent: {
+      moduleURI: "resource:///actors/AboutWelcomeParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutWelcomeChild.jsm",
+      events: {
+        // This is added so the actor instantiates immediately and makes
+        // methods available to the page js on load.
+        DOMDocElementInserted: {},
+      },
+    },
+    matches: ["about:shoppingsidebar"],
+    remoteTypes: ["privilegedabout"],
+  },
+
   AboutWelcome: {
     parent: {
       moduleURI: "resource:///actors/AboutWelcomeParent.jsm",
@@ -393,11 +410,7 @@ let JSWINDOWACTORS = {
         DOMDocElementInserted: {},
       },
     },
-    matches: [
-      "about:welcome",
-      // TBD: Move shopping window functions setup to child actor. See Bug 1843461
-      "about:shoppingsidebar",
-    ],
+    matches: ["about:welcome"],
     remoteTypes: ["privilegedabout"],
 
     // See Bug 1618306
@@ -749,6 +762,7 @@ let JSWINDOWACTORS = {
       esModuleURI: "resource:///actors/ShoppingSidebarChild.sys.mjs",
       events: {
         ContentReady: { wantUntrusted: true },
+        PolledRequestMade: { wantUntrusted: true },
         // This is added so the actor instantiates immediately and makes
         // methods available to the page js on load.
         DOMDocElementInserted: {},
@@ -2034,6 +2048,11 @@ BrowserGlue.prototype = {
       () => lazy.NewTabUtils.uninit(),
       () => lazy.Normandy.uninit(),
       () => lazy.RFPHelper.uninit(),
+      () => {
+        if (AppConstants.NIGHTLY_BUILD) {
+          lazy.ShoppingUtils.uninit();
+        }
+      },
       () => lazy.ASRouterNewTabHook.destroy(),
       () => {
         if (AppConstants.MOZ_UPDATER) {
@@ -2793,6 +2812,18 @@ BrowserGlue.prototype = {
           Services.fog.initializeFOG();
 
           // Register Glean to listen for experiment updates releated to the
+          // "gleanInternalSdk" feature defined in the t/c/nimbus/FeatureManifest.yaml
+          // This feature is intended for internal Glean use only. For features wishing
+          // to set a remote metric configuration, please use the "glean" feature for
+          // the purpose of setting the data-control-plane features via Server Knobs.
+          lazy.NimbusFeatures.gleanInternalSdk.onUpdate(() => {
+            let cfg = lazy.NimbusFeatures.gleanInternalSdk.getVariable(
+              "gleanMetricConfiguration"
+            );
+            Services.fog.setMetricsFeatureConfig(JSON.stringify(cfg));
+          });
+
+          // Register Glean to listen for experiment updates releated to the
           // "glean" feature defined in the t/c/nimbus/FeatureManifest.yaml
           lazy.NimbusFeatures.glean.onUpdate(() => {
             let cfg = lazy.NimbusFeatures.glean.getVariable(
@@ -2929,6 +2960,14 @@ BrowserGlue.prototype = {
           lazy.NimbusFeatures.dapTelemetry.getVariable("enabled"),
         task: () => {
           lazy.DAPTelemetrySender.startup();
+        },
+      },
+
+      {
+        name: "ShoppingUtils.init",
+        condition: AppConstants.NIGHTLY_BUILD,
+        task: () => {
+          lazy.ShoppingUtils.init();
         },
       },
 
@@ -3577,13 +3616,11 @@ BrowserGlue.prototype = {
   },
 
   // eslint-disable-next-line complexity
-  _migrateUI: function BG__migrateUI() {
+  _migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
     const UI_VERSION = 139;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
-
-    const PROFILE_DIR = Services.dirsvc.get("ProfD", Ci.nsIFile).path;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
       // This is a new profile, nothing to migrate.
@@ -3601,289 +3638,6 @@ BrowserGlue.prototype = {
     }
 
     let xulStore = Services.xulStore;
-
-    if (currentUIVersion < 64) {
-      IOUtils.remove(PathUtils.join(PROFILE_DIR, "directoryLinks.json"), {
-        ignoreAbsent: true,
-      });
-    }
-
-    if (
-      currentUIVersion < 65 &&
-      Services.prefs.getCharPref("general.config.filename", "") ==
-        "dsengine.cfg"
-    ) {
-      let searchInitializedPromise = new Promise(resolve => {
-        if (Services.search.isInitialized) {
-          resolve();
-        }
-        const SEARCH_SERVICE_TOPIC = "browser-search-service";
-        Services.obs.addObserver(function observer(subject, topic, data) {
-          if (data != "init-complete") {
-            return;
-          }
-          Services.obs.removeObserver(observer, SEARCH_SERVICE_TOPIC);
-          resolve();
-        }, SEARCH_SERVICE_TOPIC);
-      });
-      searchInitializedPromise.then(() => {
-        let engineNames = [
-          "Bing Search Engine",
-          "Yahoo! Search Engine",
-          "Yandex Search Engine",
-        ];
-        for (let engineName of engineNames) {
-          let engine = Services.search.getEngineByName(engineName);
-          if (engine) {
-            Services.search.removeEngine(engine);
-          }
-        }
-      });
-    }
-
-    if (currentUIVersion < 67) {
-      // Migrate devtools firebug theme users to light theme (bug 1378108):
-      if (Services.prefs.getCharPref("devtools.theme") == "firebug") {
-        Services.prefs.setCharPref("devtools.theme", "light");
-      }
-    }
-
-    if (currentUIVersion < 68) {
-      // Remove blocklists legacy storage, now relying on IndexedDB.
-      IOUtils.remove(PathUtils.join(PROFILE_DIR, "kinto.sqlite"), {
-        ignoreAbsent: true,
-      });
-    }
-
-    if (currentUIVersion < 69) {
-      // Clear old social prefs from profile (bug 1460675)
-      let socialPrefs = Services.prefs.getBranch("social.");
-      if (socialPrefs) {
-        let socialPrefsArray = socialPrefs.getChildList("");
-        for (let item of socialPrefsArray) {
-          Services.prefs.clearUserPref("social." + item);
-        }
-      }
-    }
-
-    if (currentUIVersion < 70) {
-      // Migrate old ctrl-tab pref to new one in existing profiles. (This code
-      // doesn't run at all in new profiles.)
-      Services.prefs.setBoolPref(
-        "browser.ctrlTab.recentlyUsedOrder",
-        Services.prefs.getBoolPref("browser.ctrlTab.previews", false)
-      );
-      Services.prefs.clearUserPref("browser.ctrlTab.previews");
-      // Remember that we migrated the pref in case we decide to flip it for
-      // these users.
-      Services.prefs.setBoolPref("browser.ctrlTab.migrated", true);
-    }
-
-    if (currentUIVersion < 71) {
-      // Clear legacy saved prefs for content handlers.
-      let savedContentHandlers = Services.prefs.getChildList(
-        "browser.contentHandlers.types"
-      );
-      for (let savedHandlerPref of savedContentHandlers) {
-        Services.prefs.clearUserPref(savedHandlerPref);
-      }
-    }
-
-    if (currentUIVersion < 72) {
-      // Migrate performance tool's recording interval value from msec to usec.
-      let pref = "devtools.performance.recording.interval";
-      Services.prefs.setIntPref(
-        pref,
-        Services.prefs.getIntPref(pref, 1) * 1000
-      );
-    }
-
-    if (currentUIVersion < 73) {
-      // Remove blocklist JSON local dumps in profile.
-      IOUtils.remove(PathUtils.join(PROFILE_DIR, "blocklists"), {
-        recursive: true,
-        ignoreAbsent: true,
-      });
-      IOUtils.remove(PathUtils.join(PROFILE_DIR, "blocklists-preview"), {
-        recursive: true,
-        ignoreAbsent: true,
-      });
-      for (const filename of ["addons.json", "plugins.json", "gfx.json"]) {
-        // Some old versions used to dump without subfolders. Clean them while we are at it.
-        const path = PathUtils.join(PROFILE_DIR, `blocklists-${filename}`);
-        IOUtils.remove(path, { ignoreAbsent: true });
-      }
-    }
-
-    if (currentUIVersion < 76) {
-      // Clear old onboarding prefs from profile (bug 1462415)
-      let onboardingPrefs = Services.prefs.getBranch("browser.onboarding.");
-      if (onboardingPrefs) {
-        let onboardingPrefsArray = onboardingPrefs.getChildList("");
-        for (let item of onboardingPrefsArray) {
-          Services.prefs.clearUserPref("browser.onboarding." + item);
-        }
-      }
-    }
-
-    if (currentUIVersion < 77) {
-      // Remove currentset from all the toolbars
-      let toolbars = [
-        "nav-bar",
-        "PersonalToolbar",
-        "TabsToolbar",
-        "toolbar-menubar",
-      ];
-      for (let toolbarId of toolbars) {
-        xulStore.removeValue(BROWSER_DOCURL, toolbarId, "currentset");
-      }
-    }
-
-    if (currentUIVersion < 78) {
-      Services.prefs.clearUserPref("browser.search.region");
-    }
-
-    if (currentUIVersion < 79) {
-      // The handler app service will read this. We need to wait with migrating
-      // until the handler service has started up, so just set a pref here.
-      Services.prefs.setCharPref("browser.handlers.migrations", "30boxes");
-    }
-
-    if (currentUIVersion < 80) {
-      let hosts = Services.prefs.getCharPref("network.proxy.no_proxies_on");
-      // remove "localhost" and "127.0.0.1" from the no_proxies_on list
-      const kLocalHosts = new Set(["localhost", "127.0.0.1"]);
-      hosts = hosts
-        .split(/[ ,]+/)
-        .filter(host => !kLocalHosts.has(host))
-        .join(", ");
-      Services.prefs.setCharPref("network.proxy.no_proxies_on", hosts);
-    }
-
-    if (currentUIVersion < 81) {
-      // Reset homepage pref for users who have it set to a default from before Firefox 4:
-      //   <locale>.(start|start2|start3).mozilla.(com|org)
-      if (lazy.HomePage.overridden) {
-        const DEFAULT = lazy.HomePage.getDefault();
-        let value = lazy.HomePage.get();
-        let updated = value.replace(
-          /https?:\/\/([\w\-]+\.)?start\d*\.mozilla\.(org|com)[^|]*/gi,
-          DEFAULT
-        );
-        if (updated != value) {
-          if (updated == DEFAULT) {
-            lazy.HomePage.reset();
-          } else {
-            value = updated;
-            lazy.HomePage.safeSet(value);
-          }
-        }
-      }
-    }
-
-    if (currentUIVersion < 82) {
-      this._migrateXULStoreForDocument(
-        "chrome://browser/content/browser.xul",
-        "chrome://browser/content/browser.xhtml"
-      );
-    }
-
-    if (currentUIVersion < 83) {
-      Services.prefs.clearUserPref("browser.search.reset.status");
-    }
-
-    if (currentUIVersion < 84) {
-      // Reset flash "always allow/block" permissions
-      // We keep session and policy permissions, which could both be
-      // the result of enterprise policy settings. "Never/Always allow"
-      // settings for flash were actually time-bound on recent-ish Firefoxen,
-      // so we remove EXPIRE_TIME entries, too.
-      const { EXPIRE_NEVER, EXPIRE_TIME } = Services.perms;
-      let flashPermissions = Services.perms
-        .getAllWithTypePrefix("plugin:flash")
-        .filter(
-          p =>
-            p.type == "plugin:flash" &&
-            (p.expireType == EXPIRE_NEVER || p.expireType == EXPIRE_TIME)
-        );
-      flashPermissions.forEach(p => Services.perms.removePermission(p));
-    }
-
-    // currentUIVersion < 85 is missing due to the following:
-    // Origianlly, Bug #1568900 added currentUIVersion 85 but was targeting FF70 release.
-    // In between it landing in FF70, Bug #1562601 (currentUIVersion 86) landed and
-    // was uplifted to Beta. To make sure the migration doesn't get skipped, the
-    // code block that was at 85 has been moved/bumped to currentUIVersion 87.
-
-    if (currentUIVersion < 86) {
-      // If the user has set "media.autoplay.allow-muted" to false
-      // migrate that to media.autoplay.default=BLOCKED_ALL.
-      if (
-        Services.prefs.prefHasUserValue("media.autoplay.allow-muted") &&
-        !Services.prefs.getBoolPref("media.autoplay.allow-muted") &&
-        !Services.prefs.prefHasUserValue("media.autoplay.default") &&
-        Services.prefs.getIntPref("media.autoplay.default") ==
-          Ci.nsIAutoplay.BLOCKED
-      ) {
-        Services.prefs.setIntPref(
-          "media.autoplay.default",
-          Ci.nsIAutoplay.BLOCKED_ALL
-        );
-      }
-      Services.prefs.clearUserPref("media.autoplay.allow-muted");
-    }
-
-    if (currentUIVersion < 87) {
-      const TRACKING_TABLE_PREF = "urlclassifier.trackingTable";
-      const CUSTOM_BLOCKING_PREF =
-        "browser.contentblocking.customBlockList.preferences.ui.enabled";
-      // Check if user has set custom tables pref, and show custom block list UI
-      // in the about:preferences#privacy custom panel.
-      if (Services.prefs.prefHasUserValue(TRACKING_TABLE_PREF)) {
-        Services.prefs.setBoolPref(CUSTOM_BLOCKING_PREF, true);
-      }
-    }
-
-    if (currentUIVersion < 88) {
-      // If the user the has "browser.contentblocking.category = custom", but has
-      // the exact same settings as "standard", move them once to "standard". This is
-      // to reset users who we may have moved accidentally, or moved to get ETP early.
-      let category_prefs = [
-        "network.cookie.cookieBehavior",
-        "privacy.trackingprotection.pbmode.enabled",
-        "privacy.trackingprotection.enabled",
-        "privacy.trackingprotection.socialtracking.enabled",
-        "privacy.trackingprotection.fingerprinting.enabled",
-        "privacy.trackingprotection.cryptomining.enabled",
-      ];
-      if (
-        Services.prefs.getStringPref(
-          "browser.contentblocking.category",
-          "standard"
-        ) == "custom"
-      ) {
-        let shouldMigrate = true;
-        for (let pref of category_prefs) {
-          if (Services.prefs.prefHasUserValue(pref)) {
-            shouldMigrate = false;
-          }
-        }
-        if (shouldMigrate) {
-          Services.prefs.setStringPref(
-            "browser.contentblocking.category",
-            "standard"
-          );
-        }
-      }
-    }
-
-    if (currentUIVersion < 89) {
-      // This file was renamed in https://bugzilla.mozilla.org/show_bug.cgi?id=1595636.
-      this._migrateXULStoreForDocument(
-        "chrome://devtools/content/framework/toolbox-window.xul",
-        "chrome://devtools/content/framework/toolbox-window.xhtml"
-      );
-    }
 
     if (currentUIVersion < 90) {
       this._migrateXULStoreForDocument(

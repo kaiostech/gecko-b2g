@@ -40,9 +40,9 @@ add_task(async function test_toggle_never_translate_site_menuitem() {
   );
   await openTranslationsSettingsMenuViaTranslationsButton();
 
-  await assertIsNeverTranslateSite(SPANISH_PAGE_URL, false);
+  await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: false });
   await toggleNeverTranslateSite();
-  await assertIsNeverTranslateSite(SPANISH_PAGE_URL, true);
+  await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: true });
 
   info("The page should still be in its original, untranslated form");
   await runInPage(async TranslationsTest => {
@@ -138,9 +138,13 @@ add_task(
       );
     });
 
-    await waitForTranslationsPopupEvent("popupshown", () => {
-      click(button, "Opening the popup");
-    });
+    await waitForTranslationsPopupEvent(
+      "popupshown",
+      () => {
+        click(button, "Opening the popup");
+      },
+      assertPanelDefaultView
+    );
 
     await waitForTranslationsPopupEvent("popuphidden", () => {
       click(
@@ -178,9 +182,9 @@ add_task(
     );
     await openTranslationsSettingsMenuViaTranslationsButton();
 
-    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, false);
+    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: false });
     await toggleNeverTranslateSite();
-    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, true);
+    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: true });
 
     info("The page should still be in its original, untranslated form");
     await runInPage(async TranslationsTest => {
@@ -272,13 +276,13 @@ add_task(
     );
     await openTranslationsSettingsMenuViaTranslationsButton();
 
-    await assertIsAlwaysTranslateLanguage("es", false);
-    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: false });
+    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: false });
 
     await toggleAlwaysTranslateLanguage();
 
-    await assertIsAlwaysTranslateLanguage("es", true);
-    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
+    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: false });
 
     await assertTranslationsButton(
       { button: true, circleArrows: true, locale: false, icon: true },
@@ -309,13 +313,13 @@ add_task(
     );
     await openTranslationsSettingsMenuViaTranslationsButton();
 
-    await assertIsAlwaysTranslateLanguage("es", true);
-    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
+    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: false });
 
     await toggleNeverTranslateSite();
 
-    await assertIsAlwaysTranslateLanguage("es", true);
-    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, true);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
+    await assertIsNeverTranslateSite(SPANISH_PAGE_URL, { checked: true });
 
     info("The page should still be in its original, untranslated form");
     await runInPage(async TranslationsTest => {

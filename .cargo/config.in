@@ -5,9 +5,9 @@
 [source.crates-io]
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/FirefoxGraphics/aa-stroke?rev=cfe9ee39f5af56ae26004835d90c4bb2973ce519"]
+[source."git+https://github.com/FirefoxGraphics/aa-stroke?rev=c1916bc1b5336438207881a362fc3dd921d915e4"]
 git = "https://github.com/FirefoxGraphics/aa-stroke"
-rev = "cfe9ee39f5af56ae26004835d90c4bb2973ce519"
+rev = "c1916bc1b5336438207881a362fc3dd921d915e4"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/FirefoxGraphics/wpf-gpu-raster?rev=5ab6fe33d00021325ee920b3c10526dc8301cf46"]
@@ -25,19 +25,14 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/metal-rs.git?rev=a6a0446"]
-git = "https://github.com/gfx-rs/metal-rs.git"
-rev = "a6a0446"
-replace-with = "vendored-sources"
-
-[source."git+https://github.com/gfx-rs/naga?rev=409239c0e2313bfd0dc4fd64f8c3021185ccef1b"]
+[source."git+https://github.com/gfx-rs/naga?rev=bac2d82a430fbfcf100ee22b7c3bc12f3d593079"]
 git = "https://github.com/gfx-rs/naga"
-rev = "409239c0e2313bfd0dc4fd64f8c3021185ccef1b"
+rev = "bac2d82a430fbfcf100ee22b7c3bc12f3d593079"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=1161a22f4fbb4fc204eb06f2ac4243f83e0e980d"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=7c6b85756237f77bfe8d6231dfc7a1412ff662b6"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "1161a22f4fbb4fc204eb06f2ac4243f83e0e980d"
+rev = "7c6b85756237f77bfe8d6231dfc7a1412ff662b6"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/prost?rev=95964e9d33df3c2a9c3f14285e262867cab6f96b"]
@@ -100,9 +95,9 @@ git = "https://github.com/mozilla/midir.git"
 rev = "519e651241e867af3391db08f9ae6400bc023e18"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/mp4parse-rust?rev=12142fda2ba0870e1f00dd89506a8ace993aabe4"]
+[source."git+https://github.com/mozilla/mp4parse-rust?rev=d262e40e7b80f949dcdb4db21caa6dbf1a8b2043"]
 git = "https://github.com/mozilla/mp4parse-rust"
-rev = "12142fda2ba0870e1f00dd89506a8ace993aabe4"
+rev = "d262e40e7b80f949dcdb4db21caa6dbf1a8b2043"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/neqo?tag=v0.6.5"]
@@ -115,6 +110,11 @@ git = "https://github.com/mozilla/uniffi-rs.git"
 rev = "c0e64b839018728d8153ce1758d391b7782e2e21"
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/rust-diplomat/diplomat?rev=8d125999893fedfdf30595e97334c21ec4b18da9"]
+git = "https://github.com/rust-diplomat/diplomat"
+rev = "8d125999893fedfdf30595e97334c21ec4b18da9"
+replace-with = "vendored-sources"
+
 [source."git+https://github.com/rust-minidump/minidump-writer.git?rev=a15bd5cab6a3de251c0c23264be14b977c0af09c"]
 git = "https://github.com/rust-minidump/minidump-writer.git"
 rev = "a15bd5cab6a3de251c0c23264be14b977c0af09c"
@@ -123,6 +123,11 @@ replace-with = "vendored-sources"
 [source."git+https://github.com/rust-minidump/rust-minidump?rev=87a29fba5e19cfae5ebf73a57ba31504a3872545"]
 git = "https://github.com/rust-minidump/rust-minidump"
 rev = "87a29fba5e19cfae5ebf73a57ba31504a3872545"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/unicode-org/icu4x?rev=14e9a3a9857be74582abe2dfa7ab799c5eaac873"]
+git = "https://github.com/unicode-org/icu4x"
+rev = "14e9a3a9857be74582abe2dfa7ab799c5eaac873"
 replace-with = "vendored-sources"
 
 

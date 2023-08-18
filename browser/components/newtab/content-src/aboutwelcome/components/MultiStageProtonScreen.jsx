@@ -21,6 +21,7 @@ import { OnboardingVideo } from "./OnboardingVideo";
 import { AdditionalCTA } from "./AdditionalCTA";
 import { EmbeddedMigrationWizard } from "./EmbeddedMigrationWizard";
 import { AddonsPicker } from "./AddonsPicker";
+import { LegalParagraph } from "./LegalParagraph";
 
 export const MultiStageProtonScreen = props => {
   const { autoAdvance, handleAction, order } = props;
@@ -395,9 +396,6 @@ export class ProtonScreen extends React.PureComponent {
               </Localized>
               <div className="spacer-bottom" />
             </div>
-            <Localized text={content.help_text}>
-              <span className="attrib-text" />
-            </Localized>
           </React.Fragment>
         )}
       </div>
@@ -528,6 +526,12 @@ export class ProtonScreen extends React.PureComponent {
                   handleAction={this.props.handleAction}
                 />
               ) : null}
+              {content.legal_paragraph ? (
+                <LegalParagraph
+                  content={content}
+                  handleAction={this.props.handleAction}
+                />
+              ) : null}
               {this.renderContentTiles()}
               {this.renderLanguageSwitcher()}
               <ProtonScreenActionButtons
@@ -541,6 +545,9 @@ export class ProtonScreen extends React.PureComponent {
           </div>
           {content.dismiss_button ? this.renderDismissButton() : null}
         </div>
+        <Localized text={content.info_text}>
+          <span className="info-text" />
+        </Localized>
       </main>
     );
   }

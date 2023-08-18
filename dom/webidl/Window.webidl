@@ -464,9 +464,7 @@ partial interface Window {
 
   [Throws] attribute boolean fullScreen;
 
-  undefined                 updateCommands(DOMString action,
-                                           optional Selection? sel = null,
-                                           optional short reason = 0);
+  undefined                 updateCommands(DOMString action);
 
   /* Find in page.
    * @param str: the search pattern
@@ -719,9 +717,9 @@ partial interface Window {
   [Func="IsChromeOrUAWidget"]
   readonly attribute boolean isChromeWindow;
 
-  [ChromeOnly]
+  [Func="nsGlobalWindowInner::IsGleanNeeded"]
   readonly attribute GleanImpl Glean;
-  [ChromeOnly]
+  [Func="nsGlobalWindowInner::IsGleanNeeded"]
   readonly attribute GleanPingsImpl GleanPings;
 };
 

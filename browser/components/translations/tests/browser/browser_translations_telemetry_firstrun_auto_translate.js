@@ -65,7 +65,10 @@ add_task(async function test_translations_telemetry_firstrun_auto_translate() {
       expectNewFlowId: true,
       expectFirstInteraction: true,
       finalValuePredicates: [
+        value => value.extra.auto_show === "false",
+        value => value.extra.view_name === "defaultView",
         value => value.extra.opened_from === "translationsButton",
+        value => value.extra.document_language === "es",
       ],
     }
   );
@@ -107,9 +110,13 @@ add_task(async function test_translations_telemetry_firstrun_auto_translate() {
     }
   );
 
-  await waitForTranslationsPopupEvent("popupshown", () => {
-    click(button, "Opening the popup");
-  });
+  await waitForTranslationsPopupEvent(
+    "popupshown",
+    () => {
+      click(button, "Opening the popup");
+    },
+    assertPanelRevisitView
+  );
 
   await waitForTranslationsPopupEvent("popuphidden", () => {
     click(
@@ -125,8 +132,11 @@ add_task(async function test_translations_telemetry_firstrun_auto_translate() {
       expectedEventCount: 2,
       expectNewFlowId: true,
       expectFirstInteraction: false,
-      allValuePredicates: [
+      finalValuePredicates: [
+        value => value.extra.auto_show === "false",
+        value => value.extra.view_name === "revisitView",
         value => value.extra.opened_from === "translationsButton",
+        value => value.extra.document_language === "es",
       ],
     }
   );

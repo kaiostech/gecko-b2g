@@ -11,7 +11,6 @@
 #include "jit/CacheIRCloner.h"
 #include "jit/CacheIRWriter.h"
 #include "jit/JitFrames.h"
-#include "jit/JitRealm.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitZone.h"
 #include "jit/Linker.h"
@@ -140,6 +139,22 @@ void AutoStubFrame::leave(MacroAssembler& masm) {
   }
 }
 
+void AutoStubFrame::storeTracedValue(MacroAssembler& masm, ValueOperand value) {
+  MOZ_ASSERT(compiler.localTracingSlots_ < 255);
+  MOZ_ASSERT(masm.framePushed() - framePushedAtEnterStubFrame_ ==
+             compiler.localTracingSlots_ * sizeof(Value));
+  masm.Push(value);
+  compiler.localTracingSlots_++;
+}
+
+void AutoStubFrame::loadTracedValue(MacroAssembler& masm, uint8_t slotIndex,
+                                    ValueOperand value) {
+  MOZ_ASSERT(slotIndex <= compiler.localTracingSlots_);
+  int32_t offset = BaselineStubFrameLayout::LocallyTracedValueOffset +
+                   slotIndex * sizeof(Value);
+  masm.loadValue(Address(FramePointer, -offset), value);
+}
+
 #ifdef DEBUG
 AutoStubFrame::~AutoStubFrame() { MOZ_ASSERT(!compiler.enteredStubFrame_); }
 #endif
@@ -238,6 +253,8 @@ JitCode* BaselineCacheIRCompiler::compile() {
     cx_->recoverFromOutOfMemory();
     return nullptr;
   }
+
+  newStubCode->setLocalTracingSlots(localTracingSlots_);
 
   return newStubCode;
 }
@@ -973,7 +990,7 @@ bool BaselineCacheIRCompiler::emitArrayJoinResult(ObjOperandId objId,
   {
     Label arrayNotEmpty;
     masm.branch32(Assembler::NotEqual, lengthAddr, Imm32(0), &arrayNotEmpty);
-    masm.movePtr(ImmGCPtr(cx_->names().empty), scratch);
+    masm.movePtr(ImmGCPtr(cx_->names().empty_), scratch);
     masm.tagValue(JSVAL_TYPE_STRING, scratch, output.valueReg());
     masm.jump(&finished);
     masm.bind(&arrayNotEmpty);
@@ -1221,7 +1238,7 @@ bool BaselineCacheIRCompiler::emitLoadStringCharResult(StringOperandId strId,
     allocator.discardStack(masm);
 
     // Return the empty string for out-of-bounds access.
-    masm.movePtr(ImmGCPtr(cx_->names().empty), scratch2);
+    masm.movePtr(ImmGCPtr(cx_->names().empty_), scratch2);
 
     // This CacheIR op is always preceded by |LinearizeForCharAccess|, so we're
     // guaranteed to see no nested ropes.
@@ -2189,6 +2206,9 @@ bool js::jit::TryFoldingStubs(JSContext* cx, ICFallbackStub* fallback,
   RootedValue shape(cx);
   RootedValueVector shapeList(cx);
 
+  // Try to add a shape to the list. Can fail on OOM or for cross-realm shapes.
+  // Returns true if the shape was successfully added to the list, and false
+  // (with no pending exception) otherwise.
   auto addShape = [&shapeList, cx](uintptr_t rawShape) -> bool {
     Shape* shape = reinterpret_cast<Shape*>(rawShape);
     // Only add same realm shapes.
@@ -2301,7 +2321,6 @@ bool js::jit::TryFoldingStubs(JSContext* cx, ICFallbackStub* fallback,
           }
           for (uint32_t i = 0; i < shapeList.length(); i++) {
             if (!shapeObj->append(cx, shapeList[i])) {
-              cx->recoverFromOutOfMemory();
               return false;
             }
 
@@ -2554,7 +2573,7 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
     JitSpew(JitSpew_BaselineICFallback,
             "Tried attaching identical stub for (%s:%u:%u)",
             outerScript->filename(), outerScript->lineno(),
-            outerScript->column());
+            outerScript->column().zeroOriginValue());
     return ICAttachResult::DuplicateStub;
   }
 
@@ -3599,6 +3618,117 @@ bool BaselineCacheIRCompiler::emitCallInlinedFunction(ObjOperandId calleeId,
   return true;
 }
 
+#ifdef JS_PUNBOX64
+template <typename IdType>
+bool BaselineCacheIRCompiler::emitCallScriptedProxyGetShared(
+    ValOperandId targetId, ObjOperandId receiverId, ObjOperandId handlerId,
+    uint32_t trapOffset, IdType id, uint32_t nargsAndFlags) {
+  Address trapAddr(stubAddress(trapOffset));
+  Register handler = allocator.useRegister(masm, handlerId);
+  ValueOperand target = allocator.useValueRegister(masm, targetId);
+  Register receiver = allocator.useRegister(masm, receiverId);
+  ValueOperand idVal;
+  if constexpr (std::is_same_v<IdType, ValOperandId>) {
+    idVal = allocator.useValueRegister(masm, id);
+  }
+
+  AutoScratchRegister code(allocator, masm);
+  AutoScratchRegister callee(allocator, masm);
+  AutoScratchRegister scratch(allocator, masm);
+  ValueOperand scratchVal(scratch);
+
+  masm.loadPtr(trapAddr, callee);
+
+  allocator.discardStack(masm);
+
+  AutoStubFrame stubFrame(*this);
+  stubFrame.enter(masm, scratch);
+
+  // We need to keep the target around to potentially validate the proxy result
+  stubFrame.storeTracedValue(masm, target);
+  if constexpr (std::is_same_v<IdType, ValOperandId>) {
+    stubFrame.storeTracedValue(masm, idVal);
+  } else {
+    // We need to either trace the id here or grab the ICStubReg back from
+    // FramePointer + sizeof(void*) after the call in order to load it again.
+    // We elect to do this because it unifies the code path after the call.
+    Address idAddr(stubAddress(id));
+    masm.loadPtr(idAddr, scratch);
+    masm.tagValue(JSVAL_TYPE_STRING, scratch, scratchVal);
+    stubFrame.storeTracedValue(masm, scratchVal);
+  }
+
+  uint16_t nargs = nargsAndFlags >> JSFunction::ArgCountShift;
+  masm.alignJitStackBasedOnNArgs(std::max(uint16_t(3), nargs),
+                                 /*countIncludesThis = */ false);
+  for (size_t i = 3; i < nargs; i++) {
+    masm.Push(UndefinedValue());
+  }
+
+  masm.tagValue(JSVAL_TYPE_OBJECT, receiver, scratchVal);
+  masm.Push(scratchVal);
+
+  if constexpr (std::is_same_v<IdType, ValOperandId>) {
+    masm.Push(idVal);
+  } else {
+    stubFrame.loadTracedValue(masm, 1, scratchVal);
+    masm.Push(scratchVal);
+  }
+
+  masm.Push(target);
+
+  masm.tagValue(JSVAL_TYPE_OBJECT, handler, scratchVal);
+  masm.Push(scratchVal);
+
+  masm.loadJitCodeRaw(callee, code);
+
+  masm.Push(callee);
+  masm.PushFrameDescriptorForJitCall(FrameType::BaselineStub, 3);
+
+  masm.callJit(code);
+
+  Register scratch2 = code;
+
+  Label success;
+  stubFrame.loadTracedValue(masm, 0, scratchVal);
+  masm.unboxObject(scratchVal, scratch);
+  masm.branchTestObjectNeedsProxyResultValidation(Assembler::Zero, scratch,
+                                                  scratch2, &success);
+  ValueOperand scratchVal2(scratch2);
+  stubFrame.loadTracedValue(masm, 1, scratchVal2);
+  masm.Push(JSReturnOperand);
+  masm.Push(scratchVal2);
+  masm.Push(scratch);
+  using Fn = bool (*)(JSContext*, HandleObject, HandleValue, HandleValue,
+                      MutableHandleValue);
+  callVM<Fn, CheckProxyGetByValueResult>(masm);
+
+  masm.bind(&success);
+
+  stubFrame.leave(masm);
+
+  return true;
+}
+
+bool BaselineCacheIRCompiler::emitCallScriptedProxyGetResult(
+    ValOperandId targetId, ObjOperandId receiverId, ObjOperandId handlerId,
+    uint32_t trapOffset, uint32_t idOffset, uint32_t nargsAndFlags) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  return emitCallScriptedProxyGetShared(targetId, receiverId, handlerId,
+                                        trapOffset, idOffset, nargsAndFlags);
+}
+
+bool BaselineCacheIRCompiler::emitCallScriptedProxyGetByValueResult(
+    ValOperandId targetId, ObjOperandId receiverId, ObjOperandId handlerId,
+    ValOperandId idId, uint32_t trapOffset, uint32_t nargsAndFlags) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  return emitCallScriptedProxyGetShared(targetId, receiverId, handlerId,
+                                        trapOffset, idId, nargsAndFlags);
+}
+#endif
+
 bool BaselineCacheIRCompiler::emitCallBoundScriptedFunction(
     ObjOperandId calleeId, ObjOperandId targetId, Int32OperandId argcId,
     CallFlags flags, uint32_t numBoundArgs) {
@@ -3714,9 +3844,9 @@ bool BaselineCacheIRCompiler::emitNewArrayObjectResult(uint32_t arrayLength,
   Label done;
   Label fail;
 
-  masm.createArrayWithFixedElements(result, shape, scratch, arrayLength,
-                                    arrayCapacity, allocKind, gc::Heap::Default,
-                                    &fail, AllocSiteInput(site));
+  masm.createArrayWithFixedElements(
+      result, shape, scratch, InvalidReg, arrayLength, arrayCapacity, 0, 0,
+      allocKind, gc::Heap::Default, &fail, AllocSiteInput(site));
   masm.jump(&done);
 
   {
@@ -3927,18 +4057,18 @@ bool BaselineCacheIRCompiler::emitCloseIterScriptedResult(
   return true;
 }
 
-static void CallRegExpStub(MacroAssembler& masm, size_t jitRealmStubOffset,
+static void CallRegExpStub(MacroAssembler& masm, size_t jitZoneStubOffset,
                            Register temp, Label* vmCall) {
-  // Call cx->realm()->jitRealm()->regExpStub. We store a pointer to the RegExp
+  // Call cx->zone()->jitZone()->regExpStub. We store a pointer to the RegExp
   // stub in the IC stub to keep it alive, but we shouldn't use it if the stub
   // has been discarded in the meantime (because we might have changed GC string
   // pretenuring heuristics that affect behavior of the stub). This is uncommon
   // but can happen if we discarded all JIT code but had some active (Baseline)
   // scripts on the stack.
   masm.loadJSContext(temp);
-  masm.loadPtr(Address(temp, JSContext::offsetOfRealm()), temp);
-  masm.loadPtr(Address(temp, Realm::offsetOfJitRealm()), temp);
-  masm.loadPtr(Address(temp, jitRealmStubOffset), temp);
+  masm.loadPtr(Address(temp, JSContext::offsetOfZone()), temp);
+  masm.loadPtr(Address(temp, Zone::offsetOfJitZone()), temp);
+  masm.loadPtr(Address(temp, jitZoneStubOffset), temp);
   masm.branchTestPtr(Assembler::Zero, temp, temp, vmCall);
   masm.call(Address(temp, JitCode::offsetOfCode()));
 }
@@ -3997,7 +4127,7 @@ bool BaselineCacheIRCompiler::emitCallRegExpMatcherResult(
   masm.reserveStack(RegExpReservedStack);
 
   Label done, vmCall, vmCallNoMatches;
-  CallRegExpStub(masm, JitRealm::offsetOfRegExpMatcherStub(), scratch,
+  CallRegExpStub(masm, JitZone::offsetOfRegExpMatcherStub(), scratch,
                  &vmCallNoMatches);
   masm.branchTestUndefined(Assembler::Equal, JSReturnOperand, &vmCall);
 
@@ -4058,7 +4188,7 @@ bool BaselineCacheIRCompiler::emitCallRegExpSearcherResult(
   masm.reserveStack(RegExpReservedStack);
 
   Label done, vmCall, vmCallNoMatches;
-  CallRegExpStub(masm, JitRealm::offsetOfRegExpSearcherStub(), scratch,
+  CallRegExpStub(masm, JitZone::offsetOfRegExpSearcherStub(), scratch,
                  &vmCallNoMatches);
   masm.branch32(Assembler::Equal, scratch, Imm32(RegExpSearcherResultFailed),
                 &vmCall);
@@ -4114,7 +4244,7 @@ bool BaselineCacheIRCompiler::emitRegExpBuiltinExecMatchResult(
   masm.reserveStack(RegExpReservedStack);
 
   Label done, vmCall, vmCallNoMatches;
-  CallRegExpStub(masm, JitRealm::offsetOfRegExpExecMatchStub(), scratch,
+  CallRegExpStub(masm, JitZone::offsetOfRegExpExecMatchStub(), scratch,
                  &vmCallNoMatches);
   masm.branchTestUndefined(Assembler::Equal, JSReturnOperand, &vmCall);
 
@@ -4169,8 +4299,7 @@ bool BaselineCacheIRCompiler::emitRegExpBuiltinExecTestResult(
   scratch = ReturnReg;
 
   Label done, vmCall;
-  CallRegExpStub(masm, JitRealm::offsetOfRegExpExecTestStub(), scratch,
-                 &vmCall);
+  CallRegExpStub(masm, JitZone::offsetOfRegExpExecTestStub(), scratch, &vmCall);
   masm.branch32(Assembler::Equal, scratch, Imm32(RegExpExecTestResultFailed),
                 &vmCall);
 

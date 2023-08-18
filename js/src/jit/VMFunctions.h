@@ -45,7 +45,13 @@ namespace gc {
 
 struct Cell;
 
-}
+}  // namespace gc
+
+namespace wasm {
+
+class AnyRef;
+
+}  // namespace wasm
 
 namespace jit {
 
@@ -500,6 +506,7 @@ void JitValuePreWriteBarrier(JSRuntime* rt, Value* vp);
 void JitStringPreWriteBarrier(JSRuntime* rt, JSString** stringp);
 void JitObjectPreWriteBarrier(JSRuntime* rt, JSObject** objp);
 void JitShapePreWriteBarrier(JSRuntime* rt, Shape** shapep);
+void JitWasmAnyRefPreWriteBarrier(JSRuntime* rt, wasm::AnyRef* refp);
 
 bool ObjectIsCallable(JSObject* obj);
 bool ObjectIsConstructor(JSObject* obj);
@@ -530,6 +537,9 @@ bool CallDOMSetter(JSContext* cx, const JSJitInfo* jitInfo, HandleObject obj,
 
 void HandleCodeCoverageAtPC(BaselineFrame* frame, jsbytecode* pc);
 void HandleCodeCoverageAtPrologue(BaselineFrame* frame);
+
+bool CheckProxyGetByValueResult(JSContext* cx, HandleObject obj, HandleValue id,
+                                HandleValue value, MutableHandleValue result);
 
 bool GetNativeDataPropertyPure(JSContext* cx, JSObject* obj, PropertyKey id,
                                MegamorphicCacheEntry* entry, Value* vp);

@@ -16,6 +16,7 @@
 #include "mozilla/Sprintf.h"                // SprintfLiteral
 
 #include <algorithm>  // std::fill
+#include <string.h>   // strlen
 
 #include "ds/LifoAlloc.h"               // LifoAlloc
 #include "frontend/AbstractScopePtr.h"  // ScopeIndex
@@ -24,13 +25,14 @@
 #include "frontend/CompilationStencil.h"  // CompilationStencil, CompilationState, ExtensibleCompilationStencil, CompilationGCOutput, CompilationStencilMerger
 #include "frontend/FrontendContext.h"
 #include "frontend/NameAnalysisTypes.h"  // EnvironmentCoordinate
+#include "frontend/ParserAtom.h"  // ParserAtom, ParserAtomIndex, TaggedParserAtomIndex, ParserAtomsTable, Length{1,2,3}StaticParserString, InstantiateMarkedAtoms, InstantiateMarkedAtomsAsPermanent, GetWellKnownAtom
 #include "frontend/ScopeBindingCache.h"  // ScopeBindingCache
 #include "frontend/SharedContext.h"
-#include "frontend/StencilXdr.h"        // XDRStencilEncoder, XDRStencilDecoder
-#include "gc/AllocKind.h"               // gc::AllocKind
-#include "gc/Tracer.h"                  // TraceNullableRoot
-#include "js/CallArgs.h"                // JSNative
-#include "js/CompileOptions.h"          // JS::DecodeOptions
+#include "frontend/StencilXdr.h"  // XDRStencilEncoder, XDRStencilDecoder
+#include "gc/AllocKind.h"         // gc::AllocKind
+#include "gc/Tracer.h"            // TraceNullableRoot
+#include "js/CallArgs.h"          // JSNative
+#include "js/CompileOptions.h"  // JS::DecodeOptions, JS::ReadOnlyDecodeOptions
 #include "js/experimental/JSStencil.h"  // JS::Stencil
 #include "js/GCAPI.h"                   // JS::AutoCheckCannotGC
 #include "js/Printer.h"                 // js::Fprinter
@@ -1390,6 +1392,28 @@ FunctionSyntaxKind CompilationInput::functionSyntaxKind() const {
     return FunctionSyntaxKind::Arrow;
   }
   return FunctionSyntaxKind::Statement;
+}
+
+bool CompilationInput::internExtraBindings(FrontendContext* fc,
+                                           ParserAtomsTable& parserAtoms) {
+  MOZ_ASSERT(hasExtraBindings());
+
+  for (auto& bindingInfo : *maybeExtraBindings_) {
+    if (bindingInfo.isShadowed) {
+      continue;
+    }
+
+    const char* chars = bindingInfo.nameChars.get();
+    auto index = parserAtoms.internUtf8(
+        fc, reinterpret_cast<const mozilla::Utf8Unit*>(chars), strlen(chars));
+    if (!index) {
+      return false;
+    }
+
+    bindingInfo.nameIndex = index;
+  }
+
+  return true;
 }
 
 void InputScope::trace(JSTracer* trc) {
@@ -2886,15 +2910,10 @@ bool CompilationStencil::prepareForInstantiate(
 
 /* static */
 bool CompilationStencil::prepareForInstantiate(
-    FrontendContext* fc, CompilationAtomCache& atomCache,
-    const CompilationStencil& stencil,
+    FrontendContext* fc, const CompilationStencil& stencil,
     PreallocatedCompilationGCOutput& gcOutput) {
-  if (!gcOutput.allocate(fc, stencil.scriptData.size(),
-                         stencil.scopeData.size())) {
-    return false;
-  }
-
-  return atomCache.allocate(fc, stencil.parserAtomData.size());
+  return gcOutput.allocate(fc, stencil.scriptData.size(),
+                           stencil.scopeData.size());
 }
 
 bool CompilationStencil::serializeStencils(JSContext* cx,
@@ -3625,11 +3644,11 @@ void frontend::DumpTaggedParserAtomIndex(js::JSONPrinter& json,
     json.property("tag", "WellKnown");
     auto index = taggedIndex.toWellKnownAtomId();
     switch (index) {
-      case WellKnownAtomId::empty:
+      case WellKnownAtomId::empty_:
         json.property("atom", "");
         break;
 
-#  define CASE_(_, name, _2) case WellKnownAtomId::name:
+#  define CASE_(name, _) case WellKnownAtomId::name:
         FOR_EACH_NONTINY_COMMON_PROPERTYNAME(CASE_)
 #  undef CASE_
 
@@ -3703,11 +3722,11 @@ void frontend::DumpTaggedParserAtomIndexNoQuote(
   if (taggedIndex.isWellKnownAtomId()) {
     auto index = taggedIndex.toWellKnownAtomId();
     switch (index) {
-      case WellKnownAtomId::empty:
+      case WellKnownAtomId::empty_:
         out.put("#<zero-length name>");
         break;
 
-#  define CASE_(_, name, _2) case WellKnownAtomId::name:
+#  define CASE_(name, _) case WellKnownAtomId::name:
         FOR_EACH_NONTINY_COMMON_PROPERTYNAME(CASE_)
 #  undef CASE_
 
@@ -4402,7 +4421,7 @@ void ScriptStencilExtra::dumpFields(js::JSONPrinter& json) const {
   json.property("toStringStart", extent.toStringStart);
   json.property("toStringEnd", extent.toStringEnd);
   json.property("lineno", extent.lineno);
-  json.property("column", extent.column);
+  json.property("column", extent.column.zeroOriginValue());
   json.endObject();
 
   json.property("memberInitializers", memberInitializers_);
@@ -4565,7 +4584,7 @@ static void DumpInputScriptFields(js::JSONPrinter& json,
     json.property("toStringStart", extent.toStringStart);
     json.property("toStringEnd", extent.toStringEnd);
     json.property("lineno", extent.lineno);
-    json.property("column", extent.column);
+    json.property("column", extent.column.zeroOriginValue());
   }
   json.endObject();
 
@@ -5518,7 +5537,7 @@ JS::TranscodeResult JS::EncodeStencil(JSContext* cx, JS::Stencil* stencil,
 }
 
 JS::TranscodeResult JS::DecodeStencil(JSContext* cx,
-                                      const JS::DecodeOptions& options,
+                                      const JS::ReadOnlyDecodeOptions& options,
                                       const JS::TranscodeRange& range,
                                       JS::Stencil** stencilOut) {
   AutoReportFrontendContext fc(cx);
@@ -5526,7 +5545,7 @@ JS::TranscodeResult JS::DecodeStencil(JSContext* cx,
 }
 
 JS::TranscodeResult JS::DecodeStencil(JS::FrontendContext* fc,
-                                      const JS::DecodeOptions& options,
+                                      const JS::ReadOnlyDecodeOptions& options,
                                       const JS::TranscodeRange& range,
                                       JS::Stencil** stencilOut) {
   RefPtr<ScriptSource> source = fc->getAllocator()->new_<ScriptSource>();

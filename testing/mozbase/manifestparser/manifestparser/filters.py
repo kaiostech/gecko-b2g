@@ -14,6 +14,7 @@ from collections import defaultdict
 from collections.abc import MutableSequence
 
 from .expression import ParseError, parse
+from .logger import Logger
 from .util import normsep
 
 # built-in filters
@@ -324,12 +325,7 @@ class chunk_by_runtime(InstanceFilter):
         self.this_chunk = this_chunk
         self.total_chunks = total_chunks
         self.runtimes = {normsep(m): r for m, r in runtimes.items()}
-        component = "filters"
-        import mozlog
-
-        self.logger = mozlog.get_default_logger(component)
-        if self.logger is None:
-            self.logger = mozlog.unstructured.getLogger(component)
+        self.logger = Logger()
 
     @classmethod
     def get_manifest(cls, test):
@@ -402,8 +398,10 @@ class tags(InstanceFilter):
     section. Tests can have multiple tags, in which case they should be
     whitespace delimited. For example:
 
-    [test_foobar.html]
-    tags = foo bar
+    .. code-block:: toml
+
+        ['test_foobar.html']
+        tags = 'foo bar'
 
     :param tags: A tag or list of tags to filter tests on
     """
@@ -428,11 +426,10 @@ class tags(InstanceFilter):
 
 class failures(InstanceFilter):
     """
-    .. code-block:: ini
+    .. code-block:: toml
 
-        [test_foobar.html]
-        fail-if =
-          keyword # <comment>
+        ['test_foobar.html']
+        fail-if = 'keyword' # <comment>
 
     :param keywords: A keyword to filter tests on
     """
@@ -477,7 +474,7 @@ class pathprefix(InstanceFilter):
             for testpath in self.paths:
                 tp = os.path.normpath(testpath)
 
-                if tp.endswith(".ini"):
+                if tp.endswith(".ini") or tp.endswith(".toml"):
                     mpaths = [test["manifest_relpath"]]
                     if "ancestor_manifest" in test:
                         mpaths.append(test["ancestor_manifest"])

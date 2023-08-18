@@ -101,10 +101,6 @@ static void debug_RegisterPrefCallbacks();
 static int32_t gNumWidgets;
 #endif
 
-#ifdef XP_MACOSX
-#  include "nsCocoaFeatures.h"
-#endif
-
 using namespace mozilla::dom;
 using namespace mozilla::layers;
 using namespace mozilla::ipc;
@@ -2234,8 +2230,10 @@ nsresult nsBaseWidget::AsyncEnableDragDrop(bool aEnable) {
 }
 
 void nsBaseWidget::SwipeFinished() {
-  mSwipeTracker->Destroy();
-  mSwipeTracker = nullptr;
+  if (mSwipeTracker) {
+    mSwipeTracker->Destroy();
+    mSwipeTracker = nullptr;
+  }
 }
 
 void nsBaseWidget::ReportSwipeStarted(uint64_t aInputBlockId,

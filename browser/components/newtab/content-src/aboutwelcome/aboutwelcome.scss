@@ -450,6 +450,11 @@ html {
             align-self: center;
             margin-inline: auto 12px;
           }
+
+          .rating {
+            font-size: 0.75em;
+            color: var(--in-content-icon-color);
+          }
         }
       }
     }
@@ -536,7 +541,7 @@ html {
 
         &.embedded-migration {
           .main-content {
-            padding-block: 76px 0;
+            padding-block: 100px 0;
           }
         }
 
@@ -1464,8 +1469,7 @@ html {
     }
   }
 
-  .message-text,
-  .attrib-text {
+  .message-text {
     transition: var(--transition);
   }
 

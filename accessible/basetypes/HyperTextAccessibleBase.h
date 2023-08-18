@@ -215,6 +215,12 @@ class HyperTextAccessibleBase {
   virtual void SelectionRanges(nsTArray<TextRange>* aRanges) const = 0;
 
   /**
+   * Return text selection ranges cropped to this Accessible (rather than for
+   * the entire text control or document). This also excludes collapsed ranges.
+   */
+  void CroppedSelectionRanges(nsTArray<TextRange>& aRanges) const;
+
+  /**
    * Return selected regions count within the accessible.
    */
   virtual int32_t SelectionCount();
@@ -255,6 +261,13 @@ class HyperTextAccessibleBase {
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void ScrollSubstringTo(int32_t aStartOffset,
                                                      int32_t aEndOffset,
                                                      uint32_t aScrollType);
+
+  /**
+   * Scroll the given text range to the given point.
+   */
+  virtual void ScrollSubstringToPoint(int32_t aStartOffset, int32_t aEndOffset,
+                                      uint32_t aCoordinateType, int32_t aX,
+                                      int32_t aY) = 0;
 
   //////////////////////////////////////////////////////////////////////////////
   // EditableTextAccessible
@@ -297,12 +310,6 @@ class HyperTextAccessibleBase {
   void AdjustOriginIfEndBoundary(TextLeafPoint& aOrigin,
                                  AccessibleTextBoundary aBoundaryType,
                                  bool aAtOffset = false) const;
-
-  /**
-   * Return text selection ranges cropped to this Accessible (rather than for
-   * the entire text control or document). This also excludes collapsed ranges.
-   */
-  virtual void CroppedSelectionRanges(nsTArray<TextRange>& aRanges) const;
 };
 
 }  // namespace mozilla::a11y

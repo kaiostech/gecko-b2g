@@ -57,7 +57,6 @@ ChromeUtils.defineESModuleGetters(this, {
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.sys.mjs",
   PlacesUIUtils: "resource:///modules/PlacesUIUtils.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
-  PluralForm: "resource://gre/modules/PluralForm.sys.mjs",
   Pocket: "chrome://pocket/content/Pocket.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.sys.mjs",
@@ -525,6 +524,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 XPCOMUtils.defineLazyPreferenceGetter(
   this,
+  "gBookmarksToolbarShowInPrivate",
+  "browser.toolbars.bookmarks.showInPrivateBrowsing",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
   "gFxaToolbarEnabled",
   "identity.fxaccounts.toolbar.enabled",
   false,
@@ -596,6 +602,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   this,
   "gTranslationsEnabled",
   "browser.translations.enable",
+  false
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "gUseFeltPrivacyUI",
+  "browser.privatebrowsing.felt-privacy-v1",
   false
 );
 
@@ -715,6 +728,25 @@ function isInitialPage(url) {
 
 function browserWindows() {
   return Services.wm.getEnumerator("navigator:browser");
+}
+
+function updateBookmarkToolbarVisibility() {
+  // Bug 1846583 - hide bookmarks toolbar in PBM
+  if (
+    gUseFeltPrivacyUI &&
+    !gBookmarksToolbarShowInPrivate &&
+    PrivateBrowsingUtils.isWindowPrivate(window)
+  ) {
+    setToolbarVisibility(BookmarkingUI.toolbar, false, false, false);
+  } else {
+    BookmarkingUI.updateEmptyToolbarMessage();
+    setToolbarVisibility(
+      BookmarkingUI.toolbar,
+      gBookmarksToolbarVisibility,
+      false,
+      false
+    );
+  }
 }
 
 // This is a stringbundle-like interface to gBrowserBundle, formerly a getter for
@@ -864,7 +896,14 @@ const gClickAndHoldListenersOnElement = {
       aEvent.button == 0 &&
       aEvent.target == aEvent.currentTarget &&
       !aEvent.currentTarget.open &&
-      !aEvent.currentTarget.disabled
+      !aEvent.currentTarget.disabled &&
+      // When menupopup is not hidden and we receive
+      // a click event, it means the mousedown occurred
+      // on aEvent.currentTarget and mouseup occurred on
+      // aEvent.currentTarget.menupopup, we don't
+      // need to handle the click event as menupopup
+      // handled mouseup event already.
+      aEvent.currentTarget.menupopup.hidden
     ) {
       let cmdEvent = document.createEvent("xulcommandevent");
       cmdEvent.initCommandEvent(
@@ -1502,13 +1541,7 @@ var gBrowserInit = {
   onBeforeInitialXULLayout() {
     this._setupFirstContentWindowPaintPromise();
 
-    BookmarkingUI.updateEmptyToolbarMessage();
-    setToolbarVisibility(
-      BookmarkingUI.toolbar,
-      gBookmarksToolbarVisibility,
-      false,
-      false
-    );
+    updateBookmarkToolbarVisibility();
 
     // Set a sane starting width/height for all resolutions on new profiles.
     if (ChromeUtils.shouldResistFingerprinting("RoundWindowSize")) {
@@ -1627,6 +1660,7 @@ var gBrowserInit = {
       "TranslationsParent:OfferTranslation",
       TranslationsPanel
     );
+    gBrowser.addTabsProgressListener(TranslationsPanel);
 
     window.addEventListener("AppCommand", HandleAppCommandEvent, true);
 
@@ -2017,7 +2051,9 @@ var gBrowserInit = {
 
     CaptivePortalWatcher.delayedStartup();
 
-    ShoppingSidebarManager.init();
+    if (AppConstants.NIGHTLY_BUILD) {
+      ShoppingSidebarManager.init();
+    }
 
     SessionStore.promiseAllWindowsRestored.then(() => {
       this._schedulePerWindowIdleTasks();
@@ -2438,7 +2474,9 @@ var gBrowserInit = {
 
     FirefoxViewHandler.uninit();
 
-    ShoppingSidebarManager.uninit();
+    if (AppConstants.NIGHTLY_BUILD) {
+      ShoppingSidebarManager.uninit();
+    }
 
     // Now either cancel delayedStartup, or clean up the services initialized from
     // it.
@@ -5164,12 +5202,7 @@ var XULBrowserWindow = {
     BookmarkingUI.onLocationChange();
     // If we've actually changed document, update the toolbar visibility.
     if (!isSameDocument) {
-      setToolbarVisibility(
-        BookmarkingUI.toolbar,
-        gBookmarksToolbarVisibility,
-        false,
-        false
-      );
+      updateBookmarkToolbarVisibility();
     }
 
     let closeOpenPanels = selector => {
@@ -5851,7 +5884,9 @@ var TabsProgressListener = {
 
     // Some shops use pushState to move between individual products, so
     // the shopping code needs to be told about all of these.
-    ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI);
+    if (AppConstants.NIGHTLY_BUILD) {
+      ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI);
+    }
 
     // Filter out location changes caused by anchor navigation
     // or history.push/pop/replaceState.
@@ -8308,6 +8343,11 @@ var gPrivateBrowsingUI = {
 
     gBrowser.updateTitlebar();
 
+    // Bug 1846583 - hide pocket button in PBM
+    if (gUseFeltPrivacyUI) {
+      document.getElementById("save-to-pocket-button").remove();
+    }
+
     if (PrivateBrowsingUtils.permanentPrivateBrowsing) {
       // Adjust the New Window menu entries
       let newWindow = document.getElementById("menu_newNavigator");
@@ -9964,6 +10004,9 @@ var ShoppingSidebarManager = {
   },
 
   _updateVisibility() {
+    if (window.closed) {
+      return;
+    }
     let optedOut = this.optedInPref === 2;
     let isPBM = PrivateBrowsingUtils.isWindowPrivate(window);
 

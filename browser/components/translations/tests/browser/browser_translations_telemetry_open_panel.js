@@ -25,9 +25,13 @@ add_task(async function test_translations_telemetry_open_panel() {
     "The button is available."
   );
 
-  await waitForTranslationsPopupEvent("popupshown", () => {
-    click(button, "Opening the popup");
-  });
+  await waitForTranslationsPopupEvent(
+    "popupshown",
+    () => {
+      click(button, "Opening the popup");
+    },
+    assertPanelDefaultView
+  );
 
   await waitForTranslationsPopupEvent("popuphidden", () => {
     click(
@@ -43,7 +47,10 @@ add_task(async function test_translations_telemetry_open_panel() {
       expectedEventCount: 1,
       expectNewFlowId: true,
       finalValuePredicates: [
+        value => value.extra.auto_show === "false",
+        value => value.extra.view_name === "defaultView",
         value => value.extra.opened_from === "translationsButton",
+        value => value.extra.document_language === "es",
       ],
     }
   );
@@ -66,9 +73,13 @@ add_task(async function test_translations_telemetry_open_panel() {
     }
   );
 
-  await waitForTranslationsPopupEvent("popupshown", () => {
-    click(button, "Opening the popup");
-  });
+  await waitForTranslationsPopupEvent(
+    "popupshown",
+    () => {
+      click(button, "Opening the popup");
+    },
+    assertPanelDefaultView
+  );
 
   await waitForTranslationsPopupEvent("popuphidden", () => {
     click(
@@ -84,7 +95,10 @@ add_task(async function test_translations_telemetry_open_panel() {
       expectedEventCount: 2,
       expectNewFlowId: true,
       allValuePredicates: [
+        value => value.extra.auto_show === "false",
+        value => value.extra.view_name === "defaultView",
         value => value.extra.opened_from === "translationsButton",
+        value => value.extra.document_language === "es",
       ],
     }
   );

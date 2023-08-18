@@ -1752,7 +1752,8 @@ void nsJSContext::LowMemoryGC() {
 
 // static
 void nsJSContext::MaybePokeCC() {
-  sScheduler.MaybePokeCC(TimeStamp::Now(), nsCycleCollector_suspectedCount());
+  sScheduler.MaybePokeCC(TimeStamp::NowLoRes(),
+                         nsCycleCollector_suspectedCount());
 }
 
 static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
@@ -2079,6 +2080,11 @@ void nsJSContext::EnsureStatics() {
       SetMemoryPrefChangedCallbackBool,
       "javascript.options.mem.gc_parallel_marking",
       (void*)JSGC_PARALLEL_MARKING_ENABLED);
+
+  Preferences::RegisterCallbackAndCall(
+      SetMemoryPrefChangedCallbackInt,
+      "javascript.options.mem.gc_parallel_marking_threshold_kb",
+      (void*)JSGC_PARALLEL_MARKING_THRESHOLD_KB);
 
   Preferences::RegisterCallbackAndCall(
       SetMemoryGCSliceTimePrefChangedCallback,

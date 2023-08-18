@@ -1,7 +1,5 @@
 random-if(gtkWidget) == dir-3.html dir-3-ref.html # bug 1309426
 == dir-5.html dir-5-ref.html
-fuzzy-if(cocoaWidget,0-135,0-56) == dir-6a.html dir-6a-ref.html
-== css-spacing-1.html css-spacing-1-ref.html
 random-if(smallScreen&&Android) fuzzy(0-255,0-200) fuzzy-if(geckoview,201-216,200-250) fuzzy-if(winWidget,114-255,245-361) fuzzy-if(OSX,79-153,240-250) == mirror-op-1.html mirror-op-1-ref.html
 != mirror-op-2.html mirror-op-2-ref.html
 != mirror-op-3.html mirror-op-3-ref.html
@@ -11,63 +9,15 @@ random-if(smallScreen&&Android) fuzzy(0-255,0-200) fuzzy-if(geckoview,201-216,20
 != non-spacing-accent-1.xhtml non-spacing-accent-1-ref.xhtml
 == overbar-width-1.xhtml overbar-width-1-ref.xhtml
 != stretchy-underbar-1.xhtml stretchy-underbar-1-ref.xhtml
-!= stretchy-munderover-1a.html stretchy-munderover-1-ref.html
-== stretchy-munderover-1b.html stretchy-munderover-1-ref.html
-fuzzy-if(gtkWidget,0-255,0-1) == stretchy-munderover-1c.html stretchy-munderover-1-ref.html
-== stretchy-munderover-1d.html stretchy-munderover-1-ref.html
-== stretchy-munderover-1e.html stretchy-munderover-1-ref.html
-!= stretchy-munderover-2a.html stretchy-munderover-2-ref.html
-== stretchy-munderover-2b.html stretchy-munderover-2-ref.html
-== stretchy-munderover-2c.html stretchy-munderover-2-ref.html
-== stretchy-munderover-2d.html stretchy-munderover-2-ref.html
-== stretchy-munderover-2e.html stretchy-munderover-2-ref.html
-== stretchy-munderover-2f.html stretchy-munderover-2-ref.html
-== stretchy-munderover-2g.html stretchy-munderover-2-ref.html
-!= stretchy-munderover-3a.html stretchy-munderover-3-ref.html
-== stretchy-munderover-3b.html stretchy-munderover-3-ref.html
-== stretchy-munderover-3c.html stretchy-munderover-3-ref.html
-!= stretchy-munderover-3d.html stretchy-munderover-3-ref.html
-== stretchy-msup-1a.html stretchy-msup-1-ref.html
-== stretchy-msup-1b.html stretchy-msup-1-ref.html
-== stretchy-msup-1c.html stretchy-msup-1-ref.html
-== stretchy-msup-1d.html stretchy-msup-1-ref.html
-== stretchy-mover-1a.html stretchy-mover-1-ref.html
-== stretchy-mover-1b.html stretchy-mover-1-ref.html
-fails == stretchy-mover-2a.html stretchy-mover-2-ref.html
-!= stretchy-mover-2b.html stretchy-mover-2-ref.html
-== stretchy-mover-3.html stretchy-mover-3-ref.html
 == stretchy-largeop-1.html stretchy-largeop-1-ref.html
 == stretchy-largeop-2.html stretchy-largeop-2-ref.html
 == stretchy-largeop-3.html stretchy-largeop-3-ref.html
-== table-width-1.xhtml table-width-1-ref.xhtml
-== table-width-2.html table-width-2-ref.html
-== table-width-3.html table-width-3-ref.html
-== table-width-4.html table-width-4-ref.html
 == underbar-width-1.xhtml underbar-width-1-ref.xhtml
 == mathml-type-supported.xhtml mathml-type-supported-ref.xml
-!= embellished-op-1-2.html embellished-op-1-2-ref.html
-!= embellished-op-1-3.html embellished-op-1-3-ref.html
-!= embellished-op-1-4.html embellished-op-1-4-ref.html
-!= embellished-op-1-5.html embellished-op-1-5-ref.html
-!= embellished-op-2-1.html embellished-op-2-1-ref.html
-!= embellished-op-2-2.html embellished-op-2-2-ref.html
-!= embellished-op-2-3.html embellished-op-2-3-ref.html
-!= embellished-op-2-4.html embellished-op-2-4-ref.html
-!= embellished-op-3-2.html embellished-op-3-2-ref.html
-!= embellished-op-3-3.html embellished-op-3-3-ref.html
-!= embellished-op-3-4.html embellished-op-3-4-ref.html
-!= embellished-op-3-5.html embellished-op-3-5-ref.html
-== embellished-op-4-1.html embellished-op-4-1-ref.html
-== embellished-op-4-2.html embellished-op-4-2-ref.html
-== embellished-op-4-3.html embellished-op-4-3-ref.html
-== embellished-op-5-1.html embellished-op-5-ref.html
-== embellished-op-5-2.html embellished-op-5-ref.html
 == semantics-1.xhtml semantics-1-ref.xhtml
 == semantics-2.html semantics-2-ref.html
 == semantics-3.html semantics-3-ref.html
-== semantics-4.html semantics-4-ref.html
 pref(mathml.stixgeneral_operator_stretching.disabled,false) == semantics-5.html semantics-5-ref.html # bug 1309429; bug 1648335
-== mstyle-2.xhtml mstyle-2-ref.xhtml
 fuzzy-if(OSX,0-16,0-8) == mstyle-3.xhtml mstyle-3-ref.xhtml
 fuzzy-if(OSX,0-1,0-4) == mstyle-4.xhtml mstyle-4-ref.xhtml
 == scale-stretchy-1.xhtml scale-stretchy-1-ref.xhtml
@@ -98,44 +48,16 @@ random-if(gtkWidget) == mpadded-9.html mpadded-9-ref.html # bug 1309430
 == mo-invisibleoperators.html mo-invisibleoperators-ref.html
 == mo-invisibleoperators-2.html mo-invisibleoperators-2-ref.html
 random-if(gtkWidget) == mo-glyph-size.html mo-glyph-size-ref.html # bug 1309426
-== whitespace-trim-1.html whitespace-trim-1-ref.html
-== whitespace-trim-2.html whitespace-trim-2-ref.html
-== whitespace-trim-3.html whitespace-trim-3-ref.html
-== whitespace-trim-4.html whitespace-trim-4-ref.html
-== whitespace-trim-5.html whitespace-trim-5-ref.html
-random-if(winWidget&&!d2d) == opentype-stretchy.html opentype-stretchy-ref.html
-== opentype-fraction-dynamic-linethickness.html opentype-fraction-dynamic-linethickness-ref.html
 == operator-1.xhtml operator-1-ref.xhtml
 fuzzy(0-1,0-80) fuzzy-if(Android,0-255,0-105) fuzzy-if(gtkWidget,0-255,0-136) skip-if(winWidget) == multiscripts-1.html multiscripts-1-ref.html # Windows: bug 1314684; Android: bug 1392254; Linux: bug 1599638
 == mathml-mmultiscript-base.html mathml-mmultiscript-base-ref.html
 == mathml-mmultiscript-mprescript.html mathml-mmultiscript-mprescript-ref.html
 == mmultiscript-align.html mmultiscript-align-ref.html
 fails-if(winWidget) fuzzy-if(gtkWidget,255-255,776226-776226) == subscript-italic-correction.html subscript-italic-correction-ref.html # bug 961482 (Windows), bug 1599640 (Linux)
-== dtls-1.html dtls-1-ref.html
-== dtls-2.html dtls-2-ref.html
-pref(mathml.legacy_mathvariant_attribute.disabled,false) == dtls-3.html dtls-3-ref.html
-== ssty-1.html ssty-1-ref.html
-== ssty-2.html ssty-2-ref.html
-== mathscript-1.html mathscript-1-ref.html
-== mathscript-2.html mathscript-2-ref.html
 == mo-accent-dynamic.html mo-accent-dynamic-ref.html
 == mo-movablelimits-dynamic.html mo-movablelimits-dynamic-ref.html
 == munderover-accent-dynamic.html munderover-accent-dynamic-ref.html
 == munderover-accentunder-dynamic.html munderover-accentunder-dynamic-ref.html
-== columnlines-1a.html columnlines-1-ref.html
-!= columnlines-1b.html columnlines-1-ref.html
-!= columnlines-1c.html columnlines-1-ref.html
-== columnlines-2a.html columnlines-2-ref.html
-== columnlines-2b.html columnlines-2-ref.html
-!= columnlines-3-1.html columnlines-3-1-ref.html
-== columnlines-3-2.html columnlines-3-2-ref.html
-== rowlines-1a.html rowlines-1-ref.html
-!= rowlines-1b.html rowlines-1-ref.html
-!= rowlines-1c.html rowlines-1-ref.html
-== rowlines-2a.html rowlines-2-ref.html
-== rowlines-2b.html rowlines-2-ref.html
-!= rowlines-3-1.html rowlines-3-1-ref.html
-random-if(gtkWidget) == rowlines-3-2.html rowlines-3-2-ref.html # bug 1309426
 == op-dict-10.html op-dict-10-ref.html
 != op-dict-11.html op-dict-11-ref.html
 == mfrac-A-4.html mfrac-A-4-ref.html
@@ -146,8 +68,6 @@ random-if(gtkWidget) == rowlines-3-2.html rowlines-3-2-ref.html # bug 1309426
 == mfrac-C-2.html mfrac-C-2-ref.html
 == mfrac-D-2.html mfrac-D-2-ref.html
 == mfrac-E-1.html mfrac-E-1-ref.html
-pref(ui.useOverlayScrollbars,1) pref(dom.meta-viewport.enabled,true) pref(font.size.inflation.emPerLine,25) fuzzy-if(!gtkWidget,0-255,0-324) fuzzy-if(gtkWidget,0-255,0-66) == font-inflation-1.html font-inflation-1-ref.html # gtkWidget due to Bug 1607294
-test-pref(font.minimum-size.x-math,40) == default-font.html default-font-ref.html
 != radicalbar-1.html about:blank
 != radicalbar-1a.html about:blank
 != radicalbar-1b.html about:blank

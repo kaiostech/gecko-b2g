@@ -194,27 +194,32 @@ var TranslationsPanel = new (class {
   detectedLanguages = null;
 
   /**
-   * Lazily get a console instance.
+   * Lazily get a console instance. Note that this script is loaded in very early to
+   * the browser loading process, and may run before the console is avialable. In
+   * this case the console will return as `undefined`.
    *
-   * @returns {Console}
+   * @returns {Console | void}
    */
   get console() {
     if (!this.#console) {
-      this.#console = console.createInstance({
-        maxLogLevelPref: "browser.translations.logLevel",
-        prefix: "Translations",
-      });
+      try {
+        this.#console = console.createInstance({
+          maxLogLevelPref: "browser.translations.logLevel",
+          prefix: "Translations",
+        });
+      } catch {
+        // The console may not be initialized yet.
+      }
     }
     return this.#console;
   }
 
   /**
-   * Show the introductory message on the first load, and keep on showing it for
-   * this URI, until the user navigates away.
+   * Tracks if the popup is open, or scheduled to be open.
    *
-   * @type {string | null}
+   * @type {boolean}
    */
-  #firstShowUriSpec = null;
+  #isPopupOpen = false;
 
   /**
    * Where the lazy elements are stored.
@@ -285,15 +290,11 @@ var TranslationsPanel = new (class {
 
       // Getters by id
       getter("appMenuButton", "PanelUI-menu-button");
-      getter("button", "translations-button");
-      getter("buttonLocale", "translations-button-locale");
-      getter("buttonCircleArrows", "translations-button-circle-arrows");
       getter("cancelButton", "translations-panel-cancel");
       getter(
         "changeSourceLanguageButton",
         "translations-panel-change-source-language"
       );
-      getter("defaultTranslate", "translations-panel-translate");
       getter("dismissErrorButton", "translations-panel-dismiss-error");
       getter("error", "translations-panel-error");
       getter("errorMessage", "translations-panel-error-message");
@@ -325,6 +326,26 @@ var TranslationsPanel = new (class {
     }
 
     return this.#lazyElements;
+  }
+
+  #lazyButtonElements = null;
+
+  /**
+   * When accessing `this.elements` the first time, it de-lazifies the custom components
+   * that are needed for the popup. Avoid that by having a second element lookup
+   * just for modifying the button.
+   */
+  get buttonElements() {
+    if (!this.#lazyButtonElements) {
+      this.#lazyButtonElements = {
+        button: document.getElementById("translations-button"),
+        buttonLocale: document.getElementById("translations-button-locale"),
+        buttonCircleArrows: document.getElementById(
+          "translations-button-circle-arrows"
+        ),
+      };
+    }
+    return this.#lazyButtonElements;
   }
 
   /**
@@ -436,7 +457,7 @@ var TranslationsPanel = new (class {
         // Ready to initialize.
         break;
       default:
-        this.console.error("Unknown langList phase", this.#langListsPhase);
+        this.console?.error("Unknown langList phase", this.#langListsPhase);
     }
 
     try {
@@ -477,7 +498,7 @@ var TranslationsPanel = new (class {
 
       this.#langListsPhase = "initialized";
     } catch (error) {
-      this.console.error(error);
+      this.console?.error(error);
       this.#langListsPhase = "error";
     }
   }
@@ -491,7 +512,7 @@ var TranslationsPanel = new (class {
   #updateViewFromTranslationStatus(
     languageState = this.#getTranslationsActor().languageState
   ) {
-    const { defaultTranslate, toMenuList, fromMenuList, header, cancelButton } =
+    const { translateButton, toMenuList, fromMenuList, header, cancelButton } =
       this.elements;
     const { requestedTranslationPair, isEngineReady } = languageState;
 
@@ -503,18 +524,18 @@ var TranslationsPanel = new (class {
     ) {
       // A translation has been requested, but is not ready yet.
       document.l10n.setAttributes(
-        defaultTranslate,
+        translateButton,
         "translations-panel-translate-button-loading"
       );
-      defaultTranslate.disabled = true;
+      translateButton.disabled = true;
       cancelButton.hidden = false;
       this.updateUIForReTranslation(false /* isReTranslation */);
     } else {
       document.l10n.setAttributes(
-        defaultTranslate,
+        translateButton,
         "translations-panel-translate-button"
       );
-      defaultTranslate.disabled =
+      translateButton.disabled =
         // The translation languages are the same, don't allow this translation.
         toMenuList.value === fromMenuList.value ||
         // No "to" language was provided.
@@ -564,6 +585,18 @@ var TranslationsPanel = new (class {
   }
 
   /**
+   * Returns true if the panel is currently showing the default view, otherwise false.
+   *
+   * @returns {boolean}
+   */
+  #isShowingDefaultView() {
+    const { multiview } = this.elements;
+    return (
+      multiview.getAttribute("mainViewId") === "translations-panel-view-default"
+    );
+  }
+
+  /**
    * Show the default view of choosing a source and target language.
    *
    * @param {boolean} force - Force the page to show translation options.
@@ -575,7 +608,7 @@ var TranslationsPanel = new (class {
       panel,
       error,
       toMenuList,
-      defaultTranslate,
+      translateButton,
       langSelection,
       intro,
       header,
@@ -598,7 +631,7 @@ var TranslationsPanel = new (class {
         actionCommand: () => this.#reloadLangList(),
       });
 
-      defaultTranslate.disabled = true;
+      translateButton.disabled = true;
       this.updateUIForReTranslation(false /* isReTranslation */);
       cancelButton.hidden = false;
       langSelection.hidden = true;
@@ -629,17 +662,19 @@ var TranslationsPanel = new (class {
       this.updateUIForReTranslation(false /* isReTranslation */);
       cancelButton.hidden = false;
       multiview.setAttribute("mainViewId", "translations-panel-view-default");
+      let actor = this.#getTranslationsActor();
 
       if (!this._hasShownPanel) {
-        this.#firstShowUriSpec = gBrowser.currentURI.spec;
+        actor.firstShowUriSpec = gBrowser.currentURI.spec;
       }
 
       if (
         this._hasShownPanel &&
-        gBrowser.currentURI.spec !== this.#firstShowUriSpec
+        gBrowser.currentURI.spec !== actor.firstShowUriSpec
       ) {
         document.l10n.setAttributes(header, "translations-panel-header");
-        this.#firstShowUriSpec === null;
+        actor.firstShowUriSpec = null;
+        intro.hidden = true;
       } else {
         Services.prefs.setBoolPref("browser.translations.panelShown", true);
         intro.hidden = false;
@@ -705,38 +740,28 @@ var TranslationsPanel = new (class {
       ".never-translate-language-menuitem"
     );
 
-    if (
-      !docLangTag ||
-      !isDocLangTagSupported ||
-      docLangTag === new Intl.Locale(Services.locale.appLocaleAsBCP47).language
-    ) {
-      for (const menuitem of alwaysTranslateMenuItems) {
-        menuitem.disabled = true;
-      }
-      for (const menuitem of neverTranslateMenuItems) {
-        menuitem.disabled = true;
-      }
-      return;
-    }
-
     const alwaysTranslateLanguage =
       TranslationsParent.shouldAlwaysTranslateLanguage(docLangTag);
     const neverTranslateLanguage =
       TranslationsParent.shouldNeverTranslateLanguage(docLangTag);
+    const shouldDisable =
+      !docLangTag ||
+      !isDocLangTagSupported ||
+      docLangTag === new Intl.Locale(Services.locale.appLocaleAsBCP47).language;
 
     for (const menuitem of alwaysTranslateMenuItems) {
       menuitem.setAttribute(
         "checked",
         alwaysTranslateLanguage ? "true" : "false"
       );
-      menuitem.disabled = false;
+      menuitem.disabled = shouldDisable;
     }
     for (const menuitem of neverTranslateMenuItems) {
       menuitem.setAttribute(
         "checked",
         neverTranslateLanguage ? "true" : "false"
       );
-      menuitem.disabled = false;
+      menuitem.disabled = shouldDisable;
     }
   }
 
@@ -827,6 +852,9 @@ var TranslationsPanel = new (class {
    */
   async #showRevisitView({ fromLanguage, toLanguage }) {
     const { fromMenuList, toMenuList, intro } = this.elements;
+    if (!this.#isShowingDefaultView()) {
+      await this.#showDefaultView();
+    }
     intro.hidden = true;
     fromMenuList.value = fromLanguage;
     toMenuList.value = toLanguage;
@@ -922,8 +950,9 @@ var TranslationsPanel = new (class {
 
     await this.#showDefaultView(true /* force this view to be shown */);
 
-    this.#openPanelPopup(this.elements.appMenuButton, {
+    await this.#openPanelPopup(this.elements.appMenuButton, {
       event,
+      viewName: "defaultView",
       maintainFlow: true,
     });
   }
@@ -1009,6 +1038,8 @@ var TranslationsPanel = new (class {
     switch (event.target.id) {
       case panel.id: {
         TranslationsParent.telemetry().panel().onClose();
+        this.#isPopupOpen = false;
+        this.elements.error.hidden = true;
         break;
       }
       case fromMenuList.firstChild.id: {
@@ -1040,39 +1071,81 @@ var TranslationsPanel = new (class {
    * Opens the Translations panel popup at the given target.
    *
    * @param {object} target - The target element at which to open the popup.
-   * @param {object} data
-   * @param {string} data.event
+   * @param {object} telemetryData
+   * @param {string} telemetryData.event
    *   The trigger event for opening the popup.
-   * @param {boolean} data.maintainFlow
+   * @param {string} telemetryData.viewName
+   *   The name of the view shown by the panel.
+   * @param {boolean} telemetryData.autoShow
+   *   True if the panel was automatically opened, otherwise false.
+   * @param {boolean} telemetryData.maintainFlow
    *   Whether or not to maintain the flow of telemetry.
-   * @param {boolean} data.isFirstUserInteraction
+   * @param {boolean} telemetryData.isFirstUserInteraction
    *   Whether or not this is the first user interaction with the panel.
    */
-  #openPanelPopup(
+  async #openPanelPopup(
     target,
-    { event = null, maintainFlow = false, isFirstUserInteraction = null }
+    {
+      event = null,
+      viewName = null,
+      autoShow = false,
+      maintainFlow = false,
+      isFirstUserInteraction = null,
+    }
   ) {
     const { panel, appMenuButton } = this.elements;
     const openedFromAppMenu = target.id === appMenuButton.id;
+    const { docLangTag } = await this.#getCachedDetectedLanguages();
 
     TranslationsParent.telemetry().panel().onOpen({
+      viewName,
+      autoShow,
+      docLangTag,
       maintainFlow,
       openedFromAppMenu,
       isFirstUserInteraction,
     });
 
+    this.#isPopupOpen = true;
+
     PanelMultiView.openPopup(panel, target, {
       position: "bottomright topright",
       triggerEvent: event,
-    }).catch(error => this.console.error(error));
+    }).catch(error => this.console?.error(error));
   }
+
+  /**
+   * Keeps track of open requests to guard against race conditions.
+   *
+   * @type {Promise<void> | null}
+   */
+  #openPromise = null;
 
   /**
    * Opens the TranslationsPanel.
    *
    * @param {Event} event
+   * @param {boolean} reportAsAutoShow
+   *   True to report to telemetry that the panel was opened automatically, otherwise false.
    */
-  async open(event) {
+  async open(event, reportAsAutoShow = false) {
+    if (this.#openPromise) {
+      // There is already an open event happening, do not open.
+      return;
+    }
+
+    this.#openPromise = this.#openImpl(event, reportAsAutoShow);
+    this.#openPromise.finally(() => {
+      this.#openPromise = null;
+    });
+  }
+
+  /**
+   * Implementation function for opening the panel. Prefer TranslationsPanel.open.
+   *
+   * @param {Event} event
+   */
+  async #openImpl(event, reportAsAutoShow) {
     event.stopPropagation();
     if (
       (event.type == "click" && event.button != 0) ||
@@ -1088,23 +1161,23 @@ var TranslationsPanel = new (class {
       gBrowser.selectedBrowser.browsingContext.top.embedderElement.ownerGlobal;
     window.ensureCustomElements("moz-support-link");
 
-    const { button } = this.elements;
+    const { button } = this.buttonElements;
 
-    await this.#ensureLangListsBuilt();
+    const { requestedTranslationPair, locationChangeId } =
+      this.#getTranslationsActor().languageState;
 
     // Store this value because it gets modified when #showDefaultView is called below.
     const isFirstUserInteraction = !this._hasShownPanel;
 
-    const { requestedTranslationPair } =
-      this.#getTranslationsActor().languageState;
+    await this.#ensureLangListsBuilt();
 
     if (requestedTranslationPair) {
       await this.#showRevisitView(requestedTranslationPair).catch(error => {
-        this.console.error(error);
+        this.console?.error(error);
       });
     } else {
       await this.#showDefaultView().catch(error => {
-        this.console.error(error);
+        this.console?.error(error);
       });
     }
 
@@ -1116,14 +1189,32 @@ var TranslationsPanel = new (class {
         ? button
         : this.elements.appMenuButton;
 
-    this.#openPanelPopup(targetButton, { event, isFirstUserInteraction });
+    if (!TranslationsParent.isActiveLocation(locationChangeId)) {
+      this.console?.log(`A translation panel open request was stale.`, {
+        locationChangeId,
+        newlocationChangeId:
+          this.#getTranslationsActor().languageState.locationChangeId,
+        currentURISpec: gBrowser.currentURI.spec,
+      });
+      return;
+    }
+
+    this.console?.log(`Showing a translation panel`, gBrowser.currentURI.spec);
+
+    await this.#openPanelPopup(targetButton, {
+      event,
+      autoShow: reportAsAutoShow,
+      viewName: requestedTranslationPair ? "revisitView" : "defaultView",
+      maintainFlow: false,
+      isFirstUserInteraction,
+    });
   }
 
   /**
    * Removes the translations button.
    */
   #hideTranslationsButton() {
-    const { button, buttonLocale, buttonCircleArrows } = this.elements;
+    const { button, buttonLocale, buttonCircleArrows } = this.buttonElements;
     button.hidden = true;
     buttonLocale.hidden = true;
     buttonCircleArrows.hidden = true;
@@ -1306,6 +1397,19 @@ var TranslationsPanel = new (class {
   handleEventId = 0;
 
   /**
+   * An event handler that allows the TranslationsPanel object
+   * to be compatible with the addTabsProgressListener function.
+   *
+   * @param {tabbrowser} browser
+   */
+  onLocationChange(browser) {
+    if (browser.currentURI.spec.startsWith("about:reader")) {
+      // Hide the translations button when entering reader mode.
+      TranslationsPanel.#hideTranslationsButton();
+    }
+  }
+
+  /**
    * Set the state of the translations button in the URL bar.
    *
    * @param {CustomEvent} event
@@ -1314,7 +1418,7 @@ var TranslationsPanel = new (class {
     switch (event.type) {
       case "TranslationsParent:OfferTranslation": {
         if (Services.wm.getMostRecentBrowserWindow()?.gBrowser === gBrowser) {
-          this.open(event);
+          this.open(event, /* reportAsAutoShow */ true);
         }
         break;
       }
@@ -1328,7 +1432,8 @@ var TranslationsPanel = new (class {
           isEngineReady,
         } = event.detail;
 
-        const { button, buttonLocale, buttonCircleArrows } = this.elements;
+        const { button, buttonLocale, buttonCircleArrows } =
+          this.buttonElements;
 
         const hasSupportedLanguage =
           detectedLanguages?.docLangTag &&
@@ -1341,10 +1446,12 @@ var TranslationsPanel = new (class {
           TranslationsPanel.detectedLanguages = detectedLanguages;
         }
 
-        // Make sure to use the language state that is passed by the event.detail, and
-        // don't read it from the actor here, as it's possible the actor isn't available
-        // via the gBrowser.selectedBrowser.
-        this.#updateViewFromTranslationStatus(event.detail);
+        if (this.#isPopupOpen) {
+          // Make sure to use the language state that is passed by the event.detail, and
+          // don't read it from the actor here, as it's possible the actor isn't available
+          // via the gBrowser.selectedBrowser.
+          this.#updateViewFromTranslationStatus(event.detail);
+        }
 
         if (
           // We've already requested to translate this page, so always show the icon.
@@ -1406,7 +1513,8 @@ var TranslationsPanel = new (class {
             // button's accessible tooltip label.
             if (
               this._hasShownPanel &&
-              gBrowser.currentURI.spec !== this.#firstShowUriSpec
+              gBrowser.currentURI.spec !==
+                this.#getTranslationsActor().firstShowUriSpec
             ) {
               document.l10n.setAttributes(
                 button,
@@ -1429,9 +1537,13 @@ var TranslationsPanel = new (class {
 
         switch (error) {
           case null:
-            this.elements.error.hidden = true;
             break;
           case "engine-load-failure":
+            if (!this.#isShowingDefaultView()) {
+              await this.#showDefaultView().catch(e => {
+                this.console?.error(e);
+              });
+            }
             this.elements.error.hidden = false;
             this.#showError({
               message: "translations-panel-error-translating",
@@ -1441,7 +1553,11 @@ var TranslationsPanel = new (class {
               : button;
 
             // Re-open the menu on an error.
-            this.#openPanelPopup(targetButton, { maintainFlow: true });
+            await this.#openPanelPopup(targetButton, {
+              autoShow: true,
+              viewName: "errorView",
+              maintainFlow: true,
+            });
             break;
           default:
             console.error("Unknown translation error", error);

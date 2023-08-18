@@ -137,6 +137,8 @@ def set_treeherder_machine_platform(config, tasks):
         # treeherder.
         "macosx1100-64/opt": "osx-1100/opt",
         "macosx1100-64-shippable/opt": "osx-1100-shippable/opt",
+        "macosx1300-64/opt": "osx-1300/opt",
+        "macosx1300-64-shippable/opt": "osx-1300-shippable/opt",
         "win64-asan/opt": "windows10-64/asan",
         "win64-aarch64/opt": "windows10-aarch64/opt",
     }
@@ -323,35 +325,35 @@ def setup_browsertime(config, tasks):
 
         cd_fetches = {
             "android.*": [
-                "linux64-chromedriver-113",
                 "linux64-chromedriver-114",
                 "linux64-chromedriver-115",
+                "linux64-chromedriver-116",
             ],
             "linux.*": [
-                "linux64-chromedriver-113",
                 "linux64-chromedriver-114",
                 "linux64-chromedriver-115",
+                "linux64-chromedriver-116",
             ],
             "macosx.*": [
                 "mac64-chromedriver-109",
-                "mac64-chromedriver-113",
                 "mac64-chromedriver-114",
                 "mac64-chromedriver-115",
+                "mac64-chromedriver-116",
             ],
             "windows.*aarch64.*": [
-                "win32-chromedriver-113",
                 "win32-chromedriver-114",
                 "win32-chromedriver-115",
+                "win32-chromedriver-116",
             ],
             "windows.*-32.*": [
-                "win32-chromedriver-113",
                 "win32-chromedriver-114",
                 "win32-chromedriver-115",
+                "win32-chromedriver-116",
             ],
             "windows.*-64.*": [
-                "win32-chromedriver-113",
                 "win32-chromedriver-114",
                 "win32-chromedriver-115",
+                "win32-chromedriver-116",
             ],
         }
 
@@ -652,6 +654,8 @@ def handle_tier(config, tasks):
                 "macosx1015-64-qr/debug",
                 "macosx1100-64-shippable-qr/opt",
                 "macosx1100-64-qr/debug",
+                "macosx1300-64-shippable-qr/opt",
+                "macosx1300-64-qr/debug",
                 "android-em-7.0-x86_64-shippable/opt",
                 "android-em-7.0-x86_64-shippable-lite/opt",
                 "android-em-7.0-x86_64/debug",

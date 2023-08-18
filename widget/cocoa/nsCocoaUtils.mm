@@ -17,7 +17,6 @@
 #include "nsCocoaUtils.h"
 #include "nsChildView.h"
 #include "nsMenuBarX.h"
-#include "nsCocoaFeatures.h"
 #include "nsCocoaWindow.h"
 #include "nsCOMPtr.h"
 #include "nsIInterfaceRequestorUtils.h"
@@ -78,6 +77,7 @@ StaticMutex nsCocoaUtils::sMediaCaptureMutex;
  */
 NSString* const kPublicUrlPboardType = @"public.url";
 NSString* const kPublicUrlNamePboardType = @"public.url-name";
+NSString* const kPasteboardConcealedType = @"org.nspasteboard.ConcealedType";
 NSString* const kUrlsWithTitlesPboardType = @"WebURLsWithTitlesPboardType";
 NSString* const kMozWildcardPboardType = @"org.mozilla.MozillaWildcard";
 NSString* const kMozCustomTypesPboardType = @"org.mozilla.custom-clipdata";
@@ -88,6 +88,7 @@ NSString* const kMozFileUrlsPboardType = @"org.mozilla.file-urls";
 + (NSString*)stringFromPboardType:(NSString*)aType {
   if ([aType isEqualToString:kMozWildcardPboardType] ||
       [aType isEqualToString:kMozCustomTypesPboardType] ||
+      [aType isEqualToString:kPasteboardConcealedType] ||
       [aType isEqualToString:kPublicUrlPboardType] ||
       [aType isEqualToString:kPublicUrlNamePboardType] ||
       [aType isEqualToString:kMozFileUrlsPboardType] ||

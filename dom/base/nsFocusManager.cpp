@@ -1126,7 +1126,7 @@ void nsFocusManager::WindowHidden(mozIDOMWindowProxy* aWindow,
 
   if (oldFocusedElement && oldFocusedElement->IsInComposedDoc()) {
     NotifyFocusStateChange(oldFocusedElement, nullptr, 0, false, false);
-    window->UpdateCommands(u"focus"_ns, nullptr, 0);
+    window->UpdateCommands(u"focus"_ns);
 
     if (presShell) {
       RefPtr<Document> composedDoc = oldFocusedElement->GetComposedDoc();
@@ -1881,7 +1881,7 @@ Maybe<uint64_t> nsFocusManager::SetFocusInner(Element* aNewContent,
     // update the commands even when inactive so that the attributes for that
     // window are up to date.
     if (allowFrameSwitch) {
-      newWindow->UpdateCommands(u"focus"_ns, nullptr, 0);
+      newWindow->UpdateCommands(u"focus"_ns);
     }
 
     if (aFlags & FLAG_RAISE) {
@@ -2444,7 +2444,7 @@ bool nsFocusManager::BlurImpl(BrowsingContext* aBrowsingContextToClear,
     // window, then this was a blur caused by the active window being lowered,
     // so there is no need to update the commands
     if (GetActiveBrowsingContext()) {
-      window->UpdateCommands(u"focus"_ns, nullptr, 0);
+      window->UpdateCommands(u"focus"_ns);
     }
 
     SendFocusOrBlurEvent(eBlur, presShell, element->GetComposedDoc(), element,
@@ -2722,7 +2722,7 @@ void nsFocusManager::Focus(
       // commands
       // XXXndeakin P2 someone could adjust the focus during the update
       if (!aWindowRaised) {
-        aWindow->UpdateCommands(u"focus"_ns, nullptr, 0);
+        aWindow->UpdateCommands(u"focus"_ns);
       }
 
       // If the focused element changed, scroll it into view
@@ -2746,7 +2746,7 @@ void nsFocusManager::Focus(
       IMEStateManager::OnChangeFocus(presContext, elementToFocus,
                                      GetFocusMoveActionCause(aFlags));
       if (!aWindowRaised) {
-        aWindow->UpdateCommands(u"focus"_ns, nullptr, 0);
+        aWindow->UpdateCommands(u"focus"_ns);
       }
       if (aFocusChanged) {
         // If the focused element changed, scroll it into view
@@ -2763,7 +2763,7 @@ void nsFocusManager::Focus(
     }
 
     if (!aWindowRaised) {
-      aWindow->UpdateCommands(u"focus"_ns, nullptr, 0);
+      aWindow->UpdateCommands(u"focus"_ns);
     }
   }
 

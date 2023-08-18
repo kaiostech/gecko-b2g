@@ -11,6 +11,7 @@
 #include "PLDHashTable.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/gfx/Types.h"
+#include "mozilla/TypedEnumBits.h"
 #include "nsHashtablesFwd.h"
 #include "nsICookieJarSettings.h"
 #include "nsIObserver.h"
@@ -152,6 +153,8 @@ enum class RFPTarget : uint64_t {
 
 #undef ITEM_VALUE
 
+MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(RFPTarget);
+
 // ============================================================================
 
 class nsRFPService final : public nsIObserver {
@@ -161,6 +164,10 @@ class nsRFPService final : public nsIObserver {
 
   static nsRFPService* GetOrCreate();
 
+  // _Rarely_ you will need to know if RFP is enabled, or if FPP is enabled.
+  // 98% of the time you should use nsContentUtils::ShouldResistFingerprinting
+  // as the difference will not matter to you.
+  static bool IsRFPPrefEnabled(bool aIsPrivateMode);
   static bool IsRFPEnabledFor(RFPTarget aTarget);
 
   // --------------------------------------------------------------------------

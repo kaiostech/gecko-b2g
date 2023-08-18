@@ -605,11 +605,7 @@
 #    (multiplied then by pixelsPerLineStep which in GNOME-web is 40).
 -   name: apz.gtk.pangesture.delta_mode
     type: uint32_t
-#ifdef NIGHTLY_BUILD
-    value: 2
-#else
     value: 0
-#endif
     mirror: always
 
 -   name: apz.gtk.pangesture.page_delta_mode_multiplier
@@ -1657,11 +1653,6 @@
 # Testing-only pref to cause PBrowser creation for a specific BrowsingContext to
 # fail, to test the errored codepath.
 - name: browser.tabs.remote.testOnly.failPBrowserCreation.enabled
-  type: bool
-  value: false
-  mirror: always
-
-- name: browser.tabs.remote.desktopbehavior
   type: bool
   value: false
   mirror: always
@@ -2757,13 +2748,6 @@
   value: false
   mirror: always
 
-# Whether fullscreen should make the rest of the document inert.
-# This matches other browsers but historically not Gecko.
-- name: dom.fullscreen.modal
-  type: bool
-  value: true
-  mirror: always
-
 # Whether the Gamepad API is enabled
 - name: dom.gamepad.enabled
   type: bool
@@ -3072,12 +3056,6 @@
   value: @IS_ANDROID@
   mirror: always
 
-# Is support for HTMLElement.enterKeyHint enabled?
-- name: dom.forms.enterkeyhint
-  type: bool
-  value: true
-  mirror: always
-
 # Is support for HTMLElement.inputMode enabled?
 - name: dom.forms.inputmode
   type: bool
@@ -3169,11 +3147,7 @@
 # disabled.
 - name: dom.keyboardevent.init_key_event.enabled_in_addons
   type: bool
-#if defined(RELEASE_OR_BETA)
-  value: true
-#else
-  value: false
-#endif
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # If this is true, keypress events for non-printable keys are dispatched only
@@ -5287,6 +5261,12 @@
   value: false
   mirror: always
 
+# Whether to expose the AddonManager web API.
+- name: extensions.webapi.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NOT_ANDROID@
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "fission."
 #---------------------------------------------------------------------------
@@ -6020,11 +6000,6 @@
 - name: gfx.color_management.rec2020_gamma_as_rec709
   type: RelaxedAtomicBool
   value: true # Match naive behavior, but hopefully we can stop soon!
-  mirror: always
-
-- name: gfx.compositor.clearstate
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 # Whether GL contexts can be migrated to a different GPU (to match the one the
@@ -7542,6 +7517,12 @@
   mirror: always
 #endif
 
+# If true, we use UAX14/29 compatible segmenter rules using ICU4X
+- name: intl.icu4x.segmenter.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "javascript."
 #
@@ -7718,6 +7699,12 @@
     value: false
     mirror: always
 
+  # Experimental support for New Set methods
+-   name: javascript.options.experimental.new_set_methods
+    type: bool
+    value: false
+    mirror: always
+
   # Experimental support for ArrayBuffer.prototype.transfer{,ToFixedLength}() in JavaScript.
 -   name: javascript.options.experimental.arraybuffer_transfer
     type: bool
@@ -7732,14 +7719,6 @@
     value: false
     mirror: always
 #endif  // NIGHTLY_BUILD
-
-#if defined(ENABLE_NEW_SET_METHODS)
-  # Experimental support for New Set methods
-- name: javascript.options.experimental.enable_new_set_methods
-  type: bool
-  value: false
-  mirror: always
-#endif
 
 - name: javascript.options.wasm_caching
   type: bool
@@ -8424,28 +8403,28 @@
 # Whether the round() function is enabled in calc().
 - name: layout.css.round.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Whether the mod() / rem() functions are enabled in calc().
 - name: layout.css.mod-rem.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Whether exponential functions are enabled in calc().
 - name: layout.css.exp.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Whether sign/abs functions are enabled in calc().
 - name: layout.css.abs-sign.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8461,13 +8440,6 @@
   type: bool
   value: true
   mirror: always
-
-# Make `zoom` a `transform` + `transform-origin` alias.
-- name: layout.css.zoom-transform-hack.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
 
 # Whether the `-moz-control-character-visibility` property is exposed to
 # content.
@@ -8754,28 +8726,9 @@
 #   1 - only base system fonts
 #   2 - also fonts from optional language packs
 #   3 - also user-installed fonts
-- name: layout.css.font-visibility.standard
+- name: layout.css.font-visibility
   type: int32_t
   value: 3
-  mirror: always
-
-# font-visibility setting when Tracking Protection is enabled
-- name: layout.css.font-visibility.trackingprotection
-  type: int32_t
-  value: 3
-  mirror: always
-
-# Max font-visibility setting for Private Browsing contexts
-# (The actual value used in a private-browsing context will be the lesser of
-# the appropriate standard/trackingprotection/RFP value from above, and the
-# private-browsing level specified by this pref.)
-- name: layout.css.font-visibility.private
-  type: int32_t
-#if defined(NIGHTLY_BUILD)
-  value: 2
-#else
-  value: 3
-#endif
   mirror: always
 
 # Is support for GeometryUtils.getBoxQuads enabled?
@@ -8867,6 +8820,13 @@
 
 # Is support for motion-path offset-position enabled?
 - name: layout.css.motion-path-offset-position.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for motion-path url enabled?
+- name: layout.css.motion-path-url.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -9102,13 +9062,6 @@
 - name: layout.css.scroll-snap.prediction-sensitivity
   type: AtomicFloat
   value: 0.750f
-  mirror: always
-
-# Set the threshold distance in CSS pixels below which scrolling will snap to
-# an edge, when scroll snapping is set to "proximity".
-- name: layout.css.scroll-snap.proximity-threshold
-  type: RelaxedAtomicInt32
-  value: 200
   mirror: always
 
 # Stylo thread-pool size.
@@ -10391,9 +10344,42 @@
 #endif
     mirror: always
 
+-   name: media.ffvpx.vorbis.enabled
+    type: RelaxedAtomicBool
+#ifdef MOZ_FFVPX
+    value: true
+#else
+    value: false
+#endif
+    mirror: always
+
+-   name: media.ffvpx.opus.enabled
+    type: RelaxedAtomicBool
+#ifdef MOZ_FFVPX
+    value: true
+#else
+    value: false
+#endif
+    mirror: always
+
+-   name: media.ffvpx.wav.enabled
+    type: RelaxedAtomicBool
+#ifdef MOZ_FFVPX
+    value: true
+#else
+    value: false
+#endif
+    mirror: always
+
 # Set to true in marionette tests to disable the sanity test
 # which would lead to unnecessary start of the RDD process.
 -   name: media.sanity-test.disabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
+# Configure all decoders to use low-latency mode.
+-   name: media.low-latency-decoding.force-enabled
     type: RelaxedAtomicBool
     value: false
     mirror: always
@@ -10793,11 +10779,7 @@
 
 - name: media.mp4.enabled
   type: RelaxedAtomicBool
-#ifdef MOZ_FMP4
   value: true
-#else
-  value: false
-#endif
   mirror: always
 
 - name: media.mp4.sniff_iso_brand
@@ -12075,13 +12057,6 @@
   value: false
   mirror: always
 
-# Enables `<link rel="preload">` tag and `Link: rel=preload` response header
-# handling.
-- name: network.preload
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Enables `<link rel="preconnect">` tag and `Link: rel=preconnect` response header
 # handling.
 - name: network.preconnect
@@ -12659,6 +12634,12 @@
   value: false
   mirror: always
 
+  # If true, will be more strict with status code parsing
+- name: network.url.strict_data_url_base64_placement
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Force remapping of remote port numbers to allow reaching local testing
 # servers or port forwarders listening on non-standard ports.  Note that
 # this is not changing the origin URL in the addressbar, only internally
@@ -12827,7 +12808,7 @@
 # When a Http/3 connection failed, whether to retry with a different IP address.
 - name: network.http.http3.retry_different_ip_family
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 # This is for testing purpose. When true, nsUDPSocket::SendWithAddress will
@@ -13024,6 +13005,18 @@
   value: 5
   mirror: always
 
+  # If true, requests will be canceled if any of the response headers values has a NUL character
+- name: network.http.reject_NULs_in_response_header_values
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+  # If true, will be more strict with status code parsing
+- name: network.http.strict_response_status_line_parsing
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
   # If true, remove the resumption token when 0RTT failed.
 - name: network.http.remove_resumption_token_when_early_data_failed
   type: RelaxedAtomicBool
@@ -13149,11 +13142,6 @@
 - name: permissions.default.image
   type: RelaxedAtomicUint32
   value: 1
-  mirror: always
-
-- name: permissions.delegation.enabled
-  type: bool
-  value: true
   mirror: always
 
 - name: permissions.isolateBy.userContext
@@ -13305,14 +13293,6 @@
 - name: print.cups.monochrome.enabled
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-
-# The maximum amount of time CUPS should spend enumerating print destinations
-# (in milliseconds).
-# The default value chosen here is completely arbitrary.
-- name: print.cups.enum_dests_timeout_ms
-  type: RelaxedAtomicUint32
-  value: 150
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -14174,6 +14154,7 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+  rust: true
 
 # Dispatch WebAuthn requests to the Android platform API
 - name: security.webauth.webauthn_enable_android_fido2
@@ -14192,17 +14173,12 @@
   type: RelaxedAtomicBool
   value: @IS_NOT_ANDROID@
   mirror: always
+  rust: true
 
 # Skip direct attestation consent prompts (for tests).
 - name: security.webauth.webauthn_testing_allow_direct_attestation
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Global counter for U2F soft token operations
-- name: security.webauth.softtoken_counter
-  type: RelaxedAtomicUint32
-  value: 0
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.
@@ -14934,7 +14910,7 @@
   value: -1
   mirror: always
 
-# Use 17 for Ctrl, 18 for Alt, 224 for Meta, 91 for Win, 0 for none.
+# Use 17 for Ctrl, 18 for Alt, 91 or 224 for Meta, 0 for none.
 - name: ui.key.accelKey
   type: uint32_t
 #ifdef XP_MACOSX
@@ -14961,8 +14937,7 @@
   # 0 = disabled, 1 = Shift, 2 = Ctrl, 4 = Alt, 3 =  ctrl+shift, 8 = Meta
   value: 2
 #else
-  # 0 = disabled, 1 = Shift, 2 = Ctrl, 4 = Alt, 5 =  Alt+Shift,
-  # 8 = Meta, 16 = Win
+  # 0 = disabled, 1 = Shift, 2 = Ctrl, 4 = Alt, 5 =  Alt+Shift, 8 = Win
   value: 4
 #endif
   mirror: always
@@ -14974,8 +14949,7 @@
   # 0 = disabled, 1 = Shift, 2 = Ctrl, 4 = Alt, 3 = ctrl+shift, 8 = Meta
   value: 6
 #else
-  # 0 = disabled, 1 = Shift, 2 = Ctrl, 4 = Alt, 5 =  Alt+Shift,
-  # 8 = Meta, 16 = Win
+  # 0 = disabled, 1 = Shift, 2 = Ctrl, 4 = Alt, 5 =  Alt+Shift, 8 = Win
   value: 5
 #endif
   mirror: always
@@ -15787,10 +15761,9 @@
   mirror: always
 
 #ifdef MOZ_WAYLAND
-# Force fractional scaling using wp_viewporter. Valid values: 0.5 - 8
-- name: widget.wayland.fractional_buffer_scale
-  type: float
-  value: 0.0f
+- name: widget.wayland.fractional-scale.enabled
+  type: bool
+  value: false
   mirror: once
 
 # Use opaque region for MozContainer wl_surface
@@ -16029,17 +16002,28 @@
   value: 0.05f
   mirror: always
 
+# When using pixel deltas for pan input, how many pixels do we consider a whole
+# swipe?
+#
 # The values for this pref are derived from trial and error in an effort to
 # match the existing behavior on the respective platforms.
-- name: widget.swipe.whole-page-pixel-size
+- name: widget.swipe.pixel-size
   type: float
-#if defined(XP_WIN)
-  value: 1100.0f
-#elif defined(XP_MACOSX)
+#if defined(XP_MACOSX)
   value: 550.0f
 #else
-  value: 40.0f
+  value: 1100.0f
 #endif
+  mirror: always
+
+# When using page deltas for pan input, how many pages do we consider a whole
+# swipe navigation?
+#
+# This is only relevant for GTK which is as of right now the only platform
+# which supports page-based pan gestures.
+- name: widget.swipe.page-size
+  type: float
+  value: 40.0f
   mirror: always
 
 - name: widget.transparent-windows

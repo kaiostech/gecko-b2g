@@ -171,14 +171,14 @@ class ImportRowProcessor {
    *        A login object.
    * @returns {boolean} True if the entry is similar or identical to another previously processed entry, false otherwise.
    */
-  checkConflictingWithExistingLogins(login) {
+  async checkConflictingWithExistingLogins(login) {
     // While here we're passing formActionOrigin and httpRealm, they could be empty/null and get
     // ignored in that case, leading to multiple logins for the same username.
-    let existingLogins = Services.logins.findLogins(
-      login.origin,
-      login.formActionOrigin,
-      login.httpRealm
-    );
+    let existingLogins = await Services.logins.searchLoginsAsync({
+      origin: login.origin,
+      httpRealm: login.httpRealm,
+    });
+
     // Check for an existing login that matches *including* the password.
     // If such a login exists, we do not need to add a new login.
     if (
@@ -672,7 +672,6 @@ export const LoginHelper = {
    * Strip out things like the userPass portion and handle javascript:.
    */
   getLoginOrigin(uriString, allowJS = false) {
-    let realm = "";
     try {
       const mozProxyRegex = /^moz-proxy:\/\//i;
       const isMozProxy = !!uriString.match(mozProxyRegex);
@@ -685,26 +684,16 @@ export const LoginHelper = {
         );
       }
 
-      let uri = Services.io.newURI(uriString);
-
+      const uri = Services.io.newURI(uriString);
       if (allowJS && uri.scheme == "javascript") {
         return "javascript:";
       }
 
       // Build this manually instead of using prePath to avoid including the userPass portion.
-      realm = uri.scheme + "://" + uri.displayHostPort;
-    } catch (e) {
-      // bug 159484 - disallow url types that don't support a hostPort.
-      // (although we handle "javascript:..." as a special case above.)
-      if (uriString && !uriString.startsWith("data")) {
-        lazy.log.warn(
-          `Couldn't parse specified uri ${uriString} with error ${e.name}`
-        );
-      }
-      realm = null;
+      return uri.scheme + "://" + uri.displayHostPort;
+    } catch {
+      return null;
     }
-
-    return realm;
   },
 
   getFormActionOrigin(form) {
@@ -1509,7 +1498,7 @@ export const LoginHelper = {
         if (processor.checkConflictingOriginWithPreviousRows(login)) {
           continue;
         }
-        if (processor.checkConflictingWithExistingLogins(login)) {
+        if (await processor.checkConflictingWithExistingLogins(login)) {
           continue;
         }
         processor.addLoginToSummary(login, "added");

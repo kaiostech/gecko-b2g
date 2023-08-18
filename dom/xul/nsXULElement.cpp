@@ -21,7 +21,7 @@
 #include "XULTooltipElement.h"
 #include "XULTreeElement.h"
 #include "js/CompilationAndEvaluation.h"
-#include "js/CompileOptions.h"
+#include "js/CompileOptions.h"  // JS::CompileOptions, JS::OwningCompileOptions, , JS::ReadOnlyCompileOptions, JS::ReadOnlyDecodeOptions, JS::DecodeOptions
 #include "js/experimental/CompileScript.h"  // JS::NewFrontendContext, JS::DestroyFrontendContext, JS::SetNativeStackQuota, JS::CompileGlobalScriptToStencil, JS::CompilationStorage
 #include "js/experimental/JSStencil.h"      // JS::Stencil, JS::FrontendContext
 #include "js/OffThreadScriptCompilation.h"
@@ -1566,7 +1566,7 @@ static nsresult WriteStencil(nsIObjectOutputStream* aStream, JSContext* aCx,
 }
 
 static nsresult ReadStencil(nsIObjectInputStream* aStream, JSContext* aCx,
-                            const JS::DecodeOptions& aOptions,
+                            const JS::ReadOnlyDecodeOptions& aOptions,
                             JS::Stencil** aStencilOut) {
   // We don't serialize mutedError-ness of scripts, which is fine as long as
   // we only serialize system and XUL-y things. We can detect this by checking
@@ -1785,9 +1785,10 @@ nsresult nsXULPrototypeScript::DeserializeOutOfLine(
 }
 
 #ifdef DEBUG
-static void CheckErrorsAndWarnings(JS::FrontendContext* aFc) {
+static void CheckErrorsAndWarnings(JS::FrontendContext* aFc,
+                                   const JS::ReadOnlyCompileOptions& aOptions) {
   if (JS::HadFrontendErrors(aFc)) {
-    const JSErrorReport* report = JS::GetFrontendErrorReport(aFc);
+    const JSErrorReport* report = JS::GetFrontendErrorReport(aFc, aOptions);
     if (report) {
       const char* message = "<unknown>";
       const char* filename = "<unknown>";
@@ -1802,7 +1803,8 @@ static void CheckErrorsAndWarnings(JS::FrontendContext* aFc) {
       NS_WARNING(
           nsPrintfCString(
               "Had compilation error in ScriptCompileTask: %s at %s:%u:%u",
-              message, filename, report->lineno, report->column)
+              message, filename, report->lineno,
+              report->column.oneOriginValue())
               .get());
     }
 
@@ -1821,7 +1823,7 @@ static void CheckErrorsAndWarnings(JS::FrontendContext* aFc) {
 
   size_t count = JS::GetFrontendWarningCount(aFc);
   for (size_t i = 0; i < count; i++) {
-    const JSErrorReport* report = JS::GetFrontendWarningAt(aFc, i);
+    const JSErrorReport* report = JS::GetFrontendWarningAt(aFc, i, aOptions);
 
     const char* message = "<unknown>";
     const char* filename = "<unknown>";
@@ -1836,7 +1838,7 @@ static void CheckErrorsAndWarnings(JS::FrontendContext* aFc) {
     NS_WARNING(
         nsPrintfCString(
             "Had compilation warning in ScriptCompileTask: %s at %s:%u:%u",
-            message, filename, report->lineno, report->column)
+            message, filename, report->lineno, report->column.oneOriginValue())
             .get());
   }
 }
@@ -1887,7 +1889,7 @@ class ScriptCompileTask final : public Task {
                                                 srcBuf, compileStorage);
 #ifdef DEBUG
     // Chrome-privileged code shouldn't have any compilation error.
-    CheckErrorsAndWarnings(mFrontendContext);
+    CheckErrorsAndWarnings(mFrontendContext, mOptions);
     MOZ_ASSERT(mStencil);
 #endif
   }

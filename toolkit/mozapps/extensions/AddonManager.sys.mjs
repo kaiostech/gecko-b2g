@@ -4040,6 +4040,8 @@ export var AddonManager = {
     ["ERROR_UNEXPECTED_ADDON_VERSION", -9],
     // The add-on is blocklisted.
     ["ERROR_BLOCKLISTED", -10],
+    // The add-on is incompatible (w.r.t. the compatibility range).
+    ["ERROR_INCOMPATIBLE", -11],
   ]),
   // The update check timed out
   ERROR_TIMEOUT: -1,
@@ -5316,10 +5318,17 @@ AMBrowserExtensionsImport = {
     // might not have as many mapped add-ons as extension IDs because not all
     // browser extensions will be mapped to Firefox add-ons.
     try {
-      importedAddons = await this.addonRepository.getMappedAddons(
-        browserId,
-        extensionIDs
-      );
+      let matchedIDs = [];
+      let unmatchedIDs = [];
+
+      ({
+        addons: importedAddons,
+        matchedIDs,
+        unmatchedIDs,
+      } = await this.addonRepository.getMappedAddons(browserId, extensionIDs));
+
+      Glean.browserMigration.matchedExtensions.set(matchedIDs);
+      Glean.browserMigration.unmatchedExtensions.set(unmatchedIDs);
     } catch (err) {
       Cu.reportError(err);
     }

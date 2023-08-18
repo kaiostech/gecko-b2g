@@ -52,7 +52,7 @@
 
   <body>
     <fxview-category-navigation>
-      <h2 slot="category-nav-header" data-l10n-id="firefoxview-page-title"></h2>
+      <h1 slot="category-nav-header" data-l10n-id="firefoxview-page-title"></h1>
       <fxview-category-button
         class="category"
         slot="category-button"
@@ -89,7 +89,7 @@
       >
       </fxview-category-button>
     </fxview-category-navigation>
-    <main id="pages">
+    <main id="pages" role="application" data-l10n-id="firefoxview-page-label">
       <named-deck>
         <view-overview name="overview">
           <div>
@@ -97,6 +97,9 @@
           </div>
           <div>
             <view-recentlyclosed slot="recentlyclosed"></view-recentlyclosed>
+          </div>
+          <div>
+            <view-syncedtabs slot="syncedtabs"></view-syncedtabs>
           </div>
         </view-overview>
         <view-history name="history"></view-history>

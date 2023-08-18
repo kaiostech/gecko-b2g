@@ -226,17 +226,16 @@ class RecentlyClosedTabsInView extends ViewPage {
       </div>
       <div class=${classMap({ "cards-container": this.selectedTab })}>
         <card-container
-          .viewAllPage=${this.overview && this.recentlyClosedTabs.length
-            ? "recentlyclosed"
-            : null}
+          shortPageName="recentlyclosed"
+          ?showViewAll=${this.overview && this.recentlyClosedTabs.length}
           ?preserveCollapseState=${this.overview ? true : null}
           ?hideHeader=${this.selectedTab}
           ?hidden=${!this.recentlyClosedTabs.length && !this.overview}
         >
-          <h2
+          <h3
             slot="header"
             data-l10n-id="firefoxview-recently-closed-header"
-          ></h2>
+          ></h3>
           <fxview-tab-list
             class="with-dismiss-button"
             ?hidden=${!this.recentlyClosedTabs.length}

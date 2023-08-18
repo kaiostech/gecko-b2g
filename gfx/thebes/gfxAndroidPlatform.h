@@ -44,11 +44,7 @@ class gfxAndroidPlatform final : public gfxPlatform {
   virtual bool IsInGonkEmulator() const override { return mIsInGonkEmulator; }
 #endif
 
-  static bool CheckVariationFontSupport() {
-    // We build with in-tree FreeType, so we know it is a new enough
-    // version to support variations.
-    return true;
-  }
+  static bool CheckVariationFontSupport();
 
  protected:
   void InitAcceleration() override;

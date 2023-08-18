@@ -581,6 +581,14 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
+    fun installExtensionIncompatible() {
+        testInstallError(
+            "dummy-incompatible.xpi",
+            WebExtension.InstallException.ErrorCodes.ERROR_INCOMPATIBLE,
+        )
+    }
+
+    @Test
     fun installDeny() {
         mainSession.loadUri("https://example.com")
         sessionRule.waitForPageStop()
@@ -1448,7 +1456,7 @@ class WebExtensionTest : BaseSessionTest() {
     // - verifies that the messages are received when restoring the tab in a fresh session
     @Test
     fun testRestoringExtensionPagePreservesMessages() {
-        // TODO: Bug 1648158
+        // TODO: Bug 1837551
         assumeThat(sessionRule.env.isFission, equalTo(false))
 
         val extension = sessionRule.waitForResult(
@@ -2985,5 +2993,102 @@ class WebExtensionTest : BaseSessionTest() {
             sessionRule.waitForResult(controller.uninstall(webExtension))
             return
         }
+    }
+
+    @Test
+    fun testMozAddonManagerDisabledByDefault() {
+        // Assert the expected precondition (the pref to be set to false by default).
+        val geckoPrefs = sessionRule.getPrefs(
+            "extensions.webapi.enabled",
+        )
+        assumeThat(geckoPrefs[0] as Boolean, equalTo(false))
+
+        mainSession.loadUri("https://example.com")
+        sessionRule.waitForPageStop()
+
+        // This pref normally exposes the mozAddonManager API to `example.com`.
+        sessionRule.setPrefsUntilTestEnd(mapOf("extensions.webapi.testing" to true))
+
+        assertThat(
+            "mozAddonManager is not exposed",
+            mainSession.evaluateJS("typeof navigator.mozAddonManager") as String,
+            equalTo("undefined"),
+        )
+    }
+
+    @Test
+    fun testMozAddonManagerCanBeEnabledByPref() {
+        // TODO: Bug 1837551
+        assumeThat(sessionRule.env.isFission, equalTo(false))
+
+        mainSession.loadUri("https://example.com")
+        sessionRule.waitForPageStop()
+
+        sessionRule.setPrefsUntilTestEnd(
+            mapOf(
+                "extensions.webapi.enabled" to true,
+                // We still need this pref to be set to allow the API on `example.com`.
+                "extensions.webapi.testing" to true,
+            ),
+        )
+
+        assertThat(
+            "mozAddonManager is exposed",
+            mainSession.evaluateJS("typeof navigator.mozAddonManager") as String,
+            equalTo("object"),
+        )
+        assertThat(
+            "mozAddonManager.abuseReportPanelEnabled should be false",
+            mainSession.evaluateJS("navigator.mozAddonManager.abuseReportPanelEnabled") as Boolean,
+            equalTo(false),
+        )
+
+        // Install an add-on, then assert results got from `mozAddonManager.getAddonByID()`.
+        var addonId = ""
+        sessionRule.delegateDuringNextWait(object : WebExtensionController.PromptDelegate {
+            @AssertCalled
+            override fun onInstallPrompt(extension: WebExtension): GeckoResult<AllowOrDeny> {
+                assertEquals(extension.metaData.name, "Borderify")
+                assertEquals(extension.metaData.version, "1.0")
+                assertEquals(extension.isBuiltIn, false)
+                addonId = extension.id
+                return GeckoResult.allow()
+            }
+        })
+
+        val borderify = sessionRule.waitForResult(
+            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+        )
+
+        var jsCode = """
+        navigator.mozAddonManager.getAddonByID("$addonId").then(
+            addon => [addon.name, addon.version, addon.type].join(":")
+        );
+        """
+        assertThat(
+            "mozAddonManager.getAddonByID() resolved to the expected result",
+            mainSession.evaluateJS(jsCode) as String,
+            equalTo("Borderify:1.0:extension"),
+        )
+
+        // Uninstall the add-on before exiting the test.
+        sessionRule.waitForResult(controller.uninstall(borderify))
+    }
+
+    @Test
+    fun testMozAddonManagerSetting() {
+        val settings = GeckoRuntimeSettings.Builder().build()
+        assertThat(
+            "Extension web API setting should be set to false",
+            settings.extensionsWebAPIEnabled,
+            equalTo(false),
+        )
+
+        val geckoPrefs = sessionRule.getPrefs("extensions.webapi.enabled")
+        assertThat(
+            "extensionsWebAPIEnabled matches Gecko pref value",
+            settings.extensionsWebAPIEnabled,
+            equalTo(geckoPrefs[0] as Boolean),
+        )
     }
 }

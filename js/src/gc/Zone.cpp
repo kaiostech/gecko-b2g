@@ -192,6 +192,8 @@ JS::Zone::Zone(JSRuntime* rt, Kind kind)
 Zone::~Zone() {
   MOZ_ASSERT_IF(regExps_.ref(), regExps().empty());
 
+  MOZ_ASSERT(numRealmsWithAllocMetadataBuilder_ == 0);
+
   DebugAPI::deleteDebugScriptMap(debugScriptMap);
   js_delete(finalizationObservers_.ref().release());
 
@@ -576,7 +578,7 @@ js::jit::JitZone* Zone::createJitZone(JSContext* cx) {
   MOZ_ASSERT(!jitZone_);
   MOZ_ASSERT(cx->runtime()->hasJitRuntime());
 
-  UniquePtr<jit::JitZone> jitZone(cx->new_<js::jit::JitZone>());
+  auto jitZone = cx->make_unique<jit::JitZone>(allocNurseryStrings());
   if (!jitZone) {
     return nullptr;
   }

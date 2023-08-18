@@ -12,6 +12,7 @@
 #include "jsfriendapi.h"  // for ScriptEnvironmentPreparer
 
 #include "js/CharacterEncoding.h"  // JS::ConstUTF8CharsZ
+#include "js/ColumnNumber.h"       // JS::ColumnNumberZeroOrigin
 #include "js/ErrorReport.h"        // for JSErrorNotes, JSErrorReport
 #include "js/UniquePtr.h"          // for UniquePtr
 #include "js/Utility.h"            // for UniqueTwoByteChars
@@ -37,8 +38,12 @@ struct ErrorMetadata {
   // The line and column numbers where the error occurred.  If the error
   // is with respect to the entire script and not with respect to a
   // particular location, these will both be zero.
+
+  // Line number (1-origin).
   uint32_t lineNumber;
-  uint32_t columnNumber;
+
+  // Column number in UTF-16 code units.
+  JS::ColumnNumberZeroOrigin columnNumber;
 
   // If the error occurs at a particular location, context surrounding the
   // location of the error: the line that contained the error, or a small

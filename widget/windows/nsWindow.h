@@ -512,8 +512,6 @@ class nsWindow final : public nsBaseWidget {
   static LRESULT CALLBACK WindowProcInternal(HWND hWnd, UINT msg, WPARAM wParam,
                                              LPARAM lParam);
 
-  static BOOL CALLBACK BroadcastMsgToChildren(HWND aWnd, LPARAM aMsg);
-  static BOOL CALLBACK BroadcastMsg(HWND aTopWindow, LPARAM aMsg);
   static BOOL CALLBACK DispatchStarvedPaints(HWND aTopWindow, LPARAM aMsg);
   static BOOL CALLBACK RegisterTouchForDescendants(HWND aTopWindow,
                                                    LPARAM aMsg);
@@ -544,7 +542,6 @@ class nsWindow final : public nsBaseWidget {
   void UpdateGetWindowInfoCaptionStatus(bool aActiveCaption);
   void ResetLayout();
   void InvalidateNonClientRegion();
-  HRGN ExcludeNonClientFromPaintRegion(HRGN aRegion);
   static const wchar_t* GetMainWindowClass();
   HWND GetOwnerWnd() const { return ::GetWindow(mWnd, GW_OWNER); }
   bool IsOwnerForegroundWindow() const {
@@ -716,6 +713,17 @@ class nsWindow final : public nsBaseWidget {
   static bool sJustGotActivate;
   static bool sIsInMouseCapture;
   static bool sIsRestoringSession;
+
+  // Message postponement hack. See the definition-site of
+  // WndProcUrgentInvocation::sDepth for details.
+  struct MOZ_STACK_CLASS WndProcUrgentInvocation {
+    struct Marker {
+      Marker() { ++sDepth; }
+      ~Marker() { --sDepth; }
+    };
+    inline static bool IsActive() { return sDepth > 0; }
+    static size_t sDepth;
+  };
 
   // Hook Data Members for Dropdowns. sProcessHook Tells the
   // hook methods whether they should be processing the hook

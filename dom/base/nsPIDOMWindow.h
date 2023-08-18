@@ -625,7 +625,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
 
   void SaveStorageAccessPermissionGranted();
 
-  bool HasStorageAccessPermissionGranted();
+  bool UsingStorageAccess();
 
   uint32_t UpdateLockCount(bool aIncrement) {
     MOZ_ASSERT_IF(!aIncrement, mLockCount > 0);
@@ -745,10 +745,8 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   mozilla::dom::Event* mEvent;
 
   // A boolean flag indicating whether storage access is granted for the
-  // current window. These are also set as permissions, but it could happen
-  // that we need to access them synchronously in this context, and for
-  // this, we need a copy here.
-  bool mStorageAccessPermissionGranted;
+  // current window and that it is currently being used by this window.
+  bool mUsingStorageAccess;
 
   // The WindowGlobalChild actor for this window.
   //
@@ -1122,9 +1120,7 @@ class nsPIDOMWindowOuter : public mozIDOMWindowProxy {
 
   virtual nsresult MoveBy(int32_t aXDif, int32_t aYDif) = 0;
 
-  virtual void UpdateCommands(const nsAString& anAction,
-                              mozilla::dom::Selection* aSel,
-                              int16_t aReason) = 0;
+  virtual void UpdateCommands(const nsAString& anAction) = 0;
 
   mozilla::dom::DocGroup* GetDocGroup() const;
   virtual nsISerialEventTarget* EventTargetFor(

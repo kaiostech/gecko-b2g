@@ -625,11 +625,10 @@ bool shell::enableShadowRealms = false;
 bool shell::enableArrayGrouping = false;
 // Pref for String.prototype.{is,to}WellFormed() methods.
 bool shell::enableWellFormedUnicodeStrings = false;
+// Pref for new Set.prototype methods.
+bool shell::enableNewSetMethods = false;
 // Pref for ArrayBuffer.prototype.transfer{,ToFixedLength}() methods.
 bool shell::enableArrayBufferTransfer = false;
-#endif
-#ifdef ENABLE_NEW_SET_METHODS
-bool shell::enableNewSetMethods = true;
 #endif
 bool shell::enableImportAssertions = false;
 #ifdef JS_GC_ZEAL
@@ -1969,7 +1968,7 @@ static bool CreateUserArrayBuffer(JSContext* cx, unsigned argc, Value* vp) {
   // The reference is made through a private name, because we don't want to
   // expose |userBuffer| to user-code.
 
-  auto* privateName = NewPrivateName(cx, cx->names().empty.toHandle());
+  auto* privateName = NewPrivateName(cx, cx->names().empty_.toHandle());
   if (!privateName) {
     return false;
   }
@@ -3896,7 +3895,7 @@ static bool CopyErrorReportToObject(JSContext* cx, JSErrorReport* report,
     return false;
   }
 
-  RootedValue columnVal(cx, Int32Value(report->column));
+  RootedValue columnVal(cx, Int32Value(report->column.oneOriginValue()));
   if (!DefineDataProperty(cx, obj, cx->names().columnNumber, columnVal)) {
     return false;
   }
@@ -4014,10 +4013,8 @@ static void SetStandardRealmOptions(JS::RealmOptions& options) {
 #ifdef NIGHTLY_BUILD
       .setArrayGroupingEnabled(enableArrayGrouping)
       .setWellFormedUnicodeStringsEnabled(enableWellFormedUnicodeStrings)
-      .setArrayBufferTransferEnabled(enableArrayBufferTransfer)
-#endif
-#ifdef ENABLE_NEW_SET_METHODS
       .setNewSetMethodsEnabled(enableNewSetMethods)
+      .setArrayBufferTransferEnabled(enableArrayBufferTransfer)
 #endif
       ;
 }
@@ -4147,7 +4144,7 @@ static bool EvalInContext(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   JS::AutoFilename filename;
-  unsigned lineno;
+  uint32_t lineno;
 
   DescribeScriptedCaller(cx, &filename, &lineno);
   {
@@ -5409,7 +5406,7 @@ static bool GetModuleEnvironmentNames(JSContext* cx, unsigned argc, Value* vp) {
 
   // The "*namespace*" binding is a detail of current implementation so hide
   // it to give stable results in tests.
-  ids.eraseIfEqual(NameToId(cx->names().starNamespaceStar));
+  ids.eraseIfEqual(NameToId(cx->names().star_namespace_star_));
 
   uint32_t length = ids.length();
   Rooted<ArrayObject*> array(cx, NewDenseFullyAllocatedArray(cx, length));
@@ -6719,8 +6716,12 @@ static bool NewGlobal(JSContext* cx, unsigned argc, Value* vp) {
     if (!JS_GetProperty(cx, opts, "newCompartment", &v)) {
       return false;
     }
-    if (v.isBoolean() && v.toBoolean()) {
-      creationOptions.setNewCompartmentAndZone();
+    if (v.isBoolean()) {
+      if (v.toBoolean()) {
+        creationOptions.setNewCompartmentAndZone();
+      } else {
+        creationOptions.setExistingCompartment(cx->global());
+      }
     }
 
     if (!JS_GetProperty(cx, opts, "discardSource", &v)) {
@@ -8743,7 +8744,7 @@ static bool TransplantableObject(JSContext* cx, unsigned argc, Value* vp) {
     }
   }
 
-  jsid emptyId = NameToId(cx->names().empty);
+  jsid emptyId = NameToId(cx->names().empty_);
   RootedObject transplant(
       cx, NewFunctionByIdWithReserved(cx, TransplantObject, 0, 0, emptyId));
   if (!transplant) {
@@ -11534,17 +11535,10 @@ bool InitOptionParser(OptionParser& op) {
       !op.addBoolOption('\0', "enable-well-formed-unicode-strings",
                         "Enable String.prototype.{is,to}WellFormed() methods"
                         "(Well-Formed Unicode Strings)") ||
-      !op.addBoolOption('\0', "enable-arraybuffer-transfer",
-                        "Enable ArrayBuffer.prototype.transfer() methods") ||
-#ifdef ENABLE_NEW_SET_METHODS
       !op.addBoolOption('\0', "enable-new-set-methods",
                         "Enable New Set methods") ||
-      !op.addBoolOption('\0', "disable-new-set-methods",
-                        "Disable New Set methods") ||
-#else
-      !op.addBoolOption('\0', "enable-new-set-methods", "no-op") ||
-      !op.addBoolOption('\0', "disable-new-set-methods", "no-op") ||
-#endif
+      !op.addBoolOption('\0', "enable-arraybuffer-transfer",
+                        "Enable ArrayBuffer.prototype.transfer() methods") ||
       !op.addBoolOption('\0', "enable-top-level-await",
                         "Enable top-level await") ||
       !op.addBoolOption('\0', "enable-class-static-blocks",
@@ -12054,10 +12048,8 @@ bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   enableArrayGrouping = op.getBoolOption("enable-array-grouping");
   enableWellFormedUnicodeStrings =
       op.getBoolOption("enable-well-formed-unicode-strings");
-  enableArrayBufferTransfer = op.getBoolOption("enable-arraybuffer-transfer");
-#endif
-#ifdef ENABLE_NEW_SET_METHODS
   enableNewSetMethods = op.getBoolOption("enable-new-set-methods");
+  enableArrayBufferTransfer = op.getBoolOption("enable-arraybuffer-transfer");
 #endif
   enableImportAssertions = op.getBoolOption("enable-import-assertions");
   useFdlibmForSinCosTan = op.getBoolOption("use-fdlibm-for-sin-cos-tan");

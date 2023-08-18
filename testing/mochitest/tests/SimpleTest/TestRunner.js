@@ -833,25 +833,49 @@ TestRunner.testFinished = function (tests) {
       if (!testInXOriginFrame()) {
         $("testframe").contentWindow.addEventListener("unload", function () {
           var testwin = $("testframe").contentWindow;
-          if (
-            testwin.SimpleTest &&
-            testwin.SimpleTest._tests.length != testwin.SimpleTest.testsLength
-          ) {
-            var wrongtestlength =
-              testwin.SimpleTest._tests.length - testwin.SimpleTest.testsLength;
-            var wrongtestname = "";
-            for (var i = 0; i < wrongtestlength; i++) {
-              wrongtestname =
-                testwin.SimpleTest._tests[testwin.SimpleTest.testsLength + i]
-                  .name;
+          if (testwin.SimpleTest) {
+            if (typeof testwin.SimpleTest.testsLength === "undefined") {
               TestRunner.structuredLogger.error(
                 "TEST-UNEXPECTED-FAIL | " +
                   TestRunner.currentTestURL +
-                  " logged result after SimpleTest.finish(): " +
-                  wrongtestname
+                  " fired an unload callback with missing test data," +
+                  " possibly due to the test navigating or reloading"
               );
+              TestRunner.updateUI([{ result: false }]);
+            } else if (
+              testwin.SimpleTest._tests.length != testwin.SimpleTest.testsLength
+            ) {
+              var didReportError = false;
+              var wrongtestlength =
+                testwin.SimpleTest._tests.length -
+                testwin.SimpleTest.testsLength;
+              var wrongtestname = "";
+              for (var i = 0; i < wrongtestlength; i++) {
+                wrongtestname =
+                  testwin.SimpleTest._tests[testwin.SimpleTest.testsLength + i]
+                    .name;
+                TestRunner.structuredLogger.error(
+                  "TEST-UNEXPECTED-FAIL | " +
+                    TestRunner.currentTestURL +
+                    " logged result after SimpleTest.finish(): " +
+                    wrongtestname
+                );
+                didReportError = true;
+              }
+              if (!didReportError) {
+                // This clause shouldn't be reachable, but if we somehow get
+                // here (e.g. if wrongtestlength is somehow negative), it's
+                // important that we log *something* for the { result: false }
+                // test-failure that we're about to post.
+                TestRunner.structuredLogger.error(
+                  "TEST-UNEXPECTED-FAIL | " +
+                    TestRunner.currentTestURL +
+                    " hit an unexpected condition when checking for" +
+                    " logged results after SimpleTest.finish()"
+                );
+              }
+              TestRunner.updateUI([{ result: false }]);
             }
-            TestRunner.updateUI([{ result: false }]);
           }
         });
       }

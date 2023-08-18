@@ -27,6 +27,7 @@
 #include "gc/PublicIterators.h"
 #include "jit/IonScript.h"  // IonBlockCounts
 #include "js/CharacterEncoding.h"
+#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberZeroOrigin
 #include "js/experimental/CodeCoverage.h"
 #include "js/experimental/PCCountProfiling.h"  // JS::{Start,Stop}PCCountProfiling, JS::PurgePCCounts, JS::GetPCCountScript{Count,Summary,Contents}
 #include "js/friend/DumpFunctions.h"           // js::DumpPC, js::DumpScript
@@ -53,8 +54,7 @@
 #include "vm/Opcodes.h"
 #include "vm/Realm.h"
 #include "vm/Shape.h"
-#include "vm/ToSource.h"       // js::ValueToSource
-#include "vm/WellKnownAtom.h"  // js_*_str
+#include "vm/ToSource.h"  // js::ValueToSource
 
 #include "gc/GC-inl.h"
 #include "vm/BytecodeIterator-inl.h"
@@ -111,11 +111,13 @@ static bool DecompileArgumentFromStack(JSContext* cx, int formalIndex,
 
   for (size_t i = 0; i < ionCounts->numBlocks(); i++) {
     const jit::IonBlockCounts& block = ionCounts->block(i);
-    unsigned lineNumber = 0, columnNumber = 0;
+    unsigned lineNumber = 0;
+    JS::LimitedColumnNumberZeroOrigin columnNumber;
     lineNumber = PCToLineNumber(script, script->offsetToPC(block.offset()),
                                 &columnNumber);
     if (!sp->jsprintf("BB #%" PRIu32 " [%05u,%u,%u]", block.id(),
-                      block.offset(), lineNumber, columnNumber)) {
+                      block.offset(), lineNumber,
+                      columnNumber.zeroOriginValue())) {
       return false;
     }
     if (block.description()) {
@@ -1924,11 +1926,11 @@ bool ExpressionDecompiler::decompilePC(jsbytecode* pc, uint8_t defIndex) {
       return write("super[") && decompilePCForStackOperand(pc, -2) &&
              write("]");
     case JSOp::Null:
-      return write(js_null_str);
+      return write("null");
     case JSOp::True:
-      return write(js_true_str);
+      return write("true");
     case JSOp::False:
-      return write(js_false_str);
+      return write("false");
     case JSOp::Zero:
     case JSOp::One:
     case JSOp::Int8:
@@ -1947,12 +1949,12 @@ bool ExpressionDecompiler::decompilePC(jsbytecode* pc, uint8_t defIndex) {
       break;
     }
     case JSOp::Undefined:
-      return write(js_undefined_str);
+      return write("undefined");
     case JSOp::GlobalThis:
     case JSOp::NonSyntacticGlobalThis:
       // |this| could convert to a very long object initialiser, so cite it by
       // its keyword name.
-      return write(js_this_str);
+      return write("this");
     case JSOp::NewTarget:
       return write("new.target");
     case JSOp::ImportMeta:
@@ -2302,10 +2304,10 @@ bool ExpressionDecompiler::init() {
 bool ExpressionDecompiler::write(const char* s) { return sprinter.put(s); }
 
 bool ExpressionDecompiler::write(JSString* str) {
-  if (str == cx->names().dotThis) {
+  if (str == cx->names().dot_this_) {
     return write("this");
   }
-  if (str == cx->names().dotNewTarget) {
+  if (str == cx->names().dot_newTarget_) {
     return write("new.target");
   }
   return sprinter.putString(str);
@@ -2521,8 +2523,8 @@ UniqueChars js::DecompileValueGenerator(JSContext* cx, int spindex,
   }
   if (!fallback) {
     if (v.isUndefined()) {
-      return DuplicateString(
-          cx, js_undefined_str);  // Prevent users from seeing "(void 0)"
+      return DuplicateString(cx, "undefined");  // Prevent users from seeing
+                                                // "(void 0)"
     }
     fallback = ValueToSource(cx, v);
     if (!fallback) {

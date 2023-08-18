@@ -839,21 +839,21 @@ class FunctionCompiler {
     curBlock_->setSlot(info().localSlot(slot), def);
   }
 
-  MDefinition* compareIsNull(MDefinition* value, JSOp compareOp) {
+  MDefinition* compareIsNull(MDefinition* ref, JSOp compareOp) {
     MDefinition* nullVal = constantNullRef();
     if (!nullVal) {
       return nullptr;
     }
-    return compare(value, nullVal, compareOp, MCompare::Compare_RefOrNull);
+    return compare(ref, nullVal, compareOp, MCompare::Compare_WasmAnyRef);
   }
 
-  [[nodiscard]] bool refAsNonNull(MDefinition* value) {
+  [[nodiscard]] bool refAsNonNull(MDefinition* ref) {
     if (inDeadCode()) {
       return true;
     }
 
     auto* ins = MWasmTrapIfNull::New(
-        alloc(), value, wasm::Trap::NullPointerDereference, bytecodeOffset());
+        alloc(), ref, wasm::Trap::NullPointerDereference, bytecodeOffset());
 
     curBlock_->add(ins);
     return true;
@@ -923,6 +923,20 @@ class FunctionCompiler {
   }
 
 #endif  // ENABLE_WASM_FUNCTION_REFERENCES
+
+#ifdef ENABLE_WASM_GC
+  MDefinition* i31New(MDefinition* input) {
+    auto* ins = MWasmNewI31Ref::New(alloc(), input);
+    curBlock_->add(ins);
+    return ins;
+  }
+
+  MDefinition* i31Get(MDefinition* input, FieldWideningOp wideningOp) {
+    auto* ins = MWasmI31RefGet::New(alloc(), input, wideningOp);
+    curBlock_->add(ins);
+    return ins;
+  }
+#endif  // ENABLE_WASM_GC
 
 #ifdef ENABLE_WASM_SIMD
   // About Wasm SIMD as supported by Ion:
@@ -1697,10 +1711,10 @@ class FunctionCompiler {
       curBlock_->add(valueAddr);
 
       // Handle a store to a ref-typed field specially
-      if (v->type() == MIRType::RefOrNull) {
+      if (v->type() == MIRType::WasmAnyRef) {
         // Load the previous value for the post-write barrier
         auto* prevValue =
-            MWasmLoadGlobalCell::New(alloc(), MIRType::RefOrNull, valueAddr);
+            MWasmLoadGlobalCell::New(alloc(), MIRType::WasmAnyRef, valueAddr);
         curBlock_->add(prevValue);
 
         // Store the new value
@@ -1721,7 +1735,7 @@ class FunctionCompiler {
     // Or else store the value directly in Instance::globalArea.
 
     // Handle a store to a ref-typed field specially
-    if (v->type() == MIRType::RefOrNull) {
+    if (v->type() == MIRType::WasmAnyRef) {
       // Compute the address of the ref-typed global
       auto* valueAddr = MWasmDerivedPointer::New(
           alloc(), instancePointer_,
@@ -1730,7 +1744,7 @@ class FunctionCompiler {
 
       // Load the previous value for the post-write barrier
       auto* prevValue =
-          MWasmLoadGlobalCell::New(alloc(), MIRType::RefOrNull, valueAddr);
+          MWasmLoadGlobalCell::New(alloc(), MIRType::WasmAnyRef, valueAddr);
       curBlock_->add(prevValue);
 
       // Store the new value
@@ -2045,8 +2059,8 @@ class FunctionCompiler {
         def = MWasmFloatRegisterResult::New(alloc(), type, ReturnSimd128Reg);
         break;
 #endif
-      case MIRType::RefOrNull:
-        def = MWasmRegisterResult::New(alloc(), MIRType::RefOrNull, ReturnReg);
+      case MIRType::WasmAnyRef:
+        def = MWasmRegisterResult::New(alloc(), MIRType::WasmAnyRef, ReturnReg);
         break;
       default:
         MOZ_CRASH("unexpected MIRType result for builtin call");
@@ -2104,7 +2118,7 @@ class FunctionCompiler {
                                                 result.fpr());
             break;
           case wasm::ValType::Ref:
-            def = MWasmRegisterResult::New(alloc(), MIRType::RefOrNull,
+            def = MWasmRegisterResult::New(alloc(), MIRType::WasmAnyRef,
                                            result.gpr());
             break;
           case wasm::ValType::V128:
@@ -2924,7 +2938,7 @@ class FunctionCompiler {
 
   MDefinition* loadTag(uint32_t tagIndex) {
     MWasmLoadInstanceDataField* tag = MWasmLoadInstanceDataField::New(
-        alloc(), MIRType::RefOrNull,
+        alloc(), MIRType::WasmAnyRef,
         moduleEnv_.offsetOfTagInstanceData(tagIndex), true, instancePointer_);
     curBlock_->add(tag);
     return tag;
@@ -2933,12 +2947,12 @@ class FunctionCompiler {
   void loadPendingExceptionState(MInstruction** exception, MInstruction** tag) {
     *exception = MWasmLoadInstance::New(
         alloc(), instancePointer_, wasm::Instance::offsetOfPendingException(),
-        MIRType::RefOrNull, AliasSet::Load(AliasSet::WasmPendingException));
+        MIRType::WasmAnyRef, AliasSet::Load(AliasSet::WasmPendingException));
     curBlock_->add(*exception);
 
     *tag = MWasmLoadInstance::New(
         alloc(), instancePointer_,
-        wasm::Instance::offsetOfPendingExceptionTag(), MIRType::RefOrNull,
+        wasm::Instance::offsetOfPendingExceptionTag(), MIRType::WasmAnyRef,
         AliasSet::Load(AliasSet::WasmPendingException));
     curBlock_->add(*tag);
   }
@@ -3215,7 +3229,7 @@ class FunctionCompiler {
     // block's tag.
     MDefinition* catchTag = loadTag(tagIndex);
     MDefinition* matchesCatchTag =
-        compare(exceptionTag, catchTag, JSOp::Eq, MCompare::Compare_RefOrNull);
+        compare(exceptionTag, catchTag, JSOp::Eq, MCompare::Compare_WasmAnyRef);
     curBlock_->end(
         MTest::New(alloc(), matchesCatchTag, catchBlock, fallthroughBlock));
 
@@ -3463,8 +3477,8 @@ class FunctionCompiler {
     size_t exnSlotPosition = pad->nslots() - 2;
     MDefinition* tag = pad->getSlot(exnSlotPosition + 1);
     MDefinition* exception = pad->getSlot(exnSlotPosition);
-    MOZ_ASSERT(exception->type() == MIRType::RefOrNull &&
-               tag->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(exception->type() == MIRType::WasmAnyRef &&
+               tag->type() == MIRType::WasmAnyRef);
     return throwFrom(exception, tag);
   }
 
@@ -3657,7 +3671,7 @@ class FunctionCompiler {
       AliasSet::Flag aliasBitset, MDefinition* value, MDefinition* base,
       uint32_t offset, bool needsTrapInfo, WasmPreBarrierKind preBarrierKind) {
     MOZ_ASSERT(aliasBitset != 0);
-    MOZ_ASSERT(keepAlive->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(keepAlive->type() == MIRType::WasmAnyRef);
     MOZ_ASSERT(fieldType.widenToValType().toMIRType() == value->type());
     MNarrowingOp narrowingOp = fieldStoreInfoToMIR(fieldType);
 
@@ -3710,7 +3724,7 @@ class FunctionCompiler {
       AliasSet::Flag aliasBitset, MDefinition* value, MDefinition* base,
       uint32_t scale, MDefinition* index, WasmPreBarrierKind preBarrierKind) {
     MOZ_ASSERT(aliasBitset != 0);
-    MOZ_ASSERT(keepAlive->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(keepAlive->type() == MIRType::WasmAnyRef);
     MOZ_ASSERT(fieldType.widenToValType().toMIRType() == value->type());
     MOZ_ASSERT(scale == 1 || scale == 2 || scale == 4 || scale == 8 ||
                scale == 16);
@@ -3742,7 +3756,7 @@ class FunctionCompiler {
       MDefinition* keepAlive, AliasSet::Flag aliasBitset, MDefinition* base,
       uint32_t offset, bool needsTrapInfo) {
     MOZ_ASSERT(aliasBitset != 0);
-    MOZ_ASSERT(keepAlive->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(keepAlive->type() == MIRType::WasmAnyRef);
     MIRType mirType;
     MWideningOp mirWideningOp;
     fieldLoadInfoToMIR(fieldType, fieldWideningOp, &mirType, &mirWideningOp);
@@ -3769,7 +3783,7 @@ class FunctionCompiler {
       MDefinition* keepAlive, AliasSet::Flag aliasBitset, MDefinition* base,
       uint32_t scale, MDefinition* index) {
     MOZ_ASSERT(aliasBitset != 0);
-    MOZ_ASSERT(keepAlive->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(keepAlive->type() == MIRType::WasmAnyRef);
     MOZ_ASSERT(scale == 1 || scale == 2 || scale == 4 || scale == 8 ||
                scale == 16);
 
@@ -4020,7 +4034,7 @@ class FunctionCompiler {
   // Adds trap site info for the null check.
   [[nodiscard]] MDefinition* getWasmArrayObjectNumElements(
       MDefinition* arrayObject) {
-    MOZ_ASSERT(arrayObject->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(arrayObject->type() == MIRType::WasmAnyRef);
 
     auto* numElements = MWasmLoadField::New(
         alloc(), arrayObject, WasmArrayObject::offsetOfNumElements(),
@@ -4038,7 +4052,7 @@ class FunctionCompiler {
   // Given `arrayObject`, the address of a WasmArrayObject, generate MIR to
   // return the contents of the WasmArrayObject::data_ field.
   [[nodiscard]] MDefinition* getWasmArrayObjectData(MDefinition* arrayObject) {
-    MOZ_ASSERT(arrayObject->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(arrayObject->type() == MIRType::WasmAnyRef);
 
     auto* data = MWasmLoadField::New(
         alloc(), arrayObject, WasmArrayObject::offsetOfData(),
@@ -4112,7 +4126,7 @@ class FunctionCompiler {
   // The returned value is for the OOL object pointer.
   [[nodiscard]] MDefinition* setupForArrayAccess(MDefinition* arrayObject,
                                                  MDefinition* index) {
-    MOZ_ASSERT(arrayObject->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(arrayObject->type() == MIRType::WasmAnyRef);
     MOZ_ASSERT(index->type() == MIRType::Int32);
 
     // Check for null is done in getWasmArrayObjectNumElements.
@@ -4384,7 +4398,7 @@ class FunctionCompiler {
     // reftyped.
     MOZ_RELEASE_ASSERT(values.length() > 0);
     MDefinition* ref = values.back();
-    MOZ_ASSERT(ref->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(ref->type() == MIRType::WasmAnyRef);
 
     MDefinition* success = isRefSubtypeOf(ref, sourceType, destType);
     if (!success) {
@@ -4426,7 +4440,7 @@ class FunctionCompiler {
     }
 
     MOZ_ASSERT(values.length() > 0);
-    MOZ_ASSERT(values.back()->type() == MIRType::RefOrNull);
+    MOZ_ASSERT(values.back()->type() == MIRType::WasmAnyRef);
 
     MGoto* jump = MGoto::New(alloc(), fallthroughBlock);
     if (!jump) {
@@ -6623,7 +6637,7 @@ static bool EmitRefIsNull(FunctionCompiler& f) {
     return false;
   }
   f.iter().setResult(
-      f.compare(input, nullVal, JSOp::Eq, MCompare::Compare_RefOrNull));
+      f.compare(input, nullVal, JSOp::Eq, MCompare::Compare_WasmAnyRef));
   return true;
 }
 
@@ -6800,12 +6814,12 @@ static bool EmitStoreLaneSimd128(FunctionCompiler& f, uint32_t laneSize) {
 
 #ifdef ENABLE_WASM_FUNCTION_REFERENCES
 static bool EmitRefAsNonNull(FunctionCompiler& f) {
-  MDefinition* value;
-  if (!f.iter().readRefAsNonNull(&value)) {
+  MDefinition* ref;
+  if (!f.iter().readRefAsNonNull(&ref)) {
     return false;
   }
 
-  return f.refAsNonNull(value);
+  return f.refAsNonNull(ref);
 }
 
 static bool EmitBrOnNull(FunctionCompiler& f) {
@@ -7351,6 +7365,34 @@ static bool EmitArrayCopy(FunctionCompiler& f) {
   return f.emitInstanceCall6(lineOrBytecode, SASigArrayCopy, dstArrayObject,
                              dstArrayIndex, srcArrayObject, srcArrayIndex,
                              numElements, elemSizeDef);
+}
+
+static bool EmitI31New(FunctionCompiler& f) {
+  MDefinition* input;
+  if (!f.iter().readConversion(ValType::I32, ValType(RefType::i31()), &input)) {
+    return false;
+  }
+  MDefinition* output = f.i31New(input);
+  if (!output) {
+    return false;
+  }
+  f.iter().setResult(output);
+  return true;
+}
+
+static bool EmitI31Get(FunctionCompiler& f, FieldWideningOp wideningOp) {
+  MOZ_ASSERT(wideningOp != FieldWideningOp::None);
+
+  MDefinition* input;
+  if (!f.iter().readConversion(ValType(RefType::i31()), ValType::I32, &input)) {
+    return false;
+  }
+  MDefinition* output = f.i31Get(input, wideningOp);
+  if (!output) {
+    return false;
+  }
+  f.iter().setResult(output);
+  return true;
 }
 
 static bool EmitRefTestV5(FunctionCompiler& f) {
@@ -8054,7 +8096,7 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           return f.iter().unrecognizedOpcode(&op);
         }
         CHECK(EmitComparison(f, RefType::eq(), JSOp::Eq,
-                             MCompare::Compare_RefOrNull));
+                             MCompare::Compare_WasmAnyRef));
 #endif
       case uint16_t(Op::RefFunc):
         CHECK(EmitRefFunc(f));
@@ -8160,6 +8202,12 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
             CHECK(EmitArrayLen(f, /*decodeIgnoredTypeIndex=*/false));
           case uint32_t(GcOp::ArrayCopy):
             CHECK(EmitArrayCopy(f));
+          case uint32_t(GcOp::I31New):
+            CHECK(EmitI31New(f));
+          case uint32_t(GcOp::I31GetS):
+            CHECK(EmitI31Get(f, FieldWideningOp::Signed));
+          case uint32_t(GcOp::I31GetU):
+            CHECK(EmitI31Get(f, FieldWideningOp::Unsigned));
           case uint32_t(GcOp::RefTestV5):
             CHECK(EmitRefTestV5(f));
           case uint32_t(GcOp::RefCastV5):

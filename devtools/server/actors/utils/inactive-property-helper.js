@@ -84,6 +84,9 @@ const REGEXP_HIGHLIGHT_PSEUDO_ELEMENTS = new RegExp(
   `${HIGHLIGHT_PSEUDO_ELEMENTS.join("|")}`
 );
 
+const FIRST_LINE_PSEUDO_ELEMENT_STYLING_SPEC_URL =
+  "https://www.w3.org/TR/css-pseudo-4/#first-line-styling";
+
 class InactivePropertyHelper {
   /**
    * A list of rules for when CSS properties have no effect.
@@ -233,21 +236,34 @@ class InactivePropertyHelper {
           "inactive-css-not-grid-or-flex-container-or-multicol-container-fix",
         msgId: "inactive-css-not-grid-or-flex-container-or-multicol-container",
       },
+      // Multi-column related properties used on non-multi-column container.
+      {
+        invalidProperties: [
+          "column-fill",
+          "column-rule",
+          "column-rule-color",
+          "column-rule-style",
+          "column-rule-width",
+        ],
+        when: () => !this.multiColContainer,
+        fixId: "inactive-css-not-multicol-container-fix",
+        msgId: "inactive-css-not-multicol-container",
+      },
       // Inline properties used on non-inline-level elements.
       {
         invalidProperties: ["vertical-align"],
-        when: () => {
-          const { selectorText } = this.cssRule;
-
-          const isFirstLetter =
-            selectorText && selectorText.includes("::first-letter");
-          const isFirstLine =
-            selectorText && selectorText.includes("::first-line");
-
-          return !this.isInlineLevel() && !isFirstLetter && !isFirstLine;
-        },
+        when: () =>
+          !this.isInlineLevel() && !this.isFirstLetter && !this.isFirstLine,
         fixId: "inactive-css-not-inline-or-tablecell-fix",
         msgId: "inactive-css-not-inline-or-tablecell",
+      },
+      // Writing mode properties used on ::first-line pseudo-element.
+      {
+        invalidProperties: ["direction", "text-orientation", "writing-mode"],
+        when: () => this.isFirstLine,
+        fixId: "learn-more",
+        msgId: "inactive-css-first-line-pseudo-element-not-supported",
+        learnMoreURL: FIRST_LINE_PSEUDO_ELEMENT_STYLING_SPEC_URL,
       },
       // (max-|min-)width used on inline elements, table rows, or row groups.
       {
@@ -379,6 +395,13 @@ class InactivePropertyHelper {
           !this.checkComputedStyle("display", ["table", "inline-table"]),
         fixId: "inactive-css-not-table-fix",
         msgId: "inactive-css-not-table",
+      },
+      // empty-cells property used on non-table-cell elements.
+      {
+        invalidProperties: ["empty-cells"],
+        when: () => !this.checkComputedStyle("display", ["table-cell"]),
+        fixId: "inactive-css-not-table-cell-fix",
+        msgId: "inactive-css-not-table-cell",
       },
       // scroll-padding-* properties used on non-scrollable elements.
       {
@@ -889,6 +912,22 @@ class InactivePropertyHelper {
       this.style &&
       this.style.display === "inline"
     );
+  }
+
+  /**
+   * Check if the current selector refers to a ::first-letter pseudo-element
+   */
+  get isFirstLetter() {
+    const { selectorText } = this.cssRule;
+    return selectorText && selectorText.includes("::first-letter");
+  }
+
+  /**
+   * Check if the current selector refers to a ::first-line pseudo-element
+   */
+  get isFirstLine() {
+    const { selectorText } = this.cssRule;
+    return selectorText && selectorText.includes("::first-line");
   }
 
   /**

@@ -902,6 +902,17 @@ featureCallout:
     path: "browser/components/newtab/content-src/asrouter/schemas/MessagingExperiment.schema.json"
   variables: {}
 
+fullPageTranslation:
+  description: This feature opens a popup panel to offer to translate a page.
+  owner: gtatum@mozilla.com
+  hasExposure: false
+  isEarlyStartup: true
+  variables:
+    boolean:
+      description: Set to true to enable the translations feature
+      type: boolean
+      setPref: browser.translations.enable
+
 # fxms-message-* placeholder feature ids
 #
 # https://docs.google.com/spreadsheets/d/119YbeKStLL0Fg2QkK-yN93mrtD1rlneGZGTl_jAwtyw/edit#gid=1903378504
@@ -912,7 +923,7 @@ featureCallout:
 # 1) clone an existing one here
 # 2) update the YAML feature id to the next unused number
 # 3) update the YAML description
-# 4) add the new feature id to MESSAGING_EXPERIMENTS_DEFAULT_FEATURES list in ASRouter.jsm
+# 4) add the new feature id to MESSAGING_EXPERIMENTS_DEFAULT_FEATURES list in MessagingExperimentConstants.sys.mjs
 # 5) add the new feature id and the version it landed to the spreadsheet tab linked to above
 
 fxms-message-1:
@@ -1096,22 +1107,39 @@ pictureinpicture:
       description: Duration of PiP first time toggle display in days before switching to PiP icon toggle
 
 glean:
-  description: "The Glean data collection SDK within Firefox Desktop"
+  description: "The Glean data-control-plane feature within Firefox Desktop for controlling metric configuration"
   owner: glean-team@mozilla.com
   hasExposure: false
   variables:
-    finalInactive:
-      type: "boolean"
-      description: "Enables FOG early shutdown pings when true"
     newtabPingEnabled:
       type: "boolean"
       fallbackPref: "browser.newtabpage.ping.enabled"
       description: "Whether to submit the 'newtab' ping"
     gleanMetricConfiguration:
       type: json
-      description: >-
+      description: |
         A map of metric base-identifiers to booleans representing the state of the 'enabled' flag for that metric.
-
+        This variable is intended for interacting with the Glean data-control-plane via the Server Knobs functionality
+        to remotely configure metrics to be enabled or disabled.
+       
+gleanInternalSdk:
+  description: "The Glean internal SDK feature intended only for internal Glean Team use"
+  hasExposure: false
+  variables:
+    finalInactive:
+      type: "boolean"
+      description: "Enables FOG early shutdown pings when true"
+    gleanMetricConfiguration:
+      type: json
+      description: |
+        A map of metric base-identifiers to booleans representing the state of the 'enabled' flag for that metric.
+        This is not for public use! For data-control-plane use, please refer to the Glean documentation and use the
+        `gleanMetricConfiguration` found in the `glean` feature for this.
+    gleanMaxPingsPerMinute:
+      type: int
+      description: >-
+        Maximum number of pings that can be sent in a 60 second interval
+        
 majorRelease2022:
   description: Major Release 2022
   owner: firefoxview@mozilla.com
@@ -1293,6 +1321,14 @@ networking:
       description: The maximum number of DNS threads that can be created to handle any priority DNS requests.
       type: int
       setPref: "network.dns.max_any_priority_threads"
+    preconnect:
+      description: Whether the rel=preconnect feature is enabled
+      type: boolean
+      setPref: "network.preconnect"
+    networkPredictor:
+      description: Whether the Necko predictor is enabled
+      type: boolean
+      setPref: "network.predictor.enabled"
 
 pingsender:
   description: "In-product usage of the pingsender telemetry reporter."
@@ -1586,18 +1622,19 @@ shopping2023:
       description: True if the experience is enabled
       type: boolean
       fallbackPref: browser.shopping.experience2023.enabled
-    useOHTTP:
-      description: True if we prefer using OHTTP for these requests.
-      type: boolean
-      fallbackPref: toolkit.shopping.useOHTTP
+shoppingOHTTP:
+  description: Prefs to control the OHTTP URLs used for shopping.
+  owner: gijs@mozilla.com
+  hasExposure: false
+  variables:
     ohttpRelayURL:
       description: What OHTTP relay URL to use
       type: string
-      fallbackPref: toolkit.shopping.ohttpRelayURL
+      setPref: toolkit.shopping.ohttpRelayURL
     ohttpConfigURL:
       description: URL for the OHTTP config to use
       type: string
-      fallbackPref: toolkit.shopping.ohttpConfigURL
+      setPref: toolkit.shopping.ohttpConfigURL
 
 opaqueResponseBlocking:
   description: Prefs to enable Opaque Response Blocking

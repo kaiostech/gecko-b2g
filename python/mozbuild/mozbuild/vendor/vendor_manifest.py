@@ -35,18 +35,23 @@ def throwe():
 
 
 def _replace_in_file(file, pattern, replacement, regex=False):
+    def replacer(matchobj: re.Match):
+        if matchobj.group(0) == replacement:
+            print(f"WARNING: {action} replaced '{matchobj.group(0)}' with same.")
+        return replacement
+
     with open(file) as f:
         contents = f.read()
 
-    if regex:
-        newcontents = re.sub(pattern, replacement, contents)
-    else:
-        newcontents = contents.replace(pattern, replacement)
+    action = "replace-in-file-regex"
+    if not regex:
+        pattern = re.escape(pattern)
+        action = "replace-in-file"
 
-    if newcontents == contents:
+    newcontents, count = re.subn(pattern, replacer, contents)
+    if count < 1:
         raise Exception(
-            "Could not find '%s' in %s to %sreplace with '%s'"
-            % (pattern, file, "regex-" if regex else "", replacement)
+            f"{action} could not find '{pattern}' in {file} to replace with '{replacement}'."
         )
 
     with open(file, "w") as f:
@@ -156,7 +161,9 @@ class VendorManifest(MozbuildObject):
                 new_revision, timestamp, ignore_modified, add_to_exports
             )
         elif flavor == "individual-files":
-            self.process_individual(new_revision, timestamp, ignore_modified)
+            self.process_individual(
+                new_revision, timestamp, ignore_modified, add_to_exports
+            )
         elif flavor == "rust":
             self.process_rust(
                 command_context,
@@ -189,7 +196,7 @@ class VendorManifest(MozbuildObject):
 
         self.update_yaml(new_revision, timestamp)
 
-    def process_individual(self, new_revision, timestamp, ignore_modified):
+    def fetch_individual(self, new_revision):
         # This design is used because there is no github API to query
         # for the last commit that modified a file; nor a way to get file
         # blame.  So really all we can do is just download and replace the
@@ -228,28 +235,14 @@ class VendorManifest(MozbuildObject):
             )
             download_and_write_file(url, destination)
 
-        self.spurious_check(new_revision, ignore_modified)
-
-        self.logInfo({}, "Checking for update actions")
-        self.update_files(new_revision)
-
-        self.update_yaml(new_revision, timestamp)
-
-        self.logInfo({"rev": new_revision}, "Updated to '{rev}'.")
-
-        if "patches" in self.manifest["vendoring"]:
-            # Remind the user
-            self.log(
-                logging.CRITICAL,
-                "vendor",
-                {},
-                "Patches present in manifest!!! Please run "
-                "'./mach vendor --patch-mode only' after commiting changes.",
-            )
-
-    def process_regular(self, new_revision, timestamp, ignore_modified, add_to_exports):
+    def process_regular_or_individual(
+        self, is_individual, new_revision, timestamp, ignore_modified, add_to_exports
+    ):
         if self.should_perform_step("fetch"):
-            self.fetch_and_unpack(new_revision)
+            if is_individual:
+                self.fetch_individual(new_revision)
+            else:
+                self.fetch_and_unpack(new_revision)
         else:
             self.logInfo({}, "Skipping fetching upstream source.")
 
@@ -277,6 +270,8 @@ class VendorManifest(MozbuildObject):
         else:
             self.logInfo({}, "Skipping updating the moz.yaml file.")
 
+        # individual flavor does not need this step, but performing it should
+        # always be a no-op
         if self.should_perform_step("update-moz-build"):
             self.logInfo({}, "Updating moz.build files")
             self.update_moz_build(
@@ -298,6 +293,20 @@ class VendorManifest(MozbuildObject):
                 "Patches present in manifest!!! Please run "
                 "'./mach vendor --patch-mode only' after commiting changes.",
             )
+
+    def process_regular(self, new_revision, timestamp, ignore_modified, add_to_exports):
+        is_individual = False
+        self.process_regular_or_individual(
+            is_individual, new_revision, timestamp, ignore_modified, add_to_exports
+        )
+
+    def process_individual(
+        self, new_revision, timestamp, ignore_modified, add_to_exports
+    ):
+        is_individual = True
+        self.process_regular_or_individual(
+            is_individual, new_revision, timestamp, ignore_modified, add_to_exports
+        )
 
     def get_source_host(self):
         if self.manifest["vendoring"]["source-hosting"] == "gitlab":

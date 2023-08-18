@@ -334,11 +334,9 @@ MP4Metadata::ResultAndTrackInfo MP4Metadata::GetTrackInfo(
       case MP4PARSE_CODEC_EC3:
         codecString = "ec-3";
         break;
-#  if defined(MP4PARSE_FEATURE_HEVC)
       case MP4PARSE_CODEC_HEVC:
-        codecString = "h.265";
+        codecString = "hevc";
         break;
-#  endif
     }
   }
   MOZ_LOG(gMP4MetadataLog, LogLevel::Debug,

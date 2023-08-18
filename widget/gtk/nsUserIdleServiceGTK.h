@@ -10,27 +10,29 @@
 
 #include "nsUserIdleService.h"
 #include "mozilla/AppShutdown.h"
-#ifdef MOZ_X11
-#  include <X11/Xlib.h>
-#  include <X11/Xutil.h>
-#  include <gdk/gdkx.h>
-#endif
+#include "mozilla/UniquePtr.h"
 
-#ifdef MOZ_X11
-typedef struct {
-  Window window;               // Screen saver window
-  int state;                   // ScreenSaver(Off,On,Disabled)
-  int kind;                    // ScreenSaver(Blanked,Internal,External)
-  unsigned long til_or_since;  // milliseconds since/til screensaver kicks in
-  unsigned long idle;          // milliseconds idle
-  unsigned long event_mask;    // event stuff
-} XScreenSaverInfo;
-#endif
+class UserIdleServiceImpl {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(UserIdleServiceImpl);
+
+  virtual bool PollIdleTime(uint32_t* aIdleTime) = 0;
+  bool IsSupported() const { return mSupported; };
+
+ protected:
+  virtual ~UserIdleServiceImpl() = default;
+  bool mSupported = false;
+};
+
+#define IDLE_SERVICE_MUTTER 0
+#define IDLE_SERVICE_XSCREENSAVER 1
+#define IDLE_SERVICE_NONE 2
 
 class nsUserIdleServiceGTK : public nsUserIdleService {
  public:
   NS_INLINE_DECL_REFCOUNTING_INHERITED(nsUserIdleServiceGTK, nsUserIdleService)
 
+  // The idle time in ms
   virtual bool PollIdleTime(uint32_t* aIdleTime) override;
 
   static already_AddRefed<nsUserIdleServiceGTK> GetInstance() {
@@ -48,14 +50,24 @@ class nsUserIdleServiceGTK : public nsUserIdleService {
     return idleService.forget();
   }
 
- private:
-  ~nsUserIdleServiceGTK();
-#ifdef MOZ_X11
-  XScreenSaverInfo* mXssInfo;
-#endif
+  void ProbeService();
+  void AcceptServiceCallback();
+  void RejectAndTryNextServiceCallback();
 
  protected:
   nsUserIdleServiceGTK();
+
+ private:
+  ~nsUserIdleServiceGTK() = default;
+
+  RefPtr<UserIdleServiceImpl> mIdleService;
+#ifdef MOZ_ENABLE_DBUS
+  int mIdleServiceType = IDLE_SERVICE_MUTTER;
+#else
+  int mIdleServiceType = IDLE_SERVICE_XSCREENSAVER;
+#endif
+  // We have a working idle service.
+  bool mIdleServiceInitialized = false;
 };
 
 #endif  // nsUserIdleServiceGTK_h__

@@ -29,15 +29,15 @@
 #include "util/StringBuffer.h"
 #include "vm/BooleanObject.h"  // js::BooleanObject
 #include "vm/Interpreter.h"
+#include "vm/Iteration.h"
 #include "vm/JSAtomUtils.h"  // ToAtom
 #include "vm/JSContext.h"
 #include "vm/JSObject.h"
 #include "vm/JSONParser.h"
 #include "vm/NativeObject.h"
-#include "vm/NumberObject.h"   // js::NumberObject
-#include "vm/PlainObject.h"    // js::PlainObject
-#include "vm/StringObject.h"   // js::StringObject
-#include "vm/WellKnownAtom.h"  // js_*_str
+#include "vm/NumberObject.h"  // js::NumberObject
+#include "vm/PlainObject.h"   // js::PlainObject
+#include "vm/StringObject.h"  // js::StringObject
 #ifdef ENABLE_RECORD_TUPLE
 #  include "builtin/RecordObject.h"
 #  include "builtin/TupleObject.h"
@@ -805,19 +805,16 @@ static bool CanFastStringifyObject(NativeObject* obj) {
   }
 
   if (obj->is<ArrayObject>()) {
-    if (ProtoMayHaveEnumerableProperties(obj)) {
-      // Array objects look up properties with keys [0..length). Non-Arrays only
-      // look at own properties, so they do not need this check.
+    // Arrays will look up all keys [0..length) so disallow anything that could
+    // find those keys anywhere but in the dense elements.
+    if (!IsPackedArray(obj) && ObjectMayHaveExtraIndexedProperties(obj)) {
       return false;
     }
-    if (obj->isIndexed() && !obj->hasEnumerableProperty()) {
-      // Array objects may have sparse indexes, which will normally trigger
-      // a SPARSE_INDEX bailout when those properties are iterated over. But
-      // there is an optimization where non-element properties are skipped if
-      // !obj->hasEnumerableProperty(), so force a bail here.
-      //
-      // Non-Arrays do not output properties named [0..length), so will not run
-      // into this problem.
+  } else {
+    // Non-Arrays will only look at own properties, but still disallow any
+    // indexed properties other than in the dense elements because they would
+    // require sorting.
+    if (ObjectMayHaveExtraIndexedOwnProperties(obj)) {
       return false;
     }
   }
@@ -841,7 +838,6 @@ static bool CanFastStringifyObject(NativeObject* obj) {
   MACRO(DEEP_RECURSION)                       \
   MACRO(NON_DATA_PROPERTY)                    \
   MACRO(TOO_MANY_PROPERTIES)                  \
-  MACRO(SPARSE_INDEX)                         \
   MACRO(BIGINT)                               \
   MACRO(API)                                  \
   MACRO(HAVE_REPLACER)                        \
@@ -1037,8 +1033,8 @@ class OwnNonIndexKeysIterForJSON {
       return;
     }
     if (!nobj->hasEnumerableProperty()) {
-      // Note that any shortcut condition here must consider the possibility of
-      // sparse indexes. See CanFastStringifyObject() for details.
+      // Non-Arrays with no enumerable properties can just be skipped.
+      MOZ_ASSERT(!nobj->is<ArrayObject>());
       done_ = true;
       return;
     }
@@ -1364,7 +1360,11 @@ static bool FastStr(JSContext* cx, Handle<Value> v, StringifyContext* scx,
       }
 
       MOZ_ASSERT(iter.done());
-      top.advanceToProperties();
+      if (top.isArray) {
+        MOZ_ASSERT(!top.nobj->isIndexed());
+      } else {
+        top.advanceToProperties();
+      }
     }
 
     if (top.iter.is<OwnNonIndexKeysIterForJSON>()) {
@@ -1380,18 +1380,12 @@ static bool FastStr(JSContext* cx, Handle<Value> v, StringifyContext* scx,
 
         PropertyInfoWithKey prop = iter.next();
 
-        uint32_t index = -1;
-        if (top.nobj->isIndexed() && IdIsIndex(prop.key(), &index)) {
-          // Do not support sparse elements, because they need to be sorted
-          // numerically and before any non-index property names.
-          *whySlow = BailReason::SPARSE_INDEX;
-          return true;
-        }
-
-        if (top.isArray) {
-          // Arrays ignore non-index properties.
-          continue;
-        }
+        // A non-Array with indexed elements would need to sort the indexes
+        // numerically, which this code does not support. These objects are
+        // skipped when obj->isIndexed(), so no index properties should be found
+        // here.
+        mozilla::DebugOnly<uint32_t> index = -1;
+        MOZ_ASSERT(!IdIsIndex(prop.key(), &index));
 
         Value val = top.nobj->getSlot(prop.slot());
         if (!PreprocessFastValue(cx, &val, scx, whySlow)) {
@@ -1412,15 +1406,9 @@ static bool FastStr(JSContext* cx, Handle<Value> v, StringifyContext* scx,
         }
         wroteMember = true;
 
-        if (prop.key().isString()) {
-          if (!Quote(cx, scx->sb, prop.key().toString())) {
-            return false;
-          }
-        } else {
-          MOZ_ASSERT(int32_t(index) >= 0, "not a string, not an index");
-          if (!EmitQuotedIndexColon(scx->sb, index)) {
-            return false;
-          }
+        MOZ_ASSERT(prop.key().isString());
+        if (!Quote(cx, scx->sb, prop.key().toString())) {
+          return false;
         }
 
         if (!scx->sb.append(':')) {
@@ -1623,7 +1611,7 @@ bool js::Stringify(JSContext* cx, MutableHandleValue vp, JSObject* replacer_,
   }
 
   Rooted<PlainObject*> wrapper(cx);
-  RootedId emptyId(cx, NameToId(cx->names().empty));
+  RootedId emptyId(cx, NameToId(cx->names().empty_));
   if (replacer && replacer->isCallable()) {
     // We can skip creating the initial wrapper object if no replacer
     // function is present.
@@ -1835,11 +1823,11 @@ static bool Revive(JSContext* cx, HandleValue reviver, MutableHandleValue vp) {
     return false;
   }
 
-  if (!DefineDataProperty(cx, obj, cx->names().empty, vp)) {
+  if (!DefineDataProperty(cx, obj, cx->names().empty_, vp)) {
     return false;
   }
 
-  Rooted<jsid> id(cx, NameToId(cx->names().empty));
+  Rooted<jsid> id(cx, NameToId(cx->names().empty_));
   return Walk(cx, obj, id, reviver, vp);
 }
 
@@ -2066,7 +2054,7 @@ static bool json_parseImmutable(JSContext* cx, unsigned argc, Value* vp) {
     }
   }
 
-  RootedId id(cx, NameToId(cx->names().empty));
+  RootedId id(cx, NameToId(cx->names().empty_));
   return BuildImmutableProperty(cx, unfiltered, id, reviver, args.rval());
 }
 #endif
@@ -2109,8 +2097,8 @@ bool json_stringify(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 static const JSFunctionSpec json_static_methods[] = {
-    JS_FN(js_toSource_str, json_toSource, 0, 0),
-    JS_FN("parse", json_parse, 2, 0), JS_FN("stringify", json_stringify, 3, 0),
+    JS_FN("toSource", json_toSource, 0, 0), JS_FN("parse", json_parse, 2, 0),
+    JS_FN("stringify", json_stringify, 3, 0),
 #ifdef ENABLE_RECORD_TUPLE
     JS_FN("parseImmutable", json_parseImmutable, 2, 0),
 #endif
@@ -2127,6 +2115,5 @@ static JSObject* CreateJSONObject(JSContext* cx, JSProtoKey key) {
 static const ClassSpec JSONClassSpec = {
     CreateJSONObject, nullptr, json_static_methods, json_static_properties};
 
-const JSClass js::JSONClass = {js_JSON_str,
-                               JSCLASS_HAS_CACHED_PROTO(JSProto_JSON),
+const JSClass js::JSONClass = {"JSON", JSCLASS_HAS_CACHED_PROTO(JSProto_JSON),
                                JS_NULL_CLASS_OPS, &JSONClassSpec};

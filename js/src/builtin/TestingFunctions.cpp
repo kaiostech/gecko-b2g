@@ -206,7 +206,7 @@ static bool GetRealmConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   }
 #endif
 
-#ifdef ENABLE_NEW_SET_METHODS
+#ifdef NIGHTLY_BUILD
   bool newSetMethods = cx->realm()->creationOptions().getNewSetMethodsEnabled();
   if (!JS_SetProperty(cx, info, "enableNewSetMethods",
                       newSetMethods ? TrueHandleValue : FalseHandleValue)) {
@@ -561,15 +561,6 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-#ifdef ENABLE_NEW_SET_METHODS
-  value = BooleanValue(true);
-#else
-  value = BooleanValue(false);
-#endif
-  if (!JS_SetProperty(cx, info, "new-set-methods", value)) {
-    return false;
-  }
-
 #ifdef ENABLE_DECORATORS
   value = BooleanValue(true);
 #else
@@ -827,7 +818,7 @@ static bool WasmIsSupported(JSContext* cx, unsigned argc, Value* vp) {
 
 static bool WasmIsSupportedByHardware(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
-  args.rval().setBoolean(wasm::HasPlatformSupport(cx));
+  args.rval().setBoolean(wasm::HasPlatformSupport());
   return true;
 }
 
@@ -1477,7 +1468,7 @@ static bool WasmGlobalToString(JSContext* cx, unsigned argc, Value* vp) {
       break;
     }
     case wasm::ValType::Ref: {
-      result = JS_smprintf("ref:%p", globalVal.ref().asJSObject());
+      result = JS_smprintf("ref:%" PRIxPTR, globalVal.ref().rawValue());
       break;
     }
     default:
@@ -6670,7 +6661,7 @@ static bool EvalReturningScope(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   JS::AutoFilename filename;
-  unsigned lineno;
+  uint32_t lineno;
 
   JS::DescribeScriptedCaller(cx, &filename, &lineno);
 
@@ -6972,7 +6963,7 @@ static bool CompileToStencil(JSContext* cx, uint32_t argc, Value* vp) {
 
   JS::InstantiationStorage storage;
   if (prepareForInstantiate) {
-    if (!JS::PrepareForInstantiate(&fc, compileStorage, *stencil, storage)) {
+    if (!JS::PrepareForInstantiate(&fc, *stencil, storage)) {
       return false;
     }
   }
@@ -8366,7 +8357,7 @@ static bool BaselineCompile(JSContext* cx, unsigned argc, Value* vp) {
       returnedStr = "can't compile";
       break;
     }
-    if (!cx->realm()->ensureJitRealmExists(cx)) {
+    if (!cx->zone()->ensureJitZoneExists(cx)) {
       return false;
     }
 
@@ -8681,7 +8672,7 @@ static bool FdLibM_Pow(JSContext* cx, unsigned argc, Value* vp) {
   if (!std::isfinite(y) && (x == 1.0 || x == -1.0)) {
     args.rval().setNaN();
   } else {
-    args.rval().setDouble(fdlibm::pow(x, y));
+    args.rval().setDouble(fdlibm_pow(x, y));
   }
   return true;
 }

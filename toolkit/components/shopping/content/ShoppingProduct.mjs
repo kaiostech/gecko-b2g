@@ -9,6 +9,9 @@ import {
   RECOMMENDATIONS_API,
   RECOMMENDATIONS_RESPONSE_SCHEMA,
   RECOMMENDATIONS_REQUEST_SCHEMA,
+  ATTRIBUTION_API,
+  ATTRIBUTION_RESPONSE_SCHEMA,
+  ATTRIBUTION_REQUEST_SCHEMA,
   ProductConfig,
 } from "chrome://global/content/shopping/ProductConfig.mjs";
 
@@ -18,7 +21,6 @@ let { XPCOMUtils } = ChromeUtils.importESModule(
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   OHTTPConfigManager: "resource://gre/modules/OHTTPConfigManager.sys.mjs",
   ProductValidator: "chrome://global/content/shopping/ProductValidator.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -26,6 +28,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const API_RETRIES = 3;
 const API_RETRY_TIMEOUT = 100;
+const API_POLL_ATTEMPTS = 6;
+const API_POLL_INITIAL_WAIT = 30000;
+const API_POLL_WAIT = 5000;
 
 XPCOMUtils.defineLazyServiceGetters(lazy, {
   ohttpService: [
@@ -58,7 +63,7 @@ function readFromStream(stream, count) {
     }
     count -= actuallyRead;
   }
-  return lazy.decoder.decode(arrayBuffer);
+  return arrayBuffer;
 }
 
 /**
@@ -308,6 +313,10 @@ export class ShoppingProduct {
       responseSchema,
     });
 
+    for (let ad of result) {
+      ad.image_blob = await this.requestImageBlob(ad.image_url);
+    }
+
     this.recommendations = result;
 
     return result;
@@ -370,9 +379,15 @@ export class ShoppingProduct {
     };
 
     let requestPromise;
-    let { useOHTTP, ohttpRelayURL, ohttpConfigURL } =
-      lazy.NimbusFeatures.shopping2023.getAllVariables();
-    if (useOHTTP && ohttpRelayURL && ohttpConfigURL) {
+    let ohttpRelayURL = Services.prefs.getStringPref(
+      "toolkit.shopping.ohttpRelayURL",
+      ""
+    );
+    let ohttpConfigURL = Services.prefs.getStringPref(
+      "toolkit.shopping.ohttpConfigURL",
+      ""
+    );
+    if (ohttpRelayURL && ohttpConfigURL) {
       let config = await this.getOHTTPConfig(ohttpConfigURL);
       // In the time it took to fetch the OHTTP config, we might have been
       // aborted...
@@ -522,7 +537,7 @@ export class ShoppingProduct {
     signal.addEventListener("abort", abortHandler);
     return new Promise((resolve, reject) => {
       let listener = {
-        _buffer: "",
+        _buffer: [],
         _headers: null,
         QueryInterface: ChromeUtils.generateQI([
           "nsIStreamListener",
@@ -537,7 +552,7 @@ export class ShoppingProduct {
             });
         },
         onDataAvailable(request, stream, offset, count) {
-          this._buffer += readFromStream(stream, count);
+          this._buffer.push(readFromStream(stream, count));
         },
         onStopRequest(request, requestStatus) {
           signal.removeEventListener("abort", abortHandler);
@@ -550,13 +565,175 @@ export class ShoppingProduct {
             status: httpStatus,
             headers: this._headers,
             json() {
-              return JSON.parse(result);
+              let decodedBuffer = result.reduce((accumulator, currVal) => {
+                return accumulator + lazy.decoder.decode(currVal);
+              }, "");
+              return JSON.parse(decodedBuffer);
+            },
+            blob() {
+              return new Blob(result, { type: "image/jpeg" });
             },
           });
         },
       };
       obliviousHttpChannel.asyncOpen(listener);
     });
+  }
+
+  /**
+   * Requests an image for a recommended product.
+   *
+   * @param {string} imageUrl
+   * @returns {blob} A blob of the image
+   */
+  async requestImageBlob(imageUrl) {
+    let ohttpRelayURL = Services.prefs.getStringPref(
+      "toolkit.shopping.ohttpRelayURL",
+      ""
+    );
+    let ohttpConfigURL = Services.prefs.getStringPref(
+      "toolkit.shopping.ohttpConfigURL",
+      ""
+    );
+
+    let imgRequestPromise;
+    if (ohttpRelayURL && ohttpConfigURL) {
+      let config = await this.getOHTTPConfig(ohttpConfigURL);
+      if (!config) {
+        console.error(
+          new Error(
+            "OHTTP was configured for shopping but we couldn't get a valid config."
+          )
+        );
+        return null;
+      }
+
+      let imgRequestOptions = {
+        signal: this._abortController.signal,
+        headers: {
+          Accept: "image/jpeg",
+          "Content-Type": "image/jpeg",
+        },
+      };
+
+      imgRequestPromise = this.ohttpRequest(
+        ohttpRelayURL,
+        config,
+        imageUrl,
+        imgRequestOptions
+      );
+    } else {
+      imgRequestPromise = fetch(imageUrl);
+    }
+
+    let imgResult;
+    try {
+      let response = await imgRequestPromise;
+      imgResult = await response.blob();
+    } catch (error) {
+      console.error(error);
+    }
+
+    return imgResult;
+  }
+
+  /**
+   * Poll Analysis API until an analysis has completed.
+   *
+   * After an initial wait keep checking the api for results, increasing the
+   * wait each time until we have reached a maximum of tries.
+   *
+   * Passes all arguments to requestAnalysis().
+   *
+   * @param {Product} product
+   *  Product to request for (defaults to the instances product).
+   * @param {object} options
+   *  Override default API url and schema.
+   * @returns {object} result
+   *  Parsed JSON API result or null.
+   */
+  async pollForAnalysisCompleted(product, options) {
+    let pollCount = 1;
+    let initialWait = options?.pollInitialWait || API_POLL_INITIAL_WAIT;
+    let pollTimeout = options?.pollTimeout || API_POLL_WAIT;
+    let pollAttempts = options?.pollAttempts || API_POLL_ATTEMPTS;
+
+    // Initial wait while the product is analyzed
+    await new Promise(resolve => lazy.setTimeout(resolve, initialWait));
+
+    let result = await this.requestAnalysis(true, product, options);
+
+    while (result?.needs_analysis && pollCount < pollAttempts) {
+      let backOff = pollTimeout * Math.pow(2, pollCount);
+      await new Promise(resolve => lazy.setTimeout(resolve, backOff));
+      try {
+        result = await this.requestAnalysis(true, product, options);
+      } catch (error) {
+        return null;
+      }
+      pollCount++;
+    }
+
+    return result;
+  }
+
+  /**
+   * Send an event to the Ad Attribution API
+   *
+   * @param {string} eventName
+   *  Event name options are:
+   *  - "impression"
+   *  - "click"
+   * @param {string} aid
+   *  The aid (Ad ID) from the recommendation.
+   * @param {string} [source]
+   *  Source of the event
+   * @param {object} [options]
+   *  Override default API url and schema.
+   * @returns {object} result
+   *  Parsed JSON API result or null.
+   */
+  async sendAttributionEvent(
+    eventName,
+    aid,
+    source = "firefox_sidebar",
+    options = {
+      url: ATTRIBUTION_API,
+      requestSchema: ATTRIBUTION_REQUEST_SCHEMA,
+      responseSchema: ATTRIBUTION_RESPONSE_SCHEMA,
+    }
+  ) {
+    if (!eventName) {
+      throw new Error("An event name is required.");
+    }
+    if (!aid) {
+      throw new Error("An Ad ID is required.");
+    }
+
+    let requestOptions = {
+      event_source: source,
+    };
+
+    switch (eventName) {
+      case "impression":
+        requestOptions.event_name = "trusted_deals_impression";
+        requestOptions.aidvs = [aid];
+        break;
+      case "click":
+        requestOptions.event_name = "trusted_deals_link_clicked";
+        requestOptions.aid = aid;
+        break;
+      default:
+        throw new Error(`"${eventName}" is not a valid event name`);
+    }
+
+    let { url, requestSchema, responseSchema } = options;
+    let result = await this.request(url, requestOptions, {
+      requestSchema,
+      responseSchema,
+    });
+
+    return result;
   }
 
   uninit() {

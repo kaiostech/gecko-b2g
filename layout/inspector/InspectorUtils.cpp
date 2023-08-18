@@ -29,6 +29,8 @@
 #include "mozilla/dom/CharacterData.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/CSSStyleRule.h"
+#include "mozilla/dom/Highlight.h"
+#include "mozilla/dom/HighlightRegistry.h"
 #include "mozilla/dom/InspectorUtilsBinding.h"
 #include "mozilla/dom/LinkStyle.h"
 #include "mozilla/dom/ToJSValue.h"
@@ -309,7 +311,13 @@ void InspectorUtils::GetCSSStyleRules(GlobalObject& aGlobalObject,
 
 /* static */
 uint32_t InspectorUtils::GetRuleLine(GlobalObject& aGlobal, css::Rule& aRule) {
-  return aRule.GetLineNumber();
+  uint32_t line = aRule.GetLineNumber();
+  if (StyleSheet* sheet = aRule.GetStyleSheet()) {
+    if (auto* link = LinkStyle::FromNodeOrNull(sheet->GetOwnerNode())) {
+      line += link->GetLineNumber();
+    }
+  }
+  return line;
 }
 
 /* static */
@@ -321,44 +329,8 @@ uint32_t InspectorUtils::GetRuleColumn(GlobalObject& aGlobal,
 /* static */
 uint32_t InspectorUtils::GetRelativeRuleLine(GlobalObject& aGlobal,
                                              css::Rule& aRule) {
-  uint32_t lineNumber = aRule.GetLineNumber();
-
-  // If aRule was parsed along with its stylesheet, then it will
-  // have an absolute lineNumber that we need to remap to its
-  // containing node. But if aRule was added via CSSOM after parsing,
-  // then it has a sort-of relative line number already:
-  // Gecko gives all rules a 0 lineNumber.
-  // Servo gives the first line of a rule a 0 lineNumber, and then
-  //   counts up from there.
-
-  // The Servo behavior is arguably more correct, but harder to
-  // interpret for purposes of deciding whether a lineNumber is
-  // relative or absolute.
-
-  // Since most of the time, inserted rules are single line and
-  // therefore have 0 lineNumbers in both Gecko and Servo, we use
-  // that to detect that a lineNumber is already relative.
-
-  // There is one ugly edge case that we avoid: if an inserted rule
-  // is multi-line, then Servo will give it 0+ lineNumbers. If we
-  // do relative number mapping on those line numbers, we could get
-  // negative underflow. So we check for underflow and instead report
-  // a 0 lineNumber.
-  StyleSheet* sheet = aRule.GetStyleSheet();
-  if (sheet && lineNumber != 0) {
-    if (auto* link = LinkStyle::FromNodeOrNull(sheet->GetOwnerNode())) {
-      // Check for underflow, which is one indication that we're
-      // trying to remap an already relative lineNumber.
-      uint32_t linkLineIndex0 = link->GetLineNumber() - 1;
-      if (linkLineIndex0 > lineNumber) {
-        lineNumber = 0;
-      } else {
-        lineNumber -= linkLineIndex0;
-      }
-    }
-  }
-
-  return lineNumber;
+  // Rule lines are 0-based, but inspector wants 1-based.
+  return aRule.GetLineNumber() + 1;
 }
 
 /* static */
@@ -534,15 +506,9 @@ void InspectorUtils::GetCSSValuesForProperty(GlobalObject& aGlobalObject,
 }
 
 /* static */
-void InspectorUtils::RgbToColorName(GlobalObject& aGlobalObject, uint8_t aR,
-                                    uint8_t aG, uint8_t aB,
-                                    nsAString& aColorName) {
-  const char* color = NS_RGBToColorName(NS_RGB(aR, aG, aB));
-  if (!color) {
-    aColorName.Truncate();
-  } else {
-    aColorName.AssignASCII(color);
-  }
+void InspectorUtils::RgbToColorName(GlobalObject&, uint8_t aR, uint8_t aG,
+                                    uint8_t aB, nsACString& aColorName) {
+  Servo_SlowRgbToColorName(aR, aG, aB, &aColorName);
 }
 
 /* static */
@@ -836,6 +802,20 @@ already_AddRefed<nsINodeList> InspectorUtils::GetOverflowingChildrenOfElement(
   AddOverflowingChildrenOfElement(scrolledFrame, outerFrame, scrollPortRect,
                                   *list);
   return list.forget();
+}
+
+/* static */
+void InspectorUtils::GetRegisteredCssHighlights(GlobalObject& aGlobalObject,
+                                                Document& aDocument,
+                                                bool aActiveOnly,
+                                                nsTArray<nsString>& aResult) {
+  for (auto const& iter : aDocument.HighlightRegistry().HighlightsOrdered()) {
+    const RefPtr<nsAtom>& highlightName = iter.first();
+    const RefPtr<Highlight>& highlight = iter.second();
+    if (!aActiveOnly || highlight->Size() > 0) {
+      aResult.AppendElement(highlightName->GetUTF16String());
+    }
+  }
 }
 
 }  // namespace dom

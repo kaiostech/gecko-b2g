@@ -8,6 +8,7 @@
 #include "DecoderData.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/EndianUtils.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/Telemetry.h"
 #include "VideoUtils.h"
 #include "MP4Metadata.h"
@@ -172,14 +173,13 @@ MediaResult MP4AudioInfo::Update(const Mp4parseTrackInfo* aTrack,
         mp4ParseSampleCodecSpecific.length >= 12) {
       uint16_t preskip = mozilla::LittleEndian::readUint16(
           mp4ParseSampleCodecSpecific.data + 10);
-      opusCodecSpecificData.mContainerCodecDelayMicroSeconds =
-          mozilla::FramesToUsecs(preskip, 48000).value();
+      opusCodecSpecificData.mContainerCodecDelayFrames = preskip;
       LOG("Opus stream in MP4 container, %" PRId64
           " microseconds of encoder delay (%" PRIu16 ").",
-          opusCodecSpecificData.mContainerCodecDelayMicroSeconds, preskip);
+          opusCodecSpecificData.mContainerCodecDelayFrames, preskip);
     } else {
       // This file will error later as it will be rejected by the opus decoder.
-      opusCodecSpecificData.mContainerCodecDelayMicroSeconds = 0;
+      opusCodecSpecificData.mContainerCodecDelayFrames = 0;
     }
     opusCodecSpecificData.mHeadersBinaryBlob->AppendElements(
         mp4ParseSampleCodecSpecific.data, mp4ParseSampleCodecSpecific.length);
@@ -274,8 +274,12 @@ MediaResult MP4AudioInfo::Update(const Mp4parseTrackInfo* aTrack,
   if (aTrack->duration > TimeUnit::MaxTicks()) {
     mDuration = TimeUnit::FromInfinity();
   } else {
-    mDuration =
-        TimeUnit(AssertedCast<int64_t>(aTrack->duration), aTrack->time_scale);
+    if (aTrack->duration) {
+      mDuration =
+          TimeUnit(AssertedCast<int64_t>(aTrack->duration), aTrack->time_scale);
+    } else {
+      mIsLive = true;
+    }
   }
   mMediaTime = TimeUnit(aTrack->media_time, aTrack->time_scale);
   mTrackId = aTrack->track_id;
@@ -329,10 +333,6 @@ MediaResult MP4VideoInfo::Update(const Mp4parseTrackInfo* track,
   // track, or if we have different numbers or channels in a single track.
   if (codecType == MP4PARSE_CODEC_AVC) {
     mMimeType = "video/avc"_ns;
-#if defined(MP4PARSE_FEATURE_HEVC)
-  } else if (codecType == MP4PARSE_CODEC_HEVC) {
-    mMimeType = "video/hevc"_ns;
-#endif
   } else if (codecType == MP4PARSE_CODEC_VP9) {
     mMimeType = "video/vp9"_ns;
   } else if (codecType == MP4PARSE_CODEC_AV1) {
@@ -341,13 +341,19 @@ MediaResult MP4VideoInfo::Update(const Mp4parseTrackInfo* track,
     mMimeType = "video/mp4v-es"_ns;
   } else if (codecType == MP4PARSE_CODEC_H263) {
     mMimeType = "video/3gpp"_ns;
+  } else if (codecType == MP4PARSE_CODEC_HEVC) {
+    mMimeType = "video/hevc"_ns;
   }
   mTrackId = track->track_id;
   if (track->duration > TimeUnit::MaxTicks()) {
     mDuration = TimeUnit::FromInfinity();
   } else {
-    mDuration =
-        TimeUnit(AssertedCast<int64_t>(track->duration), track->time_scale);
+    if (track->duration > 0) {
+      mDuration =
+          TimeUnit(AssertedCast<int64_t>(track->duration), track->time_scale);
+    } else {
+      mIsLive = true;
+    }
   }
   mMediaTime = TimeUnit(track->media_time, track->time_scale);
   mDisplay.width = AssertedCast<int32_t>(video->display_width);
@@ -358,6 +364,7 @@ MediaResult MP4VideoInfo::Update(const Mp4parseTrackInfo* track,
   Mp4parseByteData extraData = video->sample_info[0].extra_data;
   // If length is 0 we append nothing
   mExtraData->AppendElements(extraData.data, extraData.length);
+  mIsLive |= StaticPrefs::media_low_latency_decoding_force_enabled();
   return NS_OK;
 }
 

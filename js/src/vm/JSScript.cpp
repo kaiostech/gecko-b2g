@@ -46,6 +46,7 @@
 #include "jit/JitOptions.h"
 #include "jit/JitRuntime.h"
 #include "js/CharacterEncoding.h"  // JS_EncodeStringToUTF8
+#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberZeroOrigin, JS::ColumnNumberOffset
 #include "js/CompileOptions.h"
 #include "js/experimental/SourceHook.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
@@ -1871,7 +1872,7 @@ template bool ScriptSource::initializeUnretrievableUncompressedSource(
 // For example:
 //   foo.js line 7 > eval
 // indicating code compiled by the call to 'eval' on line 7 of foo.js.
-UniqueChars js::FormatIntroducedFilename(const char* filename, unsigned lineno,
+UniqueChars js::FormatIntroducedFilename(const char* filename, uint32_t lineno,
                                          const char* introducer) {
   // Compute the length of the string in advance, so we can allocate a
   // buffer of the right size on the first shot.
@@ -1906,7 +1907,8 @@ bool ScriptSource::initFromOptions(FrontendContext* fc,
   delazificationMode_ = options.eagerDelazificationStrategy();
 
   startLine_ = options.lineno;
-  startColumn_ = options.column;
+  startColumn_ =
+      JS::LimitedColumnNumberZeroOrigin::fromUnlimited(options.column);
   introductionType_ = options.introductionType;
   setIntroductionOffset(options.introductionOffset);
   // The parameterListEnd_ is initialized later by setParameterListEnd, before
@@ -2688,11 +2690,12 @@ const js::SrcNote* js::GetSrcNote(JSContext* cx, JSScript* script,
   return GetSrcNote(cx->caches().gsnCache, script, pc);
 }
 
-unsigned js::PCToLineNumber(unsigned startLine, unsigned startCol,
+unsigned js::PCToLineNumber(unsigned startLine,
+                            JS::LimitedColumnNumberZeroOrigin startCol,
                             SrcNote* notes, jsbytecode* code, jsbytecode* pc,
-                            unsigned* columnp) {
+                            JS::LimitedColumnNumberZeroOrigin* columnp) {
   unsigned lineno = startLine;
-  unsigned column = startCol;
+  JS::LimitedColumnNumberZeroOrigin column = startCol;
 
   /*
    * Walk through source notes accumulating their deltas, keeping track of
@@ -2711,14 +2714,12 @@ unsigned js::PCToLineNumber(unsigned startLine, unsigned startCol,
     SrcNoteType type = sn->type();
     if (type == SrcNoteType::SetLine) {
       lineno = SrcNote::SetLine::getLine(sn, startLine);
-      column = 0;
+      column = JS::LimitedColumnNumberZeroOrigin::zero();
     } else if (type == SrcNoteType::NewLine) {
       lineno++;
-      column = 0;
+      column = JS::LimitedColumnNumberZeroOrigin::zero();
     } else if (type == SrcNoteType::ColSpan) {
-      ptrdiff_t colspan = SrcNote::ColSpan::getSpan(sn);
-      MOZ_ASSERT(ptrdiff_t(column) + colspan >= 0);
-      column += colspan;
+      column += SrcNote::ColSpan::getSpan(sn);
     }
   }
 
@@ -2730,7 +2731,7 @@ unsigned js::PCToLineNumber(unsigned startLine, unsigned startCol,
 }
 
 unsigned js::PCToLineNumber(JSScript* script, jsbytecode* pc,
-                            unsigned* columnp) {
+                            JS::LimitedColumnNumberZeroOrigin* columnp) {
   /* Cope with InterpreterFrame.pc value prior to entering Interpret. */
   if (!pc) {
     return 0;
@@ -2843,7 +2844,7 @@ void js::maybeSpewScriptFinalWarmUpCount(JSScript* script) {
 
 void js::DescribeScriptedCallerForDirectEval(JSContext* cx, HandleScript script,
                                              jsbytecode* pc, const char** file,
-                                             unsigned* linenop,
+                                             uint32_t* linenop,
                                              uint32_t* pcOffset,
                                              bool* mutedErrors) {
   MOZ_ASSERT(script->containsPC(pc));
@@ -2871,7 +2872,7 @@ void js::DescribeScriptedCallerForDirectEval(JSContext* cx, HandleScript script,
 
 void js::DescribeScriptedCallerForCompilation(
     JSContext* cx, MutableHandleScript maybeScript, const char** file,
-    unsigned* linenop, uint32_t* pcOffset, bool* mutedErrors) {
+    uint32_t* linenop, uint32_t* pcOffset, bool* mutedErrors) {
   NonBuiltinFrameIter iter(cx, cx->realm()->principals());
 
   if (iter.done()) {
@@ -3403,7 +3404,7 @@ bool JSScript::dump(JSContext* cx, JS::Handle<JSScript*> script,
     }
 
     json.property("lineno", script->lineno());
-    json.property("column", script->column());
+    json.property("column", script->column().zeroOriginValue());
 
     json.beginListProperty("immutableFlags");
     DumpImmutableScriptFlags(json, script->immutableFlags());
@@ -3507,7 +3508,7 @@ bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
 
   unsigned offset = 0;
   unsigned lineno = script->lineno();
-  unsigned column = script->column();
+  JS::LimitedColumnNumberZeroOrigin column = script->column();
   SrcNote* notes = script->notes();
   for (SrcNoteIterator iter(notes); !iter.atEnd(); ++iter) {
     const auto* sn = *iter;
@@ -3517,7 +3518,7 @@ bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
     SrcNoteType type = sn->type();
     const char* name = sn->name();
     if (!sp->jsprintf("%3u: %4u %6u %5u [%4u] %-10s", unsigned(sn - notes),
-                      lineno, column, offset, delta, name)) {
+                      lineno, column.zeroOriginValue(), offset, delta, name)) {
       return false;
     }
 
@@ -3530,8 +3531,8 @@ bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
         break;
 
       case SrcNoteType::ColSpan: {
-        uint32_t colspan = SrcNote::ColSpan::getSpan(sn);
-        if (!sp->jsprintf(" colspan %u", colspan)) {
+        JS::ColumnNumberOffset colspan = SrcNote::ColSpan::getSpan(sn);
+        if (!sp->jsprintf(" colspan %u", colspan.value())) {
           return false;
         }
         column += colspan;
@@ -3543,12 +3544,12 @@ bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
         if (!sp->jsprintf(" lineno %u", lineno)) {
           return false;
         }
-        column = 0;
+        column = JS::LimitedColumnNumberZeroOrigin::zero();
         break;
 
       case SrcNoteType::NewLine:
         ++lineno;
-        column = 0;
+        column = JS::LimitedColumnNumberZeroOrigin::zero();
         break;
 
       default:
@@ -3689,7 +3690,8 @@ bool JSScript::dumpGCThings(JSContext* cx, JS::Handle<JSScript*> script,
 
         if (fun->hasBaseScript()) {
           BaseScript* script = fun->baseScript();
-          if (!sp->jsprintf(" @ %u:%u\n", script->lineno(), script->column())) {
+          if (!sp->jsprintf(" @ %u:%u\n", script->lineno(),
+                            script->column().zeroOriginValue())) {
             return false;
           }
         } else {

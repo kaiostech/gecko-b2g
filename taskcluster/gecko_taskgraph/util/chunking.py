@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 here = os.path.abspath(os.path.dirname(__file__))
 resolver = TestResolver.from_environment(cwd=here, loader_cls=TestManifestLoader)
 
+TEST_VARIANTS = {}
+if os.path.exists(os.path.join(GECKO, "taskcluster", "ci", "test", "variants.yml")):
+    TEST_VARIANTS = load_yaml(GECKO, "taskcluster", "ci", "test", "variants.yml")
+
 
 def guess_mozinfo_from_task(task, repo=""):
     """Attempt to build a mozinfo dict from a task definition.
@@ -99,9 +103,8 @@ def guess_mozinfo_from_task(task, repo=""):
             info["os_version"] = new_ver
             break
 
-    test_variants = load_yaml(GECKO, "taskcluster", "ci", "test", "variants.yml")
-    for variant in test_variants:
-        tag = test_variants[variant]["suffix"]
+    for variant in TEST_VARIANTS:
+        tag = TEST_VARIANTS[variant]["suffix"]
         value = variant in setting["runtime"].keys()
 
         if tag == "1proc":

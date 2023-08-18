@@ -318,6 +318,13 @@ bool gfxAndroidPlatform::RequiresLinearZoom() {
 #endif
 }
 
+bool gfxAndroidPlatform::CheckVariationFontSupport() {
+  // Don't attempt to use variations on Android API versions up to Marshmallow,
+  // because the system freetype version is too old and the parent process may
+  // access it during printing (bug 1845174).
+  return jni::GetAPIVersion() > 23;
+}
+
 #ifdef MOZ_WIDGET_ANDROID
 class AndroidVsyncSource final : public VsyncSource,
                                  public widget::AndroidVsync::Observer {

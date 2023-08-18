@@ -2221,11 +2221,11 @@ Maybe<nsNativeThemeCocoa::WidgetInfo> nsNativeThemeCocoa::ComputeWidgetInfo(
 
     case StyleAppearance::Checkbox:
     case StyleAppearance::Radio: {
-      bool isCheckbox = (aAppearance == StyleAppearance::Checkbox);
+      bool isCheckbox = aAppearance == StyleAppearance::Checkbox;
 
       CheckboxOrRadioParams params;
       params.state = CheckboxOrRadioState::eOff;
-      if (elementState.HasState(ElementState::INDETERMINATE)) {
+      if (isCheckbox && elementState.HasState(ElementState::INDETERMINATE)) {
         params.state = CheckboxOrRadioState::eIndeterminate;
       } else if (elementState.HasState(ElementState::CHECKED)) {
         params.state = CheckboxOrRadioState::eOn;
@@ -3207,9 +3207,7 @@ bool nsNativeThemeCocoa::ThemeSupportsWidget(nsPresContext* aPresContext, nsIFra
     case StyleAppearance::Tooltip:
 
     case StyleAppearance::Checkbox:
-    case StyleAppearance::CheckboxContainer:
     case StyleAppearance::Radio:
-    case StyleAppearance::RadioContainer:
     case StyleAppearance::MozMacHelpButton:
     case StyleAppearance::MozMacDisclosureButtonOpen:
     case StyleAppearance::MozMacDisclosureButtonClosed:

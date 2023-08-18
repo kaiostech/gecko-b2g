@@ -189,7 +189,11 @@ export class PocketSuggestions extends BaseFeature {
           originalUrl: suggestion.url,
           title: [suggestion.title, lazy.UrlbarUtils.HIGHLIGHT.TYPED],
           description: isBestMatch ? suggestion.description : "",
-          icon: "chrome://global/skin/icons/pocket.svg",
+          // Use the favicon for non-best matches so the icon exactly matches
+          // the Pocket favicon in the user's history and tabs.
+          icon: isBestMatch
+            ? "chrome://global/skin/icons/pocket.svg"
+            : "chrome://global/skin/icons/pocket-favicon.ico",
           shouldShowUrl: true,
           bottomTextL10n: {
             id: "firefox-suggest-pocket-bottom-text",
@@ -225,11 +229,15 @@ export class PocketSuggestions extends BaseFeature {
         // provided suggestions, need to use the original URL when adding to the
         // block list.
         lazy.QuickSuggest.blockedSuggestions.add(result.payload.originalUrl);
-        view.acknowledgeDismissal(result, false);
+        view.acknowledgeDismissal(result, {
+          id: "firefox-suggest-dismissal-acknowledgment-one",
+        });
         break;
       case RESULT_MENU_COMMAND.NOT_INTERESTED:
         lazy.UrlbarPrefs.set("suggest.pocket", false);
-        view.acknowledgeDismissal(result, true);
+        view.acknowledgeDismissal(result, {
+          id: "firefox-suggest-dismissal-acknowledgment-all",
+        });
         break;
       case RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY:
         view.acknowledgeFeedback(result);

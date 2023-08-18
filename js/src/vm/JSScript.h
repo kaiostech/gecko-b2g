@@ -27,6 +27,7 @@
 
 #include "frontend/ScriptIndex.h"  // ScriptIndex
 #include "gc/Barrier.h"
+#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberZeroOrigin
 #include "js/CompileOptions.h"
 #include "js/Transcoding.h"
 #include "js/UbiNode.h"
@@ -618,10 +619,11 @@ class ScriptSource {
   // 0 for other cases.
   uint32_t parameterListEnd_ = 0;
 
-  // Line number within the file where this source starts.
+  // Line number within the file where this source starts (1-origin).
   uint32_t startLine_ = 0;
-  // Column number within the file where this source starts.
-  uint32_t startColumn_ = 0;
+  // Column number within the file where this source starts,
+  // in UTF-16 code units.
+  JS::LimitedColumnNumberZeroOrigin startColumn_;
 
   // See: CompileOptions::mutedErrors.
   bool mutedErrors_ = false;
@@ -1061,7 +1063,7 @@ class ScriptSource {
   bool mutedErrors() const { return mutedErrors_; }
 
   uint32_t startLine() const { return startLine_; }
-  uint32_t startColumn() const { return startColumn_; }
+  JS::LimitedColumnNumberZeroOrigin startColumn() const { return startColumn_; }
 
   JS::DelazificationOption delazificationMode() const {
     return delazificationMode_;
@@ -1540,8 +1542,10 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
   [[nodiscard]] bool appendSourceDataForToString(JSContext* cx,
                                                  js::StringBuffer& buf);
 
+  // Line number (1-origin)
   uint32_t lineno() const { return extent_.lineno; }
-  uint32_t column() const { return extent_.column; }
+  // Column number in UTF-16 code units
+  JS::LimitedColumnNumberZeroOrigin column() const { return extent_.column; }
 
   JS::DelazificationOption delazificationMode() const {
     return scriptSource()->delazificationMode();
@@ -2205,7 +2209,7 @@ struct ScriptAndCounts {
 };
 
 extern JS::UniqueChars FormatIntroducedFilename(const char* filename,
-                                                unsigned lineno,
+                                                uint32_t lineno,
                                                 const char* introducer);
 
 struct GSNCache;
@@ -2229,12 +2233,14 @@ void maybeSpewScriptFinalWarmUpCount(JSScript* script);
 
 namespace js {
 
-extern unsigned PCToLineNumber(JSScript* script, jsbytecode* pc,
-                               unsigned* columnp = nullptr);
+extern unsigned PCToLineNumber(
+    JSScript* script, jsbytecode* pc,
+    JS::LimitedColumnNumberZeroOrigin* columnp = nullptr);
 
-extern unsigned PCToLineNumber(unsigned startLine, unsigned startCol,
-                               SrcNote* notes, jsbytecode* code, jsbytecode* pc,
-                               unsigned* columnp = nullptr);
+extern unsigned PCToLineNumber(
+    unsigned startLine, JS::LimitedColumnNumberZeroOrigin startCol,
+    SrcNote* notes, jsbytecode* code, jsbytecode* pc,
+    JS::LimitedColumnNumberZeroOrigin* columnp = nullptr);
 
 /*
  * This function returns the file and line number of the script currently
@@ -2244,7 +2250,7 @@ extern unsigned PCToLineNumber(unsigned startLine, unsigned startCol,
  */
 extern void DescribeScriptedCallerForCompilation(
     JSContext* cx, MutableHandleScript maybeScript, const char** file,
-    unsigned* linenop, uint32_t* pcOffset, bool* mutedErrors);
+    uint32_t* linenop, uint32_t* pcOffset, bool* mutedErrors);
 
 /*
  * Like DescribeScriptedCallerForCompilation, but this function avoids looking
@@ -2252,7 +2258,7 @@ extern void DescribeScriptedCallerForCompilation(
  */
 extern void DescribeScriptedCallerForDirectEval(
     JSContext* cx, HandleScript script, jsbytecode* pc, const char** file,
-    unsigned* linenop, uint32_t* pcOffset, bool* mutedErrors);
+    uint32_t* linenop, uint32_t* pcOffset, bool* mutedErrors);
 
 bool CheckCompileOptionsMatch(const JS::ReadOnlyCompileOptions& options,
                               js::ImmutableScriptFlags flags);

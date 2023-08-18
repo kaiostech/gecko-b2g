@@ -323,7 +323,6 @@ BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
       mDidSetRealShowInfo(false),
       mDidLoadURLInit(false),
       mSkipKeyPress(false),
-      mDidSetEffectsInfo(false),
       mShouldSendWebProgressEventsToParent(false),
       mRenderLayers(true),
       mIsPreservingLayers(false),
@@ -1147,8 +1146,7 @@ nsresult BrowserChild::CloneDocumentTreeIntoSelf(
 
   RefPtr<Document> clone;
   {
-    AutoPrintEventDispatcher dispatcher(*sourceDocument, printSettings,
-                                        /* aIsTop = */ false);
+    AutoPrintEventDispatcher dispatcher(*sourceDocument);
     nsAutoScriptBlocker scriptBlocker;
     bool hasInProcessCallbacks = false;
     clone = sourceDocument->CreateStaticClone(ourDocShell, cv, printSettings,
@@ -2735,7 +2733,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateNativeWindowHandle(
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvDestroy() {
-  MOZ_ASSERT(mDestroyed == false);
+  MOZ_ASSERT(!mDestroyed);
   mDestroyed = true;
 
   nsTArray<PContentPermissionRequestChild*> childArray =
@@ -2745,7 +2743,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvDestroy() {
   // Need to close undeleted ContentPermissionRequestChilds before tab is
   // closed.
   for (auto& permissionRequestChild : childArray) {
-    auto child = static_cast<RemotePermissionRequest*>(permissionRequestChild);
+    auto* child = static_cast<RemotePermissionRequest*>(permissionRequestChild);
     child->Destroy();
   }
 
@@ -3027,7 +3025,7 @@ void BrowserChild::InitAPZState() {
   if (!mCompositorOptions->UseAPZ()) {
     return;
   }
-  auto cbc = CompositorBridgeChild::Get();
+  auto* cbc = CompositorBridgeChild::Get();
 
   // Initialize the ApzcTreeManager. This takes multiple casts because of ugly
   // multiple inheritance.
@@ -3054,12 +3052,10 @@ void BrowserChild::InitAPZState() {
 }
 
 IPCResult BrowserChild::RecvUpdateEffects(const EffectsInfo& aEffects) {
-  mDidSetEffectsInfo = true;
-
   bool needInvalidate = false;
   if (mEffectsInfo.IsVisible() && aEffects.IsVisible() &&
       mEffectsInfo != aEffects) {
-    // if we are staying visible and either the visrect or scale changed we need
+    // If we are staying visible and either the visrect or scale changed we need
     // to invalidate
     needInvalidate = true;
   }
@@ -3068,14 +3064,12 @@ IPCResult BrowserChild::RecvUpdateEffects(const EffectsInfo& aEffects) {
   UpdateVisibility();
 
   if (needInvalidate) {
-    nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
-    if (docShell) {
+    if (nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation())) {
       // We don't use BrowserChildBase::GetPresShell() here because that would
       // create a content viewer if one doesn't exist yet. Creating a content
       // viewer can cause JS to run, which we want to avoid.
       // nsIDocShell::GetPresShell returns null if no content viewer exists yet.
-      RefPtr<PresShell> presShell = docShell->GetPresShell();
-      if (presShell) {
+      if (RefPtr<PresShell> presShell = docShell->GetPresShell()) {
         if (nsIFrame* root = presShell->GetRootFrame()) {
           root->InvalidateFrame();
         }
@@ -3540,8 +3534,7 @@ Maybe<nsRect> BrowserChild::GetVisibleRect() const {
     // artifacts when resizing
     return Nothing();
   }
-
-  return mDidSetEffectsInfo ? Some(mEffectsInfo.mVisibleRect) : Nothing();
+  return mEffectsInfo.mVisibleRect;
 }
 
 Maybe<LayoutDeviceRect>

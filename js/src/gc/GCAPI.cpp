@@ -15,7 +15,7 @@
 
 #include "gc/GC.h"
 #include "gc/PublicIterators.h"
-#include "jit/JitRealm.h"
+#include "jit/JitZone.h"
 #include "js/HeapAPI.h"
 #include "js/Value.h"
 #include "util/DifferentialTesting.h"
@@ -98,11 +98,8 @@ void js::ReleaseAllJITCode(JS::GCContext* gcx) {
 
   for (ZonesIter zone(gcx->runtime(), SkipAtoms); !zone.done(); zone.next()) {
     zone->forceDiscardJitCode(gcx);
-  }
-
-  for (RealmsIter realm(gcx->runtime()); !realm.done(); realm.next()) {
-    if (jit::JitRealm* jitRealm = realm->jitRealm()) {
-      jitRealm->discardStubs();
+    if (jit::JitZone* jitZone = zone->jitZone()) {
+      jitZone->discardStubs();
     }
   }
 }
@@ -423,8 +420,8 @@ JS_PUBLIC_API bool JS::AddGCNurseryCollectionCallback(
 }
 
 JS_PUBLIC_API void JS::RemoveGCNurseryCollectionCallback(
-    JSContext* cx, GCNurseryCollectionCallback callback) {
-  return cx->runtime()->gc.removeNurseryCollectionCallback(callback);
+    JSContext* cx, GCNurseryCollectionCallback callback, void* data) {
+  return cx->runtime()->gc.removeNurseryCollectionCallback(callback, data);
 }
 
 JS_PUBLIC_API void JS::SetLowMemoryState(JSContext* cx, bool newState) {

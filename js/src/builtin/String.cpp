@@ -50,8 +50,7 @@
 #include "vm/RegExpObject.h"
 #include "vm/SelfHosting.h"
 #include "vm/StaticStrings.h"
-#include "vm/ToSource.h"       // js::ValueToSource
-#include "vm/WellKnownAtom.h"  // js_*_str
+#include "vm/ToSource.h"  // js::ValueToSource
 
 #include "vm/GeckoProfiler-inl.h"
 #include "vm/InlineCharBuffer-inl.h"
@@ -376,15 +375,13 @@ static bool str_uneval(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 static const JSFunctionSpec string_functions[] = {
-    JS_FN(js_escape_str, str_escape, 1, JSPROP_RESOLVING),
-    JS_FN(js_unescape_str, str_unescape, 1, JSPROP_RESOLVING),
-    JS_FN(js_uneval_str, str_uneval, 1, JSPROP_RESOLVING),
-    JS_FN(js_decodeURI_str, str_decodeURI, 1, JSPROP_RESOLVING),
-    JS_FN(js_encodeURI_str, str_encodeURI, 1, JSPROP_RESOLVING),
-    JS_FN(js_decodeURIComponent_str, str_decodeURI_Component, 1,
-          JSPROP_RESOLVING),
-    JS_FN(js_encodeURIComponent_str, str_encodeURI_Component, 1,
-          JSPROP_RESOLVING),
+    JS_FN("escape", str_escape, 1, JSPROP_RESOLVING),
+    JS_FN("unescape", str_unescape, 1, JSPROP_RESOLVING),
+    JS_FN("uneval", str_uneval, 1, JSPROP_RESOLVING),
+    JS_FN("decodeURI", str_decodeURI, 1, JSPROP_RESOLVING),
+    JS_FN("encodeURI", str_encodeURI, 1, JSPROP_RESOLVING),
+    JS_FN("decodeURIComponent", str_decodeURI_Component, 1, JSPROP_RESOLVING),
+    JS_FN("encodeURIComponent", str_encodeURI_Component, 1, JSPROP_RESOLVING),
 
     JS_FS_END};
 
@@ -455,7 +452,7 @@ static const JSClassOps StringObjectClassOps = {
 };
 
 const JSClass StringObject::class_ = {
-    js_String_str,
+    "String",
     JSCLASS_HAS_RESERVED_SLOTS(StringObject::RESERVED_SLOTS) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_String),
     &StringObjectClassOps, &StringObject::classSpec_};
@@ -3653,11 +3650,11 @@ ArrayObject* js::StringSplitString(JSContext* cx, HandleString str,
 }
 
 static const JSFunctionSpec string_methods[] = {
-    JS_FN(js_toSource_str, str_toSource, 0, 0),
+    JS_FN("toSource", str_toSource, 0, 0),
 
     /* Java-like methods. */
-    JS_INLINABLE_FN(js_toString_str, str_toString, 0, 0, StringToString),
-    JS_INLINABLE_FN(js_valueOf_str, str_toString, 0, 0, StringValueOf),
+    JS_INLINABLE_FN("toString", str_toString, 0, 0, StringToString),
+    JS_INLINABLE_FN("valueOf", str_toString, 0, 0, StringValueOf),
     JS_INLINABLE_FN("toLowerCase", str_toLowerCase, 0, 0, StringToLowerCase),
     JS_INLINABLE_FN("toUpperCase", str_toUpperCase, 0, 0, StringToUpperCase),
     JS_INLINABLE_FN("charAt", str_charAt, 1, 0, StringCharAt),
@@ -3992,8 +3989,19 @@ SharedShape* StringObject::assignInitialShape(JSContext* cx,
 
 JSObject* StringObject::createPrototype(JSContext* cx, JSProtoKey key) {
   Rooted<JSString*> empty(cx, cx->runtime()->emptyString);
+
+  // Because the `length` property of a StringObject is both non-configurable
+  // and non-writable, we need to take the slow path of proxy result
+  // validation for them, and so we need to ensure that the initial ObjectFlags
+  // reflect that. Normally this would be handled for us, but the special
+  // SharedShape::ensureInitialCustomShape path which ultimately takes us
+  // through StringObject::assignInitialShape which adds the problematic
+  // property sneaks past our flag setting logic and results in a failed
+  // lookup of the initial shape in SharedShape::insertInitialShape.
   Rooted<StringObject*> proto(
-      cx, GlobalObject::createBlankPrototype<StringObject>(cx, cx->global()));
+      cx, GlobalObject::createBlankPrototype<StringObject>(
+              cx, cx->global(),
+              ObjectFlags({ObjectFlag::NeedsProxyGetSetResultValidation})));
   if (!proto) {
     return nullptr;
   }
@@ -4520,16 +4528,15 @@ static bool BuildFlatMatchArray(JSContext* cx, HandleString str,
     return true;
   }
 
-  // Get the templateObject that defines the shape and type of the output
-  // object.
-  ArrayObject* templateObject =
-      cx->realm()->regExps.getOrCreateMatchResultTemplateObject(cx);
-  if (!templateObject) {
+  // Get the shape for the match result object.
+  Rooted<SharedShape*> shape(
+      cx, cx->global()->regExpRealm().getOrCreateMatchResultShape(cx));
+  if (!shape) {
     return false;
   }
 
-  Rooted<ArrayObject*> arr(
-      cx, NewDenseFullyAllocatedArrayWithTemplate(cx, 1, templateObject));
+  Rooted<ArrayObject*> arr(cx,
+                           NewDenseFullyAllocatedArrayWithShape(cx, 1, shape));
   if (!arr) {
     return false;
   }
@@ -4538,11 +4545,11 @@ static bool BuildFlatMatchArray(JSContext* cx, HandleString str,
   arr->setDenseInitializedLength(1);
   arr->initDenseElement(0, StringValue(pattern));
 
-  // Set the |index| property. (TemplateObject positions it in slot 0).
-  arr->setSlot(0, Int32Value(match));
+  // Set the |index| property.
+  arr->initSlot(RegExpRealm::MatchResultObjectIndexSlot, Int32Value(match));
 
-  // Set the |input| property. (TemplateObject positions it in slot 1).
-  arr->setSlot(1, StringValue(str));
+  // Set the |input| property.
+  arr->initSlot(RegExpRealm::MatchResultObjectInputSlot, StringValue(str));
 
 #ifdef DEBUG
   RootedValue test(cx);

@@ -56,9 +56,13 @@ add_task(
       }
     );
 
-    await waitForTranslationsPopupEvent("popupshown", () => {
-      click(button, "Opening the popup");
-    });
+    await waitForTranslationsPopupEvent(
+      "popupshown",
+      () => {
+        click(button, "Opening the popup");
+      },
+      assertPanelDefaultView
+    );
 
     await TestTranslationsTelemetry.assertEvent(
       "OpenPanel",
@@ -67,7 +71,10 @@ add_task(
         expectedEventCount: 1,
         expectNewFlowId: true,
         finalValuePredicates: [
+          value => value.extra.auto_show === "false",
+          value => value.extra.view_name === "defaultView",
           value => value.extra.opened_from === "translationsButton",
+          value => value.extra.document_language === "es",
         ],
       }
     );
@@ -95,6 +102,7 @@ add_task(
       );
     });
 
+    assertPanelErrorView();
     await TestTranslationsTelemetry.assertEvent(
       "OpenPanel",
       Glean.translationsPanel.open,
@@ -102,7 +110,10 @@ add_task(
         expectedEventCount: 2,
         expectNewFlowId: false,
         finalValuePredicates: [
+          value => value.extra.auto_show === "true",
+          value => value.extra.view_name === "errorView",
           value => value.extra.opened_from === "translationsButton",
+          value => value.extra.document_language === "es",
         ],
       }
     );
@@ -157,6 +168,8 @@ add_task(
           value => value.extra.from_language === "es",
           value => value.extra.to_language === "en",
           value => value.extra.auto_translate === "false",
+          value => value.extra.document_language === "es",
+          value => value.extra.top_preferred_language === "en",
         ],
       }
     );
@@ -209,6 +222,7 @@ add_task(async function test_translations_telemetry_auto_translation_failure() {
     );
   });
 
+  assertPanelErrorView();
   await TestTranslationsTelemetry.assertCounter(
     "RequestCount",
     Glean.translations.requestsCount,
@@ -229,7 +243,10 @@ add_task(async function test_translations_telemetry_auto_translation_failure() {
       expectedEventCount: 1,
       expectNewFlowId: true,
       finalValuePredicates: [
+        value => value.extra.auto_show === "true",
+        value => value.extra.view_name === "errorView",
         value => value.extra.opened_from === "translationsButton",
+        value => value.extra.document_language === "es",
       ],
     }
   );
@@ -263,6 +280,8 @@ add_task(async function test_translations_telemetry_auto_translation_failure() {
         value => value.extra.from_language === "es",
         value => value.extra.to_language === "en",
         value => value.extra.auto_translate === "true",
+        value => value.extra.document_language === "es",
+        value => value.extra.top_preferred_language === "en",
       ],
     }
   );

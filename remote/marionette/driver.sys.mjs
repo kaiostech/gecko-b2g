@@ -28,7 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Log: "chrome://remote/content/shared/Log.sys.mjs",
   Marionette: "chrome://remote/content/components/Marionette.sys.mjs",
   MarionettePrefs: "chrome://remote/content/marionette/prefs.sys.mjs",
-  modal: "chrome://remote/content/marionette/modal.sys.mjs",
+  modal: "chrome://remote/content/shared/Prompt.sys.mjs",
   navigate: "chrome://remote/content/marionette/navigate.sys.mjs",
   permissions: "chrome://remote/content/marionette/permissions.sys.mjs",
   pprint: "chrome://remote/content/shared/Format.sys.mjs",
@@ -48,6 +48,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "chrome://remote/content/marionette/actors/MarionetteCommandsParent.sys.mjs",
   waitForInitialNavigationCompleted:
     "chrome://remote/content/shared/Navigate.sys.mjs",
+  webauthn: "chrome://remote/content/marionette/webauthn.sys.mjs",
   WebDriverSession: "chrome://remote/content/shared/webdriver/Session.sys.mjs",
   WebElement: "chrome://remote/content/marionette/web-reference.sys.mjs",
   windowManager: "chrome://remote/content/shared/WindowManager.sys.mjs",
@@ -502,7 +503,7 @@ GeckoDriver.prototype.newSession = async function (cmd) {
       }
 
       // Check if there is already an open dialog for the selected browser window.
-      this.dialog = lazy.modal.findModalDialogs(this.curBrowser);
+      this.dialog = lazy.modal.findPrompt(this.curBrowser);
     }
 
     lazy.registerCommandsActor(this.currentSession.id);
@@ -1397,8 +1398,8 @@ GeckoDriver.prototype.setWindowHandle = async function (
       tab?.linkedBrowser.browsingContext;
   }
 
-  // Check for existing dialogs for the new window
-  this.dialog = lazy.modal.findModalDialogs(this.curBrowser);
+  // Check for an existing dialog for the new window
+  this.dialog = lazy.modal.findPrompt(this.curBrowser);
 
   // If there is an open window modal dialog the underlying chrome window
   // cannot be focused.
@@ -2831,10 +2832,11 @@ GeckoDriver.prototype.acceptDialog = async function () {
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
-GeckoDriver.prototype.getTextFromDialog = function () {
+GeckoDriver.prototype.getTextFromDialog = async function () {
   lazy.assert.open(this.getBrowsingContext({ top: true }));
   this._checkIfAlertIsPresent();
-  return this.dialog.text;
+  const text = await this.dialog.getText();
+  return text;
 };
 
 /**
@@ -2894,7 +2896,7 @@ GeckoDriver.prototype._handleUserPrompts = async function () {
     return;
   }
 
-  let textContent = this.dialog.text;
+  const textContent = await this.dialog.getText();
 
   const behavior = this.currentSession.unhandledPromptBehavior;
   switch (behavior) {
@@ -3292,6 +3294,158 @@ GeckoDriver.prototype.clearImportedScripts = function(cmd, resp) {
   this.importedScripts.clear();
 };
 
+GeckoDriver.prototype.addVirtualAuthenticator = function (cmd) {
+  const {
+    protocol,
+    transport,
+    hasResidentKey,
+    hasUserVerification,
+    isUserConsenting,
+    isUserVerified,
+  } = cmd.parameters;
+
+  lazy.assert.string(
+    protocol,
+    "addVirtualAuthenticator: protocol must be a string"
+  );
+  lazy.assert.string(
+    transport,
+    "addVirtualAuthenticator: transport must be a string"
+  );
+  lazy.assert.boolean(
+    hasResidentKey,
+    "addVirtualAuthenticator: hasResidentKey must be a boolean"
+  );
+  lazy.assert.boolean(
+    hasUserVerification,
+    "addVirtualAuthenticator: hasUserVerification must be a boolean"
+  );
+  lazy.assert.boolean(
+    isUserConsenting,
+    "addVirtualAuthenticator: isUserConsenting must be a boolean"
+  );
+  lazy.assert.boolean(
+    isUserVerified,
+    "addVirtualAuthenticator: isUserVerified must be a boolean"
+  );
+
+  return lazy.webauthn.addVirtualAuthenticator(
+    protocol,
+    transport,
+    hasResidentKey,
+    hasUserVerification,
+    isUserConsenting,
+    isUserVerified
+  );
+};
+
+GeckoDriver.prototype.removeVirtualAuthenticator = function (cmd) {
+  const { authenticatorId } = cmd.parameters;
+
+  lazy.assert.positiveInteger(
+    authenticatorId,
+    "removeVirtualAuthenticator: authenticatorId must be a positiveInteger"
+  );
+
+  lazy.webauthn.removeVirtualAuthenticator(authenticatorId);
+};
+
+GeckoDriver.prototype.addCredential = function (cmd) {
+  const {
+    authenticatorId,
+    credentialId,
+    isResidentCredential,
+    rpId,
+    privateKey,
+    userHandle,
+    signCount,
+  } = cmd.parameters;
+
+  lazy.assert.positiveInteger(
+    authenticatorId,
+    "addCredential: authenticatorId must be a positiveInteger"
+  );
+  lazy.assert.string(
+    credentialId,
+    "addCredential: credentialId must be a string"
+  );
+  lazy.assert.boolean(
+    isResidentCredential,
+    "addCredential: isResidentCredential must be a boolean"
+  );
+  lazy.assert.string(rpId, "addCredential: rpId must be a string");
+  lazy.assert.string(privateKey, "addCredential: privateKey must be a string");
+  if (userHandle) {
+    lazy.assert.string(
+      userHandle,
+      "addCredential: userHandle must be a string if present"
+    );
+  }
+  lazy.assert.number(signCount, "addCredential: signCount must be a number");
+
+  lazy.webauthn.addCredential(
+    authenticatorId,
+    credentialId,
+    isResidentCredential,
+    rpId,
+    privateKey,
+    userHandle,
+    signCount
+  );
+};
+
+GeckoDriver.prototype.getCredentials = function (cmd) {
+  const { authenticatorId } = cmd.parameters;
+
+  lazy.assert.positiveInteger(
+    authenticatorId,
+    "getCredentials: authenticatorId must be a positiveInteger"
+  );
+
+  return lazy.webauthn.getCredentials(authenticatorId);
+};
+
+GeckoDriver.prototype.removeCredential = function (cmd) {
+  const { authenticatorId, credentialId } = cmd.parameters;
+
+  lazy.assert.positiveInteger(
+    authenticatorId,
+    "removeCredential: authenticatorId must be a positiveInteger"
+  );
+  lazy.assert.string(
+    credentialId,
+    "removeCredential: credentialId must be a string"
+  );
+
+  lazy.webauthn.removeCredential(authenticatorId, credentialId);
+};
+
+GeckoDriver.prototype.removeAllCredentials = function (cmd) {
+  const { authenticatorId } = cmd.parameters;
+
+  lazy.assert.positiveInteger(
+    authenticatorId,
+    "removeAllCredentials: authenticatorId must be a positiveInteger"
+  );
+
+  lazy.webauthn.removeAllCredentials(authenticatorId);
+};
+
+GeckoDriver.prototype.setUserVerified = function (cmd) {
+  const { authenticatorId, isUserVerified } = cmd.parameters;
+
+  lazy.assert.positiveInteger(
+    authenticatorId,
+    "setUserVerified: authenticatorId must be a positiveInteger"
+  );
+  lazy.assert.boolean(
+    isUserVerified,
+    "setUserVerified: isUserVerified must be a boolean"
+  );
+
+  lazy.webauthn.setUserVerified(authenticatorId, isUserVerified);
+};
+
 GeckoDriver.prototype.setPermission = async function (cmd) {
   const { descriptor, state, oneRealm = false } = cmd.parameters;
 
@@ -3437,6 +3591,17 @@ GeckoDriver.prototype.commands = {
   "WebDriver:SwitchToWindow": GeckoDriver.prototype.switchToWindow,
   "WebDriver:TakeScreenshot": GeckoDriver.prototype.takeScreenshot,
   "B2G:SwitchToSystemWindow": GeckoDriver.prototype.switchToSystemWindow,
+
+  // WebAuthn
+  "WebAuthn:AddVirtualAuthenticator":
+    GeckoDriver.prototype.addVirtualAuthenticator,
+  "WebAuthn:RemoveVirtualAuthenticator":
+    GeckoDriver.prototype.removeVirtualAuthenticator,
+  "WebAuthn:AddCredential": GeckoDriver.prototype.addCredential,
+  "WebAuthn:GetCredentials": GeckoDriver.prototype.getCredentials,
+  "WebAuthn:RemoveCredential": GeckoDriver.prototype.removeCredential,
+  "WebAuthn:RemoveAllCredentials": GeckoDriver.prototype.removeAllCredentials,
+  "WebAuthn:SetUserVerified": GeckoDriver.prototype.setUserVerified,
 };
 
 async function exitFullscreen(win) {

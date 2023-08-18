@@ -550,11 +550,11 @@ renaming_overrides_prefixing = true
 """
 
 "GenericColor" = """
-  static const StyleGenericColor TRANSPARENT;
-  static const StyleGenericColor BLACK;
-  static const StyleGenericColor WHITE;
-
   static inline StyleGenericColor FromColor(nscolor);
+
+  static inline StyleGenericColor Transparent();
+  static inline StyleGenericColor Black();
+  static inline StyleGenericColor White();
 
   bool MaybeTransparent() const;
 
@@ -582,9 +582,9 @@ renaming_overrides_prefixing = true
 
 "AbsoluteColor" = """
   /**
-   * Create a new AbsoluteColor in the sRGB color space.
+   * Create a new AbsoluteColor in the sRGB color space in legacy color syntax.
    */
-  static inline StyleAbsoluteColor Srgb(float red, float green, float blue, float alpha);
+  static inline StyleAbsoluteColor SrgbLegacy(float red, float green, float blue, float alpha);
 
   static inline StyleAbsoluteColor FromColor(nscolor);
 
@@ -993,6 +993,15 @@ renaming_overrides_prefixing = true
 
   const StyleRayFunction& AsRay() const {
     return AsOffsetPath().path->AsRay();
+  }
+
+  // Return true if the <offset-path> is url().
+  bool IsUrl() const {
+    return IsOffsetPath() && AsOffsetPath().path->IsUrl();
+  }
+
+  const StyleComputedUrl& AsUrl() const {
+    return AsOffsetPath().path->AsUrl();
   }
 
   // Return true if the <basic-shape> is path().

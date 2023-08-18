@@ -39,9 +39,9 @@ add_task(async function test_toggle_always_translate_language_menuitem() {
   );
   await openTranslationsSettingsMenuViaTranslationsButton();
 
-  await assertIsAlwaysTranslateLanguage("es", false);
+  await assertIsAlwaysTranslateLanguage("es", { checked: false });
   await toggleAlwaysTranslateLanguage();
-  await assertIsAlwaysTranslateLanguage("es", true);
+  await assertIsAlwaysTranslateLanguage("es", { checked: true });
 
   await assertTranslationsButton(
     { button: true, circleArrows: true, locale: false, icon: true },
@@ -106,9 +106,9 @@ add_task(async function test_toggle_always_translate_language_menuitem() {
   );
   await openTranslationsSettingsMenuViaTranslationsButton();
 
-  await assertIsAlwaysTranslateLanguage("es", true);
+  await assertIsAlwaysTranslateLanguage("es", { checked: true });
   await toggleAlwaysTranslateLanguage();
-  await assertIsAlwaysTranslateLanguage("es", false);
+  await assertIsAlwaysTranslateLanguage("es", { checked: false });
 
   await assertTranslationsButton(
     { button: true, circleArrows: false, locale: false, icon: true },
@@ -162,9 +162,13 @@ add_task(
       );
     });
 
-    await waitForTranslationsPopupEvent("popupshown", () => {
-      click(button, "Opening the popup");
-    });
+    await waitForTranslationsPopupEvent(
+      "popupshown",
+      () => {
+        click(button, "Opening the popup");
+      },
+      assertPanelDefaultView
+    );
 
     await waitForTranslationsPopupEvent("popuphidden", () => {
       click(
@@ -202,9 +206,9 @@ add_task(
     );
     await openTranslationsSettingsMenuViaTranslationsButton();
 
-    await assertIsAlwaysTranslateLanguage("es", false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: false });
     await toggleAlwaysTranslateLanguage();
-    await assertIsAlwaysTranslateLanguage("es", true);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
 
     await assertTranslationsButton(
       { button: true, circleArrows: false, locale: true, icon: true },
@@ -226,9 +230,9 @@ add_task(
       "Simulate clicking always-translate-language in the settings menu " +
         "removing the document language from the alwaysTranslateLanguages pref"
     );
-    await assertIsAlwaysTranslateLanguage("es", true);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
     await toggleAlwaysTranslateLanguage();
-    await assertIsAlwaysTranslateLanguage("es", false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: false });
 
     await assertTranslationsButton(
       { button: true, circleArrows: false, locale: false, icon: true },
@@ -289,9 +293,9 @@ add_task(
     );
     await openTranslationsSettingsMenuViaTranslationsButton();
 
-    await assertIsAlwaysTranslateLanguage("es", false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: false });
     await toggleAlwaysTranslateLanguage();
-    await assertIsAlwaysTranslateLanguage("es", true);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
 
     await assertTranslationsButton(
       { button: true, circleArrows: true, locale: false, icon: true },
@@ -352,9 +356,13 @@ add_task(
       );
     });
 
-    await waitForTranslationsPopupEvent("popupshown", () => {
-      click(button, "Re-opening the popup");
-    });
+    await waitForTranslationsPopupEvent(
+      "popupshown",
+      () => {
+        click(button, "Re-opening the popup");
+      },
+      assertPanelRevisitView
+    );
 
     await waitForTranslationsPopupEvent("popuphidden", () => {
       click(
@@ -383,9 +391,9 @@ add_task(
     );
     await openTranslationsSettingsMenuViaTranslationsButton();
 
-    await assertIsAlwaysTranslateLanguage("es", true);
+    await assertIsAlwaysTranslateLanguage("es", { checked: true });
     await toggleAlwaysTranslateLanguage();
-    await assertIsAlwaysTranslateLanguage("es", false);
+    await assertIsAlwaysTranslateLanguage("es", { checked: false });
 
     await assertTranslationsButton(
       { button: true, circleArrows: false, locale: false, icon: true },

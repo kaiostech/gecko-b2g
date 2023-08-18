@@ -4992,8 +4992,7 @@ void nsWindow::OnScrollEvent(GdkEventScroll* aEvent) {
 
           LOG("[%d] pan smooth event dx=%f dy=%f inprogress=%d\n", aEvent->time,
               aEvent->delta_x, aEvent->delta_y, mPanInProgress);
-          PanGestureInput::PanGestureType eventType =
-              PanGestureInput::PANGESTURE_PAN;
+          auto eventType = PanGestureInput::PANGESTURE_PAN;
           if (sGdkEventIsScrollStopEvent((GdkEvent*)aEvent)) {
             eventType = PanGestureInput::PANGESTURE_END;
             mPanInProgress = false;
@@ -5030,7 +5029,11 @@ void nsWindow::OnScrollEvent(GdkEventScroll* aEvent) {
           mCurrentSynthesizedTouchpadPan.mTouchpadGesturePhase.reset();
 
           const bool isPageMode =
+#ifdef NIGHTLY_BUILD
+              StaticPrefs::apz_gtk_pangesture_delta_mode() == 1;
+#else
               StaticPrefs::apz_gtk_pangesture_delta_mode() != 2;
+#endif
           const double multiplier =
               isPageMode
                   ? StaticPrefs::apz_gtk_pangesture_page_delta_mode_multiplier()
@@ -5294,16 +5297,18 @@ void nsWindow::OnCompositedChanged() {
   mCompositedScreen = gdk_screen_is_composited(gdk_screen_get_default());
 }
 
-void nsWindow::OnScaleChanged() {
+void nsWindow::OnScaleChanged(bool aForce) {
   // Force scale factor recalculation
   if (!mGdkWindow) {
     mWindowScaleFactorChanged = true;
     return;
   }
-  LOG("OnScaleChanged -> %d\n", gdk_window_get_scale_factor(mGdkWindow));
+  LOG("OnScaleChanged -> %d, frac=%f\n",
+      gdk_window_get_scale_factor(mGdkWindow), FractionalScaleFactor());
 
   // Gtk supply us sometimes with doubled events so stay calm in such case.
-  if (gdk_window_get_scale_factor(mGdkWindow) == mWindowScaleFactor) {
+  if (!aForce &&
+      gdk_window_get_scale_factor(mGdkWindow) == mWindowScaleFactor) {
     return;
   }
 
@@ -8340,7 +8345,7 @@ static void scale_changed_cb(GtkWidget* widget, GParamSpec* aPSpec,
     return;
   }
 
-  window->OnScaleChanged();
+  window->OnScaleChanged(/* aForce = */ false);
 }
 
 static gboolean touch_event_cb(GtkWidget* aWidget, GdkEventTouch* aEvent) {
@@ -8932,24 +8937,14 @@ gint nsWindow::GdkCeiledScaleFactor() {
   return mWindowScaleFactor;
 }
 
-bool nsWindow::UseFractionalScale() const {
-#ifdef MOZ_WAYLAND
-  return GdkIsWaylandDisplay() &&
-         StaticPrefs::widget_wayland_fractional_buffer_scale_AtStartup() > 0 &&
-         WaylandDisplayGet()->GetViewporter();
-#else
-  return false;
-#endif
-}
-
 double nsWindow::FractionalScaleFactor() {
 #ifdef MOZ_WAYLAND
-  if (UseFractionalScale()) {
-    double scale =
-        StaticPrefs::widget_wayland_fractional_buffer_scale_AtStartup();
-    scale = std::max(scale, 0.5);
-    scale = std::min(scale, 8.0);
-    return scale;
+  if (mContainer) {
+    double fractional_scale =
+        moz_container_wayland_get_fractional_scale(mContainer);
+    if (fractional_scale != 0.0) {
+      return fractional_scale;
+    }
   }
 #endif
   return GdkCeiledScaleFactor();

@@ -54,6 +54,7 @@ add_setup(async function () {
 
 add_task(async function test_network_offline() {
   const sandbox = await setupWithDesktopDevices();
+  sandbox.spy(TabsSetupFlowManager, "tryToClearError");
   await withFirefoxView({}, async browser => {
     const { document } = browser.contentWindow;
     navigateToCategory(document, "syncedtabs");
@@ -69,7 +70,7 @@ add_task(async function test_network_offline() {
       "view-syncedtabs:not([slot=syncedtabs])"
     );
     await BrowserTestUtils.waitForMutationCondition(
-      syncedTabsComponent.shadowRoot,
+      syncedTabsComponent.shadowRoot.querySelector(".cards-container"),
       { childList: true },
       () => syncedTabsComponent.shadowRoot.innerHTML.includes("network-offline")
     );
@@ -80,6 +81,24 @@ add_task(async function test_network_offline() {
       emptyState.getAttribute("headerlabel").includes("network-offline"),
       "Network offline message is shown"
     );
+    emptyState.querySelector("button[data-action='network-offline']").click();
+
+    await BrowserTestUtils.waitForCondition(
+      () => TabsSetupFlowManager.tryToClearError.calledOnce
+    );
+
+    ok(
+      TabsSetupFlowManager.tryToClearError.calledOnce,
+      "TabsSetupFlowManager.tryToClearError() was called once"
+    );
+
+    emptyState =
+      syncedTabsComponent.shadowRoot.querySelector("fxview-empty-state");
+    ok(
+      emptyState.getAttribute("headerlabel").includes("network-offline"),
+      "Network offline message is still shown"
+    );
+
     Services.obs.notifyObservers(
       null,
       "network:offline-status-changed",
@@ -102,7 +121,7 @@ add_task(async function test_sync_error() {
       "view-syncedtabs:not([slot=syncedtabs])"
     );
     await BrowserTestUtils.waitForMutationCondition(
-      syncedTabsComponent.shadowRoot,
+      syncedTabsComponent.shadowRoot.querySelector(".cards-container"),
       { childList: true },
       () => syncedTabsComponent.shadowRoot.innerHTML.includes("sync-error")
     );

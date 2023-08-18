@@ -22,6 +22,7 @@ web-platform-tests:
     - web-platform-tests-reftest
     - web-platform-tests-wdspec
     - web-platform-tests-webgpu
+    - web-platform-tests-canvas
 
 web-platform-tests-backlog:
     - web-platform-tests-backlog
@@ -95,6 +96,7 @@ browsertime:
     - browsertime-regression-tests
     - browsertime-upload
     - browsertime-speculative
+    - browsertime-throttled
 
 browsertime-clang:
     - browsertime-tp6
@@ -414,6 +416,9 @@ macosx64-talos:
     - talos-webgl
     # - talos-tabswitch # Bug 1453007 times out
     # - talos-h1 # too long to unpack profile- Bug 1442893
+
+macosx1300-64-qr-tests:
+    - browsertime-benchmark
 
 # Android
 

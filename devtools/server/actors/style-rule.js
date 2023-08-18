@@ -78,6 +78,7 @@ class StyleRuleActor extends Actor {
     this._declarations = [];
 
     this._pendingDeclarationChanges = [];
+    this._failedToGetRuleText = false;
 
     if (CSSRule.isInstance(item)) {
       this.type = item.type;
@@ -122,18 +123,26 @@ class StyleRuleActor extends Actor {
   // True if this rule supports as-authored styles, meaning that the
   // rule text can be rewritten using setRuleText.
   get canSetRuleText() {
-    return (
-      this.type === ELEMENT_STYLE ||
-      (this._parentSheet &&
-        // If a rule has been modified via CSSOM, then we should fall
-        // back to non-authored editing.
-        // https://bugzilla.mozilla.org/show_bug.cgi?id=1224121
-        !InspectorUtils.hasRulesModifiedByCSSOM(this._parentSheet) &&
-        // Special case about:PreferenceStyleSheet, as it is generated on
-        // the fly and the URI is not registered with the about:handler
-        // https://bugzilla.mozilla.org/show_bug.cgi?id=935803#c37
-        this._parentSheet.href !== "about:PreferenceStyleSheet")
-    );
+    if (this.type === ELEMENT_STYLE) {
+      // Element styles are always editable.
+      return true;
+    }
+    if (!this._parentSheet) {
+      return false;
+    }
+    if (InspectorUtils.hasRulesModifiedByCSSOM(this._parentSheet)) {
+      // If a rule has been modified via CSSOM, then we should fall back to
+      // non-authored editing.
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=1224121
+      return false;
+    }
+    if (this._parentSheet.href === "about:PreferenceStyleSheet") {
+      // Special case about:PreferenceStyleSheet, as it is generated on the
+      // fly and the URI is not registered with the about: protocol handler
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=935803#c37
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -269,6 +278,41 @@ class StyleRuleActor extends Actor {
     return sheet.associatedDocument;
   }
 
+  /**
+   * When a rule is nested in another non-at-rule (aka CSS Nesting), the client
+   * will need its desugared selector, i.e. the full selector, which includes ancestor
+   * selectors, that is computed by the platform when applying the rule.
+   * To compute it, the parent selector (&) is recursively replaced by the parent
+   * rule selector wrapped in `:is()`.
+   * For example, with the following nested rule: `body { & > main {} }`,
+   * the desugared selector will be `:is(body) > main`.
+   * See https://www.w3.org/TR/css-nesting-1/#nest-selector for more information.
+   *
+   * Returns an array of the desugared selectors. For example, if rule is:
+   *
+   * body {
+   *   & > main, & section {
+   *   }
+   * }
+   *
+   * this will return:
+   *
+   * [
+   *   `:is(body) > main`,
+   *   `:is(body) section`,
+   * ]
+   *
+   * @returns Array<String>
+   */
+  getDesugaredSelectors() {
+    // Cache the desugared selectors as it can be expensive to compute
+    if (!this._desugaredSelectors) {
+      this._desugaredSelectors = CssLogic.getSelectors(this.rawRule, true);
+    }
+
+    return this._desugaredSelectors;
+  }
+
   toString() {
     return "[StyleRuleActor for " + this.rawRule + "]";
   }
@@ -309,15 +353,7 @@ class StyleRuleActor extends Actor {
       case CSSRule.STYLE_RULE:
         form.selectors = CssLogic.getSelectors(this.rawRule);
         if (computeDesugaredSelector) {
-          // When a rule is nested in another non-at-rule (aka CSS Nesting), the client
-          // will need its desugared selector, i.e. the full selector, which includes ancestor
-          // selectors, that is computed by the platform when applying the rule.
-          // To compute it, the parent selector (&) is recursively replaced by the parent
-          // rule selector wrapped in `:is()`.
-          // For example, with the following nested rule: `body { & > main {} }`,
-          // the desugared selector will be `:is(body) > main`.
-          // See https://www.w3.org/TR/css-nesting-1/#nest-selector for more information.
-          form.desugaredSelectors = CssLogic.getSelectors(this.rawRule, true);
+          form.desugaredSelectors = this.getDesugaredSelectors();
         }
         form.cssText = this.rawStyle.cssText || "";
         break;
@@ -660,22 +696,35 @@ class StyleRuleActor extends Actor {
    */
   async getAuthoredCssText(skipCache = false) {
     if (!this.canSetRuleText || !this.#isRuleSupported()) {
-      return Promise.resolve("");
+      return "";
     }
 
-    if (typeof this.authoredText === "string" && !skipCache) {
-      return Promise.resolve(this.authoredText);
+    if (!skipCache) {
+      if (this._failedToGetRuleText) {
+        return "";
+      }
+      if (typeof this.authoredText === "string") {
+        return this.authoredText;
+      }
     }
 
-    const resourceId =
-      this.pageStyle.styleSheetsManager.getStyleSheetResourceId(
-        this._parentSheet
+    try {
+      const resourceId =
+        this.pageStyle.styleSheetsManager.getStyleSheetResourceId(
+          this._parentSheet
+        );
+      const cssText = await this.pageStyle.styleSheetsManager.getText(
+        resourceId
       );
-    const cssText = await this.pageStyle.styleSheetsManager.getText(resourceId);
-    const { text } = getRuleText(cssText, this.line, this.column);
-
-    // Cache the result on the rule actor to avoid parsing again next time
-    this.authoredText = text;
+      const { text } = getRuleText(cssText, this.line, this.column);
+      // Cache the result on the rule actor to avoid parsing again next time
+      this._failedToGetRuleText = false;
+      this.authoredText = text;
+    } catch (e) {
+      this._failedToGetRuleText = true;
+      this.authoredText = undefined;
+      return "";
+    }
     return this.authoredText;
   }
 
@@ -695,7 +744,7 @@ class StyleRuleActor extends Actor {
   async getRuleText() {
     // Bail out if the rule is not supported or not an element inline style.
     if (!this.#isRuleSupported(true) && this.type !== ELEMENT_STYLE) {
-      return Promise.resolve("");
+      return "";
     }
 
     let ruleBodyText;
@@ -727,7 +776,7 @@ class StyleRuleActor extends Actor {
 
     const text = `${selectorText} {${ruleBodyText}}`;
     const { result } = SharedCssLogic.prettifyCSS(text);
-    return Promise.resolve(result);
+    return result;
   }
 
   /**
@@ -800,11 +849,9 @@ class StyleRuleActor extends Actor {
    * the authored text of a (nested) rule, so all the references are properly updated.
    */
   async updateAncestorRulesAuthoredText() {
-    const promises = [];
-    for (const ancestorRule of this.ancestorRules) {
-      promises.push(ancestorRule.getAuthoredCssText(true));
-    }
-    await Promise.all(promises);
+    return Promise.all(
+      this.ancestorRules.map(rule => rule.getAuthoredCssText(true))
+    );
   }
 
   /**
@@ -1095,6 +1142,9 @@ class StyleRuleActor extends Actor {
       return { ruleProps: null, isMatching: true };
     }
 
+    // Nullify cached desugared selectors as it might be outdated
+    this._desugaredSelectors = null;
+
     // The rule's previous selector is lost after calling _addNewSelector(). Save it now.
     const oldValue = this.rawRule.selectorText;
     let selectorPromise = this._addNewSelector(value, editAuthored);
@@ -1112,7 +1162,7 @@ class StyleRuleActor extends Actor {
     }
 
     return selectorPromise.then(newCssRule => {
-      let ruleProps = null;
+      let entries = null;
       let isMatching = false;
 
       if (newCssRule) {
@@ -1121,19 +1171,24 @@ class StyleRuleActor extends Actor {
           newCssRule
         );
         if (ruleEntry.length === 1) {
-          ruleProps = this.pageStyle.getAppliedProps(node, ruleEntry, {
+          entries = this.pageStyle.getAppliedProps(node, ruleEntry, {
             matchedSelectors: true,
           });
         } else {
-          ruleProps = this.pageStyle.getNewAppliedProps(node, newCssRule);
+          entries = this.pageStyle.getNewAppliedProps(node, newCssRule);
         }
 
-        isMatching = ruleProps.entries.some(
+        isMatching = entries.some(
           ruleProp => !!ruleProp.matchedDesugaredSelectors.length
         );
       }
 
-      return { ruleProps, isMatching };
+      const result = { isMatching };
+      if (entries) {
+        result.ruleProps = { entries };
+      }
+
+      return result;
     });
   }
 

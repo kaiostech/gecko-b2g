@@ -782,10 +782,8 @@ static mozilla::Atomic<bool> sShadowRealmsEnabled(false);
 #ifdef NIGHTLY_BUILD
 static mozilla::Atomic<bool> sArrayGroupingEnabled(false);
 static mozilla::Atomic<bool> sWellFormedUnicodeStringsEnabled(false);
+static mozilla::Atomic<bool> sNewSetMethodsEnabled(false);
 static mozilla::Atomic<bool> sArrayBufferTransferEnabled(false);
-#endif
-#ifdef ENABLE_NEW_SET_METHODS
-static mozilla::Atomic<bool> sEnableNewSetMethods(false);
 #endif
 
 static JS::WeakRefSpecifier GetWeakRefsEnabled() {
@@ -814,10 +812,8 @@ void xpc::SetPrefableRealmOptions(JS::RealmOptions& options) {
       .setArrayGroupingEnabled(sArrayGroupingEnabled)
       .setArrayFromAsyncEnabled(sArrayFromAsyncEnabled)
       .setWellFormedUnicodeStringsEnabled(sWellFormedUnicodeStringsEnabled)
+      .setNewSetMethodsEnabled(sNewSetMethodsEnabled)
       .setArrayBufferTransferEnabled(sArrayBufferTransferEnabled)
-#endif
-#ifdef ENABLE_NEW_SET_METHODS
-      .setNewSetMethodsEnabled(sEnableNewSetMethods)
 #endif
       ;
 }
@@ -1021,12 +1017,10 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
       Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.array_grouping");
   sWellFormedUnicodeStringsEnabled = Preferences::GetBool(
       JS_OPTIONS_DOT_STR "experimental.well_formed_unicode_strings");
+  sNewSetMethodsEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.new_set_methods");
   sArrayBufferTransferEnabled = Preferences::GetBool(
       JS_OPTIONS_DOT_STR "experimental.arraybuffer_transfer");
-#endif
-#ifdef ENABLE_NEW_SET_METHODS
-  sEnableNewSetMethods =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.new_set_methods");
 #endif
 
 #ifdef JS_GC_ZEAL

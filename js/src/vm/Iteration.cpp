@@ -38,7 +38,6 @@
 #include "vm/Shape.h"
 #include "vm/StringType.h"
 #include "vm/TypedArrayObject.h"
-#include "vm/WellKnownAtom.h"  // js_*_str
 
 #ifdef ENABLE_RECORD_TUPLE
 #  include "builtin/RecordObject.h"
@@ -609,7 +608,7 @@ struct SortComparatorIds {
 
 #endif /* DEBUG */
 
-void js::AssertNoEnumerableProperties(NativeObject* obj) {
+static void AssertNoEnumerableProperties(NativeObject* obj) {
 #ifdef DEBUG
   // Verify the object has no enumerable properties if the HasEnumerable
   // ObjectFlag is not set.
@@ -626,6 +625,29 @@ void js::AssertNoEnumerableProperties(NativeObject* obj) {
     }
   }
 #endif  // DEBUG
+}
+
+static bool ProtoMayHaveEnumerableProperties(JSObject* obj) {
+  if (!obj->is<NativeObject>()) {
+    return true;
+  }
+
+  JSObject* proto = obj->as<NativeObject>().staticPrototype();
+  while (proto) {
+    if (!proto->is<NativeObject>()) {
+      return true;
+    }
+    NativeObject* nproto = &proto->as<NativeObject>();
+    if (nproto->hasEnumerableProperty() ||
+        nproto->getDenseInitializedLength() > 0 ||
+        ClassCanHaveExtraEnumeratedProperties(nproto->getClass())) {
+      return true;
+    }
+    AssertNoEnumerableProperties(nproto);
+    proto = nproto->staticPrototype();
+  }
+
+  return false;
 }
 
 bool PropertyEnumerator::snapshot(JSContext* cx) {
@@ -1981,7 +2003,7 @@ NativeObject* GlobalObject::getOrCreateArrayIteratorPrototype(
     JSContext* cx, Handle<GlobalObject*> global) {
   return MaybeNativeObject(getOrCreateBuiltinProto(
       cx, global, ProtoKind::ArrayIteratorProto,
-      cx->names().ArrayIterator.toHandle(),
+      cx->names().Array_Iterator_.toHandle(),
       initObjectIteratorProto<ProtoKind::ArrayIteratorProto,
                               &ArrayIteratorPrototypeClass,
                               array_iterator_methods>));
@@ -1992,7 +2014,7 @@ JSObject* GlobalObject::getOrCreateStringIteratorPrototype(
     JSContext* cx, Handle<GlobalObject*> global) {
   return getOrCreateBuiltinProto(
       cx, global, ProtoKind::StringIteratorProto,
-      cx->names().StringIterator.toHandle(),
+      cx->names().String_Iterator_.toHandle(),
       initObjectIteratorProto<ProtoKind::StringIteratorProto,
                               &StringIteratorPrototypeClass,
                               string_iterator_methods>);
@@ -2003,7 +2025,7 @@ JSObject* GlobalObject::getOrCreateRegExpStringIteratorPrototype(
     JSContext* cx, Handle<GlobalObject*> global) {
   return getOrCreateBuiltinProto(
       cx, global, ProtoKind::RegExpStringIteratorProto,
-      cx->names().RegExpStringIterator.toHandle(),
+      cx->names().RegExp_String_Iterator_.toHandle(),
       initObjectIteratorProto<ProtoKind::RegExpStringIteratorProto,
                               &RegExpStringIteratorPrototypeClass,
                               regexp_string_iterator_methods>);
@@ -2016,14 +2038,14 @@ static bool IteratorConstructor(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  if (!ThrowIfNotConstructing(cx, args, js_Iterator_str)) {
+  if (!ThrowIfNotConstructing(cx, args, "Iterator")) {
     return false;
   }
   // Throw TypeError if NewTarget is the active function object, preventing the
   // Iterator constructor from being used directly.
   if (args.callee() == args.newTarget().toObject()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                              JSMSG_BOGUS_CONSTRUCTOR, js_Iterator_str);
+                              JSMSG_BOGUS_CONSTRUCTOR, "Iterator");
     return false;
   }
 
@@ -2053,7 +2075,7 @@ static const ClassSpec IteratorObjectClassSpec = {
 };
 
 const JSClass IteratorObject::class_ = {
-    js_Iterator_str,
+    "Iterator",
     JSCLASS_HAS_CACHED_PROTO(JSProto_Iterator),
     JS_NULL_CLASS_OPS,
     &IteratorObjectClassSpec,
@@ -2120,7 +2142,7 @@ NativeObject* GlobalObject::getOrCreateIteratorHelperPrototype(
     JSContext* cx, Handle<GlobalObject*> global) {
   return MaybeNativeObject(getOrCreateBuiltinProto(
       cx, global, ProtoKind::IteratorHelperProto,
-      cx->names().IteratorHelper.toHandle(),
+      cx->names().Iterator_Helper_.toHandle(),
       initObjectIteratorProto<ProtoKind::IteratorHelperProto,
                               &IteratorHelperPrototypeClass,
                               iterator_helper_methods>));

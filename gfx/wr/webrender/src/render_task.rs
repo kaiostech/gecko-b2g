@@ -185,7 +185,8 @@ pub struct PrimTask {
     pub edge_flags: EdgeAaSegmentMask,
     pub quad_flags: QuadFlags,
     pub clip_node_range: ClipNodeRange,
-    pub needs_scissor_rect: bool,
+    pub prim_needs_scissor_rect: bool,
+    pub render_target_kind: RenderTargetKind,
 }
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
@@ -431,9 +432,12 @@ impl RenderTaskKind {
             RenderTaskKind::Picture(..) |
             RenderTaskKind::Blit(..) |
             RenderTaskKind::TileComposite(..) |
-            RenderTaskKind::Prim(..) |
             RenderTaskKind::SvgFilter(..) => {
                 RenderTargetKind::Color
+            }
+
+            RenderTaskKind::Prim(ref task_info) => {
+                task_info.render_target_kind
             }
 
             RenderTaskKind::ClipRegion(..) |
@@ -514,7 +518,8 @@ impl RenderTaskKind {
         edge_flags: EdgeAaSegmentMask,
         quad_flags: QuadFlags,
         clip_node_range: ClipNodeRange,
-        needs_scissor_rect: bool,
+        prim_needs_scissor_rect: bool,
+        render_target_kind: RenderTargetKind,
     ) -> Self {
         RenderTaskKind::Prim(PrimTask {
             prim_spatial_node_index,
@@ -526,7 +531,8 @@ impl RenderTaskKind {
             edge_flags,
             quad_flags,
             clip_node_range,
-            needs_scissor_rect,
+            prim_needs_scissor_rect,
+            render_target_kind,
         })
     }
 

@@ -3255,7 +3255,7 @@ bool AsyncPanZoomController::IsInOverscrollGutter(
     // Point is outside of scrollable element's bounds altogether.
     return false;
   }
-  auto overscrollTransform = GetOverscrollTransform(eForHitTesting);
+  auto overscrollTransform = GetOverscrollTransform(eForEventHandling);
   ParentLayerPoint overscrollUntransformed =
       overscrollTransform.Inverse().TransformPoint(aHitTestPoint);
 
@@ -4840,17 +4840,32 @@ AsyncTransform AsyncPanZoomController::GetCurrentAsyncTransform(
 }
 
 AsyncTransformComponentMatrix
-AsyncPanZoomController::GetCurrentAsyncTransformWithOverscroll(
-    AsyncTransformConsumer aMode, AsyncTransformComponents aComponents,
-    std::size_t aSampleIndex) const {
-  AsyncTransformComponentMatrix asyncTransform =
-      GetCurrentAsyncTransform(aMode, aComponents, aSampleIndex);
+AsyncPanZoomController::GetAsyncTransformForInputTransformation(
+    AsyncTransformComponents aComponents, LayersId aForLayersId) const {
+  AsyncTransformComponentMatrix result;
+  // If we are the root, and |aForLayersId| is different from our LayersId,
+  // |aForLayersId| must be in a remote subdocument.
+  if (IsRootContent() && aForLayersId != GetLayersId()) {
+    result =
+        ViewAs<AsyncTransformComponentMatrix>(GetPaintedResolutionTransform());
+  }
+  // Order of transforms: the painted resolution (if any) applies first, and
+  // any async transform on top of that.
+  result = result * AsyncTransformComponentMatrix(GetCurrentAsyncTransform(
+                        eForEventHandling, aComponents));
   // The overscroll transform is considered part of the layout component of
   // the async transform, because it should not apply to fixed content.
   if (aComponents.contains(AsyncTransformComponent::eLayout)) {
-    return asyncTransform * GetOverscrollTransform(aMode);
+    result = result * GetOverscrollTransform(eForEventHandling);
   }
-  return asyncTransform;
+  return result;
+}
+
+Matrix4x4 AsyncPanZoomController::GetPaintedResolutionTransform() const {
+  RecursiveMutexAutoLock lock(mRecursiveMutex);
+  MOZ_ASSERT(IsRootContent());
+  float resolution = mLastContentPaintMetrics.GetPresShellResolution();
+  return Matrix4x4::Scaling(resolution, resolution, 1.f);
 }
 
 LayoutDeviceToParentLayerScale AsyncPanZoomController::GetCurrentPinchZoomScale(
@@ -5028,7 +5043,7 @@ void AsyncPanZoomController::UnapplyAsyncTestAttributes(
 }
 
 Matrix4x4 AsyncPanZoomController::GetTransformToLastDispatchedPaint(
-    const AsyncTransformComponents& aComponents) const {
+    const AsyncTransformComponents& aComponents, LayersId aForLayersId) const {
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   CSSPoint componentOffset;
 
@@ -5069,8 +5084,16 @@ Matrix4x4 AsyncPanZoomController::GetTransformToLastDispatchedPaint(
       lastDispatchedZoom != LayoutDeviceToParentLayerScale(0)) {
     zoomChange = lastContentZoom.scale / lastDispatchedZoom.scale;
   }
-  return Matrix4x4::Translation(scrollChange.x, scrollChange.y, 0)
-      .PostScale(zoomChange, zoomChange, 1);
+  Matrix4x4 result;
+  // If we are the root, and |aForLayersId| is different from our LayersId,
+  // |aForLayersId| must be in a remote subdocument.
+  if (IsRootContent() && aForLayersId != GetLayersId()) {
+    result = GetPaintedResolutionTransform();
+  }
+  // Order of transforms: the painted resolution (if any) applies first, and
+  // any async transform on top of that.
+  return result * Matrix4x4::Translation(scrollChange.x, scrollChange.y, 0)
+                      .PostScale(zoomChange, zoomChange, 1);
 }
 
 CSSRect AsyncPanZoomController::GetVisibleRect(

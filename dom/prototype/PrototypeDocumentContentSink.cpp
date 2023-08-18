@@ -381,7 +381,7 @@ nsresult PrototypeDocumentContentSink::InsertXMLStylesheetPI(
     XMLStylesheetProcessingInstruction* aPINode) {
   // We want to be notified when the style sheet finishes loading, so
   // disable style sheet loading for now.
-  aPINode->SetEnableUpdates(false);
+  aPINode->DisableUpdates();
   aPINode->OverrideBaseURI(mCurrentPrototype->GetURI());
 
   ErrorResult rv;
@@ -391,11 +391,9 @@ nsresult PrototypeDocumentContentSink::InsertXMLStylesheetPI(
     return rv.StealNSResult();
   }
 
-  aPINode->SetEnableUpdates(true);
-
   // load the stylesheet if necessary, passing ourselves as
   // nsICSSObserver
-  auto result = aPINode->UpdateStyleSheet(this);
+  auto result = aPINode->EnableUpdatesAndUpdateStyleSheet(this);
   if (result.isErr()) {
     // Ignore errors from UpdateStyleSheet; we don't want failure to
     // do that to break the XUL document load.  But do propagate out
@@ -422,6 +420,14 @@ void PrototypeDocumentContentSink::CloseElement(Element* aElement,
     aElement->DoneAddingChildren(false);
   }
 
+  if (auto* linkStyle = LinkStyle::FromNode(*aElement)) {
+    auto result = linkStyle->EnableUpdatesAndUpdateStyleSheet(this);
+    if (result.isOk() && result.unwrap().ShouldBlock()) {
+      ++mPendingSheets;
+    }
+    return;
+  }
+
   if (!aHadChildren) {
     return;
   }
@@ -438,15 +444,6 @@ void PrototypeDocumentContentSink::CloseElement(Element* aElement,
       DebugOnly<bool> block = sele->AttemptToExecute();
       MOZ_ASSERT(!block, "<script type=module> shouldn't block the parser");
     }
-  }
-
-  if (aElement->IsHTMLElement(nsGkAtoms::style) ||
-      aElement->IsSVGElement(nsGkAtoms::style)) {
-    auto* linkStyle = LinkStyle::FromNode(*aElement);
-    NS_ASSERTION(linkStyle,
-                 "<html:style> doesn't implement "
-                 "nsIStyleSheetLinkingElement?");
-    Unused << linkStyle->UpdateStyleSheet(nullptr);
   }
 }
 
@@ -476,7 +473,7 @@ nsresult PrototypeDocumentContentSink::ResumeWalkInternal() {
   nsCOMPtr<nsIURI> docURI =
       mCurrentPrototype ? mCurrentPrototype->GetURI() : nullptr;
 
-  while (1) {
+  while (true) {
     // Begin (or resume) walking the current prototype.
 
     while (mContextStack.Depth() > 0) {
@@ -521,10 +518,12 @@ nsresult PrototypeDocumentContentSink::ResumeWalkInternal() {
           auto* protoele = static_cast<nsXULPrototypeElement*>(childproto);
 
           RefPtr<Element> child;
+          MOZ_TRY(CreateElementFromPrototype(protoele, getter_AddRefs(child),
+                                             nodeToPushTo));
 
-          rv = CreateElementFromPrototype(protoele, getter_AddRefs(child),
-                                          nodeToPushTo);
-          if (NS_FAILED(rv)) return rv;
+          if (auto* linkStyle = LinkStyle::FromNode(*child)) {
+            linkStyle->DisableUpdates();
+          }
 
           // ...and append it to the content model.
           ErrorResult error;

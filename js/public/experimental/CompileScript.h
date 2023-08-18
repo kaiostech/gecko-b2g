@@ -45,6 +45,19 @@ JS_PUBLIC_API void SetNativeStackQuota(JS::FrontendContext* fc,
 // Returns true if there was any error reported to given FrontendContext.
 JS_PUBLIC_API bool HadFrontendErrors(JS::FrontendContext* fc);
 
+// Convert the error reported to FrontendContext into runtime error in
+// JSContext.  Returns false if the error cannot be converted (such as due to
+// OOM). An error might still be reported to the given JSContext. Also, returns
+// false when OOM is converted. Returns true otherwise.
+//
+// The options parameter isn't actually used, but the CompileOptions
+// provided to the compile/decode operation owns the filename pointer
+// that the error and warnings reported to FrontendContext point to,
+// so the CompileOptions must be alive until this call.
+JS_PUBLIC_API bool ConvertFrontendErrorsToRuntimeErrors(
+    JSContext* cx, JS::FrontendContext* fc,
+    const JS::ReadOnlyCompileOptions& options);
+
 // Returns an error report if given JS::FrontendContext had error and it has
 // an error report associated.
 //
@@ -56,8 +69,10 @@ JS_PUBLIC_API bool HadFrontendErrors(JS::FrontendContext* fc);
 //
 // The returned pointer is valid only while the given JS::FrontendContext is
 // alive.
+//
+// See ConvertFrontendErrorsToRuntimeErrors for options parameter.
 JS_PUBLIC_API const JSErrorReport* GetFrontendErrorReport(
-    JS::FrontendContext* fc);
+    JS::FrontendContext* fc, const JS::ReadOnlyCompileOptions& options);
 
 // Returns true if the JS::FrontendContext had over recuresed error.
 JS_PUBLIC_API bool HadFrontendOverRecursed(JS::FrontendContext* fc);
@@ -78,8 +93,11 @@ JS_PUBLIC_API size_t GetFrontendWarningCount(JS::FrontendContext* fc);
 // Returns an error report represents the index-th warning.
 //
 // The returned pointer is valid only while the JS::FrontendContext is alive.
-JS_PUBLIC_API const JSErrorReport* GetFrontendWarningAt(JS::FrontendContext* fc,
-                                                        size_t index);
+//
+// See ConvertFrontendErrorsToRuntimeErrors for options parameter.
+JS_PUBLIC_API const JSErrorReport* GetFrontendWarningAt(
+    JS::FrontendContext* fc, size_t index,
+    const JS::ReadOnlyCompileOptions& options);
 
 /*
  * Set supported import assertions on a FrontendContext to be used with
@@ -157,8 +175,8 @@ extern JS_PUBLIC_API already_AddRefed<JS::Stencil> CompileModuleScriptToStencil(
     JS::SourceText<char16_t>& srcBuf, JS::CompilationStorage& compileStorage);
 
 extern JS_PUBLIC_API bool PrepareForInstantiate(
-    JS::FrontendContext* fc, JS::CompilationStorage& compileStorage,
-    JS::Stencil& stencil, JS::InstantiationStorage& storage);
+    JS::FrontendContext* fc, JS::Stencil& stencil,
+    JS::InstantiationStorage& storage);
 
 }  // namespace JS
 

@@ -347,6 +347,10 @@ pub struct CommandEncoder {
     free_lists: Vec<d3d12::GraphicsCommandList>,
     pass: PassState,
     temp: Temp,
+
+    /// If set, the end of the next render/compute pass will write a timestamp at
+    /// the given pool & location.
+    end_of_pass_timer_query: Option<(d3d12::QueryHeap, u32)>,
 }
 
 unsafe impl Send for CommandEncoder {}
@@ -746,11 +750,13 @@ impl crate::Surface<Api> for Surface {
         unsafe { swap_chain.SetMaximumFrameLatency(config.swap_chain_size) };
         let waitable = unsafe { swap_chain.GetFrameLatencyWaitableObject() };
 
-        let mut resources = vec![d3d12::Resource::null(); config.swap_chain_size as usize];
-        for (i, res) in resources.iter_mut().enumerate() {
+        let mut resources = Vec::with_capacity(config.swap_chain_size as usize);
+        for i in 0..config.swap_chain_size {
+            let mut resource = d3d12::Resource::null();
             unsafe {
-                swap_chain.GetBuffer(i as _, &d3d12_ty::ID3D12Resource::uuidof(), res.mut_void())
+                swap_chain.GetBuffer(i, &d3d12_ty::ID3D12Resource::uuidof(), resource.mut_void())
             };
+            resources.push(resource);
         }
 
         self.swap_chain = Some(SwapChain {

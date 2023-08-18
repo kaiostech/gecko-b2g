@@ -9,6 +9,13 @@
 ### results, and an "{ $engine } Suggestions" label may be shown above search
 ### suggestion results.
 
+## These terms are defined in this file because the feature is en-US only.
+## They should be moved to toolkit/branding/brandings.ftl if the feature is
+## exposed for localization.
+
+-mdn-brand-name = MDN Web Docs
+-mdn-brand-short-name = MDN
+
 ## These strings are used in the urlbar panel.
 
 # A label shown above the top pick group in the urlbar results.
@@ -20,6 +27,10 @@ urlbar-group-best-match =
 # suggested extension is displayed.
 urlbar-group-addon =
   .label = { -brand-product-name } extension
+
+# Label shown above a MDN suggestion in the urlbar results.
+urlbar-group-mdn =
+  .label = Recommended resource
 
 # Label shown above a Pocket suggestion in the urlbar results.
 urlbar-group-pocket =
@@ -53,6 +64,14 @@ firefox-suggest-dismissal-acknowledgment-one = Thanks for your feedback. You won
 # A message that replaces a result when the user dismisses all suggestions of a
 # particular type.
 firefox-suggest-dismissal-acknowledgment-all = Thanks for your feedback. You won’t see these suggestions anymore.
+
+# A message that replaces a result when the user dismisses a single MDN
+# suggestion.
+firefox-suggest-dismissal-acknowledgment-one-mdn = Thanks for your feedback. You won’t see this { -mdn-brand-short-name } suggestion again.
+
+# A message that replaces a result when the user dismisses all MDN suggestions of
+# a particular type.
+firefox-suggest-dismissal-acknowledgment-all-mdn = Thanks for your feedback. You won’t see { -mdn-brand-short-name } suggestions anymore.
 
 ## These strings are used for weather suggestions in the urlbar.
 
@@ -94,6 +113,8 @@ firefox-suggest-command-show-less-frequently =
   .label = Show less frequently
 firefox-suggest-command-dont-show-this =
   .label = Don’t show this
+firefox-suggest-command-dont-show-mdn =
+  .label = Don’t show { -mdn-brand-short-name } suggestions
 firefox-suggest-command-not-relevant =
   .label = Not relevant
 firefox-suggest-command-not-interested =
@@ -114,6 +135,12 @@ firefox-suggest-addons-reviews =
 
 # This string explaining that the add-on suggestion is a recommendation.
 firefox-suggest-addons-recommended = Recommended
+
+## These strings are used for MDN suggestions in the urlbar.
+
+# This string is shown in MDN suggestions and indicates the suggestion is from
+# MDN.
+firefox-suggest-mdn-bottom-text = { -mdn-brand-name }
 
 ## These strings are used for Pocket suggestions in the urlbar.
 

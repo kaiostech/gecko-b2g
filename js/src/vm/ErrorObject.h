@@ -17,6 +17,7 @@
 #include "NamespaceImports.h"
 
 #include "js/Class.h"
+#include "js/ColumnNumber.h"  // JS::ColumnNumberOneOrigin
 #include "js/ErrorReport.h"
 #include "js/RootingAPI.h"
 #include "js/TypeDecls.h"
@@ -35,7 +36,7 @@ class ErrorObject : public NativeObject {
   static bool init(JSContext* cx, Handle<ErrorObject*> obj, JSExnType type,
                    UniquePtr<JSErrorReport> errorReport, HandleString fileName,
                    HandleObject stack, uint32_t sourceId, uint32_t lineNumber,
-                   uint32_t columnNumber, HandleString message,
+                   JS::ColumnNumberOneOrigin columnNumber, HandleString message,
                    Handle<mozilla::Maybe<JS::Value>> cause);
 
   static const ClassSpec classSpecs[JSEXN_ERROR_LIMIT];
@@ -75,7 +76,8 @@ class ErrorObject : public NativeObject {
   // property.
   static ErrorObject* create(JSContext* cx, JSExnType type, HandleObject stack,
                              HandleString fileName, uint32_t sourceId,
-                             uint32_t lineNumber, uint32_t columnNumber,
+                             uint32_t lineNumber,
+                             JS::ColumnNumberOneOrigin columnNumber,
                              UniquePtr<JSErrorReport> report,
                              HandleString message,
                              Handle<mozilla::Maybe<JS::Value>> cause,
@@ -106,8 +108,13 @@ class ErrorObject : public NativeObject {
 
   inline JSString* fileName(JSContext* cx) const;
   inline uint32_t sourceId() const;
+
+  // Line number (1-origin).
   inline uint32_t lineNumber() const;
-  inline uint32_t columnNumber() const;
+
+  // Column number in UTF-16 code units.
+  inline JS::ColumnNumberOneOrigin columnNumber() const;
+
   inline JSObject* stack() const;
 
   JSString* getMessage() const {

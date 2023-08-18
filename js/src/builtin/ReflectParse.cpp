@@ -19,6 +19,7 @@
 #include "frontend/ModuleSharedContext.h"
 #include "frontend/ParseNode.h"
 #include "frontend/Parser.h"
+#include "js/ColumnNumber.h"          // JS::LimitedColumnNumberZeroOrigin
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/friend/StackLimits.h"    // js::AutoCheckRecursionLimit
 #include "js/PropertyAndElement.h"    // JS_DefineFunction
@@ -725,8 +726,8 @@ bool NodeBuilder::newNodeLoc(TokenPos* pos, MutableHandleValue dst) {
 
   dst.setObject(*loc);
 
-  uint32_t startLineNum, startColumnIndex;
-  uint32_t endLineNum, endColumnIndex;
+  uint32_t startLineNum, endLineNum;
+  JS::LimitedColumnNumberZeroOrigin startColumnIndex, endColumnIndex;
   parser->tokenStream.computeLineAndColumn(pos->begin, &startLineNum,
                                            &startColumnIndex);
   parser->tokenStream.computeLineAndColumn(pos->end, &endLineNum,
@@ -743,7 +744,7 @@ bool NodeBuilder::newNodeLoc(TokenPos* pos, MutableHandleValue dst) {
   if (!defineProperty(to, "line", val)) {
     return false;
   }
-  val.setNumber(startColumnIndex);
+  val.setNumber(startColumnIndex.zeroOriginValue());
   if (!defineProperty(to, "column", val)) {
     return false;
   }
@@ -759,7 +760,7 @@ bool NodeBuilder::newNodeLoc(TokenPos* pos, MutableHandleValue dst) {
   if (!defineProperty(to, "line", val)) {
     return false;
   }
-  val.setNumber(endColumnIndex);
+  val.setNumber(endColumnIndex.zeroOriginValue());
   if (!defineProperty(to, "column", val)) {
     return false;
   }
@@ -1385,7 +1386,7 @@ class ASTSerializer {
   DebugOnly<uint32_t> lineno;
 
   Value unrootedAtomContents(JSAtom* atom) {
-    return StringValue(atom ? atom : cx->names().empty);
+    return StringValue(atom ? atom : cx->names().empty_);
   }
 
   BinaryOperator binop(ParseNodeKind kind);
@@ -3367,7 +3368,7 @@ bool ASTSerializer::objectPattern(ListNode* obj, MutableHandleValue dst) {
     RootedValue key(cx);
     ParseNode* target;
     if (propdef->isKind(ParseNodeKind::MutateProto)) {
-      RootedValue pname(cx, StringValue(cx->names().proto));
+      RootedValue pname(cx, StringValue(cx->names().proto_));
       if (!builder.literal(pname, &propdef->pn_pos, &key)) {
         return false;
       }
@@ -3763,8 +3764,9 @@ static bool reflect_parse(JSContext* cx, uint32_t argc, Value* vp) {
     ModuleBuilder builder(&fc, &parser);
 
     uint32_t len = chars.length();
-    SourceExtent extent =
-        SourceExtent::makeGlobalExtent(len, options.lineno, options.column);
+    SourceExtent extent = SourceExtent::makeGlobalExtent(
+        len, options.lineno,
+        JS::LimitedColumnNumberZeroOrigin::fromUnlimited(options.column));
     ModuleSharedContext modulesc(&fc, options, builder, extent);
     pn = parser.moduleBody(&modulesc);
     if (!pn) {

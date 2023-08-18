@@ -713,29 +713,34 @@ JSFunction* GlobalObject::createConstructor(JSContext* cx, Native ctor,
 }
 
 static NativeObject* CreateBlankProto(JSContext* cx, const JSClass* clasp,
-                                      HandleObject proto) {
+                                      HandleObject proto,
+                                      ObjectFlags objFlags) {
   MOZ_ASSERT(!clasp->isJSFunction());
 
   if (clasp == &PlainObject::class_) {
+    // NOTE: There should be no reason currently to support this. It could
+    // however be added later if needed.
+    MOZ_ASSERT(objFlags.isEmpty());
     return NewPlainObjectWithProto(cx, proto, TenuredObject);
   }
 
-  return NewTenuredObjectWithGivenProto(cx, clasp, proto);
+  return NewTenuredObjectWithGivenProto(cx, clasp, proto, objFlags);
 }
 
 /* static */
 NativeObject* GlobalObject::createBlankPrototype(JSContext* cx,
                                                  Handle<GlobalObject*> global,
-                                                 const JSClass* clasp) {
+                                                 const JSClass* clasp,
+                                                 ObjectFlags objFlags) {
   RootedObject objectProto(cx, &global->getObjectPrototype());
-  return CreateBlankProto(cx, clasp, objectProto);
+  return CreateBlankProto(cx, clasp, objectProto, objFlags);
 }
 
 /* static */
 NativeObject* GlobalObject::createBlankPrototypeInheriting(JSContext* cx,
                                                            const JSClass* clasp,
                                                            HandleObject proto) {
-  return CreateBlankProto(cx, clasp, proto);
+  return CreateBlankProto(cx, clasp, proto, ObjectFlags());
 }
 
 bool js::LinkConstructorAndPrototype(JSContext* cx, JSObject* ctor_,
@@ -810,15 +815,15 @@ RegExpStatics* GlobalObject::getRegExpStatics(JSContext* cx,
                                               Handle<GlobalObject*> global) {
   MOZ_ASSERT(cx);
 
-  if (!global->data().regExpStatics) {
+  if (!global->regExpRealm().regExpStatics) {
     auto statics = RegExpStatics::create(cx);
     if (!statics) {
       return nullptr;
     }
-    global->data().regExpStatics = std::move(statics);
+    global->regExpRealm().regExpStatics = std::move(statics);
   }
 
-  return global->data().regExpStatics.get();
+  return global->regExpRealm().regExpStatics.get();
 }
 
 gc::FinalizationRegistryGlobalData*
@@ -1045,9 +1050,7 @@ void GlobalObjectData::trace(JSTracer* trc, GlobalObject* global) {
   TraceNullableEdge(trc, &boundFunctionShapeWithDefaultProto,
                     "global-bound-function-shape");
 
-  if (regExpStatics) {
-    regExpStatics->trace(trc);
-  }
+  regExpRealm.trace(trc);
 
   TraceNullableEdge(trc, &mappedArgumentsTemplate, "mapped-arguments-template");
   TraceNullableEdge(trc, &unmappedArgumentsTemplate,
@@ -1069,9 +1072,9 @@ void GlobalObjectData::addSizeOfIncludingThis(
     mozilla::MallocSizeOf mallocSizeOf, JS::ClassInfo* info) const {
   info->objectsMallocHeapGlobalData += mallocSizeOf(this);
 
-  if (regExpStatics) {
+  if (regExpRealm.regExpStatics) {
     info->objectsMallocHeapGlobalData +=
-        regExpStatics->sizeOfIncludingThis(mallocSizeOf);
+        regExpRealm.regExpStatics->sizeOfIncludingThis(mallocSizeOf);
   }
 
   info->objectsMallocHeapGlobalVarNamesSet +=

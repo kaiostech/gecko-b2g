@@ -19,6 +19,7 @@
 #include "wasm/WasmFrameIter.h"
 
 #include "jit/JitFrames.h"
+#include "js/ColumnNumber.h"  // JS::WasmFunctionIndex, LimitedColumnNumberZeroOrigin, JS::TaggedColumnNumberZeroOrigin, JS::TaggedColumnNumberOneOrigin
 #include "vm/JitActivation.h"  // js::jit::JitActivation
 #include "vm/JSContext.h"
 #include "wasm/WasmDebugFrame.h"
@@ -267,7 +268,7 @@ JSAtom* WasmFrameIter::functionDisplayAtom() const {
   JSAtom* atom = instance()->getFuncDisplayAtom(cx, codeRange_->funcIndex());
   if (!atom) {
     cx->clearPendingException();
-    return cx->names().empty;
+    return cx->names().empty_;
   }
 
   return atom;
@@ -283,29 +284,23 @@ uint32_t WasmFrameIter::funcIndex() const {
   return codeRange_->funcIndex();
 }
 
-unsigned WasmFrameIter::computeLine(uint32_t* column) const {
+unsigned WasmFrameIter::computeLine(
+    JS::TaggedColumnNumberZeroOrigin* column) const {
   if (instance()->isAsmJS()) {
     if (column) {
-      *column = 1;
+      *column =
+          JS::TaggedColumnNumberZeroOrigin(JS::LimitedColumnNumberZeroOrigin(
+              JS::WasmFunctionIndex::
+                  DefaultBinarySourceColumnNumberZeroOrigin));
     }
     return lineOrBytecode_;
   }
 
-  // As a terrible hack to avoid changing the tons of places that pass around
-  // (url, line, column) tuples to instead passing around a Variant that
-  // stores a (url, func-index, bytecode-offset) tuple for wasm frames,
-  // wasm stuffs its tuple into the existing (url, line, column) tuple,
-  // tagging the high bit of the column to indicate "this is a wasm frame".
-  // When knowing clients see this bit, they shall render the tuple
-  // (url, line, column|bit) as "url:wasm-function[column]:0xline" according
-  // to the WebAssembly Web API's Developer-Facing Display Conventions.
-  //   https://webassembly.github.io/spec/web-api/index.html#conventions
-  // The wasm bytecode offset continues to be passed as the JS line to avoid
-  // breaking existing devtools code written when this used to be the case.
-
-  MOZ_ASSERT(!(codeRange_->funcIndex() & ColumnBit));
+  MOZ_ASSERT(!(codeRange_->funcIndex() &
+               JS::TaggedColumnNumberZeroOrigin::WasmFunctionTag));
   if (column) {
-    *column = codeRange_->funcIndex() | ColumnBit;
+    *column = JS::TaggedColumnNumberZeroOrigin(
+        JS::WasmFunctionIndex(codeRange_->funcIndex()));
   }
   return lineOrBytecode_;
 }

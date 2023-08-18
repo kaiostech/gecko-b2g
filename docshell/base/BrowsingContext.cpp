@@ -380,6 +380,12 @@ already_AddRefed<BrowsingContext> BrowsingContext::CreateDetached(
     MOZ_DIAGNOSTIC_ASSERT(aOpener->mType == aType);
     fields.Get<IDX_OpenerId>() = aOpener->Id();
     fields.Get<IDX_HadOriginalOpener>() = true;
+
+    if (aType == Type::Chrome && !aParent) {
+      // See SetOpener for why we do this inheritance.
+      fields.Get<IDX_PrefersColorSchemeOverride>() =
+          aOpener->Top()->GetPrefersColorSchemeOverride();
+    }
   }
 
   if (aParent) {
@@ -632,6 +638,7 @@ void BrowsingContext::SetDocShell(nsIDocShell* aDocShell) {
   }
 
   RecomputeCanExecuteScripts();
+  ClearCachedValuesOfLocations();
 }
 
 // This class implements a callback that will return the remote window proxy for
@@ -1065,6 +1072,8 @@ void BrowsingContext::PrepareForProcessChange() {
   mIsInProcess = false;
   mUserGestureStart = TimeStamp();
 
+  ClearCachedValuesOfLocations();
+
   // NOTE: For now, clear our nsDocShell reference, as we're primarily in a
   // different process now. This may need to change in the future with
   // Cross-Process BFCache.
@@ -1088,6 +1097,23 @@ void BrowsingContext::PrepareForProcessChange() {
 
 bool BrowsingContext::IsTargetable() const {
   return !GetClosed() && AncestorsAreCurrent();
+}
+
+void BrowsingContext::SetOpener(BrowsingContext* aOpener) {
+  MOZ_DIAGNOSTIC_ASSERT(!aOpener || aOpener->Group() == Group());
+  MOZ_DIAGNOSTIC_ASSERT(!aOpener || aOpener->mType == mType);
+
+  MOZ_ALWAYS_SUCCEEDS(SetOpenerId(aOpener ? aOpener->Id() : 0));
+
+  if (IsChrome() && IsTop() && aOpener) {
+    // Inherit color scheme overrides from parent window. This is to inherit the
+    // color scheme of dark themed PBM windows in dialogs opened by such
+    // windows.
+    auto openerOverride = aOpener->Top()->PrefersColorSchemeOverride();
+    if (openerOverride != PrefersColorSchemeOverride()) {
+      MOZ_ALWAYS_SUCCEEDS(SetPrefersColorSchemeOverride(openerOverride));
+    }
+  }
 }
 
 bool BrowsingContext::HasOpener() const {
@@ -1438,6 +1464,9 @@ BrowsingContext::~BrowsingContext() {
     sBrowsingContexts->Remove(Id());
   }
   UnregisterBrowserId(this);
+
+  ClearCachedValuesOfLocations();
+  mLocations.clear();
 }
 
 /* static */
@@ -3563,7 +3592,7 @@ void BrowsingContext::DidSet(FieldIndex<IDX_IsUnderHiddenEmbedderElement>,
     }
 
     bool embedderFrameIsHidden = true;
-    if (auto embedderFrame = embedderElement->GetPrimaryFrame()) {
+    if (auto* embedderFrame = embedderElement->GetPrimaryFrame()) {
       embedderFrameIsHidden = !embedderFrame->StyleVisibility()->IsVisible();
     }
 
@@ -3801,6 +3830,17 @@ void BrowsingContext::RecomputeSecurityFlagsForTopContentOfNestedWebView() {
     mSecureBrowserUI = new nsLocalSecureBrowserUI(this);
   }
   mSecureBrowserUI->RecomputeSecurityFlags();
+}
+
+void BrowsingContext::LocationCreated(dom::Location* aLocation) {
+  MOZ_ASSERT(!aLocation->isInList());
+  mLocations.insertBack(aLocation);
+}
+
+void BrowsingContext::ClearCachedValuesOfLocations() {
+  for (dom::Location* loc = mLocations.getFirst(); loc; loc = loc->getNext()) {
+    loc->ClearCachedValues();
+  }
 }
 
 }  // namespace dom

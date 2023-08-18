@@ -14,12 +14,24 @@ export default {
     type: {
       control: {
         type: "select",
-        options: ["stale", "generic-error", "not-enough-reviews"],
+        options: [
+          "stale",
+          "generic-error",
+          "not-enough-reviews",
+          "product-not-available",
+          "product-not-available-reported",
+          "thanks-for-reporting",
+          "offline",
+          "analysis-in-progress",
+        ],
       },
     },
   },
   parameters: {
     status: "in-development",
+    actions: {
+      handles: ["click"],
+    },
     fluent: `
 shopping-message-bar-warning-stale-analysis-title = Updates available
 shopping-message-bar-warning-stale-analysis-message = Re-analyze the reviews for this product, so you have the latest info.
@@ -28,6 +40,17 @@ shopping-message-bar-generic-error-title = Something went wrong
 shopping-message-bar-generic-error-message = Couldn't load information. Please try again later.
 shopping-message-bar-warning-not-enough-reviews-title = Not enough reviews yet
 shopping-message-bar-warning-not-enough-reviews-message = When this product has more reviews, we’ll be able to analyze them.
+shopping-message-bar-warning-product-not-available-title = Product is not available
+shopping-message-bar-warning-product-not-available-message = If you see that this product is back in stock, report it to us and we’ll work on updating the analysis.
+shopping-message-bar-warning-product-not-available-button = Report this product is back in stock
+shopping-message-bar-thanks-for-reporting-title = Thanks for reporting!
+shopping-message-bar-thanks-for-reporting-message = We should have an updated analysis within 24 hours. Please check back.
+shopping-message-bar-warning-product-not-available-reported-title = Analysis coming soon
+shopping-message-bar-warning-product-not-available-reported-message = An updated analysis should be ready within 24 hours. Please check back.
+shopping-message-bar-warning-offline-title = No network connection
+shopping-message-bar-warning-offline-message = Check your network connection. Then, try reloading the page.
+shopping-message-bar-analysis-in-progress-title = Analysis coming soon
+shopping-message-bar-analysis-in-progress-message = When it’s done, we’ll automatically show the updated info here.
     `,
   },
 };

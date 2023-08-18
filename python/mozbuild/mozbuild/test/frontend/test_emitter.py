@@ -921,9 +921,9 @@ class TestEmitterBasic(unittest.TestCase):
         self.assertEqual(len(objs), 8)
 
         metadata = {
-            "a11y.ini": {
+            "a11y.toml": {
                 "flavor": "a11y",
-                "installs": {"a11y.ini": False, "test_a11y.js": True},
+                "installs": {"a11y.toml": False, "test_a11y.js": True},
                 "pattern-installs": 1,
             },
             "browser.ini": {
@@ -1501,7 +1501,7 @@ class TestEmitterBasic(unittest.TestCase):
         with self.assertRaisesRegex(
             SandboxValidationError,
             "Test.cpp from SOURCES would have the same object name as"
-            " Test.c from SOURCES\.",
+            " Test.c from SOURCES\\.",
         ):
             self.read_topsrcdir(reader)
 
@@ -1509,7 +1509,7 @@ class TestEmitterBasic(unittest.TestCase):
         with self.assertRaisesRegex(
             SandboxValidationError,
             "Test.cpp from SOURCES would have the same object name as"
-            " subdir/Test.cpp from SOURCES\.",
+            " subdir/Test.cpp from SOURCES\\.",
         ):
             self.read_topsrcdir(reader)
 
@@ -1517,7 +1517,7 @@ class TestEmitterBasic(unittest.TestCase):
         with self.assertRaisesRegex(
             SandboxValidationError,
             "Test.cpp from UNIFIED_SOURCES would have the same object name as"
-            " Test.c from SOURCES in non-unified builds\.",
+            " Test.c from SOURCES in non-unified builds\\.",
         ):
             self.read_topsrcdir(reader)
 
@@ -1525,7 +1525,7 @@ class TestEmitterBasic(unittest.TestCase):
         with self.assertRaisesRegex(
             SandboxValidationError,
             "Test.cpp from UNIFIED_SOURCES would have the same object name as"
-            " Test.c from UNIFIED_SOURCES in non-unified builds\.",
+            " Test.c from UNIFIED_SOURCES in non-unified builds\\.",
         ):
             self.read_topsrcdir(reader)
 

@@ -28,6 +28,26 @@ const NEVER_TRANSLATE_LANGS_PREF =
 const lazy = {};
 
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
+if (AppConstants.ENABLE_WEBDRIVER) {
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "Marionette",
+    "@mozilla.org/remote/marionette;1",
+    "nsIMarionette"
+  );
+
+  XPCOMUtils.defineLazyServiceGetter(
+    lazy,
+    "RemoteAgent",
+    "@mozilla.org/remote/agent;1",
+    "nsIRemoteAgent"
+  );
+} else {
+  lazy.Marionette = { running: false };
+  lazy.RemoteAgent = { running: false };
+}
 
 ChromeUtils.defineESModuleGetters(lazy, {
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
@@ -153,6 +173,17 @@ export class TranslationsParent extends JSWindowActorParent {
    * @type {TranslationsLanguageState}
    */
   languageState;
+
+  /**
+   * The cached URI spec where the panel was first ever shown, as determined by the
+   * browser.translations.panelShown pref.
+   *
+   * Holding on to this URI value allows us to show the introductory message in the panel
+   * when the panel opens, as long as the active panel is open on that particular URI.
+   *
+   * @type {string | null}
+   */
+  firstShowUriSpec = null;
 
   /**
    * Do not send queries or do work when the actor is already destroyed. This flag needs
@@ -304,6 +335,16 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
+   * TODO(Bug 1834306) - Cu.isInAutomation doesn't recognize Marionette and RemoteAgent
+   * tests.
+   */
+  static isInAutomation() {
+    return (
+      Cu.isInAutomation || lazy.Marionette.running || lazy.RemoteAgent.running
+    );
+  }
+
+  /**
    * Offer translations (for instance by automatically opening the popup panel) whenever
    * languages are detected, but only do it once per host per session.
    * @param {LangTags} detectedLanguages
@@ -312,14 +353,39 @@ export class TranslationsParent extends JSWindowActorParent {
     if (!lazy.automaticallyPopupPref) {
       return;
     }
-    if (Cu.isInAutomation && !TranslationsParent.testAutomaticPopup) {
-      // Do not offer translations in automation, as many tests do not expect this
-      // behavior.
+    if (!this.browsingContext.currentWindowGlobal) {
       return;
     }
+    const { documentURI } = this.browsingContext.currentWindowGlobal;
+
+    if (
+      TranslationsParent.isInAutomation() &&
+      !TranslationsParent.testAutomaticPopup
+    ) {
+      // Do not offer translations in automation, as many tests do not expect this
+      // behavior.
+      lazy.console.log(
+        "maybeOfferTranslations - Do not offer translations in automation.",
+        documentURI.spec
+      );
+      return;
+    }
+
+    if (
+      !detectedLanguages.docLangTag ||
+      !detectedLanguages.userLangTag ||
+      !detectedLanguages.isDocLangTagSupported
+    ) {
+      lazy.console.log(
+        "maybeOfferTranslations - The detected languages were not supported.",
+        detectedLanguages
+      );
+      return;
+    }
+
     let host;
     try {
-      host = this.browsingContext.currentWindowGlobal.documentURI.host;
+      host = documentURI.host;
     } catch {
       // nsIURI.host can throw if the URI scheme doesn't have a host. In this case
       // do not offer a translation.
@@ -327,6 +393,10 @@ export class TranslationsParent extends JSWindowActorParent {
     }
     if (TranslationsParent.#hostsOffered.has(host)) {
       // This host was already offered a translation.
+      lazy.console.log(
+        "maybeOfferTranslations - Host already offered a translation, so skip.",
+        documentURI.spec
+      );
       return;
     }
     const browser = this.browsingContext.top.embedderElement;
@@ -339,18 +409,34 @@ export class TranslationsParent extends JSWindowActorParent {
     if (
       TranslationsParent.shouldNeverTranslateLanguage(
         detectedLanguages.docLangTag
-      ) ||
-      this.shouldNeverTranslateSite()
+      )
     ) {
+      lazy.console.log(
+        `maybeOfferTranslations - Should never translate language. "${detectedLanguages.docLangTag}"`,
+        documentURI.spec
+      );
+      return;
+    }
+    if (this.shouldNeverTranslateSite()) {
+      lazy.console.log(
+        "maybeOfferTranslations - Should never translate site.",
+        documentURI.spec
+      );
       return;
     }
 
     // Only offer the translation if it's still the current page.
     if (
-      this.browsingContext.currentWindowGlobal.documentURI.spec ===
+      documentURI.spec ===
       this.browsingContext.topChromeWindow.gBrowser.selectedBrowser.documentURI
         .spec
     ) {
+      lazy.console.log(
+        "maybeOfferTranslations - Offering a translation",
+        documentURI.spec,
+        detectedLanguages
+      );
+
       browser.dispatchEvent(
         new CustomEvent("TranslationsParent:OfferTranslation", {
           bubbles: true,
@@ -1176,6 +1262,11 @@ export class TranslationsParent extends JSWindowActorParent {
    * @param {TranslationModelRecord[] | LanguagePair[]} records
    */
   static ensureLanguagePairsHavePivots(records) {
+    if (!AppConstants.DEBUG) {
+      // Only run this check on debug builds as it's in the performance critical first
+      // page load path.
+      return records;
+    }
     // lang -> pivot
     const hasToPivot = new Set();
     // pivot -> en
@@ -1758,13 +1849,21 @@ export class TranslationsParent extends JSWindowActorParent {
       TranslationsParent.#translateOnPageReload = { fromLanguage, toLanguage };
       this.restorePage(fromLanguage);
     } else {
+      const { docLangTag } = this.languageState.detectedLanguages;
+      const preferredLanguages = TranslationsParent.getPreferredLanguages();
+      const topPreferredLanguage =
+        preferredLanguages && preferredLanguages.length
+          ? preferredLanguages[0]
+          : null;
       this.languageState.requestedTranslationPair = {
         fromLanguage,
         toLanguage,
       };
       TranslationsParent.telemetry().onTranslate({
+        docLangTag,
         fromLanguage,
         toLanguage,
+        topPreferredLanguage,
         autoTranslate: reportAsAutoTranslate,
       });
       this.sendAsyncMessage("Translations:TranslatePage", {
@@ -1831,6 +1930,12 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   async queryIdentifyLanguage() {
+    if (
+      TranslationsParent.isInAutomation() &&
+      !TranslationsParent.#mockedLangTag
+    ) {
+      return null;
+    }
     return this.sendQuery("Translations:IdentifyLanguage", {
       useFastText: lazy.useFastTextPref,
     }).catch(error => {
@@ -1888,7 +1993,7 @@ export class TranslationsParent extends JSWindowActorParent {
       isDocLangTagSupported: false,
     };
     if (!TranslationsParent.getIsTranslationsEngineSupported()) {
-      return langTags;
+      return null;
     }
 
     if (documentElementLang === undefined) {

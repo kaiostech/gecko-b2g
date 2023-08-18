@@ -4,13 +4,6 @@
 
 "use strict";
 
-loader.lazyRequireGetter(
-  this,
-  ["isCommand"],
-  "resource://devtools/server/actors/webconsole/commands/parser.js",
-  true
-);
-
 /**
  * WebConsole commands manager.
  *
@@ -103,14 +96,16 @@ const WebConsoleCommandsManager = {
 
   /**
    * Is the command name possibly overriding a symbol which
-   * already exists in the paused frame, or global into which
+   * already exists in the paused frame or the global into which
    * we are about to execute into?
    */
   _isCommandNameAlreadyInScope(name, frame, dbgGlobal) {
-    // Fallback on global scope when Debugger.Frame doesn't come along an Environment.
     if (frame && frame.environment) {
       return !!frame.environment.find(name);
     }
+
+    // Fallback on global scope when Debugger.Frame doesn't come along an
+    // Environment, or is not a frame.
 
     try {
       // This can throw in Browser Toolbox tests
@@ -121,6 +116,37 @@ const WebConsoleCommandsManager = {
     } catch {}
 
     return !!dbgGlobal.getOwnPropertyDescriptor(name);
+  },
+
+  _createOwnerObject(
+    consoleActor,
+    debuggerGlobal,
+    evalInput,
+    selectedNodeActorID
+  ) {
+    const owner = {
+      window: consoleActor.evalGlobal,
+      makeDebuggeeValue: debuggerGlobal.makeDebuggeeValue.bind(debuggerGlobal),
+      createValueGrip: consoleActor.createValueGrip.bind(consoleActor),
+      preprocessDebuggerObject:
+        consoleActor.preprocessDebuggerObject.bind(consoleActor),
+      helperResult: null,
+      consoleActor,
+      evalInput,
+    };
+    if (selectedNodeActorID) {
+      const actor = consoleActor.conn.getActor(selectedNodeActorID);
+      if (actor) {
+        owner.selectedNode = actor.rawNode;
+      }
+    }
+    return owner;
+  },
+
+  _getCommandsForCurrentEnvironment() {
+    // Not supporting extra commands in workers yet.  This should be possible to
+    // add one by one as long as they don't require jsm/mjs, Cu, etc.
+    return isWorker ? new Map() : this.getAllCommands();
   },
 
   /**
@@ -139,6 +165,10 @@ const WebConsoleCommandsManager = {
    *        String to evaluate.
    * @param string selectedNodeActorID
    *        The Node actor ID of the currently selected DOM Element, if any is selected.
+   * @param bool ignoreExistingBindings
+   *        If true, define all bindings even if there's conflicting existing
+   *        symbols.  This is for the case evaluating non-user code in frame
+   *        environment.
    *
    * @return object
    *         Object with two properties:
@@ -153,26 +183,17 @@ const WebConsoleCommandsManager = {
     debuggerGlobal,
     frame,
     evalInput,
-    selectedNodeActorID
+    selectedNodeActorID,
+    ignoreExistingBindings
   ) {
     const bindings = Object.create(null);
 
-    const owner = {
-      window: consoleActor.evalGlobal,
-      makeDebuggeeValue: debuggerGlobal.makeDebuggeeValue.bind(debuggerGlobal),
-      createValueGrip: consoleActor.createValueGrip.bind(consoleActor),
-      preprocessDebuggerObject:
-        consoleActor.preprocessDebuggerObject.bind(consoleActor),
-      helperResult: null,
+    const owner = this._createOwnerObject(
       consoleActor,
+      debuggerGlobal,
       evalInput,
-    };
-    if (selectedNodeActorID) {
-      const actor = consoleActor.conn.getActor(selectedNodeActorID);
-      if (actor) {
-        owner.selectedNode = actor.rawNode;
-      }
-    }
+      selectedNodeActorID
+    );
 
     const evalGlobal = consoleActor.evalGlobal;
     function maybeExport(obj, name) {
@@ -191,24 +212,26 @@ const WebConsoleCommandsManager = {
       });
     }
 
-    // Not supporting extra commands in workers yet.  This should be possible to
-    // add one by one as long as they don't require jsm, Cu, etc.
-    const commands = isWorker ? [] : this.getAllCommands();
-
-    // Is it a command evaluation, starting with ':' prefix?
-    const isCmd = isCommand(evalInput);
+    const commands = this._getCommandsForCurrentEnvironment();
 
     const colonOnlyCommandNames = this.getColonOnlyCommandNames();
     for (const [name, command] of commands) {
-      // When we are running command via `:` prefix, no user code is being ran and only the command executes,
-      // so always expose the commands as the command will try to call its JavaScript method (see getEvalInput).
-      // Otherwise, when we run user code, we want to avoid overriding existing symbols with commands.
-      // Also ignore commands which can only be run with the `:` prefix.
+      // When we run user code in frame, we want to avoid overriding existing
+      // symbols with commands.
+      //
+      // When we run user code in global scope, all bindings are automatically
+      // shadowed, except for "help" function which is checked by getEvalInput.
+      //
+      // When we run internal code, always override existing symbols.
       if (
-        !isCmd &&
-        (this._isCommandNameAlreadyInScope(name, frame, debuggerGlobal) ||
-          colonOnlyCommandNames.includes(name))
+        !ignoreExistingBindings &&
+        (frame || name === "help") &&
+        this._isCommandNameAlreadyInScope(name, frame, debuggerGlobal)
       ) {
+        continue;
+      }
+      // Also ignore commands which can only be run with the `:` prefix.
+      if (colonOnlyCommandNames.includes(name)) {
         continue;
       }
 
@@ -239,6 +262,56 @@ const WebConsoleCommandsManager = {
         return owner.helperResult;
       },
       bindings,
+    };
+  },
+
+  /**
+   * Create a function for given ':command'-style command.
+   *
+   * @param object consoleActor
+   *        The related web console actor evaluating some code.
+   * @param object debuggerGlobal
+   *        A Debugger.Object that wraps a content global. This is used for the
+   *        Web Console Commands.
+   * @param string evalInput
+   *        String to evaluate.
+   * @param string selectedNodeActorID
+   *        The Node actor ID of the currently selected DOM Element, if any is selected.
+   * @param string commandName
+   *        the name of the command used in 'evalInput'
+   *
+   * @return object
+   *         Object with two properties:
+   *         - 'commandFunc', a function corresponds to the 'commandName'
+   *         - 'getHelperResult', a live getter returning the data the command
+   *           which executed want to convey to the frontend.
+   */
+  getColonCommandFunction(
+    consoleActor,
+    debuggerGlobal,
+    evalInput,
+    selectedNodeActorID,
+    commandName
+  ) {
+    const owner = this._createOwnerObject(
+      consoleActor,
+      debuggerGlobal,
+      evalInput,
+      selectedNodeActorID
+    );
+    const commands = this._getCommandsForCurrentEnvironment();
+    if (!commands.has(commandName)) {
+      return null;
+    }
+
+    const commandFunc = commands.get(commandName).bind(undefined, owner);
+
+    return {
+      commandFunc,
+      // Use a method as commands will update owner.helperResult later
+      getHelperResult() {
+        return owner.helperResult;
+      },
     };
   },
 };

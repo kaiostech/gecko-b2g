@@ -5,8 +5,7 @@
 //! Specified color values.
 
 use super::AllowQuirks;
-use crate::color::mix::ColorInterpolationMethod;
-use crate::color::{AbsoluteColor, ColorFlags, ColorSpace};
+use crate::color::{mix::ColorInterpolationMethod, AbsoluteColor, ColorFlags, ColorSpace};
 use crate::media_queries::Device;
 use crate::parser::{Parse, ParserContext};
 use crate::values::computed::{Color as ComputedColor, Context, ToComputedValue};
@@ -15,7 +14,7 @@ use crate::values::generics::color::{
 };
 use crate::values::specified::calc::CalcNode;
 use crate::values::specified::Percentage;
-use crate::values::CustomIdent;
+use crate::values::{normalize, CustomIdent};
 use cssparser::{AngleOrNumber, Color as CSSParserColor, Parser, Token};
 use cssparser::{BasicParseErrorKind, NumberOrPercentage, ParseErrorKind};
 use itoa;
@@ -149,11 +148,7 @@ impl LightDark {
     fn compute(&self, cx: &Context) -> ComputedColor {
         let style_color_scheme = cx.style().get_inherited_ui().clone_color_scheme();
         let dark = cx.device().is_dark_color_scheme(&style_color_scheme);
-        let used = if dark {
-            &self.dark
-        } else {
-            &self.light
-        };
+        let used = if dark { &self.dark } else { &self.light };
         used.to_computed_value(cx)
     }
 
@@ -428,30 +423,13 @@ impl SystemColor {
     }
 }
 
-#[inline]
-fn new_absolute(
-    color_space: ColorSpace,
-    c1: Option<f32>,
-    c2: Option<f32>,
-    c3: Option<f32>,
-    alpha: Option<f32>,
-) -> Color {
-    Color::Absolute(Box::new(Absolute {
-        color: AbsoluteColor::new(color_space, c1, c2, c3, alpha),
-        authored: None,
-    }))
-}
-
 impl cssparser::FromParsedColor for Color {
     fn from_current_color() -> Self {
         Color::CurrentColor
     }
 
     fn from_rgba(r: u8, g: u8, b: u8, a: f32) -> Self {
-        Self::Absolute(Box::new(Absolute {
-            color: AbsoluteColor::new(ColorSpace::Srgb, r, g, b, a),
-            authored: None,
-        }))
+        AbsoluteColor::srgb_legacy(r, g, b, a).into()
     }
 
     fn from_hsl(
@@ -460,7 +438,7 @@ impl cssparser::FromParsedColor for Color {
         lightness: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        new_absolute(ColorSpace::Hsl, hue, saturation, lightness, alpha)
+        AbsoluteColor::new(ColorSpace::Hsl, hue, saturation, lightness, alpha).into()
     }
 
     fn from_hwb(
@@ -469,7 +447,7 @@ impl cssparser::FromParsedColor for Color {
         blackness: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        new_absolute(ColorSpace::Hwb, hue, whiteness, blackness, alpha)
+        AbsoluteColor::new(ColorSpace::Hwb, hue, whiteness, blackness, alpha).into()
     }
 
     fn from_lab(
@@ -478,7 +456,7 @@ impl cssparser::FromParsedColor for Color {
         b: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        new_absolute(ColorSpace::Lab, lightness, a, b, alpha)
+        AbsoluteColor::new(ColorSpace::Lab, lightness, a, b, alpha).into()
     }
 
     fn from_lch(
@@ -487,7 +465,7 @@ impl cssparser::FromParsedColor for Color {
         hue: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        new_absolute(ColorSpace::Lch, lightness, chroma, hue, alpha)
+        AbsoluteColor::new(ColorSpace::Lch, lightness, chroma, hue, alpha).into()
     }
 
     fn from_oklab(
@@ -496,7 +474,7 @@ impl cssparser::FromParsedColor for Color {
         b: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        new_absolute(ColorSpace::Oklab, lightness, a, b, alpha)
+        AbsoluteColor::new(ColorSpace::Oklab, lightness, a, b, alpha).into()
     }
 
     fn from_oklch(
@@ -505,7 +483,7 @@ impl cssparser::FromParsedColor for Color {
         hue: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        new_absolute(ColorSpace::Oklch, lightness, chroma, hue, alpha)
+        AbsoluteColor::new(ColorSpace::Oklch, lightness, chroma, hue, alpha).into()
     }
 
     fn from_color_function(
@@ -515,13 +493,7 @@ impl cssparser::FromParsedColor for Color {
         c3: Option<f32>,
         alpha: Option<f32>,
     ) -> Self {
-        let mut result = new_absolute(color_space.into(), c1, c2, c3, alpha);
-        if let Color::Absolute(ref mut absolute) = result {
-            if matches!(absolute.color.color_space, ColorSpace::Srgb) {
-                absolute.color.flags |= ColorFlags::AS_COLOR_FUNCTION;
-            }
-        }
-        result
+        AbsoluteColor::new(color_space.into(), c1, c2, c3, alpha).into()
     }
 }
 
@@ -636,7 +608,7 @@ impl Color {
                             ColorSpace::Srgb | ColorSpace::Hsl
                         );
                         let is_color_function =
-                            absolute.color.flags.contains(ColorFlags::AS_COLOR_FUNCTION);
+                            !absolute.color.flags.contains(ColorFlags::IS_LEGACY_SRGB);
                         let pref_enabled = static_prefs::pref!("layout.css.more_color_4.enabled");
 
                         (is_legacy_color && !is_color_function) || pref_enabled
@@ -882,7 +854,28 @@ impl Color {
     pub fn to_computed_color(&self, context: Option<&Context>) -> Option<ComputedColor> {
         Some(match *self {
             Color::CurrentColor => ComputedColor::CurrentColor,
-            Color::Absolute(ref absolute) => ComputedColor::Absolute(absolute.color),
+            Color::Absolute(ref absolute) => {
+                let mut color = absolute.color;
+
+                // Computed lightness values can not be NaN.
+                if matches!(
+                    color.color_space,
+                    ColorSpace::Lab | ColorSpace::Oklab | ColorSpace::Lch | ColorSpace::Oklch
+                ) {
+                    color.components.0 = normalize(color.components.0);
+                }
+
+                // Computed RGB and XYZ components can not be NaN.
+                if !color.is_legacy_syntax() &&
+                    (color.color_space.is_rgb_like() || color.color_space.is_xyz_like())
+                {
+                    color.components = color.components.map(normalize);
+                }
+
+                color.alpha = normalize(color.alpha);
+
+                ComputedColor::Absolute(color)
+            },
             Color::LightDark(ref ld) => ld.compute(context?),
             Color::ColorMix(ref mix) => {
                 use crate::values::computed::percentage::Percentage;

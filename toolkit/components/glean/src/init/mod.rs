@@ -10,7 +10,9 @@ use std::path::PathBuf;
 use firefox_on_glean::{metrics, pings};
 use nserror::{nsresult, NS_ERROR_FAILURE};
 use nsstring::{nsACString, nsCString, nsString};
-use xpcom::interfaces::{nsIFile, nsIPrefService, nsIProperties, nsIXULAppInfo, nsIXULRuntime};
+use xpcom::interfaces::{
+    mozILocaleService, nsIFile, nsIPrefService, nsIProperties, nsIXULAppInfo, nsIXULRuntime,
+};
 use xpcom::{RefPtr, XpCom};
 
 use glean::{ClientInfoMetrics, Configuration};
@@ -127,12 +129,13 @@ fn build_configuration(
     };
     let data_path = PathBuf::from(&data_path_str);
 
-    let (app_build, app_display_version, channel) = get_app_info()?;
+    let (app_build, app_display_version, channel, locale) = get_app_info()?;
 
     let client_info = ClientInfoMetrics {
         app_build,
         app_display_version,
         channel: Some(channel),
+        locale: Some(locale),
     };
     log::debug!("Client Info: {:#?}", client_info);
 
@@ -150,6 +153,19 @@ fn build_configuration(
         app_id_override.to_utf8().to_string()
     };
 
+    extern "C" {
+        fn FOG_MaxPingLimit() -> u32;
+    }
+
+    // SAFETY NOTE: Safe because it returns a primitive by value.
+    let pings_per_interval = unsafe { FOG_MaxPingLimit() };
+    metrics::fog::max_pings_per_minute.set(pings_per_interval.into());
+
+    let rate_limit = Some(glean::PingRateLimit {
+        seconds_per_interval: 60,
+        pings_per_interval,
+    });
+
     let configuration = Configuration {
         upload_enabled: false,
         data_path,
@@ -161,7 +177,7 @@ fn build_configuration(
         use_core_mps: true,
         trim_data_to_registered_pings: true,
         log_level: None,
-        rate_limit: None,
+        rate_limit,
     };
 
     Ok((configuration, client_info))
@@ -220,16 +236,18 @@ fn get_data_path() -> Result<String, nsresult> {
     Ok(data_path)
 }
 
-/// Return a tuple of the build_id, app version, and build channel.
+/// Return a tuple of the build_id, app version, build channel, and locale.
 /// If the XUL Runtime isn't a XULAppInfo (e.g. in xpcshell),
 /// build_id ad app_version will be "unknown".
 /// Other problems result in an error being returned instead.
-fn get_app_info() -> Result<(String, String, String), nsresult> {
+fn get_app_info() -> Result<(String, String, String, String), nsresult> {
     let xul: RefPtr<nsIXULRuntime> =
         xpcom::components::XULRuntime::service().map_err(|_| NS_ERROR_FAILURE)?;
 
     let pref_service: RefPtr<nsIPrefService> =
         xpcom::components::Preferences::service().map_err(|_| NS_ERROR_FAILURE)?;
+    let locale_service: RefPtr<mozILocaleService> =
+        xpcom::components::Locale::service().map_err(|_| NS_ERROR_FAILURE)?;
     let branch = xpcom::getter_addrefs(|p| {
         // Safe because:
         //  * `null` is explicitly allowed per documentation
@@ -261,6 +279,7 @@ fn get_app_info() -> Result<(String, String, String), nsresult> {
                 "unknown".to_owned(),
                 "unknown".to_owned(),
                 channel.to_string(),
+                "unknown".to_owned(),
             ))
         }
     };
@@ -275,10 +294,18 @@ fn get_app_info() -> Result<(String, String, String), nsresult> {
         app_info.GetVersion(&mut *version).to_result()?;
     }
 
+    let mut locale = nsCString::new();
+    unsafe {
+        locale_service
+            .GetAppLocaleAsBCP47(&mut *locale)
+            .to_result()?;
+    }
+
     Ok((
         build_id.to_string(),
         version.to_string(),
         channel.to_string(),
+        locale.to_string(),
     ))
 }
 

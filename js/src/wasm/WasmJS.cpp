@@ -37,6 +37,7 @@
 #include "jit/JitContext.h"
 #include "jit/JitOptions.h"
 #include "jit/Simulator.h"
+#include "js/ColumnNumber.h"  // JS::ColumnNumberOneOrigin
 #include "js/ForOfIterator.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/Printf.h"
@@ -56,8 +57,7 @@
 #include "vm/PromiseObject.h"  // js::PromiseObject
 #include "vm/SharedArrayObject.h"
 #include "vm/StringType.h"
-#include "vm/Warnings.h"       // js::WarnNumberASCII
-#include "vm/WellKnownAtom.h"  // js_*_str
+#include "vm/Warnings.h"  // js::WarnNumberASCII
 #include "wasm/WasmBaselineCompile.h"
 #include "wasm/WasmBuiltins.h"
 #include "wasm/WasmCompile.h"
@@ -3361,7 +3361,7 @@ const JSFunctionSpec WasmGlobalObject::methods[] = {
 #ifdef ENABLE_WASM_TYPE_REFLECTIONS
     JS_FN("type", WasmGlobalObject::type, 0, JSPROP_ENUMERATE),
 #endif
-    JS_FN(js_valueOf_str, WasmGlobalObject::valueGetter, 0, JSPROP_ENUMERATE),
+    JS_FN("valueOf", WasmGlobalObject::valueGetter, 0, JSPROP_ENUMERATE),
     JS_FS_END};
 
 const JSFunctionSpec WasmGlobalObject::static_methods[] = {JS_FS_END};
@@ -3611,9 +3611,9 @@ void WasmExceptionObject::trace(JSTracer* trc, JSObject* obj) {
   for (size_t i = 0; i < params.length(); i++) {
     ValType paramType = params[i];
     if (paramType.isRefRepr()) {
-      GCPtr<JSObject*>* objectPtr =
-          reinterpret_cast<GCPtr<JSObject*>*>(typedMem + offsets[i]);
-      TraceNullableEdge(trc, objectPtr, "reference-obj");
+      GCPtr<wasm::AnyRef>* paramPtr =
+          reinterpret_cast<GCPtr<AnyRef>*>(typedMem + offsets[i]);
+      TraceNullableEdge(trc, paramPtr, "wasm exception param");
     }
   }
 }
@@ -4208,7 +4208,7 @@ static bool Reject(JSContext* cx, const CompileArgs& args,
     return false;
   }
 
-  unsigned line = args.scriptedCaller.line;
+  uint32_t line = args.scriptedCaller.line;
 
   // Ideally we'd report a JSMSG_WASM_COMPILE_ERROR here, but there's no easy
   // way to create an ErrorObject for an arbitrary error code with multiple
@@ -4229,7 +4229,8 @@ static bool Reject(JSContext* cx, const CompileArgs& args,
 
   RootedObject errorObj(
       cx, ErrorObject::create(cx, JSEXN_WASMCOMPILEERROR, stack, fileName, 0,
-                              line, 0, nullptr, message, cause));
+                              line, JS::ColumnNumberOneOrigin::zero(), nullptr,
+                              message, cause));
   if (!errorObj) {
     return false;
   }
@@ -5161,7 +5162,7 @@ static const JSFunctionSpec WebAssembly_mozIntGemm_methods[] = {
 #endif  // ENABLE_WASM_MOZ_INTGEMM
 
 static const JSFunctionSpec WebAssembly_static_methods[] = {
-    JS_FN(js_toSource_str, WebAssembly_toSource, 0, 0),
+    JS_FN("toSource", WebAssembly_toSource, 0, 0),
     JS_FN("compile", WebAssembly_compile, 1, JSPROP_ENUMERATE),
     JS_FN("instantiate", WebAssembly_instantiate, 1, JSPROP_ENUMERATE),
     JS_FN("validate", WebAssembly_validate, 1, JSPROP_ENUMERATE),
@@ -5260,7 +5261,7 @@ static const ClassSpec WebAssemblyClassSpec = {
     WebAssemblyClassFinish};
 
 const JSClass js::WasmNamespaceObject::class_ = {
-    js_WebAssembly_str, JSCLASS_HAS_CACHED_PROTO(JSProto_WebAssembly),
+    "WebAssembly", JSCLASS_HAS_CACHED_PROTO(JSProto_WebAssembly),
     JS_NULL_CLASS_OPS, &WebAssemblyClassSpec};
 
 // Sundry

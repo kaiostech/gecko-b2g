@@ -4,52 +4,6 @@
 
 const BUNDLE_SRC =
   "resource://activity-stream/aboutwelcome/aboutwelcome.bundle.js";
-const OPTIN_DEFAULT = {
-  id: "FAKESPOT_OPTIN_DEFAULT",
-  template: "multistage",
-  backdrop: "transparent",
-  transitions: true,
-  screens: [
-    {
-      id: "FS_OPT_IN",
-      content: {
-        position: "split",
-        title: { string_id: "shopping-onboarding-headline" },
-        subtitle: `Not all reviews are created equal. To help you find real reviews, from real people, Firefox can use AI technology to analyze this product’s reviews.`,
-        cta_paragraph: {
-          text: {
-            fontSize: "12px",
-            raw: "By selecting Analyze Reviews you agree to Fakespot terms of use.",
-          },
-        },
-        primary_button: {
-          label: "Analyze Reviews",
-          action: {
-            type: "SET_PREF",
-            data: {
-              pref: {
-                name: "browser.shopping.experience2023.optedIn",
-                value: 1,
-              },
-            },
-          },
-        },
-        secondary_button: {
-          label: "Not Now",
-          action: {
-            type: "SET_PREF",
-            data: {
-              pref: {
-                name: "browser.shopping.experience2023.active",
-                value: false,
-              },
-            },
-          },
-        },
-      },
-    },
-  ],
-};
 
 class Onboarding {
   constructor({ win } = {}) {
@@ -68,6 +22,17 @@ class Onboarding {
   }
 
   async _addScriptsAndRender() {
+    const addStylesheet = href => {
+      if (this.doc.head.querySelector(`link[href="${href}"]`)) {
+        return;
+      }
+      const link = this.doc.head.appendChild(this.doc.createElement("link"));
+      link.rel = "stylesheet";
+      link.href = href;
+    };
+    addStylesheet(
+      "chrome://activity-stream/content/aboutwelcome/aboutwelcome.css"
+    );
     const reactSrc = "resource://activity-stream/vendor/react.js";
     const domSrc = "resource://activity-stream/vendor/react-dom.js";
     // Add React script
@@ -100,32 +65,12 @@ class Onboarding {
     let bundleScript = this.doc.createElement("script");
     bundleScript.src = BUNDLE_SRC;
     this.doc.head.appendChild(bundleScript);
-
-    const addStylesheet = href => {
-      if (this.doc.querySelector(`link[href="${href}"]`)) {
-        return;
-      }
-      const link = this.doc.head.appendChild(this.doc.createElement("link"));
-      link.rel = "stylesheet";
-      link.href = href;
-    };
-
-    addStylesheet(
-      "chrome://activity-stream/content/aboutwelcome/aboutwelcome.css"
-    );
-  }
-
-  // TBD: Move windows function setup to child actor. See Bug 1843461
-  _setupWindowFunctions() {
-    this.win.AWGetFeatureConfig = () => OPTIN_DEFAULT;
-    this.win.AWFinish = () => {};
   }
 
   showOptInMessage() {
     if (this.OnboardingSetup) {
       return;
     }
-    this._setupWindowFunctions();
     this._addScriptsAndRender();
     this.OnboardingSetup = true;
   }

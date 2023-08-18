@@ -19,7 +19,7 @@
 #include "jit/IonCompileTask.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitScript.h"
-#include "js/CompileOptions.h"  // JS::CompileOptions, JS::DecodeOptions, JS::ReadOnlyCompileOptions
+#include "js/CompileOptions.h"  // JS::CompileOptions, JS::ReadOnlyDecodeOptions, JS::ReadOnlyCompileOptions
 #include "js/experimental/CompileScript.h"
 #include "js/experimental/JSStencil.h"
 #include "js/friend/StackLimits.h"  // js::ReportOverRecursed
@@ -314,9 +314,6 @@ static JSRuntime* GetSelectorRuntime(const CompilationSelector& selector) {
     JSRuntime* operator()(JSScript* script) {
       return script->runtimeFromMainThread();
     }
-    JSRuntime* operator()(Realm* realm) {
-      return realm->runtimeFromMainThread();
-    }
     JSRuntime* operator()(Zone* zone) { return zone->runtimeFromMainThread(); }
     JSRuntime* operator()(ZonesInState zbs) { return zbs.runtime; }
     JSRuntime* operator()(JSRuntime* runtime) { return runtime; }
@@ -327,8 +324,7 @@ static JSRuntime* GetSelectorRuntime(const CompilationSelector& selector) {
 
 static bool JitDataStructuresExist(const CompilationSelector& selector) {
   struct Matcher {
-    bool operator()(JSScript* script) { return !!script->realm()->jitRealm(); }
-    bool operator()(Realm* realm) { return !!realm->jitRealm(); }
+    bool operator()(JSScript* script) { return !!script->zone()->jitZone(); }
     bool operator()(Zone* zone) { return !!zone->jitZone(); }
     bool operator()(ZonesInState zbs) { return zbs.runtime->hasJitRuntime(); }
     bool operator()(JSRuntime* runtime) { return runtime->hasJitRuntime(); }
@@ -343,7 +339,6 @@ static bool IonCompileTaskMatches(const CompilationSelector& selector,
     jit::IonCompileTask* task_;
 
     bool operator()(JSScript* script) { return script == task_->script(); }
-    bool operator()(Realm* realm) { return realm == task_->script()->realm(); }
     bool operator()(Zone* zone) {
       return zone == task_->script()->zoneFromAnyThread();
     }
@@ -439,7 +434,7 @@ void js::CancelOffThreadIonCompile(const CompilationSelector& selector) {
 }
 
 #ifdef DEBUG
-bool js::HasOffThreadIonCompile(Realm* realm) {
+bool js::HasOffThreadIonCompile(Zone* zone) {
   AutoLockHelperThreadState lock;
 
   if (!HelperThreadState().isInitialized(lock)) {
@@ -450,14 +445,17 @@ bool js::HasOffThreadIonCompile(Realm* realm) {
       HelperThreadState().ionWorklist(lock);
   for (size_t i = 0; i < worklist.length(); i++) {
     jit::IonCompileTask* task = worklist[i];
-    if (task->script()->realm() == realm) {
+    if (task->script()->zoneFromAnyThread() == zone) {
       return true;
     }
   }
 
   for (auto* helper : HelperThreadState().helperTasks(lock)) {
-    if (helper->is<jit::IonCompileTask>() &&
-        helper->as<jit::IonCompileTask>()->script()->realm() == realm) {
+    if (!helper->is<jit::IonCompileTask>()) {
+      continue;
+    }
+    JSScript* script = helper->as<jit::IonCompileTask>()->script();
+    if (script->zoneFromAnyThread() == zone) {
       return true;
     }
   }
@@ -466,15 +464,15 @@ bool js::HasOffThreadIonCompile(Realm* realm) {
       HelperThreadState().ionFinishedList(lock);
   for (size_t i = 0; i < finished.length(); i++) {
     jit::IonCompileTask* task = finished[i];
-    if (task->script()->realm() == realm) {
+    if (task->script()->zoneFromAnyThread() == zone) {
       return true;
     }
   }
 
-  JSRuntime* rt = realm->runtimeFromMainThread();
+  JSRuntime* rt = zone->runtimeFromMainThread();
   jit::IonCompileTask* task = rt->jitRuntime()->ionLazyLinkList(rt).getFirst();
   while (task) {
-    if (task->script()->realm() == realm) {
+    if (task->script()->zone() == zone) {
       return true;
     }
     task = task->getNext();
@@ -597,8 +595,7 @@ void CompileToStencilTask<Unit>::parse(FrontendContext* fc) {
   }
 
   if (options.allocateInstantiationStorage) {
-    if (!JS::PrepareForInstantiate(fc, compileStorage_, *stencil_,
-                                   instantiationStorage_)) {
+    if (!JS::PrepareForInstantiate(fc, *stencil_, instantiationStorage_)) {
       stencil_ = nullptr;
     }
   }
@@ -620,8 +617,7 @@ void CompileModuleToStencilTask<Unit>::parse(FrontendContext* fc) {
   }
 
   if (options.allocateInstantiationStorage) {
-    if (!JS::PrepareForInstantiate(fc, compileStorage_, *stencil_,
-                                   instantiationStorage_)) {
+    if (!JS::PrepareForInstantiate(fc, *stencil_, instantiationStorage_)) {
       stencil_ = nullptr;
     }
   }
@@ -636,30 +632,33 @@ DecodeStencilTask::DecodeStencilTask(JSContext* cx,
   MOZ_ASSERT(JS::IsTranscodingBytecodeAligned(range.begin().get()));
 }
 
+static void ReportDecodeFailure(JS::FrontendContext* fc) {
+  js::ErrorMetadata metadata;
+  metadata.filename = JS::ConstUTF8CharsZ("<unknown>");
+  metadata.lineNumber = 0;
+  metadata.columnNumber = JS::ColumnNumberZeroOrigin::zero();
+  metadata.lineLength = 0;
+  metadata.tokenOffset = 0;
+  metadata.isMuted = false;
+
+  js::ReportCompileErrorLatin1(fc, std::move(metadata), nullptr,
+                               JSMSG_DECODE_FAILURE);
+}
+
 void DecodeStencilTask::parse(FrontendContext* fc) {
-  if (!compileStorage_.allocateInput(fc, options)) {
-    return;
-  }
-  if (!compileStorage_.getInput().initForGlobal(fc)) {
-    return;
-  }
+  JS::DecodeOptions decodeOptions(options);
 
-  stencil_ = fc->getAllocator()->new_<frontend::CompilationStencil>(
-      compileStorage_.getInput().source);
-  if (!stencil_) {
-    return;
-  }
-
-  bool succeeded = false;
-  (void)stencil_->deserializeStencils(fc, options, range, &succeeded);
-  if (!succeeded) {
-    stencil_ = nullptr;
+  JS::TranscodeResult tr =
+      JS::DecodeStencil(fc, decodeOptions, range, getter_AddRefs(stencil_));
+  if (tr != JS::TranscodeResult::Ok) {
+    if (tr != JS::TranscodeResult::Throw) {
+      ReportDecodeFailure(fc);
+    }
     return;
   }
 
   if (options.allocateInstantiationStorage) {
-    if (!JS::PrepareForInstantiate(fc, compileStorage_, *stencil_,
-                                   instantiationStorage_)) {
+    if (!JS::PrepareForInstantiate(fc, *stencil_, instantiationStorage_)) {
       stencil_ = nullptr;
     }
   }
@@ -1104,7 +1103,7 @@ JS::OffThreadToken* js::StartOffThreadCompileModuleToStencil(
 }
 
 JS::OffThreadToken* js::StartOffThreadDecodeStencil(
-    JSContext* cx, const JS::DecodeOptions& options,
+    JSContext* cx, const JS::ReadOnlyDecodeOptions& options,
     const JS::TranscodeRange& range, JS::OffThreadCompileCallback callback,
     void* callbackData) {
   auto task =
@@ -1839,7 +1838,6 @@ GlobalHelperThreadState::finishStencilTask(JSContext* cx,
     return nullptr;
   }
 
-  MOZ_ASSERT(parseTask->compileStorage_.hasInput());
   MOZ_ASSERT(parseTask->stencil_.get());
 
   if (storage) {

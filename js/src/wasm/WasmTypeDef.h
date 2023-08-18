@@ -1186,10 +1186,19 @@ class TypeContext : public AtomicRefCounted<TypeContext> {
          groupTypeIndex++) {
       uint32_t typeIndex = length() - recGroup->numTypes() + groupTypeIndex;
       const TypeDef* oldTypeDef = types_[typeIndex];
-      const TypeDef* newTypeDef = &canonicalRecGroup->type(groupTypeIndex);
-      types_[typeIndex] = newTypeDef;
+      const TypeDef* canonTypeDef = &canonicalRecGroup->type(groupTypeIndex);
+
+      types_[typeIndex] = canonTypeDef;
       moduleIndices_.remove(oldTypeDef);
-      if (!moduleIndices_.put(newTypeDef, typeIndex)) {
+
+      // Ensure there is an module index entry pointing to the canonical type
+      // definition. Don't overwrite it if it already exists, serialization
+      // relies on the module index map pointing to the first occurrence of a
+      // type definition to avoid creating forward references that didn't exist
+      // in the original module.
+      auto canonTypeIndexEntry = moduleIndices_.lookupForAdd(canonTypeDef);
+      if (!canonTypeIndexEntry &&
+          !moduleIndices_.add(canonTypeIndexEntry, canonTypeDef, typeIndex)) {
         return false;
       }
     }
@@ -1293,6 +1302,7 @@ inline RefTypeHierarchy RefType::hierarchy() const {
       return RefTypeHierarchy::Extern;
     case RefType::Any:
     case RefType::None:
+    case RefType::I31:
     case RefType::Eq:
     case RefType::Struct:
     case RefType::Array:
@@ -1353,6 +1363,11 @@ inline bool RefType::isSubTypeOf(RefType subType, RefType superType) {
 
   // eqref is a subtype of anyref
   if (subType.isEq() && superType.isAny()) {
+    return true;
+  }
+
+  // i31ref is a subtype of eqref
+  if (subType.isI31() && (superType.isAny() || superType.isEq())) {
     return true;
   }
 

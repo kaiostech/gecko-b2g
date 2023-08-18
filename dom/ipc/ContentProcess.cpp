@@ -20,6 +20,7 @@
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/ProcessUtils.h"
 #include "mozilla/GeckoArgs.h"
+#include "mozilla/Omnijar.h"
 #include "nsCategoryManagerUtils.h"
 
 using mozilla::ipc::IOThreadChild;
@@ -148,6 +149,12 @@ bool ContentProcess::Init(int aArgc, char* aArgv[]) {
   rv = mDirProvider.Initialize(xpcomAppDir, greDir);
   if (NS_FAILED(rv)) {
     return false;
+  }
+
+  // Handle the -greomni/-appomni flags (unless the forkserver already
+  // preloaded the jar(s)).
+  if (!Omnijar::IsInitialized()) {
+    Omnijar::ChildProcessInit(aArgc, aArgv);
   }
 
   rv = NS_InitXPCOM(nullptr, xpcomAppDir, &mDirProvider);

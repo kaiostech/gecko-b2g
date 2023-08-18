@@ -227,13 +227,9 @@ void AudioOffloadPlayer::OpenAudioSink() {
       SendMetaDataToHal(offloadInfo);
     }
   } else {
-#ifdef MOZ_SAMPLE_TYPE_S16
-    MOZ_ASSERT(AUDIO_OUTPUT_FORMAT == AUDIO_FORMAT_S16);
-    auto audioFormat = AUDIO_FORMAT_PCM_16_BIT;
-#else
-    MOZ_ASSERT(AUDIO_OUTPUT_FORMAT == AUDIO_FORMAT_FLOAT32);
-    auto audioFormat = AUDIO_FORMAT_PCM_FLOAT;
-#endif
+    auto audioFormat = AUDIO_OUTPUT_FORMAT == AUDIO_FORMAT_S16
+                           ? AUDIO_FORMAT_PCM_16_BIT
+                           : AUDIO_FORMAT_PCM_FLOAT;
 
     err = mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
                            &AudioOffloadPlayer::AudioSinkCallback, this,

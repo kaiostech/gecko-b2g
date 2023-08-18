@@ -7,9 +7,9 @@
 #include <OMX_IVCommon.h>
 #include <gui/Surface.h>
 #if ANDROID_VERSION >= 30
-#include <mediadrm/ICrypto.h>
+#  include <mediadrm/ICrypto.h>
 #else
-#include <media/ICrypto.h>
+#  include <media/ICrypto.h>
 #endif
 #include "GonkAudioDecoderManager.h"
 #include "GonkMediaUtils.h"
@@ -53,6 +53,7 @@ GonkAudioDecoderManager::GonkAudioDecoderManager(const AudioInfo& aConfig,
       mConfig(aConfig),
       mAudioChannels(aConfig.mChannels),
       mAudioRate(aConfig.mRate),
+      mPcmEncoding(android::kAudioEncodingPcm16bit),
       mAudioProfile(aConfig.mProfile),
       mCodecSpecificConfig(aConfig.mCodecSpecificConfig),
       mAudioCompactor(mAudioQueue) {
@@ -128,16 +129,17 @@ nsresult GonkAudioDecoderManager::CreateAudioData(
   const uint8_t* data = static_cast<const uint8_t*>(aBuffer->Data());
   size_t size = aBuffer->Size();
 
-  uint64_t frames = size / (2 * mAudioChannels);
+  uint64_t frames = size / (GonkMediaUtils::GetAudioSampleSize(mPcmEncoding) *
+                            mAudioChannels);
 
   CheckedInt64 duration = FramesToUsecs(frames, mAudioRate);
   if (!duration.isValid()) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  typedef AudioCompactor::NativeCopy OmxCopy;
-  mAudioCompactor.Push(aStreamOffset, timeUs, mAudioRate, frames,
-                       mAudioChannels, OmxCopy(data, size, mAudioChannels));
+  mAudioCompactor.Push(
+      aStreamOffset, timeUs, mAudioRate, frames, mAudioChannels,
+      GonkMediaUtils::CreatePcmCopy(data, size, mAudioChannels, mPcmEncoding));
   return NS_OK;
 }
 
@@ -179,15 +181,21 @@ nsresult GonkAudioDecoderManager::GetOutput(
 
       int32_t codec_channel_count = 0;
       int32_t codec_sample_rate = 0;
+      int32_t pcmEncoding = kAudioEncodingPcm16bit;
 
       if (!audioCodecFormat->findInt32("channel-count", &codec_channel_count) ||
           !audioCodecFormat->findInt32("sample-rate", &codec_sample_rate)) {
         return NS_ERROR_UNEXPECTED;
       }
 
+      if (!audioCodecFormat->findInt32("pcm-encoding", &pcmEncoding)) {
+        LOG("Failed to find pcm-encoding, assume 16 bit integer");
+      }
+
       // Update AudioInfo
       mAudioChannels = codec_channel_count;
       mAudioRate = codec_sample_rate;
+      mPcmEncoding = static_cast<AudioEncoding>(pcmEncoding);
       return GetOutput(aStreamOffset, aOutData);
     }
     case android::INFO_OUTPUT_BUFFERS_CHANGED: {

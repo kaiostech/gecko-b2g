@@ -7,6 +7,7 @@
 
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/foundation/MediaDefs.h>
 #include <utils/StrongPointer.h>
 
 #include "AudioCompactor.h"
@@ -115,6 +116,7 @@ class GonkDataDecoder final : public MediaDataDecoder {
   struct {
     int32_t mChannelCount = 0;
     int32_t mSampleRate = 0;
+    android::AudioEncoding mPcmEncoding = android::kAudioEncodingPcm16bit;
   } mAudioOutputFormat;
 
   std::atomic<bool> mSupportAdaptivePlayback = false;

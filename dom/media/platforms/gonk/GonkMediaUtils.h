@@ -7,9 +7,12 @@
 
 #include <media/hardware/CryptoAPI.h>
 #include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/foundation/MediaDefs.h>
 #include <utils/RefBase.h>
 
 #include <vector>
+
+#include "AudioSampleFormat.h"
 
 namespace mozilla {
 class MediaRawData;
@@ -28,7 +31,17 @@ class GonkCryptoInfo : public RefBase {
 };
 
 class GonkMediaUtils {
+  using AudioDataValue = mozilla::AudioDataValue;
+  using PcmCopy = std::function<uint32_t(AudioDataValue*, uint32_t)>;
+
  public:
+  static AudioEncoding PreferredPcmEncoding();
+
+  static size_t GetAudioSampleSize(AudioEncoding aEncoding);
+
+  static PcmCopy CreatePcmCopy(const uint8_t* aSource, size_t aSourceBytes,
+                               uint32_t aChannels, AudioEncoding aEncoding);
+
   static sp<AMessage> GetMediaCodecConfig(const mozilla::TrackInfo* aInfo);
 
   static sp<GonkCryptoInfo> GetCryptoInfo(const mozilla::MediaRawData* aSample);

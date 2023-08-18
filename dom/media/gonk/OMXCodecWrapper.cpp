@@ -16,6 +16,7 @@
 #include <OMX_Component.h>
 
 #include "AudioChannelFormat.h"
+#include "GonkMediaUtils.h"
 #include "GrallocImages.h"
 #include "libyuv.h"
 #include "mozilla/Monitor.h"
@@ -581,6 +582,7 @@ nsresult OMXAudioEncoder::Configure(int aChannels, int aInputSampleRate,
   }
   // Input values.
   format->setInt32("channel-count", aChannels);
+  format->setInt32("pcm-encoding", GonkMediaUtils::PreferredPcmEncoding());
 
   status_t result = mCodec->configure(format, nullptr, nullptr,
                                       MediaCodec::CONFIGURE_FLAG_ENCODE);
@@ -756,11 +758,14 @@ class InputBufferHelper final {
       pcm.SetLength(bytesToCopy);
       AudioTrackEncoder::InterleaveTrackData(
           aSource, aSamplesNum, mOMXAEncoder.mChannels, pcm.Elements());
-      int16_t* tempSource = reinterpret_cast<int16_t*>(pcm.Elements());
+#ifdef MOZ_SAMPLE_TYPE_S16
+      auto resamplerProcess = speex_resampler_process_interleaved_int;
+#else
+      auto resamplerProcess = speex_resampler_process_interleaved_float;
+#endif
       uint32_t srcSamplesProcessed = aSamplesNum;
-      speex_resampler_process_interleaved_int(mOMXAEncoder.mResampler,
-                                              tempSource, &srcSamplesProcessed,
-                                              dst, &dstSamplesCopied);
+      resamplerProcess(mOMXAEncoder.mResampler, pcm.Elements(),
+                       &srcSamplesProcessed, dst, &dstSamplesCopied);
     } else {
       AudioTrackEncoder::InterleaveTrackData(aSource, aSamplesNum,
                                              mOMXAEncoder.mChannels, dst);
@@ -775,11 +780,14 @@ class InputBufferHelper final {
     AudioDataValue* dst = reinterpret_cast<AudioDataValue*>(GetPointer());
     uint32_t dstSamplesCopied = aSamplesNum;
     if (mOMXAEncoder.mResampler) {
-      int16_t* tempSource = reinterpret_cast<int16_t*>(aSource);
+#ifdef MOZ_SAMPLE_TYPE_S16
+      auto resamplerProcess = speex_resampler_process_interleaved_int;
+#else
+      auto resamplerProcess = speex_resampler_process_interleaved_float;
+#endif
       uint32_t srcSamplesProcessed = aSamplesNum;
-      speex_resampler_process_interleaved_int(mOMXAEncoder.mResampler,
-                                              tempSource, &srcSamplesProcessed,
-                                              dst, &dstSamplesCopied);
+      resamplerProcess(mOMXAEncoder.mResampler, aSource, &srcSamplesProcessed,
+                       dst, &dstSamplesCopied);
     } else {
       // Directly copy interleaved data into buffer
       memcpy(dst, aSource,
@@ -827,10 +835,6 @@ OMXAudioEncoder::~OMXAudioEncoder() {
 
 nsresult OMXAudioEncoder::Encode(AudioSegment& aSegment, int aInputFlags,
                                  bool* aSendEOS) {
-#ifndef MOZ_SAMPLE_TYPE_S16
-#  error MediaCodec accepts only 16-bit PCM data.
-#endif
-
   MOZ_ASSERT(mStarted, "Configure() should be called before Encode().");
 
   size_t numSamples = aSegment.GetDuration();

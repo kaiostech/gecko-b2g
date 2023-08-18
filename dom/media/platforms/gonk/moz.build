@@ -11,6 +11,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "GonkAudioDecoderManager.h",
         "GonkDecoderModule.h",
         "GonkMediaDataDecoder.h",
+        "GonkMediaUtils.h",
         "GonkVideoDecoderManager.h",
         "I420ColorConverterHelper.h",
         "MediaCodecProxy.h",

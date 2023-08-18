@@ -5,8 +5,11 @@
 #include "GonkMediaUtils.h"
 
 #include <media/stagefright/foundation/ABuffer.h>
+#include <media/stagefright/foundation/ADebug.h>
 
+#include "AudioCompactor.h"
 #include "mozilla/Logging.h"
+#include "MediaData.h"
 #include "MediaInfo.h"
 #include "XiphExtradata.h"
 
@@ -24,6 +27,75 @@ static mozilla::LazyLogModule sCodecLog("GonkMediaUtils");
 #define LOGI(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Info, (__VA_ARGS__))
 #define LOGD(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #define LOGV(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
+
+/* static */
+AudioEncoding GonkMediaUtils::PreferredPcmEncoding() {
+#ifdef MOZ_SAMPLE_TYPE_S16
+  return kAudioEncodingPcm16bit;
+#else
+  return kAudioEncodingPcmFloat;
+#endif
+}
+
+/* static */
+size_t GonkMediaUtils::GetAudioSampleSize(AudioEncoding aEncoding) {
+  switch (aEncoding) {
+    case kAudioEncodingPcm16bit:
+      return sizeof(int16_t);
+    case kAudioEncodingPcmFloat:
+      return sizeof(float);
+    default:
+      TRESPASS("Invalid AudioEncoding %d", aEncoding);
+      return 0;
+  }
+}
+
+/* static */
+GonkMediaUtils::PcmCopy GonkMediaUtils::CreatePcmCopy(const uint8_t* aSource,
+                                                      size_t aSourceBytes,
+                                                      uint32_t aChannels,
+                                                      AudioEncoding aEncoding) {
+  class ShortToFloat {
+   public:
+    ShortToFloat(const uint8_t* aSource, size_t aSourceBytes,
+                 uint32_t aChannels)
+        : mSource(aSource),
+          mSourceBytes(aSourceBytes),
+          mChannels(aChannels),
+          mSourceOffset(0) {}
+
+    uint32_t operator()(AudioDataValue* aBuffer, uint32_t aSamples) {
+      size_t sourceFrames = (mSourceBytes - mSourceOffset) / SourceFrameSize();
+      size_t maxFrames = std::min(sourceFrames, size_t(aSamples / mChannels));
+
+      auto* src = reinterpret_cast<const int16_t*>(mSource + mSourceOffset);
+      auto* dst = aBuffer;
+      for (size_t i = 0; i < maxFrames * mChannels; i++) {
+        *dst++ = mozilla::AudioSampleToFloat(*src++);
+      }
+
+      mSourceOffset += maxFrames * SourceFrameSize();
+      return maxFrames;
+    }
+
+   private:
+    size_t SourceFrameSize() { return sizeof(int16_t) * mChannels; }
+
+    const uint8_t* const mSource;
+    const size_t mSourceBytes;
+    const uint32_t mChannels;
+    size_t mSourceOffset;
+  };
+
+  if (aEncoding == PreferredPcmEncoding()) {
+    return mozilla::AudioCompactor::NativeCopy(aSource, aSourceBytes,
+                                               aChannels);
+  } else {
+    CHECK(aEncoding == kAudioEncodingPcm16bit);
+    CHECK(PreferredPcmEncoding() == kAudioEncodingPcmFloat);
+    return ShortToFloat(aSource, aSourceBytes, aEncoding);
+  }
+}
 
 /* static */
 sp<AMessage> GonkMediaUtils::GetMediaCodecConfig(
@@ -60,6 +132,7 @@ sp<AMessage> GonkMediaUtils::GetMediaCodecConfig(
     format->setInt32("channel-count", info->mChannels);
     format->setInt32("sample-rate", info->mRate);
     format->setInt32("aac-profile", info->mProfile);
+    format->setInt32("pcm-encoding", PreferredPcmEncoding());
 
     auto& csd = info->mCodecSpecificConfig;
     if (mime.EqualsLiteral("audio/opus") && csd.is<OpusCodecSpecificData>()) {

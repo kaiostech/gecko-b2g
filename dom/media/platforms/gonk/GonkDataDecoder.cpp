@@ -447,17 +447,20 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
   } else {
     auto channels = mAudioOutputFormat.mChannelCount;
     auto rate = mAudioOutputFormat.mSampleRate;
+    auto encoding = mAudioOutputFormat.mPcmEncoding;
     auto* data = aBuffer->data();
     auto size = aBuffer->size();
-    auto frames = size / (2 * channels);
+    auto frames =
+        size / (GonkMediaUtils::GetAudioSampleSize(encoding) * channels);
 
     CheckedInt64 duration = FramesToUsecs(frames, rate);
     if (!duration.isValid()) {
       return;
     }
 
-    mAudioCompactor.Push(sampleInfo->mOffset, aTimeUs, rate, frames, channels,
-                         AudioCompactor::NativeCopy(data, size, channels));
+    mAudioCompactor.Push(
+        sampleInfo->mOffset, aTimeUs, rate, frames, channels,
+        GonkMediaUtils::CreatePcmCopy(data, size, channels, encoding));
   }
 }
 
@@ -536,6 +539,7 @@ void GonkDataDecoder::NotifyOutputFormat(const sp<AMessage>& aFormat) {
   } else {
     int32_t channelCount = 0;
     int32_t sampleRate = 0;
+    int32_t pcmEncoding = android::kAudioEncodingPcm16bit;
 
     if (!aFormat->findInt32("channel-count", &channelCount)) {
       LOGE("%p failed to find channel-count", this);
@@ -547,10 +551,16 @@ void GonkDataDecoder::NotifyOutputFormat(const sp<AMessage>& aFormat) {
       return;
     }
 
+    if (!aFormat->findInt32("pcm-encoding", &pcmEncoding)) {
+      LOGI("%p failed to find pcm-encoding, assume 16 bit integer", this);
+    }
+
     mAudioOutputFormat.mChannelCount = channelCount;
     mAudioOutputFormat.mSampleRate = sampleRate;
-    LOGI("%p audio output format changed, channels %d, rate %d", this,
-         channelCount, sampleRate);
+    mAudioOutputFormat.mPcmEncoding =
+        static_cast<android::AudioEncoding>(pcmEncoding);
+    LOGI("%p audio output format changed, channels %d, rate %d, encoding %d",
+         this, channelCount, sampleRate, pcmEncoding);
   }
 }
 

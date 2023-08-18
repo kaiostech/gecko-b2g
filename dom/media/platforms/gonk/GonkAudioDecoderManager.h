@@ -7,6 +7,8 @@
 #if !defined(GonkAudioDecoderManager_h_)
 #  define GonkAudioDecoderManager_h_
 
+#  include <media/stagefright/foundation/MediaDefs.h>
+
 #  include "AudioCompactor.h"
 #  include "mozilla/RefPtr.h"
 #  include "GonkMediaDataDecoder.h"
@@ -51,6 +53,7 @@ class GonkAudioDecoderManager : public GonkDecoderManager {
   AudioInfo mConfig;
   uint32_t mAudioChannels;
   uint32_t mAudioRate;
+  android::AudioEncoding mPcmEncoding;
   const uint32_t mAudioProfile;
   AudioCodecSpecificVariant mCodecSpecificConfig;
 

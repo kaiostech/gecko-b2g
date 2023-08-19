@@ -7,6 +7,7 @@
 #ifndef mozilla_Hal_h
 #define mozilla_Hal_h
 
+#include "base/platform_thread.h"
 #include "nsTArray.h"
 #include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/dom/FlipManager.h"
@@ -620,6 +621,20 @@ void StartDiskSpaceWatcher();
  * This API is currently only allowed to be used from the main process.
  */
 void StopDiskSpaceWatcher();
+
+/*
+ * Creates a PerformanceHintSession.
+ *
+ * A PerformanceHintSession represents a workload shared by a group of threads
+ * that should be completed in a target duration each cycle.
+ *
+ * Each cycle, the actual work duration should be reported using
+ * PerformanceHintSession::ReportActualWorkDuration(). The system can then
+ * adjust the scheduling accordingly in order to achieve the target.
+ */
+UniquePtr<hal::PerformanceHintSession> CreatePerformanceHintSession(
+    const nsTArray<PlatformThreadHandle>& aThreads,
+    mozilla::TimeDuration aTargetWorkDuration);
 
 }  // namespace MOZ_HAL_NAMESPACE
 }  // namespace mozilla

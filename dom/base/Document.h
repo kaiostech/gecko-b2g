@@ -4122,6 +4122,8 @@ class Document : public nsINode,
   // the state was changed.
   bool RecomputeResistFingerprinting();
 
+  bool MayHaveDOMActivateListeners() const;
+
  protected:
   // Returns the WindowContext for the document that we will contribute
   // page use counters to.

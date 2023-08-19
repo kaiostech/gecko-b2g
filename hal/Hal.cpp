@@ -438,10 +438,8 @@ void NotifyPowerSupplyStatus(const PowerSupplyStatus& aPowerSupplyStatus) {
   sPowerSupplyObservers.BroadcastCachedInformation();
 }
 
-class FlipObserversManager final
-    : public ObserversManager<bool>
-{
-protected:
+class FlipObserversManager final : public ObserversManager<bool> {
+ protected:
   void EnableNotifications() override {
     PROXY_IF_SANDBOXED(EnableFlipNotifications());
   }
@@ -743,6 +741,12 @@ void StopDiskSpaceWatcher() {
   AssertMainProcess();
   AssertMainThread();
   PROXY_IF_SANDBOXED(StopDiskSpaceWatcher());
+}
+
+UniquePtr<hal::PerformanceHintSession> CreatePerformanceHintSession(
+    const nsTArray<PlatformThreadHandle>& aThreads,
+    mozilla::TimeDuration aTargetWorkDuration) {
+  return hal_impl::CreatePerformanceHintSession(aThreads, aTargetWorkDuration);
 }
 
 void Init() {

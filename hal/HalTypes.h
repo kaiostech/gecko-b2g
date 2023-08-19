@@ -9,6 +9,8 @@
 #include "ipc/EnumSerializer.h"
 #include "mozilla/Observer.h"
 #include "mozilla/dom/BatteryManagerBinding.h"
+#include "mozilla/TimeStamp.h"
+#include "mozilla/UniquePtr.h"
 
 namespace mozilla {
 namespace hal {
@@ -160,6 +162,27 @@ enum FMRadioCountry {
 class FMRadioRDSGroup;
 typedef Observer<FMRadioOperationInformation> FMRadioObserver;
 typedef Observer<FMRadioRDSGroup> FMRadioRDSObserver;
+
+/**
+ * Represents a workload shared by a group of threads that should be completed
+ * in a target duration each cycle.
+ *
+ * This is created using hal::CreatePerformanceHintSession(). Each cycle, the
+ * actual work duration should be reported using ReportActualWorkDuration(). The
+ * system can then adjust the scheduling accordingly in order to achieve the
+ * target.
+ */
+class PerformanceHintSession {
+ public:
+  virtual ~PerformanceHintSession() = default;
+
+  // Updates the session's target work duration for each cycle.
+  virtual void UpdateTargetWorkDuration(TimeDuration aDuration) = 0;
+
+  // Reports the session's actual work duration for a cycle.
+  virtual void ReportActualWorkDuration(TimeDuration aDuration) = 0;
+};
+
 }  // namespace hal
 }  // namespace mozilla
 

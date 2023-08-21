@@ -725,7 +725,7 @@ void GonkGPSGeolocationProvider::InjectLocation(double latitude,
     DBG("mGnssHal->injectLocation");
     auto result = mGnssHal->injectLocation(latitude, longitude, accuracy);
     if (!result.isOk() || !result) {
-      ERR("%s: Gnss injectLocation() failed");
+      ERR("Gnss injectLocation() failed");
     }
   }
 }
@@ -905,7 +905,7 @@ Return<void> GnssCallback::gnssSvStatusCb(
 
 Return<void> GnssCallback::gnssNmeaCb(
     int64_t timestamp, const ::android::hardware::hidl_string& nmea) {
-  DBG("%s: timestamp: %lld", __FUNCTION__, timestamp);
+  DBG("%s: timestamp: %lu", __FUNCTION__, timestamp);
 
 #ifdef HAS_KOOST_MODULES
   NS_DispatchToMainThread(
@@ -982,7 +982,7 @@ Return<void> GnssCallback::gnssLocationCb_2_0(
 
 Return<void> GnssCallback::gnssSvStatusCb_2_0(
     const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) {
-  DBG("%s: numSvs: %u", __FUNCTION__, svInfoList.size());
+  DBG("%s: numSvs: %zu", __FUNCTION__, svInfoList.size());
 
 #ifdef HAS_KOOST_MODULES
   NS_DispatchToMainThread(
@@ -1218,9 +1218,7 @@ bool IsMetered(int aNetworkInterfaceType) {
     case nsINetworkInfo::NETWORK_TYPE_MOBILE_DUN:
       return true;
     default:
-      ERR(nsPrintfCString("Unknown network type mapping %d",
-                          aNetworkInterfaceType)
-              .get());
+      ERR("Unknown network type mapping %d", aNetworkInterfaceType);
       return true;
   }
 }
@@ -1318,7 +1316,7 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo,
       .apn = apn,
 
   };
-  DBG("updateNetworkState_2_0, netId: %d, netHandle: %llu, connected: %d, "
+  DBG("updateNetworkState_2_0, netId: %d, netHandle: %lu, connected: %d, "
       "capabilities: %u, apn: %s)",
       netId, netHandle, connected, capabilities, apn);
   auto result = mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
@@ -1460,7 +1458,7 @@ void GonkGPSGeolocationProvider::AGpsDataConnectionOpen(bool isEmergencySupl) {
     ipType = isEmergencySupl ? sIpTypeSuplEs : sIpTypeSupl;
   }
 
-  LOG("mAGnssHal_V2_0->data_conn_open_with_apn_ip_type(%llu, %s, %hhu)"
+  LOG("mAGnssHal_V2_0->data_conn_open_with_apn_ip_type(%lu, %s, %hhu)"
       ", netId: %d",
       netHandle, apn.get(), ipType, mSuplNetId);
 

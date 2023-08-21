@@ -67,7 +67,6 @@ class MemoryPressureWatcher final : public nsIRunnable {
           &MemoryPressureWatcher::NotifyMemoryPressure);
       NS_DispatchToMainThread(notify);
     }
-    return NS_OK;
   }
 
  private:

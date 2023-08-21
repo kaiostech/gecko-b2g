@@ -857,7 +857,7 @@ nsresult DeviceStorageFile::Write(nsTArray<uint8_t>& aBits) {
   }
 
   if (aBits.Length() != wrote) {
-    DS_LOG_ERROR("aBits.Length mismatch. [%u] [%u]", aBits.Length(), wrote);
+    DS_LOG_ERROR("aBits.Length mismatch. [%zu] [%d]", aBits.Length(), wrote);
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -3744,7 +3744,7 @@ nsresult DeviceStorageRequestManager::ResolveInternal(ListIndex aIndex,
      DOM call so that there is no inconsistent state. */
 
   bool isIterable = mPending[aIndex].mIsIterable;
-  DS_LOG_DEBUG("ResolveInternal, index: %u, isIterable: %d", aIndex,
+  DS_LOG_DEBUG("ResolveInternal, index: %lu, isIterable: %d", aIndex,
                isIterable);
   if (isIterable) {
     if (aResult.isUndefined()) {

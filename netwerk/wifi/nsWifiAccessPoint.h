@@ -27,7 +27,7 @@ class nsWifiAccessPoint final : public nsIWifiAccessPoint {
   char mMac[18]{0};
   int mSignal;
   char mSsid[33]{0};
-  int mSsidLen;
+  size_t mSsidLen;
 
   void setSignal(int signal) { mSignal = signal; }
 

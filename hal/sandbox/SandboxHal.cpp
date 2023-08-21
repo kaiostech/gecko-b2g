@@ -141,7 +141,9 @@ bool GetExtScreenEnabled() {
   return enabled;
 }
 
-void SetExtScreenEnabled(bool aEnabled) { Hal()->SendSetExtScreenEnabled(aEnabled); }
+void SetExtScreenEnabled(bool aEnabled) {
+  Hal()->SendSetExtScreenEnabled(aEnabled);
+}
 
 void EnableSensorNotifications(SensorType aSensor) {
   Hal()->SendEnableSensorNotifications(aSensor);
@@ -215,24 +217,13 @@ bool IsFlashlightPresent() {
   return true;
 }
 
-void NotifyFlipStateFromInputDevice(bool aFlipStatus)
-{
-}
+void NotifyFlipStateFromInputDevice(bool aFlipStatus) {}
 
-void EnableFlipNotifications()
-{
-  Hal()->SendEnableFlipNotifications();
-}
+void EnableFlipNotifications() { Hal()->SendEnableFlipNotifications(); }
 
-void DisableFlipNotifications()
-{
-  Hal()->SendDisableFlipNotifications();
-}
+void DisableFlipNotifications() { Hal()->SendDisableFlipNotifications(); }
 
-void RequestCurrentFlipState()
-{
-  Hal()->SendGetFlipState();
-}
+void RequestCurrentFlipState() { Hal()->SendGetFlipState(); }
 
 bool EnableAlarm() {
   MOZ_CRASH("Alarms can't be programmed from sandboxed contexts.  Yet.");
@@ -403,8 +394,7 @@ class HalParent : public PHalParent,
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult RecvRequestCurrentFlashlightState(
-    ) override {
+  virtual mozilla::ipc::IPCResult RecvRequestCurrentFlashlightState() override {
     FlashlightInformation flashlightInfo;
     flashlightInfo.enabled() = hal::GetFlashlightEnabled();
     flashlightInfo.present() = hal::IsFlashlightPresent();
@@ -438,7 +428,7 @@ class HalParent : public PHalParent,
     return IPC_OK();
   }
 
-  void Notify(const bool& aFlipState) {
+  void Notify(const bool& aFlipState) override {
     Unused << SendNotifyFlipState(aFlipState);
   }
 
@@ -749,8 +739,7 @@ PHalChild* CreateHalChild() { return new HalChild(); }
 
 PHalParent* CreateHalParent() { return new HalParent(); }
 
-bool
-IsFlipOpened() {
+bool IsFlipOpened() {
   MOZ_CRASH("IsFlipOpened() can't be called from sandboxed contexts.");
   return true;
 }

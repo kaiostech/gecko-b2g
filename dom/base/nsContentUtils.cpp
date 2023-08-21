@@ -5459,12 +5459,13 @@ nsresult nsContentUtils::ParseFragmentHTML(
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (fragment) {
-    uint32_t sanitizationFlags =
-        computeSanitizationFlags(nodePrincipal, aFlags);
     // Don't fire mutation events for nodes removed by the sanitizer.
     nsAutoScriptBlockerSuppressNodeRemoved scriptBlocker;
 
 #if !defined(MOZ_B2G)
+    uint32_t sanitizationFlags =
+        computeSanitizationFlags(nodePrincipal, aFlags);
+
     // The sanitizer removes some attributes used by lit-element, breaking
     // the system app UI.
     // See https://bugzilla.mozilla.org/show_bug.cgi?id=1576045 for details.

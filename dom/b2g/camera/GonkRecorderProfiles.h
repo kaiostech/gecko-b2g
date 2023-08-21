@@ -30,7 +30,7 @@
 #endif
 
 namespace android {
-class GonkRecorder;
+struct GonkRecorder;
 };
 
 namespace mozilla {

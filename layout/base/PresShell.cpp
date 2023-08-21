@@ -2248,7 +2248,6 @@ void PresShell::InitTouchLocation() {
   mTouchManager.MaybeInitForTouchLocation();
 }
 
-
 void PresShell::SetCaret(nsCaret* aNewCaret) { mCaret = aNewCaret; }
 
 void PresShell::RestoreCaret() { mCaret = mOriginalCaret; }
@@ -6350,8 +6349,7 @@ class AutoUpdateHitRegion {
 
     nsRect bounds = mShell->GetPresContext()->GetVisibleArea();
     AutoTArray<nsIFrame*, 100> outFrames;
-    nsresult rv =
-        nsLayoutUtils::GetFramesForArea(RelativeTo{mFrame}, bounds, outFrames);
+    nsLayoutUtils::GetFramesForArea(RelativeTo{mFrame}, bounds, outFrames);
 
     nsRegion region;
     for (int32_t i = outFrames.Length() - 1; i >= 0; --i) {

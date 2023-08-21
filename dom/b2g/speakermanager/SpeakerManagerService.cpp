@@ -141,7 +141,7 @@ void SpeakerManagerService::ForceSpeaker(bool aEnable, bool aVisible,
                                          uint64_t aChildID) {
   MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
           ("SpeakerManagerService, ForceSpeaker, enable %d, visible %d, active "
-           "%d, child %llu, window %llu",
+           "%d, child %lu, window %lu",
            aEnable, aVisible, aAudioChannelActive, aChildID, aWindowID));
 
   SpeakerManagerData data(aChildID, aWindowID, aEnable);
@@ -237,7 +237,7 @@ SpeakerManagerService::Observe(nsISupports* aSubject, const char* aTopic,
     nsresult rv = props->GetPropertyAsUint64(u"childID"_ns, &childID);
     if (NS_SUCCEEDED(rv)) {
       MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
-              ("SpeakerManagerService, Observe, remove child %llu", childID));
+              ("SpeakerManagerService, Observe, remove child %lu", childID));
       mVisibleSpeakerManagers.RemoveChild(childID);
       mActiveSpeakerManagers.RemoveChild(childID);
       UpdateSpeakerStatus();

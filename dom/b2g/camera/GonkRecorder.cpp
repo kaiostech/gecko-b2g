@@ -319,7 +319,7 @@ status_t GonkRecorder::setOutputFile(const char* path) {
 }
 
 status_t GonkRecorder::setOutputFile(int fd, int64_t offset, int64_t length) {
-  RE_LOGV("setOutputFile: %d, %lld, %lld", fd, offset, length);
+  RE_LOGV("setOutputFile: %d, %ld, %ld", fd, offset, length);
   // These don't make any sense, do they?
   CHECK_EQ(offset, 0ll);
   CHECK_EQ(length, 0ll);
@@ -458,49 +458,48 @@ status_t GonkRecorder::setParamVideoRotation(int32_t degrees) {
 }
 
 status_t GonkRecorder::setParamMaxFileDurationUs(int64_t timeUs) {
-  RE_LOGV("setParamMaxFileDurationUs: %lld us", timeUs);
+  RE_LOGV("setParamMaxFileDurationUs: %ld us", timeUs);
 
   // This is meant for backward compatibility for MediaRecorder.java
   if (timeUs <= 0) {
     RE_LOGW(
-        "Max file duration is not positive: %lld us. Disabling duration limit.",
+        "Max file duration is not positive: %ld us. Disabling duration limit.",
         timeUs);
     timeUs = 0;  // Disable the duration limit for zero or negative values.
   } else if (timeUs <= 100000LL) {  // XXX: 100 milli-seconds
-    RE_LOGE("Max file duration is too short: %lld us", timeUs);
+    RE_LOGE("Max file duration is too short: %ld us", timeUs);
     return BAD_VALUE;
   }
 
   if (timeUs <= 15 * 1000000LL) {
-    RE_LOGW("Target duration (%lld us) too short to be respected", timeUs);
+    RE_LOGW("Target duration (%ld us) too short to be respected", timeUs);
   }
   mMaxFileDurationUs = timeUs;
   return OK;
 }
 
 status_t GonkRecorder::setParamMaxFileSizeBytes(int64_t bytes) {
-  RE_LOGV("setParamMaxFileSizeBytes: %lld bytes", bytes);
+  RE_LOGV("setParamMaxFileSizeBytes: %ld bytes", bytes);
 
   // This is meant for backward compatibility for MediaRecorder.java
   if (bytes <= 0) {
     RE_LOGW(
-        "Max file size is not positive: %lld bytes. "
+        "Max file size is not positive: %ld bytes. "
         "Disabling file size limit.",
         bytes);
     bytes = 0;  // Disable the file size limit for zero or negative values.
   } else if (bytes <= 1024) {  // XXX: 1 kB
-    RE_LOGE("Max file size is too small: %lld bytes", bytes);
+    RE_LOGE("Max file size is too small: %ld bytes", bytes);
     return BAD_VALUE;
   }
 
   if (bytes <= 100 * 1024) {
-    RE_LOGW("Target file size (%lld bytes) is too small to be respected",
-            bytes);
+    RE_LOGW("Target file size (%ld bytes) is too small to be respected", bytes);
   }
 
   if (bytes >= 0xffffffffLL) {
     RE_LOGW(
-        "Target file size (%lld bytes) too large to be respected, clipping to "
+        "Target file size (%ld bytes) too large to be respected, clipping to "
         "4GB",
         bytes);
     bytes = 0xffffffffLL;
@@ -556,9 +555,9 @@ status_t GonkRecorder::setParamVideoCameraId(int32_t cameraId) {
 }
 
 status_t GonkRecorder::setParamTrackTimeStatus(int64_t timeDurationUs) {
-  RE_LOGV("setParamTrackTimeStatus: %lld", timeDurationUs);
+  RE_LOGV("setParamTrackTimeStatus: %ld", timeDurationUs);
   if (timeDurationUs < 20000) {  // Infeasible if shorter than 20 ms?
-    RE_LOGE("Tracking time duration too short: %lld us", timeDurationUs);
+    RE_LOGE("Tracking time duration too short: %ld us", timeDurationUs);
     return BAD_VALUE;
   }
   mTrackEveryTimeDurationUs = timeDurationUs;
@@ -1891,10 +1890,10 @@ status_t GonkRecorder::dump(int fd, const Vector<String16>& args) const {
   result.append(buffer);
   snprintf(buffer, SIZE, "     File format: %d\n", mOutputFormat);
   result.append(buffer);
-  snprintf(buffer, SIZE, "     Max file size (bytes): %lld\n",
+  snprintf(buffer, SIZE, "     Max file size (bytes): %ld\n",
            mMaxFileSizeBytes);
   result.append(buffer);
-  snprintf(buffer, SIZE, "     Max file duration (us): %lld\n",
+  snprintf(buffer, SIZE, "     Max file duration (us): %ld\n",
            mMaxFileDurationUs);
   result.append(buffer);
   snprintf(buffer, SIZE, "     File offset length (bits): %d\n",
@@ -1903,7 +1902,7 @@ status_t GonkRecorder::dump(int fd, const Vector<String16>& args) const {
   snprintf(buffer, SIZE, "     Interleave duration (us): %d\n",
            mInterleaveDurationUs);
   result.append(buffer);
-  snprintf(buffer, SIZE, "     Progress notification: %lld us\n",
+  snprintf(buffer, SIZE, "     Progress notification: %ld us\n",
            mTrackEveryTimeDurationUs);
   result.append(buffer);
   snprintf(buffer, SIZE, "   Audio\n");

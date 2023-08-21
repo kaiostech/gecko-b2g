@@ -120,7 +120,7 @@ nsresult GonkAudioDecoderManager::CreateAudioData(
   }
 
   if (mLastTime > timeUs) {
-    LOGE("Output decoded sample time is revert. time=%lld", timeUs);
+    LOGE("Output decoded sample time is revert. time=%ld", timeUs);
     MOZ_ASSERT(false);
     return NS_ERROR_NOT_AVAILABLE;
   }

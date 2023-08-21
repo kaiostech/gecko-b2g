@@ -213,7 +213,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
 
     LOG("AudioOffloadPlayer::OpenAudioSink, offload info: sample_rate=%u, "
         "channel_mask=0x%x, format=0x%x, stream_type=%d, bit_rate=%u, "
-        "duration_us=%lld, has_video=%d, is_streaming=%d, bit_width=%u, "
+        "duration_us=%lu, has_video=%d, is_streaming=%d, bit_width=%u, "
         "offload_buffer_size=%u",
         offloadInfo.sample_rate, offloadInfo.channel_mask, offloadInfo.format,
         offloadInfo.stream_type, offloadInfo.bit_rate, offloadInfo.duration_us,
@@ -227,9 +227,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
       SendMetaDataToHal(offloadInfo);
     }
   } else {
-    auto audioFormat = AUDIO_OUTPUT_FORMAT == AUDIO_FORMAT_S16
-                           ? AUDIO_FORMAT_PCM_16_BIT
-                           : AUDIO_FORMAT_PCM_FLOAT;
+    auto audioFormat = AUDIO_FORMAT_PCM_FLOAT;
 
     err = mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
                            &AudioOffloadPlayer::AudioSinkCallback, this,

@@ -490,7 +490,7 @@ HandleFocusRequest CreateFocusRequestFromInputContext(
         IME_LOGD("optionDetail.defaultSelected:[%s]",
                  isDefaultSelected ? "true" : "false");
         IME_LOGD("optionDetail.text:[%s]", NS_ConvertUTF16toUTF8(text).get());
-        IME_LOGD("optionDetail.optionIndex:[%ld]", optionIndex);
+        IME_LOGD("optionDetail.optionIndex:[%d]", optionIndex);
       }
     }
     selectionChoices.multiple() = isMultiple;
@@ -1121,7 +1121,7 @@ GeckoEditableSupport::SetSelectedOption(uint64_t aId,
                                         nsIEditableSupportListener* aListener,
                                         int32_t aOptionIndex) {
   IME_LOGD("-- EditableSupport SetSelectedOption");
-  IME_LOGD("-- EditableSupport aOptionIndex:[%ld]", aOptionIndex);
+  IME_LOGD("-- EditableSupport aOptionIndex:[%d]", aOptionIndex);
   nsresult rv = NS_ERROR_ABORT;
   do {
     Element* activeElement = GetActiveElement();
@@ -1197,7 +1197,7 @@ GeckoEditableSupport::SetSelectedOptions(
     for (int32_t idx = 0; idx < int(numOptions); idx++) {
       bool newValue = (aOptionIndexes.IndexOf(idx) != aOptionIndexes.NoIndex);
       bool oldValue = options->ItemAsOption(idx)->Selected();
-      IME_LOGD("-- SetSelectedOptions options[%ld] old:[%d] -> new:[%d]", idx,
+      IME_LOGD("-- SetSelectedOptions options[%d] old:[%d] -> new:[%d]", idx,
                oldValue, newValue);
       if (oldValue != newValue) {
         options->ItemAsOption(idx)->SetSelected(newValue);
@@ -1272,7 +1272,7 @@ GeckoEditableSupport::GetSelectionRange(uint64_t aId,
     end = (int32_t)getSelectionEnd(activeElement);
   } while (0);
 
-  IME_LOGD("GeckoEditableSupport: GetSelectionRange:[rv:%d start:%lu end:%lu]",
+  IME_LOGD("GeckoEditableSupport: GetSelectionRange:[rv:%d start:%u end:%u]",
            rv, start, end);
   if (aListener) {
     aListener->OnGetSelectionRange(aId, rv, start, end);
@@ -1621,12 +1621,12 @@ nsresult GeckoEditableSupport::GetFocusInputContextBag(
   // selectionStart
   uint32_t start = getSelectionStart(aFocusedElement);
   aInputContext->SetSelectionStart(start);
-  IME_LOGD("InputContext: selectionStart:[%lu]", start);
+  IME_LOGD("InputContext: selectionStart:[%u]", start);
 
   // selectionEnd
   uint32_t end = getSelectionEnd(aFocusedElement);
   aInputContext->SetSelectionEnd(end);
-  IME_LOGD("InputContext: selectionEnd:[%lu]", end);
+  IME_LOGD("InputContext: selectionEnd:[%u]", end);
 
   // maxLength
   aFocusedElement->GetAttribute(u"maxlength"_ns, attributeValue);
@@ -1728,7 +1728,7 @@ nsresult GeckoEditableSupport::GetFocusInputContextBag(
                  subOptElement->DefaultSelected() ? "true" : "false");
         int32_t subIndex = subOptElement->Index();
         subOptInfo->SetOptionIndex(subIndex);
-        IME_LOGD("subOptInfo: optionIndex:[%ld]", subIndex);
+        IME_LOGD("subOptInfo: optionIndex:[%d]", subIndex);
         choices.AppendElement(subOptInfo);
       }
     } else if (optElement) {
@@ -1761,7 +1761,7 @@ nsresult GeckoEditableSupport::GetFocusInputContextBag(
                optElement->DefaultSelected() ? "true" : "false");
       int32_t optionIndex = optElement->Index();
       optInfo->SetOptionIndex(optionIndex);
-      IME_LOGD("optInfo: optionIndex:[%ld]", optionIndex);
+      IME_LOGD("optInfo: optionIndex:[%d]", optionIndex);
       choices.AppendElement(optInfo);
     }
   }

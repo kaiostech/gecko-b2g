@@ -198,6 +198,23 @@ class TCPSocket final : public DOMEventTargetHelper,
 
   nsresult ResolveProxy();
 
+#ifdef MOZ_WIDGET_GONK
+  // Number of bytes sent.
+  uint32_t mTxBytes;
+  // Number of bytes received.
+  uint32_t mRxBytes;
+  // Flag to recognize is app or not.
+  bool mIsApp;
+  // The origin of app used by this socket.
+  nsAutoCString mOrigin;
+  // The URL of app used by this socket.
+  nsAutoCString mURL;
+  // The manifest URL of app used by this socket.
+  nsAutoCString mManifestURL;
+  // The name of the active network used by this socket.
+  nsCOMPtr<nsINetworkInfo> mActiveNetworkInfo;
+#endif
+
   TCPReadyState mReadyState;
   // Whether to use strings or array buffers for the "data" event.
   bool mUseArrayBuffers;
@@ -256,23 +273,6 @@ class TCPSocket final : public DOMEventTargetHelper,
   nsTArray<nsCOMPtr<nsIInputStream>> mPendingData;
 
   bool mObserversActive;
-
-#ifdef MOZ_WIDGET_GONK
-  // Number of bytes sent.
-  uint32_t mTxBytes;
-  // Number of bytes received.
-  uint32_t mRxBytes;
-  // Flag to recognize is app or not.
-  bool mIsApp;
-  // The origin of app used by this socket.
-  nsAutoCString mOrigin;
-  // The URL of app used by this socket.
-  nsAutoCString mURL;
-  // The manifest URL of app used by this socket.
-  nsAutoCString mManifestURL;
-  // The name of the active network used by this socket.
-  nsCOMPtr<nsINetworkInfo> mActiveNetworkInfo;
-#endif
 
 #ifdef MOZ_B2G
   static bool PermissionAllowed(const nsACString& aType,

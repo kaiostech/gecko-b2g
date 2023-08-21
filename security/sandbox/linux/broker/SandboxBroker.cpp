@@ -44,7 +44,7 @@ static const nsLiteralCString tempDirPrefix("/tmp");
 // This constructor signals failure by setting mFileDesc and aClientFd to -1.
 SandboxBroker::SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid,
                              int& aClientFd)
-    : mChildPid(aChildPid), mFileDesc(-1), mPolicy(std::move(aPolicy)) {
+    : mFileDesc(-1), mChildPid(aChildPid), mPolicy(std::move(aPolicy)) {
   int fds[2];
   if (0 != socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, fds)) {
     SANDBOX_LOG_ERRNO("SandboxBroker: socketpair failed");

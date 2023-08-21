@@ -17,7 +17,6 @@
 #include "nsXULAppAPI.h"
 #include <dirent.h>
 #include <android/log.h>
-#define ALOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gecko", ##args)
 
 #include "ft2build.h"
 #include FT_FREETYPE_H
@@ -1467,11 +1466,11 @@ void gfxFT2FontList::FindFonts() {
   }();
 
   if (firstTime) {
-#if defined(MOZ_WIDGET_ANDROID)
+#  if defined(MOZ_WIDGET_ANDROID)
     if (jni::GetAPIVersion() >= 29) {
-#else
+#  else
     {
-#endif
+#  endif
       void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
       MOZ_ASSERT(handle);
 
@@ -1497,7 +1496,7 @@ void gfxFT2FontList::FindFonts() {
 
   bool useSystemFontAPI = !!systemFontIterator_open;
 
-#if defined(MOZ_WIDGET_ANDROID)
+#  if defined(MOZ_WIDGET_ANDROID)
   if (useSystemFontAPI &&
       !StaticPrefs::
           gfx_font_list_use_font_match_api_force_enabled_AtStartup()) {
@@ -1510,7 +1509,7 @@ void gfxFT2FontList::FindFonts() {
       useSystemFontAPI = false;
     }
   }
-#endif
+#  endif
 
   if (useSystemFontAPI) {
     void* iter = systemFontIterator_open();
@@ -1538,7 +1537,7 @@ void gfxFT2FontList::FindFonts() {
       useSystemFontAPI = false;
     }
     if (!mFontNameCache->EntryCount()) {
-        useSystemFontAPI = false;
+      useSystemFontAPI = false;
     }
   }
 

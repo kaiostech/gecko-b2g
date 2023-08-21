@@ -72,7 +72,7 @@ using namespace sandbox::bpf_dsl;
 #define O_LARGEFILE_REAL 00100000
 
 #ifdef __ANDROID__
-#define PR_SET_VMA 0x53564d41
+#  define PR_SET_VMA 0x53564d41
 #endif
 // Not part of UAPI, but userspace sees it in F_GETFL; see bug 1650751.
 #define FMODE_NONOTIFY 0x4000000
@@ -211,7 +211,7 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     return -ETXTBSY;
   }
 
-protected:
+ protected:
   // Trap handlers for filesystem brokering.
   // (The amount of code duplication here could be improved....)
 #ifdef __NR_open
@@ -337,7 +337,6 @@ protected:
   }
 
   static intptr_t AccessAt2Trap(ArgsRef aArgs, void* aux) {
-    auto* broker = static_cast<SandboxBrokerClient*>(aux);
     auto fd = static_cast<int>(aArgs.args[0]);
     const auto* path = reinterpret_cast<const char*>(aArgs.args[1]);
     auto mode = static_cast<int>(aArgs.args[2]);
@@ -347,7 +346,8 @@ protected:
                   path, mode, flags);
       return BlockedSyscallTrap(aArgs, nullptr);
     }
-#if !defined(ANDROID) // AT_EACCESS is not supported in bionic.
+#if !defined(ANDROID)  // AT_EACCESS is not supported in bionic.
+    auto* broker = static_cast<SandboxBrokerClient*>(aux);
     if ((flags & ~AT_EACCESS) == 0) {
       return broker->Access(path, mode);
     }
@@ -723,16 +723,16 @@ protected:
     // the constant will need to be defined locally.
     Arg<int> op(0);
     return Switch(op)
-        .CASES((PR_GET_SECCOMP,   // BroadcastSetThreadSandbox, etc.
+        .CASES((PR_GET_SECCOMP,  // BroadcastSetThreadSandbox, etc.
 #ifdef __ANDROID__
                 PR_SET_VMA,
-                PR_GET_NO_NEW_PRIVS, // Required by debuggerd
+                PR_GET_NO_NEW_PRIVS,  // Required by debuggerd
 #endif
                 PR_SET_NAME,      // Thread creation
                 PR_SET_DUMPABLE,  // Crash reporting
 #ifdef MOZ_WIDGET_GONK
-                PR_SET_TIMERSLACK, // task_profiles
-                PR_GET_DUMPABLE,   // Linker logger
+                PR_SET_TIMERSLACK,  // task_profiles
+                PR_GET_DUMPABLE,    // Linker logger
 #endif
                 PR_SET_PTRACER),  // Debug-mode crash handling
                Allow())
@@ -1317,8 +1317,8 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
  public:
   ContentSandboxPolicy(SandboxBrokerClient* aBroker,
                        ContentProcessSandboxParams&& aParams)
-        : mAuxData(new AuxData(aBroker, aParams.mFiles)),
-          mParams(std::move(aParams)),
+      : mAuxData(new AuxData(aBroker, aParams.mFiles)),
+        mParams(std::move(aParams)),
         mAllowSysV(PR_GetEnv("MOZ_SANDBOX_ALLOW_SYSV") != nullptr),
         mUsingRenderDoc(PR_GetEnv("RENDERDOC_CAPTUREOPTS") != nullptr) {
     mBroker = aBroker;
@@ -1437,23 +1437,23 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
     switch (sysno) {
 #ifdef MOZ_WIDGET_GONK
-      CASES_FOR_statfs:
-        return Trap(StatFsTrap, nullptr);
+    CASES_FOR_statfs:
+      return Trap(StatFsTrap, nullptr);
 
-      CASES_FOR_fstatfs:
-#ifdef __NR_getgroups32
-      case __NR_getgroups32:  // To dump tombstone in logcat
-#endif
-#ifdef __NR_getgroups
-      case __NR_getgroups:
-#endif
-      // Allow some system calls utilized by app process
-      // Follow-up: will have separate bugs to review these usage
-      case __NR_connect:           // For uds_transport.rs
-      CASES_FOR_fcntl:             // For uds_transport.rs
-      case __NR_process_vm_readv:  // For crash report dump
-      case __NR_sched_setaffinity: // For libGLESv2_adreno.so
-        return Allow();
+    CASES_FOR_fstatfs:
+#  ifdef __NR_getgroups32
+    case __NR_getgroups32:  // To dump tombstone in logcat
+#  endif
+#  ifdef __NR_getgroups
+    case __NR_getgroups:
+#  endif
+    // Allow some system calls utilized by app process
+    // Follow-up: will have separate bugs to review these usage
+    case __NR_connect:            // For uds_transport.rs
+    CASES_FOR_fcntl:              // For uds_transport.rs
+    case __NR_process_vm_readv:   // For crash report dump
+    case __NR_sched_setaffinity:  // For libGLESv2_adreno.so
+      return Allow();
 #endif
 
 #ifdef DESKTOP
@@ -1526,14 +1526,14 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
         return Switch(cmd)
             // Nvidia GL and fontconfig (newer versions) use fcntl file locking.
             .Case(F_SETLK, Allow())
-#ifdef F_SETLK64
+#  ifdef F_SETLK64
             .Case(F_SETLK64, Allow())
-#endif
+#  endif
             // Pulseaudio uses F_SETLKW, as does fontconfig.
             .Case(F_SETLKW, Allow())
-#ifdef F_SETLKW64
+#  ifdef F_SETLKW64
             .Case(F_SETLKW64, Allow())
-#endif
+#  endif
             // Wayland client libraries use file seals
             .Case(F_ADD_SEALS, Allow())
             .Case(F_GET_SEALS, Allow())
@@ -2199,11 +2199,10 @@ class UtilitySandboxPolicy : public SandboxPolicyCommon {
   ResultExpr PrctlPolicy() const override {
     Arg<int> op(0);
     return Switch(op)
-        .CASES((PR_SET_NAME,        // Thread creation
-                PR_SET_DUMPABLE,    // Crash reporting
+        .CASES((PR_SET_NAME,      // Thread creation
+                PR_SET_DUMPABLE,  // Crash reporting
 #if defined(MOZ_WIDGET_GONK)
-                PR_GET_DUMPABLE,
-                PR_SET_VMA,
+                PR_GET_DUMPABLE, PR_SET_VMA,
 #endif
                 PR_SET_PTRACER,     // Debug-mode crash handling
                 PR_GET_PDEATHSIG),  // PGO profiling, cf

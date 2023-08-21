@@ -98,9 +98,9 @@ nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
 
   mWindow = AudioChannelService::GetTopAppWindow(aWindow->GetOuterWindow());
 
-  MOZ_LOG(
-      SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
-      ("SpeakerManager, Init, window ID %llu, policy %d", WindowID(), mPolicy));
+  MOZ_LOG(SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
+          ("SpeakerManager, Init, window ID %lu, policy %hhu", WindowID(),
+           mPolicy));
 
   SpeakerManagerService* service =
       SpeakerManagerService::GetOrCreateSpeakerManagerService();

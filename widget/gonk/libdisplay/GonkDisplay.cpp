@@ -26,8 +26,8 @@
 #include <suspend/autosuspend.h>
 
 #if ANDROID_VERSION >= 30
-#include <android/hardware/power/Mode.h>
-#include "binder/IServiceManager.h"
+#  include <android/hardware/power/Mode.h>
+#  include "binder/IServiceManager.h"
 #endif
 
 #include "cutils/properties.h"
@@ -182,12 +182,12 @@ GonkDisplayP::GonkDisplayP()
 
   char lcd_density_str[PROPERTY_VALUE_MAX] = "0";
   property_get("ro.sf.lcd_density", lcd_density_str, "0");
-  int lcd_dnsity = atoi(lcd_density_str);
+  int lcd_density = atoi(lcd_density_str);
 
   mEnableHWCPower = property_get_bool("persist.hwc.powermode", false);
 
-  ALOGI("width: %i, height: %i, dpi: %f, lcd: %d, vsync: %llu\n",
-        config->getWidth(), config->getHeight(), config->getDpiX(), lcd_dnsity,
+  ALOGI("width: %i, height: %i, dpi: %f, lcd: %d, vsync: %lu\n",
+        config->getWidth(), config->getHeight(), config->getDpiX(), lcd_density,
         config->getVsyncPeriod());
 
   DisplayNativeData& dispData =
@@ -195,7 +195,7 @@ GonkDisplayP::GonkDisplayP()
   if (config->getWidth() > 0) {
     dispData.mWidth = config->getWidth();
     dispData.mHeight = config->getHeight();
-    dispData.mXdpi = (lcd_dnsity > 0) ? lcd_dnsity : config->getDpiX();
+    dispData.mXdpi = (lcd_density > 0) ? lcd_density : config->getDpiX();
     dispData.mVsyncPeriod = config->getVsyncPeriod();
     /* The emulator actually reports RGBA_8888, but EGL doesn't return
      * any matching configuration. We force RGBX here to fix it. */

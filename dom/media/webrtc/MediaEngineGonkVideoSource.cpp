@@ -674,6 +674,8 @@ void MediaEngineGonkVideoSource::UpdateScreenConfiguration(
 
   int orientation = 0;
   switch (aOrientationType) {
+    case hal::ScreenOrientation::Default:
+    case hal::ScreenOrientation::None:
     case hal::ScreenOrientation::PortraitPrimary:
       orientation = 0;
       break;
@@ -899,12 +901,12 @@ already_AddRefed<layers::Image> MediaEngineGonkVideoSource::RotateImage(
   }
 
   RefPtr<layers::Image> image;
-  if (image = CreateI420GrallocImage(dstWidth, dstHeight)) {
+  if ((image = CreateI420GrallocImage(dstWidth, dstHeight))) {
     sp<GraphicBuffer> dstBuffer = image->AsGrallocImage()->GetGraphicBuffer();
     if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
       return nullptr;
     }
-  } else if (image = CreateI420PlanarYCbCrImage(dstWidth, dstHeight)) {
+  } else if ((image = CreateI420PlanarYCbCrImage(dstWidth, dstHeight))) {
     RefPtr<layers::TextureClient> textureClient =
         image->GetTextureClient(nullptr);
 

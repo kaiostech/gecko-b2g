@@ -36,8 +36,8 @@ VolumeInfo::VolumeInfo(const nsACString& aId, int aType,
       mDiskId(aDiskId),
       mPartGuid(aPartGuid),
       mState(State::kUnmounted) {
-  // LOG("create VolumeInfo Id=%s, diskId=%s state = %d, type = %d", mId.Data(),
-  // mDiskId.Data(), mState, mType);
+  LOG("create VolumeInfo Id=%s, diskId=%s state = %d, type = %d", mId.Data(),
+      mDiskId.Data(), mState, mType);
 }
 
 VolumeManager::VolumeManager() { DBG("VolumeManager constructor called"); }

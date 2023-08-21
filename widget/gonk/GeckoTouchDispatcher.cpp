@@ -319,7 +319,8 @@ void GeckoTouchDispatcher::ResampleTouchMoves(MultiTouchInput& aOutTouch,
 
 static bool IsExpired(const MultiTouchInput& aTouch) {
   // No pending events, the filter state can be updated.
-  return (TimeStamp::Now() - aTouch.mTimeStamp) > TimeDuration::FromMilliseconds(kInputExpirationThresholdMs);
+  return (TimeStamp::Now() - aTouch.mTimeStamp) >
+         TimeDuration::FromMilliseconds(kInputExpirationThresholdMs);
 }
 
 void GeckoTouchDispatcher::DispatchTouchEvent(MultiTouchInput aMultiTouch) {
@@ -339,25 +340,25 @@ void GeckoTouchDispatcher::DispatchTouchEvent(MultiTouchInput aMultiTouch) {
 
   nsWindow::DispatchTouchInput(aMultiTouch);
 
-  if (mEnabledUniformityInfo && profiler_is_active()) {
-    const char* touchAction = "Invalid";
-    switch (aMultiTouch.mType) {
-      case MultiTouchInput::MULTITOUCH_START:
-        touchAction = "Touch_Event_Down";
-        break;
-      case MultiTouchInput::MULTITOUCH_MOVE:
-        touchAction = "Touch_Event_Move";
-        break;
-      case MultiTouchInput::MULTITOUCH_END:
-      case MultiTouchInput::MULTITOUCH_CANCEL:
-        touchAction = "Touch_Event_Up";
-        break;
-    }
+  // if (mEnabledUniformityInfo && profiler_is_active()) {
+  //   const char* touchAction = "Invalid";
+  //   switch (aMultiTouch.mType) {
+  //     case MultiTouchInput::MULTITOUCH_START:
+  //       touchAction = "Touch_Event_Down";
+  //       break;
+  //     case MultiTouchInput::MULTITOUCH_MOVE:
+  //       touchAction = "Touch_Event_Move";
+  //       break;
+  //     case MultiTouchInput::MULTITOUCH_END:
+  //     case MultiTouchInput::MULTITOUCH_CANCEL:
+  //       touchAction = "Touch_Event_Up";
+  //       break;
+  //   }
 
-    // const ScreenIntPoint& touchPoint = aMultiTouch.mTouches[0].mScreenPoint;
-    // TouchDataPayload* payload = new TouchDataPayload(touchPoint);
-    // PROFILER_MARKER_PAYLOAD(touchAction, payload);
-  }
+  //   const ScreenIntPoint& touchPoint = aMultiTouch.mTouches[0].mScreenPoint;
+  //   TouchDataPayload* payload = new TouchDataPayload(touchPoint);
+  //   PROFILER_MARKER_PAYLOAD(touchAction, payload);
+  // }
 }
 
 void GeckoTouchDispatcher::SetMouseDevice(bool aMouseAvailable) {

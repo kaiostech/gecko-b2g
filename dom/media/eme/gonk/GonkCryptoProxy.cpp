@@ -109,7 +109,7 @@ ssize_t GonkCryptoProxy::decrypt(const uint8_t key[16], const uint8_t iv[16],
       mCrypto->decrypt(key, iv, mode, pattern, source, offset, subSamples,
                        numSubSamples, destination, errorDetailMsg);
   if (ret < 0) {
-    GD_LOGE("%p GonkCryptoProxy::decrypt, decrypt failed %d", this, ret);
+    GD_LOGE("%p GonkCryptoProxy::decrypt, decrypt failed %zu", this, ret);
   }
   return ret;
 }

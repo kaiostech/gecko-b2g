@@ -1455,7 +1455,7 @@ void BluetoothServiceBluedroid::SendMetaData(
     const nsAString& aTitle, const nsAString& aArtist, const nsAString& aAlbum,
     int64_t aMediaNumber, int64_t aTotalMediaCount, int64_t aDuration,
     BluetoothReplyRunnable* aRunnable) {
-  BT_LOGR("title: %s, duration: %lld", NS_ConvertUTF16toUTF8(aTitle).get(),
+  BT_LOGR("title: %s, duration: %ld", NS_ConvertUTF16toUTF8(aTitle).get(),
           aDuration);
   BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
   if (avrcp) {
@@ -1468,7 +1468,7 @@ void BluetoothServiceBluedroid::SendMetaData(
 void BluetoothServiceBluedroid::SendPlayStatus(
     int64_t aDuration, int64_t aPosition, ControlPlayStatus aPlayStatus,
     BluetoothReplyRunnable* aRunnable) {
-  BT_LOGD("duration: %lld, position: %lld", aDuration, aPosition);
+  BT_LOGD("duration: %ld, position: %ld", aDuration, aPosition);
   BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
   if (avrcp) {
     avrcp->UpdatePlayStatus(aDuration, aPosition, aPlayStatus);
@@ -1734,7 +1734,7 @@ void BluetoothServiceBluedroid::AdapterPropertiesNotification(
       // We have to cache addresses of bonded devices. Unlike BlueZ,
       // Bluedroid would not send another PROPERTY_ADAPTER_BONDED_DEVICES
       // event after bond completed.
-      BT_LOGD("Adapter property: BONDED_DEVICES. Count: %d",
+      BT_LOGD("Adapter property: BONDED_DEVICES. Count: %zu",
               p.mBdAddressArray.Length());
 
       // Whenever reloading paired devices, force refresh

@@ -47,9 +47,9 @@ void CarryIntoInputContext(nsIEditableSupport* aEditableSupport,
            aRequest.voiceInputSupported());
   IME_LOGD("HandleFocusRequest: name:[%s]",
            NS_ConvertUTF16toUTF8(aRequest.name()).get());
-  IME_LOGD("HandleFocusRequest: selectionStart:[%lu]",
+  IME_LOGD("HandleFocusRequest: selectionStart:[%d]",
            aRequest.selectionStart());
-  IME_LOGD("HandleFocusRequest: selectionEnd:[%lu]", aRequest.selectionEnd());
+  IME_LOGD("HandleFocusRequest: selectionEnd:[%d]", aRequest.selectionEnd());
   IME_LOGD("HandleFocusRequest: maxLength:[%s]",
            NS_ConvertUTF16toUTF8(aRequest.maxLength()).get());
   IME_LOGD("HandleFocusRequest: imeGroup:[%s]",

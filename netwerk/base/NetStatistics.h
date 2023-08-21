@@ -48,8 +48,7 @@ inline nsresult GetActiveNetworkInfo(
 class SaveNetworkStatsEvent : public Runnable {
  public:
   SaveNetworkStatsEvent(
-      nsAutoCString& aOrigin,
-      nsAutoCString& aURL,
+      nsAutoCString& aOrigin, nsAutoCString& aURL,
       nsMainThreadPtrHandle<nsINetworkInfo>& aActiveNetworkInfo,
       uint64_t aCountRecv, uint64_t aCountSent, bool aIsAccumulative,
       bool aIsApp, nsAutoCString& aManifestURL)
@@ -59,8 +58,8 @@ class SaveNetworkStatsEvent : public Runnable {
         mActiveNetworkInfo(aActiveNetworkInfo),
         mCountRecv(aCountRecv),
         mCountSent(aCountSent),
-        mIsAccumulative(aIsAccumulative),
         mIsApp(aIsApp),
+        mIsAccumulative(aIsAccumulative),
         mManifestURL(aManifestURL) {
     MOZ_ASSERT(!mOrigin.IsEmpty());
     MOZ_ASSERT(mActiveNetworkInfo);
@@ -78,8 +77,8 @@ class SaveNetworkStatsEvent : public Runnable {
 
     // save the network stats through NetworkStatsServiceProxy
     mNetworkStatsServiceProxy->SaveAppStats(
-        mOrigin, mURL, mActiveNetworkInfo, mCountRecv, mCountSent, mIsAccumulative,
-        mIsApp, mManifestURL, nullptr);
+        mOrigin, mURL, mActiveNetworkInfo, mCountRecv, mCountSent,
+        mIsAccumulative, mIsApp, mManifestURL, nullptr);
 
     return NS_OK;
   }

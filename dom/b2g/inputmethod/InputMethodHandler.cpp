@@ -164,7 +164,7 @@ InputMethodHandler::OnGetSelectionRange(uint64_t aId, nsresult aStatus,
   IME_LOGD("--InputMethodHandler::OnGetSelectionRange");
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
-      IME_LOGD("--InputMethodHandler::OnGetSelectionRange: %lu %lu", aStart,
+      IME_LOGD("--InputMethodHandler::OnGetSelectionRange: %d %d", aStart,
                aEnd);
       nsTArray<int32_t> range;
       range.AppendElement(aStart);

@@ -21,7 +21,7 @@ VirtualCursorProxy::VirtualCursorProxy(nsPIDOMWindowOuter* aWindow,
                                        const LayoutDeviceIntPoint& aOffset)
     : mOuterWindow(aWindow) {
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-          ("VirtualCursorProxy construct win id=%llu this=%p",
+          ("VirtualCursorProxy construct win id=%lu this=%p",
            aWindow->WindowID(), this));
   mSimulator = new CursorSimulator(aWindow, aDelegate);
   mSimulator->UpdateChromeOffset(aOffset);
@@ -82,7 +82,7 @@ NS_IMETHODIMP VirtualCursorProxy::Observe(nsISupports* aSubject,
     uint64_t outerID;
     Unused << wrapper->GetData(&outerID);
     MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-            ("outer-window-destroyed id %llu self %llu", outerID,
+            ("outer-window-destroyed id %lu self %lu", outerID,
              mOuterWindow->WindowID()));
     if (mOuterWindow->WindowID() == outerID) {
       DestroyCursor();

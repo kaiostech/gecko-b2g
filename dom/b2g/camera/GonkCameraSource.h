@@ -165,7 +165,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   // Called from dataCallbackTimestamp.
   virtual bool skipCurrentFrame(int64_t timestampUs) { return false; }
 
-  friend class GonkCameraSourceListener;
+  friend struct GonkCameraSourceListener;
   // Callback called when still camera raw data is available.
   virtual void dataCallback(int32_t msgType, const sp<IMemory>& data) {}
 

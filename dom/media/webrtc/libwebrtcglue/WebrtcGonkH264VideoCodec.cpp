@@ -84,7 +84,7 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
 
   if (!mOMXConfigured || mOMXReconfigure) {
     if (mOMXConfigured) {
-      LOGI("Encoder:%p reconfiguring %dx%d @ %u fps", this, mWidth, mHeight,
+      LOGI("Encoder:%p reconfiguring %dx%d @ %f fps", this, mWidth, mHeight,
            mFrameRate);
       mOMXConfigured = false;
     }
@@ -125,7 +125,7 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
     format->setInt32("frame-rate", mFrameRate);
     format->setInt32("bitrate", mBitrateBps);
 
-    LOGI("Encoder:%p configuring %dx%d @ %d fps, rate %d bps", this, mWidth,
+    LOGI("Encoder:%p configuring %dx%d @ %d fps, rate %f bps", this, mWidth,
          mHeight, mFrameRate, mBitrateBps);
     if (mEncoder->Configure(format) != android::OK) {
       LOGE("Encoder:%p failed to configure", this);

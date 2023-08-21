@@ -153,18 +153,18 @@ void MozMtpDatabase::DumpEntries(const char* aLabel) {
   MutexAutoLock lock(mMutex);
 
   ProtectedDbArray::size_type numEntries = mDb.Length();
-  MTP_LOG("%s: numEntries = %d", aLabel, numEntries);
+  MTP_LOG("%s: numEntries = %zu", aLabel, numEntries);
   ProtectedDbArray::index_type entryIndex;
   for (entryIndex = 1; entryIndex < numEntries; entryIndex++) {
     RefPtr<DbEntry> entry = mDb[entryIndex];
     if (entry) {
       MTP_LOG(
-          "%s: mDb[%d]: mHandle: 0x%08x mParent: 0x%08x StorageID: 0x%08x "
+          "%s: mDb[%ld]: mHandle: 0x%08x mParent: 0x%08x StorageID: 0x%08x "
           "path: '%s'",
           aLabel, entryIndex, entry->mHandle, entry->mParent, entry->mStorageID,
           entry->mPath.get());
     } else {
-      MTP_LOG("%s: mDb[%2d]: entry is NULL", aLabel, entryIndex);
+      MTP_LOG("%s: mDb[%2ld]: entry is NULL", aLabel, entryIndex);
     }
   }
 }
@@ -631,7 +631,7 @@ void MozMtpDatabase::AddStorage(MtpStorageID aStorageID, const char* aPath,
   AddDirectory(aStorageID, aPath, MTP_PARENT_ROOT);
   {
     MutexAutoLock lock(mMutex);
-    MTP_LOG("added %d items from tree '%s'", mDb.Length(), aPath);
+    MTP_LOG("added %zu items from tree '%s'", mDb.Length(), aPath);
   }
 }
 
@@ -862,7 +862,7 @@ MtpObjectHandleList* MozMtpDatabase::getObjectList(MtpStorageID aStorageID,
       list->push_back(entry->mHandle);
     }
   }
-  MTP_LOG("  returning %d items", list->size());
+  MTP_LOG("  returning %zu items", list->size());
   return list.release();
 }
 

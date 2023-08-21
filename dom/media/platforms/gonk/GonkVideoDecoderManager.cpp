@@ -7,9 +7,9 @@
 #include <OMX_IVCommon.h>
 #include <gui/Surface.h>
 #if ANDROID_VERSION >= 30
-#include <mediadrm/ICrypto.h>
+#  include <mediadrm/ICrypto.h>
 #else
-#include <media/ICrypto.h>
+#  include <media/ICrypto.h>
 #endif
 #include "GonkMediaUtils.h"
 #include "GonkVideoDecoderManager.h"
@@ -204,7 +204,7 @@ nsresult GonkVideoDecoderManager::CreateVideoData(
   }
 
   if (mLastTime > timeUs) {
-    LOGE("Output decoded sample time is revert. time=%lld", timeUs);
+    LOGE("Output decoded sample time is revert. time=%ld", timeUs);
     return NS_ERROR_NOT_AVAILABLE;
   }
   mLastTime = timeUs;

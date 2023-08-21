@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#undef LOG_TAG
 #define LOG_TAG "AnqpElement"
 
 #include "AnqpElement.h"
@@ -150,7 +151,7 @@ void AnqpParser::ParseRoamingConsortium(const VecByte& aPayload,
     size_t length = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
 
     if (length < sizeof(int8_t) || length > sizeof(int32_t)) {
-      WIFI_LOGE(LOG_TAG, "Invalid OI length: %d", length);
+      WIFI_LOGE(LOG_TAG, "Invalid OI length: %zu", length);
       return;
     }
 
@@ -600,7 +601,7 @@ already_AddRefed<nsI18Name> AnqpParser::parseI18Name(
   std::string text = ByteToString(pos, length - LANGUAGE_CODE_LENGTH);
 
   if (text.length() > MAXIMUM_I18N_STRING_LENGTH) {
-    WIFI_LOGE(LOG_TAG, "Name text exceeds the maximum value: %d",
+    WIFI_LOGE(LOG_TAG, "Name text exceeds the maximum value: %zu",
               text.length());
     return nullptr;
   }

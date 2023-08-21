@@ -55,8 +55,8 @@ using namespace mozilla::dom::gonk;
 using namespace mozilla::dom::bluetooth;
 using android::AudioSystem;
 
-#define BLUETOOTH_HFP_STATUS_CHANGED_ID "bluetooth-hfp-status-changed"
-#define BLUETOOTH_SCO_STATUS_CHANGED_ID "bluetooth-sco-status-changed"
+#define BLUETOOTH_HFP_STATUS_CHANGED "bluetooth-hfp-status-changed"
+#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
 
 #undef ANDLOG
 #define ANDLOG(args...) \
@@ -210,7 +210,7 @@ class VolumeCurves {
   }
 
  private:
-  inline int MaxIndex() { return sMaxStreamVolumeTbl[mStreamType]; }
+  inline uint32_t MaxIndex() { return sMaxStreamVolumeTbl[mStreamType]; }
 
   float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
     float decibel = AudioSystem::getStreamVolumeDB(
@@ -535,7 +535,7 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
                                                 const nsCString aAddress) {
 #ifdef MOZ_B2G_BT
   bool isConnected = false;
-  if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
+  if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED)) {
     BluetoothHfpManagerBase* hfp =
         static_cast<BluetoothHfpManagerBase*>(aSubject);
     isConnected = hfp->IsScoConnected();
@@ -545,7 +545,7 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
     isConnected = profile->IsConnected();
   }
 
-  if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
+  if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED)) {
     if (isConnected) {
       BluetoothHfpManagerBase* hfp =
           static_cast<BluetoothHfpManagerBase*>(aSubject);
@@ -601,7 +601,7 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
       }
     }
     mBluetoothA2dpEnabled = isConnected;
-  } else if (!strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
+  } else if (!strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED)) {
     UpdateDeviceConnectionState(
         isConnected, AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET, aAddress);
     UpdateDeviceConnectionState(
@@ -629,8 +629,8 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
 
 nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
                                const char16_t* aData) {
-  if ((strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID) == 0) ||
-      (strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID) == 0) ||
+  if ((strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED) == 0) ||
+      (strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED) == 0) ||
       (strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID) == 0) ||
       (strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID) == 0) ||
       (strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID) == 0)) {
@@ -845,16 +845,14 @@ void AudioManager::Init() {
   // Register to observer service.
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
-  if (NS_FAILED(
-          obs->AddObserver(this, BLUETOOTH_SCO_STATUS_CHANGED_ID, false))) {
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_SCO_STATUS_CHANGED, false))) {
     NS_WARNING("Failed to add bluetooth sco status changed observer!");
   }
   if (NS_FAILED(
           obs->AddObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID, false))) {
     NS_WARNING("Failed to add bluetooth a2dp status changed observer!");
   }
-  if (NS_FAILED(
-          obs->AddObserver(this, BLUETOOTH_HFP_STATUS_CHANGED_ID, false))) {
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_STATUS_CHANGED, false))) {
     NS_WARNING("Failed to add bluetooth hfp status changed observer!");
   }
   if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID,
@@ -907,13 +905,13 @@ AudioManager::~AudioManager() {
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
-  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED_ID))) {
+  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED))) {
     NS_WARNING("Failed to remove bluetooth sco status changed observer!");
   }
   if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID))) {
     NS_WARNING("Failed to remove bluetooth a2dp status changed observer!");
   }
-  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_HFP_STATUS_CHANGED_ID))) {
+  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_HFP_STATUS_CHANGED))) {
     NS_WARNING("Failed to remove bluetooth hfp status changed observer!");
   }
   if (NS_FAILED(

@@ -154,6 +154,14 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost,
                      uint16_t aPort, bool aSsl, bool aUseArrayBuffers)
     : DOMEventTargetHelper(aGlobal),
+#ifdef MOZ_WIDGET_GONK
+      mTxBytes(0),
+      mRxBytes(0),
+      mIsApp(false),
+      mOrigin("[System Principal]"),
+      mURL(EmptyCString()),
+      mManifestURL(EmptyCString()),
+#endif
       mReadyState(TCPReadyState::Closed),
       mUseArrayBuffers(aUseArrayBuffers),
       mHost(aHost),
@@ -166,14 +174,6 @@ TCPSocket::TCPSocket(nsIGlobalObject* aGlobal, const nsAString& aHost,
       mSuspendCount(0),
       mTrackingNumber(0),
       mWaitingForStartTLS(false),
-#ifdef MOZ_WIDGET_GONK
-      mTxBytes(0),
-      mRxBytes(0),
-      mIsApp(false),
-      mOrigin("[System Principal]"),
-      mURL(EmptyCString()),
-      mManifestURL(EmptyCString()),
-#endif
       mObserversActive(false) {
 
   if (aGlobal) {
@@ -1165,8 +1165,8 @@ void TCPSocket::SetSocketBridgeParent(TCPSocketParent* aBridgeParent) {
   mSocketBridgeParent = aBridgeParent;
 }
 
-void TCPSocket::SetOrigin(nsAutoCString& aOrigin, nsAutoCString& aURL, bool aIsApp,
-                          nsAutoCString& aManifestURL) {
+void TCPSocket::SetOrigin(nsAutoCString& aOrigin, nsAutoCString& aURL,
+                          bool aIsApp, nsAutoCString& aManifestURL) {
 #ifdef MOZ_WIDGET_GONK
   mOrigin = aOrigin;
   mURL = aURL;
@@ -1209,9 +1209,8 @@ void TCPSocket::SaveNetworkStats(bool aEnforce) {
   nsString host;
   this->GetHost(host);
   if (!host.IsEmpty() &&
-    (StringEndsWith(host, NS_LITERAL_STRING_FROM_CSTRING(".localhost")) ||
-    host.EqualsLiteral("localhost") ||
-    host.EqualsLiteral("127.0.0.1"))) {
+      (StringEndsWith(host, NS_LITERAL_STRING_FROM_CSTRING(".localhost")) ||
+       host.EqualsLiteral("localhost") || host.EqualsLiteral("127.0.0.1"))) {
     return;
   }
 
@@ -1230,8 +1229,8 @@ void TCPSocket::SaveNetworkStats(bool aEnforce) {
     return;
   }
 
-  nssProxy->SaveAppStats(mOrigin, mURL, mActiveNetworkInfo, mRxBytes, mTxBytes, false,
-                         mIsApp, mManifestURL, nullptr);
+  nssProxy->SaveAppStats(mOrigin, mURL, mActiveNetworkInfo, mRxBytes, mTxBytes,
+                         false, mIsApp, mManifestURL, nullptr);
 
   // Reset the counters once the statistics is saved to
   // NetworkStatsServiceProxy.

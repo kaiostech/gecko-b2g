@@ -481,7 +481,7 @@ bool BluetoothOppManager::ProcessNextBatch() {
   if (mCurrentBlobIndex >= 0) {
     ClearQueue();
     mBatches.RemoveElementAt(0);
-    BT_LOGR("REMOVE. %d remaining", mBatches.Length());
+    BT_LOGR("REMOVE. %zu remaining", mBatches.Length());
   }
 
   // Process the next batch

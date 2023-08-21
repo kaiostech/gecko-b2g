@@ -74,11 +74,11 @@ RasterImage::RasterImage(nsIURI* aURI /* = nullptr */)
       mLockCount(0),
       mDecoderType(DecoderType::UNKNOWN),
       mDecodeCount(0),
-      mRequestedSampleSize(0),
 #ifdef DEBUG
       mFramesNotified(0),
 #endif
-      mSourceBuffer(MakeNotNull<SourceBuffer*>()) {
+      mSourceBuffer(MakeNotNull<SourceBuffer*>()),
+      mRequestedSampleSize(0) {
 }
 
 //******************************************************************************
@@ -1263,7 +1263,8 @@ RasterImage::DecodeMetadata(uint32_t aFlags) {
 
   // Create a decoder.
   RefPtr<IDecodingTask> task = DecoderFactory::CreateMetadataDecoder(
-      mDecoderType, WrapNotNull(this), mDefaultDecoderFlags, mSourceBuffer, mRequestedSampleSize);
+      mDecoderType, WrapNotNull(this), mDefaultDecoderFlags, mSourceBuffer,
+      mRequestedSampleSize);
 
   // Make sure DecoderFactory was able to create a decoder successfully.
   if (!task) {

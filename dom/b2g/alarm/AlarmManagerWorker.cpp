@@ -353,7 +353,8 @@ class AlarmRemoveRunnable final : public Runnable {
  public:
   explicit AlarmRemoveRunnable(long aId, const nsACString& aUrl)
       : Runnable("dom::AlarmRemoveRunnable"), mId(aId), mUrl(aUrl) {
-    LOG("AlarmRemoveRunnable constructor. mUrl:[%s] mId:[%d]", mUrl.get(), mId);
+    LOG("AlarmRemoveRunnable constructor. mUrl:[%s] mId:[%ld]", mUrl.get(),
+        mId);
   }
 
   NS_IMETHOD

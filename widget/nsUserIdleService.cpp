@@ -25,6 +25,8 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include <android/log.h>
+#  define LOG_TAG "GeckoIdleService"
+#  define LOG_LEVEL ANDROID_LOG_DEBUG
 #endif
 
 using namespace mozilla;
@@ -46,9 +48,6 @@ using namespace mozilla;
 #define SECONDS_PER_DAY 86400
 
 static LazyLogModule sLog("idleService");
-
-#define LOG_TAG "GeckoIdleService"
-#define LOG_LEVEL ANDROID_LOG_DEBUG
 
 // Use this to find previously added observers in our array:
 class IdleListenerComparator {

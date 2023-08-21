@@ -79,8 +79,8 @@ Screen::Screen(const Screen& aOther)
       mDPI(aOther.mDPI),
       mScreenOrientation(aOther.mScreenOrientation),
       mOrientationAngle(aOther.mOrientationAngle),
-      mScreenRotation(aOther.mScreenRotation),
       mNaturalBounds(aOther.mNaturalBounds),
+      mScreenRotation(aOther.mScreenRotation),
       mIsPseudoDisplay(aOther.mIsPseudoDisplay) {}
 
 dom::ScreenDetails Screen::ToScreenDetails() const {
@@ -170,7 +170,10 @@ Screen::GetDpi(float* aDPI) {
 }
 
 NS_IMETHODIMP
-Screen::GetRotation(uint32_t* aRotation) { *aRotation = mScreenRotation; }
+Screen::GetRotation(uint32_t* aRotation) {
+  *aRotation = mScreenRotation;
+  return NS_OK;
+}
 
 NS_IMETHODIMP
 Screen::GetRefreshRate(int32_t* aRefreshRate) {
@@ -192,6 +195,7 @@ Screen::SetRotation(uint32_t aRotation) {
     mRect =
         LayoutDeviceIntRect(0, 0, mNaturalBounds.width, mNaturalBounds.height);
   }
+  return NS_OK;
 }
 
 NS_IMETHODIMP

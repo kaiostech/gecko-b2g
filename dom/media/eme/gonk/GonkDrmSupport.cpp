@@ -288,7 +288,7 @@ void GonkDrmSupport::CreateSession(uint32_t aPromiseId,
                                    MediaKeySessionType aSessionType) {
   GD_ASSERT(mDrm);
   GD_LOGD(
-      "%p GonkDrmSupport::CreateSession, init data type %s, session type %d",
+      "%p GonkDrmSupport::CreateSession, init data type %s, session type %hhu",
       this, aInitDataType.Data(), aSessionType);
 
   auto session = OpenDrmSession(aSessionType);
@@ -639,6 +639,8 @@ void GonkDrmSupport::Notify(DrmPlugin::EventType aEventType, int aExtra,
       break;
     case DrmPlugin::kDrmPluginEventKeysChange:
       OnKeyStatusChanged(aObj);
+      break;
+    default:
       break;
   }
 }

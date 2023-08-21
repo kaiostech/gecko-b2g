@@ -124,6 +124,8 @@ nsresult OmxAMRAudioTrackEncoder::Init(int aChannels) {
 
   nsresult rv =
       mEncoder->Configure(mChannels, mSamplingRate, AMR_WB_SAMPLERATE);
+  NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
   SetInitialized();
 
   return NS_OK;

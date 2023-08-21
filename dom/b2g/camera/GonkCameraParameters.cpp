@@ -382,7 +382,7 @@ nsresult GonkCameraParameters::Initialize() {
     if (!uniqueModes.Get(mMeteringModes[i])) {
       uniqueModes.InsertOrUpdate(mMeteringModes[i], true);
     } else {
-      DOM_CAMERA_LOGW("Dropped duplicate metering mode '%s' (index=%u)\n",
+      DOM_CAMERA_LOGW("Dropped duplicate metering mode '%s' (index=%lu)\n",
                       NS_ConvertUTF16toUTF8(mMeteringModes[i]).get(), i);
       mMeteringModes.RemoveElementAt(i);
     }
@@ -638,7 +638,7 @@ nsresult GonkCameraParameters::SetTranslated(uint32_t aKey,
       // Epoch GMT, we use localtime_r() to handle the conversion.
       time_t time = aValue;
       if (time != aValue) {
-        DOM_CAMERA_LOGE("picture date/time '%llu' is too far in the future\n",
+        DOM_CAMERA_LOGE("picture date/time '%lu' is too far in the future\n",
                         aValue);
         return NS_ERROR_INVALID_ARG;
       }
@@ -664,7 +664,7 @@ nsresult GonkCameraParameters::SetTranslated(uint32_t aKey,
 
     case CAMERA_PARAM_ISOMODE: {
       if (aValue > INT32_MAX) {
-        DOM_CAMERA_LOGW("Can't set ISO mode = %lld, too big\n", aValue);
+        DOM_CAMERA_LOGW("Can't set ISO mode = %ld, too big\n", aValue);
         return NS_ERROR_INVALID_ARG;
       }
 

@@ -42,7 +42,7 @@
 #include "hardware_legacy/uevent.h"
 #include "android/hardware/vibrator/1.0/IVibrator.h"
 #if ANDROID_VERSION >= 30
-#include "android/hardware/vibrator/IVibrator.h"
+#  include "android/hardware/vibrator/IVibrator.h"
 #endif
 #include "libdisplay/GonkDisplay.h"
 
@@ -190,50 +190,50 @@ static StaticRefPtr<VibratorRunnable> sVibratorRunnable;
 
 // Helper class to abstract over HIDL and AIDL implementations.
 class HalVibrator {
-  public:
-    HalVibrator() {
-      // Get a handle to the HIDL vibrator service.
-      hidl = android::hardware::vibrator::V1_0::IVibrator::getService();
+ public:
+  HalVibrator() {
+    // Get a handle to the HIDL vibrator service.
+    hidl = android::hardware::vibrator::V1_0::IVibrator::getService();
 
 #if ANDROID_VERSION >= 30
-      // If we can't get the HIDL vibrator service, try the AIDL service.
-      if (!hidl) {
-        aidl = android::waitForVintfService<Aidl::IVibrator>();
-      }
-
-      if (!hidl && !aidl) {
-        printf_stderr("Failed to run vibration pattern: vibrator == nullptr");
-      }
-#endif
+    // If we can't get the HIDL vibrator service, try the AIDL service.
+    if (!hidl) {
+      aidl = android::waitForVintfService<Aidl::IVibrator>();
     }
 
-    void off() {
-      if (hidl) {
-        hidl->off();
-      }
-#if ANDROID_VERSION >= 30
-     else if (aidl) {
-        aidl->off();
-      }
-#endif
+    if (!hidl && !aidl) {
+      printf_stderr("Failed to run vibration pattern: vibrator == nullptr");
     }
-
-    void on(int32_t ms) {
-      if (hidl) {
-        hidl->on(ms);
-      }
-#if ANDROID_VERSION >= 30
-      else if (aidl) {
-        aidl->on(ms, nullptr);
-      }
 #endif
+  }
+
+  void off() {
+    if (hidl) {
+      hidl->off();
     }
-
-  private:
 #if ANDROID_VERSION >= 30
-    android::sp<Aidl::IVibrator> aidl = nullptr;
+    else if (aidl) {
+      aidl->off();
+    }
 #endif
-    android::sp<android::hardware::vibrator::V1_0::IVibrator> hidl = nullptr;
+  }
+
+  void on(int32_t ms) {
+    if (hidl) {
+      hidl->on(ms);
+    }
+#if ANDROID_VERSION >= 30
+    else if (aidl) {
+      aidl->on(ms, nullptr);
+    }
+#endif
+  }
+
+ private:
+#if ANDROID_VERSION >= 30
+  android::sp<Aidl::IVibrator> aidl = nullptr;
+#endif
+  android::sp<android::hardware::vibrator::V1_0::IVibrator> hidl = nullptr;
 };
 
 NS_IMETHODIMP
@@ -482,7 +482,9 @@ static bool GetCurrentBatteryCharge(int* aCharge) {
 }
 
 static bool GetCurrentBatteryCharging(int* aCharging) {
+#ifdef DEBUG
   static const int BATTERY_NOT_CHARGING = 0;
+#endif
   static const int BATTERY_CHARGING_USB = 1;
   static const int BATTERY_CHARGING_AC = 2;
 
@@ -1195,9 +1197,9 @@ static void* WaitForAlarm(void* aData) {
     uint64_t expired;
     ssize_t err = read(alarmData->mFd, &expired, sizeof(expired));
     if (err < 0) {
-      HAL_LOG("Failed to read alarm fd. %d %s", err, strerror(errno));
+      HAL_LOG("Failed to read alarm fd. %zu %s", err, strerror(errno));
     } else if (expired != 1) {
-      HAL_LOG("The number of expired alarms is not exact 1. [%d]", expired);
+      HAL_LOG("The number of expired alarms is not exact 1. [%ld]", expired);
     }
 
     if (!alarmData->mShuttingDown) {
@@ -1310,7 +1312,7 @@ class FlashlightStateEvent : public Runnable {
 
 class FlashlightListener : public BnCameraServiceListener {
   mutable android::Mutex mLock;
-  uint32_t mTorchStatus = ICameraServiceListener::TORCH_STATUS_UNKNOWN;
+  int32_t mTorchStatus = ICameraServiceListener::TORCH_STATUS_UNKNOWN;
 
  public:
   Status onStatusChanged(int32_t status, const String16& cameraId) override {
@@ -1319,19 +1321,22 @@ class FlashlightListener : public BnCameraServiceListener {
   }
 
 #if ANDROID_VERSION >= 30
-  Status onPhysicalCameraStatusChanged (int32_t status, const ::android::String16& cameraId, const ::android::String16& physicalCameraId) override {
-   // do nothing
-   return Status::ok();
+  Status onPhysicalCameraStatusChanged(
+      int32_t status, const ::android::String16& cameraId,
+      const ::android::String16& physicalCameraId) override {
+    // do nothing
+    return Status::ok();
   }
 
-  Status onCameraOpened(const ::android::String16& cameraId, const ::android::String16& clientPackageId) override {
-   // do nothing
-   return Status::ok();
+  Status onCameraOpened(const ::android::String16& cameraId,
+                        const ::android::String16& clientPackageId) override {
+    // do nothing
+    return Status::ok();
   }
 
   Status onCameraClosed(const ::android::String16& cameraId) override {
-   // do nothing
-   return Status::ok();
+    // do nothing
+    return Status::ok();
   }
 #endif
 
@@ -1358,7 +1363,7 @@ class FlashlightListener : public BnCameraServiceListener {
     return Status::ok();
   }
 
-  uint32_t getTorchStatus() const {
+  int32_t getTorchStatus() const {
     AutoMutex l(mLock);
     return mTorchStatus;
   };

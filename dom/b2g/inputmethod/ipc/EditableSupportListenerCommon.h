@@ -87,7 +87,7 @@ class EditableSupportListenerCommon : public nsIEditableSupportListener,
                       int32_t aEnd) {
     Unused << T::SendResponse(
         GetSelectionRangeResponse(aId, aStatus, aStart, aEnd));
-    IME_LOGD("Listener::OnGetSelectionRange: %lu %lu", aStart, aEnd);
+    IME_LOGD("Listener::OnGetSelectionRange: %d %d", aStart, aEnd);
     return NS_OK;
   }
 

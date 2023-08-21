@@ -12,9 +12,9 @@
 
 namespace mozilla {
 namespace dom {
-class GattPermissions;
-class GattCharacteristicProperties;
-class BluetoothAdvertisingData;
+struct GattPermissions;
+struct GattCharacteristicProperties;
+struct BluetoothAdvertisingData;
 }  // namespace dom
 }  // namespace mozilla
 

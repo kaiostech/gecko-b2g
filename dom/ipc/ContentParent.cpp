@@ -708,8 +708,7 @@ ScriptableCPInfo::GetServiceWorkerURIs(
   rv = mContentParent->GetRemoteType(remoteType);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  aServiceWorkerURIs =
-      std::move(RemoteWorkerManager::GetScriptURIs(pid, remoteType));
+  aServiceWorkerURIs = RemoteWorkerManager::GetScriptURIs(pid, remoteType);
 
   return NS_OK;
 }
@@ -890,7 +889,7 @@ ContentParent::GetContentProcessInfoList() {
       infos.AppendElement(cp->mScriptableHelper);
     }
   }
-  return std::move(infos);
+  return infos;
 }
 
 const nsDependentCSubstring RemoteTypePrefix(

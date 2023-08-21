@@ -1096,11 +1096,9 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
 #endif
   nsCOMPtr<nsIFile> updRoot;
 #if defined(MOZ_WIDGET_GONK)
-
   nsresult rv = NS_NewNativeLocalFile(nsDependentCString("/data/local"), true,
                                       getter_AddRefs(updRoot));
   NS_ENSURE_SUCCESS(rv, rv);
-
 #else
   nsCOMPtr<nsIFile> appFile;
   bool per = false;
@@ -1165,11 +1163,12 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
   updRoot->InitWithPath(updatePathStr);
   updRoot.forget(aResult);
   return NS_OK;
-# else
+#  else
   updRoot.forget(aResult);
   return NS_OK;
-# endif  // XP_WIN
+#  endif  // XP_WIN
 #endif    // MOZ_WIDGET_GONK
+  return NS_OK;
 }
 
 nsresult nsXREDirProvider::GetProfileStartupDir(nsIFile** aResult) {
@@ -1288,8 +1287,7 @@ nsresult nsXREDirProvider::GetUserDataDirectoryHome(nsIFile** aFile,
 
   rv = NS_NewLocalFile(path, true, getter_AddRefs(localDir));
 #elif defined(MOZ_WIDGET_GONK)
-  rv = NS_NewNativeLocalFile("/data/b2g"_ns, true,
-                             getter_AddRefs(localDir));
+  rv = NS_NewNativeLocalFile("/data/b2g"_ns, true, getter_AddRefs(localDir));
 #elif defined(XP_UNIX)
   const char* homeDir = getenv("HOME");
   if (!homeDir || !*homeDir) return NS_ERROR_FAILURE;

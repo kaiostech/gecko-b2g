@@ -95,7 +95,7 @@ void GonkCameraSourceListener::notify(int32_t msgType, int32_t ext1,
 bool GonkCameraSourceListener::postData(int32_t msgType,
                                         const sp<IMemory>& dataPtr,
                                         camera_frame_metadata_t* metadata) {
-  CS_LOGV("postData(%d, ptr:%p, size:%d)", msgType, dataPtr->pointer(),
+  CS_LOGV("postData(%d, ptr:%p, size:%zu)", msgType, dataPtr->pointer(),
           dataPtr->size());
 
   sp<GonkCameraSource> source = mSource.promote();
@@ -722,14 +722,14 @@ status_t GonkCameraSource::reset() {
       if (NO_ERROR != mFrameCompleteCondition.waitRelative(
                           mLock, mTimeBetweenFrameCaptureUs * 1000LL +
                                      CAMERA_SOURCE_TIMEOUT_NS)) {
-        CS_LOGW("Timed out waiting for outstanding frames being encoded: %d",
+        CS_LOGW("Timed out waiting for outstanding frames being encoded: %zu",
                 mFramesBeingEncoded.size());
       }
     }
     stopCameraRecording();
 
     if (mCollectStats) {
-      CS_LOGI("Frames received/encoded/dropped: %d/%d/%d in %lld us",
+      CS_LOGI("Frames received/encoded/dropped: %d/%d/%d in %ld us",
               mNumFramesReceived, mNumFramesEncoded, mNumFramesDropped,
               mLastFrameTimestampUs - mFirstFrameTimeUs);
     }
@@ -895,7 +895,7 @@ status_t GonkCameraSource::read(MediaBufferBase** buffer,
                           mLock, mTimeBetweenFrameCaptureUs * 1000LL +
                                      CAMERA_SOURCE_TIMEOUT_NS)) {
         // TODO: check sanity of camera?
-        CS_LOGW("Timed out waiting for incoming camera video frames: %lld us",
+        CS_LOGW("Timed out waiting for incoming camera video frames: %ld us",
                 mLastFrameTimestampUs);
       }
     }
@@ -985,7 +985,7 @@ void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,
                                              const sp<IMemory>& data) {
   bool rateLimit;
   bool prevRateLimit;
-  CS_LOGV("dataCallbackTimestamp: timestamp %lld us", timestampUs);
+  CS_LOGV("dataCallbackTimestamp: timestamp %ld us", timestampUs);
   {
     Mutex::Autolock autoLock(mLock);
     if (shouldSkipFrameLocked(timestampUs)) {
@@ -1005,7 +1005,7 @@ void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,
     mFramesReceived.push_back(data);
     int64_t timeUs = mStartTimeUs + (timestampUs - mFirstFrameTimeUs);
     mFrameTimes.push_back(timeUs);
-    CS_LOGV("initial delay: %lld, current time stamp: %lld", mStartTimeUs,
+    CS_LOGV("initial delay: %ld, current time stamp: %ld", mStartTimeUs,
             timeUs);
     mFrameAvailableCondition.signal();
   }

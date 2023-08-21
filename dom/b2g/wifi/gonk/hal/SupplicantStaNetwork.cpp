@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#undef LOG_TAG
 #define LOG_TAG "SupplicantStaNetwork"
 
 #include "SupplicantStaNetwork.h"
@@ -681,7 +682,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetRequirePmf(bool aEnable) {
 
 SupplicantStatusCode SupplicantStaNetwork::SetIdStr(const std::string& aIdStr) {
   MOZ_ASSERT(mNetwork);
-  WIFI_LOGD(LOG_TAG, "enable idStr => %d", aIdStr.c_str());
+  WIFI_LOGD(LOG_TAG, "enable idStr => %s", aIdStr.c_str());
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setIdStr, SupplicantStatus, response, aIdStr);

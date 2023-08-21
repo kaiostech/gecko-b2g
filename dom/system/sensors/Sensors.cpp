@@ -10,7 +10,7 @@
 #include "nsXULAppAPI.h"
 #include "SensorData.h"
 #ifdef MOZ_WIDGET_GONK
-  #include "gonk/GonkSensorsHal.h"
+#  include "gonk/GonkSensorsHal.h"
 #endif
 
 using namespace mozilla;
@@ -37,13 +37,14 @@ already_AddRefed<Sensors> Sensors::GetSingleton() {
   return singleton.forget();
 }
 
-NS_IMETHODIMP Sensors::RegisterListener(nsISensorsListener *aListener, nsISensors::SensorType aSensorType) {
+NS_IMETHODIMP Sensors::RegisterListener(nsISensorsListener* aListener,
+                                        nsISensors::SensorType aSensorType) {
   MOZ_ASSERT(NS_IsMainThread());
-  if (aSensorType >= hal::NUM_SENSOR_TYPE) {
+  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
+  if (sensorType >= hal::NUM_SENSOR_TYPE) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
   nsCOMArray<nsISensorsListener>& listeners = mSensorListeners[sensorType];
 
   if (!listeners.Contains(aListener)) {
@@ -57,13 +58,14 @@ NS_IMETHODIMP Sensors::RegisterListener(nsISensorsListener *aListener, nsISensor
   return NS_OK;
 }
 
-NS_IMETHODIMP Sensors::UnregisterListener(nsISensorsListener *aListener, nsISensors::SensorType aSensorType) {
+NS_IMETHODIMP Sensors::UnregisterListener(nsISensorsListener* aListener,
+                                          nsISensors::SensorType aSensorType) {
   MOZ_ASSERT(NS_IsMainThread());
-  if (aSensorType >= hal::NUM_SENSOR_TYPE) {
+  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
+  if (sensorType >= hal::NUM_SENSOR_TYPE) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
   nsCOMArray<nsISensorsListener>& listeners = mSensorListeners[sensorType];
 
   if (listeners.Contains(aListener)) {
@@ -77,28 +79,30 @@ NS_IMETHODIMP Sensors::UnregisterListener(nsISensorsListener *aListener, nsISens
   return NS_OK;
 }
 
-NS_IMETHODIMP Sensors::GetVendor(nsISensors::SensorType aSensorType, nsACString& aRetval) {
+NS_IMETHODIMP Sensors::GetVendor(nsISensors::SensorType aSensorType,
+                                 nsACString& aRetval) {
   MOZ_ASSERT(NS_IsMainThread());
-  if (aSensorType >= hal::NUM_SENSOR_TYPE) {
+  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
+  if (sensorType >= hal::NUM_SENSOR_TYPE) {
     return NS_ERROR_UNEXPECTED;
   }
 
 #ifdef MOZ_WIDGET_GONK
-  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
   hal_impl::GonkSensorsHal::GetInstance()->GetSensorVendor(sensorType, aRetval);
 #endif
 
   return NS_OK;
 }
 
-NS_IMETHODIMP Sensors::GetName(nsISensors::SensorType aSensorType, nsACString& aRetval) {
+NS_IMETHODIMP Sensors::GetName(nsISensors::SensorType aSensorType,
+                               nsACString& aRetval) {
   MOZ_ASSERT(NS_IsMainThread());
-  if (aSensorType >= hal::NUM_SENSOR_TYPE) {
+  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
+  if (sensorType >= hal::NUM_SENSOR_TYPE) {
     return NS_ERROR_UNEXPECTED;
   }
 
 #ifdef MOZ_WIDGET_GONK
-  hal::SensorType sensorType = static_cast<hal::SensorType>(aSensorType);
   hal_impl::GonkSensorsHal::GetInstance()->GetSensorName(sensorType, aRetval);
 #endif
 
@@ -118,11 +122,12 @@ void Sensors::Notify(const hal::SensorData& aSensorData) {
 
   nsCOMArray<nsISensorsListener>& listeners = mSensorListeners[sensorType];
 
-  RefPtr<nsISensorData> data = new SensorData(static_cast<nsISensors::SensorType>(sensorType), x, y, z, w);
+  RefPtr<nsISensorData> data = new SensorData(
+      static_cast<nsISensors::SensorType>(sensorType), x, y, z, w);
 
-  for (nsISensorsListener *listener : listeners) {
+  for (nsISensorsListener* listener : listeners) {
     listener->OnSensorDataUpdate(data);
   }
 }
 
-} // namespace b2g
+}  // namespace b2g

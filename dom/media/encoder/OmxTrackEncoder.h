@@ -29,12 +29,12 @@ class OmxAudioTrackEncoder : public AudioTrackEncoder {
                        MediaQueue<EncodedFrame>& aEncodedDataQueue);
   ~OmxAudioTrackEncoder();
 
-  already_AddRefed<TrackMetadataBase> GetMetadata() = 0;
+  already_AddRefed<TrackMetadataBase> GetMetadata() override = 0;
 
   nsresult Encode(AudioSegment* aSegment) override;
 
  protected:
-  nsresult Init(int aChannels) = 0;
+  nsresult Init(int aChannels) override = 0;
 
   // Append encoded frames to aContainer.
   nsresult AppendEncodedFrames();

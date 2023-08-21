@@ -77,7 +77,9 @@ void SharedSurface::UnlockProd() {
 /* static */
 UniquePtr<SurfaceFactory> SurfaceFactory::Create(
     GLContext* const pGl, const layers::TextureType consumerType) {
+#if !defined(MOZ_WIDGET_GONK)
   auto& gl = *pGl;
+#endif
 
   switch (consumerType) {
     case layers::TextureType::D3D11:

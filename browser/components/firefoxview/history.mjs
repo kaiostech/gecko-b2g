@@ -286,7 +286,7 @@ class HistoryInView extends ViewPage {
       this.historyMapByDate.forEach(historyItem => {
         if (historyItem.items.length) {
           let dateArg = JSON.stringify({ date: historyItem.items[0].time });
-          cardsTemplate.push(html`<card-container shortPageName="history">
+          cardsTemplate.push(html`<card-container>
             <h3
               slot="header"
               data-l10n-id=${historyItem.l10nId}
@@ -312,13 +312,13 @@ class HistoryInView extends ViewPage {
     } else if (this.historyMapBySite.length) {
       this.historyMapBySite.forEach(historyItem => {
         if (historyItem.items.length) {
-          cardsTemplate.push(html`<card-container shortPageName="history">
+          cardsTemplate.push(html`<card-container>
             <h3 slot="header" data-l10n-id="${ifDefined(historyItem.l10nId)}">
               ${historyItem.domain}
             </h3>
             <fxview-tab-list
               slot="main"
-              class="history"
+              class="with-context-menu"
               dateTimeFormat="dateTime"
               hasPopup="menu"
               maxTabsLength=${this.maxTabsLength}

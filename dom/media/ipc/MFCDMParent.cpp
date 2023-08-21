@@ -317,6 +317,20 @@ MFCDMParent::MFCDMParent(const nsAString& aKeySystem,
       mManagerThread, this, &MFCDMParent::SendOnSessionKeyExpiration);
 }
 
+void MFCDMParent::ShutdownCDM() {
+  AssertOnManagerThread();
+  if (!mCDM) {
+    return;
+  }
+  auto rv = mCDM->SetPMPHostApp(nullptr);
+  if (FAILED(rv)) {
+    MFCDM_PARENT_LOG("Failed to clear PMP Host App, rv=%lx", rv);
+  }
+  SHUTDOWN_IF_POSSIBLE(mCDM);
+  mCDM = nullptr;
+  MFCDM_PARENT_LOG("Shutdown CDM completed");
+}
+
 void MFCDMParent::Destroy() {
   AssertOnManagerThread();
   mKeyMessageEvents.DisconnectAll();
@@ -329,12 +343,11 @@ void MFCDMParent::Destroy() {
     mPMPHostWrapper->Shutdown();
     mPMPHostWrapper = nullptr;
   }
-  if (mCDM) {
-    mCDM->SetPMPHostApp(nullptr);
-    SHUTDOWN_IF_POSSIBLE(mCDM);
-    mCDM = nullptr;
-  }
+  ShutdownCDM();
   mFactory = nullptr;
+  for (auto& iter : mSessions) {
+    iter.second->Close();
+  }
   mSessions.clear();
   mIPDLSelfRef = nullptr;
 }
@@ -722,7 +735,7 @@ already_AddRefed<MFCDMProxy> MFCDMParent::GetMFCDMProxy() {
   if (!mCDM) {
     return nullptr;
   }
-  RefPtr<MFCDMProxy> proxy = new MFCDMProxy(mCDM.Get());
+  RefPtr<MFCDMProxy> proxy = new MFCDMProxy(mCDM.Get(), mId);
   return proxy.forget();
 }
 

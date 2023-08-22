@@ -293,7 +293,7 @@ nsEventStatus KeyEventDispatcher::DispatchKeyEventInternal(
   event.mCodeNameIndex = mDOMCodeNameIndex;
   event.mModifiers = getDOMModifiers(mData.metaState);
   event.mLocation = mDOMKeyLocation;
-  event.mTimeStamp =  TimeStamp() + TimeDuration::FromMilliseconds(mData.timeMs);
+  event.mTimeStamp =  TimeStamp::Now() + TimeDuration::FromMilliseconds(mData.timeMs);
 
   nsEventStatus status = nsWindow::DispatchKeyInput(event);
 

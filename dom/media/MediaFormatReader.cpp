@@ -427,13 +427,11 @@ void MediaFormatReader::DecoderFactory::DoCreateDecoder(Data& aData) {
         break;
       }
 #endif
-      bool lowLatency = ownerData.GetCurrentInfo()->GetAsAudioInfo()->mIsLive;
       p = platform->CreateDecoder(
           {*ownerData.GetCurrentInfo()->GetAsAudioInfo(), mOwner->mCrashHelper,
            CreateDecoderParams::UseNullDecoder(ownerData.mIsNullDecode),
            TrackInfo::kAudioTrack, std::move(onWaitingForKeyEvent),
-           mOwner->mMediaEngineId, mOwner->mTrackingId,
-           OptionSet(lowLatency ? Option::LowLatency : Option::Default)});
+           mOwner->mMediaEngineId, mOwner->mTrackingId});
       break;
     }
 
@@ -447,7 +445,7 @@ void MediaFormatReader::DecoderFactory::DoCreateDecoder(Data& aData) {
       // decoding, so specify LAYERS_NONE if we want to forcibly disable it.
       using Option = CreateDecoderParams::Option;
       using OptionSet = CreateDecoderParams::OptionSet;
-      bool lowLatency = ownerData.GetCurrentInfo()->GetAsVideoInfo()->mIsLive;
+
       p = platform->CreateDecoder(
           {*ownerData.GetCurrentInfo()->GetAsVideoInfo(),
            mOwner->mKnowsCompositor, mOwner->GetImageContainer(),
@@ -458,7 +456,6 @@ void MediaFormatReader::DecoderFactory::DoCreateDecoder(Data& aData) {
            OptionSet(ownerData.mHardwareDecodingDisabled
                          ? Option::HardwareDecoderNotAllowed
                          : Option::Default),
-           OptionSet(lowLatency ? Option::LowLatency : Option::Default),
            mOwner->mMediaEngineId, mOwner->mTrackingId});
       break;
     }

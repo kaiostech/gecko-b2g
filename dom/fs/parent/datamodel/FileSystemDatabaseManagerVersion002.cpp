@@ -80,10 +80,19 @@ nsresult RehashFile(const FileSystemConnection& aConnection,
       "VALUES ( :newId, :newParent ) "
       ";"_ns;
 
-  const nsLiteralCString insertNewFileQuery =
+  const nsLiteralCString insertNewFileAndTypeQuery =
       "INSERT INTO Files ( handle, type, name ) "
       "VALUES ( :newId, :type, :newName ) "
       ";"_ns;
+
+  const nsLiteralCString insertNewFileKeepTypeQuery =
+      "INSERT INTO Files ( handle, type, name ) "
+      "SELECT :newId, type, :newName FROM Files "
+      "WHERE handle = :oldId ;"_ns;
+
+  const auto& insertNewFileQuery = aNewType.IsVoid()
+                                       ? insertNewFileKeepTypeQuery
+                                       : insertNewFileAndTypeQuery;
 
   const nsLiteralCString updateFileMappingsQuery =
       "UPDATE FileIds SET handle = :newId WHERE handle = :handle ;"_ns;
@@ -109,7 +118,11 @@ nsresult RehashFile(const FileSystemConnection& aConnection,
     QM_TRY_UNWRAP(ResultStatement stmt,
                   ResultStatement::Create(aConnection, insertNewFileQuery));
     QM_TRY(QM_TO_RESULT(stmt.BindEntryIdByName("newId"_ns, newId)));
-    QM_TRY(QM_TO_RESULT(stmt.BindContentTypeByName("type"_ns, aNewType)));
+    if (aNewType.IsVoid()) {
+      QM_TRY(QM_TO_RESULT(stmt.BindEntryIdByName("oldId"_ns, aEntryId)));
+    } else {
+      QM_TRY(QM_TO_RESULT(stmt.BindContentTypeByName("type"_ns, aNewType)));
+    }
     QM_TRY(QM_TO_RESULT(
         stmt.BindNameByName("newName"_ns, aNewDesignation.childName())));
     QM_TRY(QM_TO_RESULT(stmt.Execute()));
@@ -183,8 +196,10 @@ nsresult RehashDirectory(const FileSystemConnection& aConnection,
       ";"_ns;
 
   const nsLiteralCString insertNewFilesQuery =
-      "INSERT INTO Files ( handle, name ) "
-      "SELECT hash, name FROM ParentChildHash WHERE isFile = 1 "
+      "INSERT INTO Files ( handle, type, name ) "
+      "SELECT ParentChildHash.hash, Files.type, ParentChildHash.name "
+      "FROM ParentChildHash INNER JOIN Files USING (handle) "
+      "WHERE ParentChildHash.isFile = 1 "
       ";"_ns;
 
   const nsLiteralCString updateFileMappingsQuery =
@@ -496,7 +511,7 @@ Result<EntryId, QMResult> FileSystemDatabaseManagerVersion002::RenameEntry(
   FileSystemChildMetadata newDesignation(parentId, aNewName);
 
   if (isFile) {
-    const ContentType type = FileSystemContentTypeGuess::FromPath(aNewName);
+    const ContentType type = DetermineContentType(aNewName);
     QM_TRY(
         QM_TO_RESULT(RehashFile(mConnection, entryId, newDesignation, type)));
   } else {
@@ -539,8 +554,7 @@ Result<EntryId, QMResult> FileSystemDatabaseManagerVersion002::MoveEntry(
                                        aNewDesignation, isFile)));
 
   if (isFile) {
-    const ContentType type =
-        FileSystemContentTypeGuess::FromPath(aNewDesignation.childName());
+    const ContentType type = DetermineContentType(aNewDesignation.childName());
     QM_TRY(
         QM_TO_RESULT(RehashFile(mConnection, entryId, aNewDesignation, type)));
   } else {

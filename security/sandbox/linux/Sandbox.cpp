@@ -647,6 +647,10 @@ bool SetContentProcessSandbox(ContentProcessSandboxParams&& aParams) {
   // Live as long as this process.
   aParams.mFiles = new SandboxOpenedFiles();
   aParams.mFiles->Add("/dev/binder", SandboxOpenedFile::Dup::YES, O_RDWR);
+#  if ANDROID_VERSION >= 30
+  aParams.mFiles->Add("/proc/sys/kernel/random/boot_id",
+                      SandboxOpenedFile::Dup::YES, O_RDONLY);
+#  endif
   {
     char value[PROP_VALUE_MAX];
     if (property_get("media.settings.xml", value, NULL) <= 0) {

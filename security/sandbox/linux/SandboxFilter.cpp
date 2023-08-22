@@ -733,7 +733,13 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
 #ifdef MOZ_WIDGET_GONK
                 PR_SET_TIMERSLACK,  // task_profiles
                 PR_GET_DUMPABLE,    // Linker logger
-#endif
+#  if ANDROID_VERSION >= 33 // Android 13 needs these
+                PR_GET_TAGGED_ADDR_CTRL, PR_PAC_GET_ENABLED_KEYS,
+#    ifdef DEBUG
+                PR_GET_NAME,
+#    endif                        // DEBUG
+#  endif                          // ANDROID_VERSION >= 33
+#endif                            // MOZ_WIDGET_GONK
                 PR_SET_PTRACER),  // Debug-mode crash handling
                Allow())
         .CASES((PR_CAPBSET_READ),  // libcap.so.2 loaded by libpulse.so.0

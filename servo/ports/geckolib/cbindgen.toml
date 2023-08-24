@@ -169,6 +169,7 @@ include = [
   "NonNegativeLengthOrNumberRect",
   "Perspective",
   "ZIndex",
+  "TransformBox",
   "TransformOrigin",
   "LineBreak",
   "LineClamp",

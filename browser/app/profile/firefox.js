@@ -1014,6 +1014,11 @@ pref("privacy.temporary_permission_expire_time_ms",  3600000);
 // See bug 791594
 pref("privacy.authPromptSpoofingProtection",         true);
 
+// Enable GPC if the user turns it on in about:preferences
+#ifdef NIGHTLY_BUILD
+pref("privacy.globalprivacycontrol.functionality.enabled",  true);
+#endif
+
 pref("network.proxy.share_proxy_settings",  false); // use the same proxy settings for all protocols
 
 // simple gestures support
@@ -1164,8 +1169,10 @@ pref("browser.sessionstore.resuming_after_os_restart", false);
 // recently-closed tab lists & counts, and re-open tabs into the current window
 #ifdef NIGHTLY_BUILD
   pref("browser.sessionstore.closedTabsFromAllWindows", true);
+  pref("browser.sessionstore.closedTabsFromClosedWindows", true);
 #else
   pref("browser.sessionstore.closedTabsFromAllWindows", false);
+  pref("browser.sessionstore.closedTabsFromClosedWindows", false);
 #endif
 
 // Minimal interval between two save operations in milliseconds (while the user is idle).
@@ -1521,6 +1528,7 @@ pref("services.sync.prefs.sync.privacy.clearOnShutdown.offlineApps", true);
 pref("services.sync.prefs.sync.privacy.clearOnShutdown.sessions", true);
 pref("services.sync.prefs.sync.privacy.clearOnShutdown.siteSettings", true);
 pref("services.sync.prefs.sync.privacy.donottrackheader.enabled", true);
+pref("services.sync.prefs.sync.privacy.globalprivacycontrol.enabled", true);
 pref("services.sync.prefs.sync.privacy.sanitize.sanitizeOnShutdown", true);
 pref("services.sync.prefs.sync.privacy.trackingprotection.enabled", true);
 pref("services.sync.prefs.sync.privacy.trackingprotection.cryptomining.enabled", true);

@@ -199,10 +199,10 @@ class MockCubebStream {
   MediaEventSource<std::tuple<uint64_t, float, uint32_t>>&
   OutputVerificationEvent();
   MediaEventSource<void>& ErrorForcedEvent();
-  MediaEventSource<void>& ErrorStoppedEvent();
   MediaEventSource<void>& DeviceChangeForcedEvent();
 
-  void Process10Ms();
+  enum class KeepProcessing { No, Yes };
+  KeepProcessing Process10Ms();
 
  public:
   const bool mHasInput;
@@ -210,14 +210,15 @@ class MockCubebStream {
   SmartMockCubebStream* const mSelf;
 
  private:
-  void NotifyStateChanged(cubeb_state aState);
+  void NotifyState(cubeb_state aState);
 
   // Monitor used to block start until mFrozenStart is false.
   Monitor mFrozenStartMonitor MOZ_UNANNOTATED;
   // Whether this stream should wait for an explicit start request before
   // starting. Protected by FrozenStartMonitor.
   bool mFrozenStart;
-  // Signal to the audio thread that stream is stopped.
+  // Used to abort a frozen start if cubeb_stream_start() is called currently
+  // with a blocked cubeb_stream_start() call.
   std::atomic_bool mStreamStop{true};
   // Whether or not the output-side of this stream (what is written from the
   // callback output buffer) is recorded in an internal buffer. The data is then
@@ -247,6 +248,7 @@ class MockCubebStream {
   std::atomic_bool mFastMode{false};
   std::atomic_bool mForceErrorState{false};
   std::atomic_bool mForceDeviceChanged{false};
+  std::atomic_bool mDestroyed{false};
   std::atomic<uint64_t> mPosition{0};
   AudioGenerator<AudioDataValue> mAudioGenerator;
   AudioVerifier<AudioDataValue> mAudioVerifier;
@@ -257,7 +259,6 @@ class MockCubebStream {
   MediaEventProducer<std::tuple<uint64_t, float, uint32_t>>
       mOutputVerificationEvent;
   MediaEventProducer<void> mErrorForcedEvent;
-  MediaEventProducer<void> mErrorStoppedEvent;
   MediaEventProducer<void> mDeviceChangedForcedEvent;
   // The recorded data, copied from the output_buffer of the callback.
   // Interleaved.
@@ -289,13 +290,23 @@ class SmartMockCubebStream
 // backend, but is also controllable by the test code to decide what the backend
 // should do, depending on what is being tested.
 class MockCubeb {
+  // This needs to have the exact same memory layout as a real cubeb backend.
+  // It's very important for the `ops` member to be the very first member of
+  // the class, and for MockCubeb to not have any virtual members (to avoid
+  // having a vtable), so that AsMock() returns a pointer to this that can be
+  // used as a cubeb backend.
+  const cubeb_ops* ops;
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MockCubeb);
+
  public:
   MockCubeb();
-  ~MockCubeb();
   // Cubeb backend implementation
   // This allows passing this class as a cubeb* instance.
+  // cubeb_destroy(context) should eventually be called on the return value
+  // iff this method is called.
   cubeb* AsCubebContext();
   static MockCubeb* AsMock(cubeb* aContext);
+  void Destroy();
   // Fill in the collection parameter with all devices of aType.
   int EnumerateDevices(cubeb_device_type aType,
                        cubeb_device_collection* aCollection);
@@ -367,7 +378,7 @@ class MockCubeb {
                  cubeb_data_callback aDataCallback,
                  cubeb_state_callback aStateCallback, void* aUserPtr);
 
-  void StreamDestroy(cubeb_stream* aStream);
+  void StreamDestroy(MockCubebStream* aStream);
 
   void GoFaster();
   void DontGoFaster();
@@ -377,7 +388,7 @@ class MockCubeb {
 
   // MockCubeb specific API
   void StartStream(MockCubebStream* aStream);
-  int StopStream(MockCubebStream* aStream);
+  void StopStream(MockCubebStream* aStream);
 
   // Simulates the audio thread. The thread is created at Start and destroyed
   // at Stop. At next StreamStart a new thread is created.
@@ -388,11 +399,7 @@ class MockCubeb {
   void ThreadFunction();
 
  private:
-  // This needs to have the exact same memory layout as a real cubeb backend.
-  // It's very important for this `ops` member to be the very first member of
-  // the class, and to not have any virtual members (to avoid having a
-  // vtable).
-  const cubeb_ops* ops;
+  ~MockCubeb();
   // The callback to call when the device list has been changed.
   cubeb_device_collection_changed_callback
       mInputDeviceCollectionChangeCallback = nullptr;
@@ -412,6 +419,8 @@ class MockCubeb {
   // Whether the audio thread is forced, i.e., whether it remains active even
   // with no live streams.
   Atomic<bool> mForcedAudioThread{false};
+  Atomic<bool> mHasCubebContext{false};
+  Atomic<bool> mDestroyed{false};
   MozPromiseHolder<ForcedAudioThreadPromise> mForcedAudioThreadPromise;
   // Our input and output devices.
   nsTArray<cubeb_device_info> mInputDevices;

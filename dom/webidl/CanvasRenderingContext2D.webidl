@@ -209,7 +209,7 @@ interface mixin CanvasShadowStyles {
 };
 
 interface mixin CanvasFilters {
-  [Pref="canvas.filters.enabled", SetterThrows]
+  [SetterThrows]
   attribute UTF8String filter; // (default empty string = no filter)
 };
 
@@ -243,7 +243,7 @@ interface mixin CanvasDrawPath {
 };
 
 interface mixin CanvasUserInterface {
-  [Pref="canvas.focusring.enabled", Throws] undefined drawFocusIfNeeded(Element element);
+  [Throws] undefined drawFocusIfNeeded(Element element);
 // NOT IMPLEMENTED  undefined scrollPathIntoView();
 // NOT IMPLEMENTED  undefined scrollPathIntoView(Path path);
 };
@@ -402,9 +402,7 @@ interface TextMetrics {
   readonly attribute double ideographicBaseline;
 };
 
-[Pref="canvas.path.enabled",
- Func="mozilla::dom::OffscreenCanvas::PrefEnabledOnWorkerThread",
- Exposed=(Window,Worker)]
+[Exposed=(Window,Worker)]
 interface Path2D
 {
   constructor();

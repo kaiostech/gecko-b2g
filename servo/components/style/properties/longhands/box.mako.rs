@@ -447,13 +447,12 @@ ${helpers.single_keyword(
     affects="paint",
 )}
 
-${helpers.single_keyword(
+${helpers.predefined_type(
     "transform-box",
-    "border-box fill-box view-box",
+    "TransformBox",
+    "computed::TransformBox::ViewBox",
     engines="gecko",
-    gecko_enum_prefix="StyleGeometryBox",
     spec="https://drafts.csswg.org/css-transforms/#transform-box",
-    gecko_inexhaustive="True",
     animation_value_type="discrete",
     affects="overflow",
 )}

@@ -3,11 +3,18 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 do-not-track-description = Send websites a “Do Not Track” signal that you don’t want to be tracked
+do-not-track-description2 =
+    .label = Send websites a “Do Not Track” request
+    .accesskey = d
 do-not-track-learn-more = Learn more
 do-not-track-option-default-content-blocking-known =
     .label = Only when { -brand-short-name } is set to block known trackers
 do-not-track-option-always =
     .label = Always
+
+global-privacy-control-description =
+    .label = Tell websites not to sell or share my data
+    .accesskey = s
 
 settings-page-title = Settings
 
@@ -1278,7 +1285,7 @@ content-blocking-tracking-protection-option-all-windows =
   .label = In all windows
   .accesskey = A
 content-blocking-option-private =
-  .label = Only in Private Windows
+  .label = Only in private windows
   .accesskey = p
 content-blocking-tracking-protection-change-block-list = Change block list
 
@@ -1296,9 +1303,17 @@ content-blocking-cryptominers-label =
 
 # Browser fingerprinting is a method of tracking users by the configuration and settings information (their "digital fingerprint")
 # that is visible to websites they browse, rather than traditional tracking methods such as IP addresses and unique cookies.
-content-blocking-fingerprinters-label =
-  .label = Fingerprinters
-  .accesskey = F
+#
+# The known fingerprinters are those that are known for collecting browser fingerprints from user devices.
+content-blocking-known-fingerprinters-label =
+  .label = Known fingerprinters
+  .accesskey = K
+
+# The suspected fingerprinters are those that we are uncertain about browser fingerprinting activities. But they could
+# possibly acquire browser fingerprints because of the behavior on accessing APIs that expose browser fingerprints.
+content-blocking-suspected-fingerprinters-label =
+  .label = Suspected fingerprinters
+  .accesskey = S
 
 ## Privacy Section - Tracking
 

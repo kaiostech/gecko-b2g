@@ -5921,6 +5921,16 @@
 #endif
   mirror: always
 
+- name: gfx.canvas.willreadfrequently.enabled
+  type: bool
+#if defined(XP_WIN)
+  value: false
+#else
+  value: true
+#endif
+  mirror: once
+
+
 - name: gfx.color_management.display_profile
   type: DataMutexString
   value: ""
@@ -13697,6 +13707,11 @@
 - name: privacy.partition.bloburl_per_agent_cluster
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: privacy.partition.bloburl_per_partition_key
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: privacy.window.name.update.enabled

@@ -506,7 +506,7 @@ class ContentParent final : public PContentParent,
 
   static void BroadcastBlobURLRegistration(
       const nsACString& aURI, BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
-      const Maybe<nsID>& aAgentClusterId,
+      const Maybe<nsID>& aAgentClusterId, const nsCString& aPartitionKey,
       ContentParent* aIgnoreThisCP = nullptr);
 
   static void BroadcastBlobURLUnregistration(
@@ -515,7 +515,7 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvStoreAndBroadcastBlobURLRegistration(
       const nsACString& aURI, const IPCBlob& aBlob, nsIPrincipal* aPrincipal,
-      const Maybe<nsID>& aAgentCluster);
+      const Maybe<nsID>& aAgentCluster, const nsCString& aPartitionKey);
 
   mozilla::ipc::IPCResult RecvUnstoreAndBroadcastBlobURLUnregistration(
       const nsACString& aURI, nsIPrincipal* aPrincipal);
@@ -673,7 +673,7 @@ class ContentParent final : public PContentParent,
       const nsACString& aBlobURL, nsIPrincipal* pTriggeringPrincipal,
       nsIPrincipal* pLoadingPrincipal,
       const OriginAttributes& aOriginAttributes, uint64_t aInnerWindowId,
-      const Maybe<nsID>& aAgentClusterId,
+      const Maybe<nsID>& aAgentClusterId, const nsCString& aPartitionKey,
       BlobURLDataRequestResolver&& aResolver);
 
   static nsTArray<RefPtr<nsIContentProcessInfo>> GetContentProcessInfoList();

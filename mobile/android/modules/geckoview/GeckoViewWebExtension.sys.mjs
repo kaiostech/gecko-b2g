@@ -529,7 +529,46 @@ class ExtensionPromptObserver {
   }
 }
 
+class AddonInstallObserver {
+  constructor() {
+    Services.obs.addObserver(this, "addon-install-failed");
+  }
+
+  async onInstallationFailed(aAddon, aAddonName, aError) {
+    // aAddon could be null if we have a network error where we can't download the xpi file.
+    let extension = null;
+    if (aAddon !== null) {
+      extension = await exportExtension(
+        aAddon,
+        aAddon.userPermissions,
+        /* aSourceURI */ null
+      );
+    }
+
+    lazy.EventDispatcher.instance.sendRequest({
+      type: "GeckoView:WebExtension:OnInstallationFailed",
+      extension,
+      addonName: aAddonName,
+      error: aError,
+    });
+  }
+
+  observe(aSubject, aTopic, aData) {
+    debug`observe ${aTopic}`;
+    switch (aTopic) {
+      case "addon-install-failed": {
+        aSubject.wrappedJSObject.installs.forEach(install => {
+          const { addon, error, name: addonName } = install;
+          this.onInstallationFailed(addon, addonName, error);
+        });
+        break;
+      }
+    }
+  }
+}
+
 new ExtensionPromptObserver();
+new AddonInstallObserver();
 
 class AddonManagerListener {
   constructor() {
@@ -650,6 +689,45 @@ class AddonManagerListener {
 }
 
 new AddonManagerListener();
+
+class ExtensionProcessListener {
+  constructor() {
+    this.onExtensionProcessCrash = this.onExtensionProcessCrash.bind(this);
+    lazy.Management.on("extension-process-crash", this.onExtensionProcessCrash);
+
+    lazy.EventDispatcher.instance.registerListener(this, [
+      "GeckoView:WebExtension:EnableProcessSpawning",
+    ]);
+  }
+
+  async onEvent(aEvent, aData, aCallback) {
+    debug`onEvent ${aEvent} ${aData}`;
+
+    switch (aEvent) {
+      case "GeckoView:WebExtension:EnableProcessSpawning": {
+        //TODO: Bug 1848426 - Add ability to reset threshold counters and allow for process spawning
+      }
+    }
+  }
+
+  async onExtensionProcessCrash(name, { childID, disabledProcessSpawning }) {
+    debug`Extension process crash -> childID=${childID} disabledProcessSpawning=${disabledProcessSpawning}`;
+
+    // When an extension process has crashed too many times, Gecko will set `disabledProcessSpawning`
+    // and no longer allow the extension process spawning. We only want to send a request
+    // to the embedder when we are disabling the process spawning.
+    // If process spawning is still enabled then we short circuit and don't notify the embedder.
+    if (!disabledProcessSpawning) {
+      return;
+    }
+
+    lazy.EventDispatcher.instance.sendRequest({
+      type: "GeckoView:WebExtension:OnDisabledProcessSpawning",
+    });
+  }
+}
+
+new ExtensionProcessListener();
 
 class MobileWindowTracker extends EventEmitter {
   constructor() {

@@ -488,11 +488,23 @@ class WebExtensionTest : BaseSessionTest() {
         assertTrue(list.containsKey(RuntimeCreator.TEST_SUPPORT_EXTENSION_ID))
     }
 
-    private fun testInstallError(name: String, expectedError: Int) {
+    private fun testInstallError(name: String, expectedError: Int, extensionID: String?) {
         sessionRule.delegateDuringNextWait(object : WebExtensionController.PromptDelegate {
             @AssertCalled(count = 0)
             override fun onInstallPrompt(extension: WebExtension): GeckoResult<AllowOrDeny> {
                 return GeckoResult.allow()
+            }
+        })
+
+        sessionRule.delegateDuringNextWait(object : WebExtensionController.AddonManagerDelegate {
+            @AssertCalled(count = 1)
+            override fun onInstallationFailed(
+                extension: WebExtension?,
+                installException: InstallException,
+            ) {
+                assertEquals(extensionID, extension?.id)
+                assertEquals(extension?.metaData?.name, installException.extensionName)
+                assertEquals(installException.code, expectedError)
             }
         })
 
@@ -559,32 +571,36 @@ class WebExtensionTest : BaseSessionTest() {
             ),
         )
         testInstallError(
-            "borderify-unsigned.xpi",
-            WebExtension.InstallException.ErrorCodes.ERROR_SIGNEDSTATE_REQUIRED,
+            name = "borderify-unsigned.xpi",
+            expectedError = InstallException.ErrorCodes.ERROR_SIGNEDSTATE_REQUIRED,
+            extensionID = "borderify@example.com",
         )
     }
 
     @Test
     fun installExtensionFileNotFound() {
         testInstallError(
-            "file-not-found.xpi",
-            WebExtension.InstallException.ErrorCodes.ERROR_NETWORK_FAILURE,
+            name = "file-not-found.xpi",
+            expectedError = InstallException.ErrorCodes.ERROR_NETWORK_FAILURE,
+            extensionID = null,
         )
     }
 
     @Test
     fun installExtensionMissingId() {
         testInstallError(
-            "borderify-missing-id.xpi",
-            WebExtension.InstallException.ErrorCodes.ERROR_CORRUPT_FILE,
+            name = "borderify-missing-id.xpi",
+            expectedError = InstallException.ErrorCodes.ERROR_CORRUPT_FILE,
+            extensionID = null,
         )
     }
 
     @Test
     fun installExtensionIncompatible() {
         testInstallError(
-            "dummy-incompatible.xpi",
-            WebExtension.InstallException.ErrorCodes.ERROR_INCOMPATIBLE,
+            name = "dummy-incompatible.xpi",
+            expectedError = InstallException.ErrorCodes.ERROR_INCOMPATIBLE,
+            extensionID = "dummy@tests.mozilla.org",
         )
     }
 
@@ -3125,5 +3141,43 @@ class WebExtensionTest : BaseSessionTest() {
             settings.extensionsProcessEnabled,
             equalTo(true),
         )
+    }
+
+    fun extensionProcessCrash() {
+        sessionRule.setPrefsUntilTestEnd(
+            mapOf(
+                "extensions.webextensions.remote" to true,
+                "dom.ipc.keepProcessesAlive.extension" to 1,
+                "xpinstall.signatures.required" to false,
+            ),
+        )
+
+        sessionRule.delegateDuringNextWait(object : WebExtensionController.PromptDelegate {
+            @AssertCalled(count = 1)
+            override fun onInstallPrompt(extension: WebExtension): GeckoResult<AllowOrDeny>? {
+                return GeckoResult.allow()
+            }
+        })
+
+        sessionRule.addExternalDelegateUntilTestEnd(
+            WebExtensionController.ExtensionProcessDelegate::class,
+            { delegate -> controller.setExtensionProcessDelegate(delegate) },
+            { controller.setExtensionProcessDelegate(null) },
+            object : WebExtensionController.ExtensionProcessDelegate {
+                @AssertCalled(count = 1)
+                override fun onDisabledProcessSpawning() {}
+            },
+        )
+
+        val borderify = sessionRule.waitForResult(
+            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+        )
+
+        val list = extensionsMap(sessionRule.waitForResult(controller.list()))
+        assertTrue(list.containsKey(borderify.id))
+
+        mainSession.loadUri("about:crashextensions")
+
+        sessionRule.waitForResult(controller.uninstall(borderify))
     }
 }

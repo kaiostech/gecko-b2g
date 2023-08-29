@@ -57,6 +57,13 @@ user-id = 175410
 user-login = "jschanck"
 user-name = "John Schanck"
 
+[[publisher.authenticator]]
+version = "0.4.0-alpha.20"
+when = "2023-08-24"
+user-id = 175410
+user-login = "jschanck"
+user-name = "John Schanck"
+
 [[publisher.bhttp]]
 version = "0.3.1"
 when = "2023-02-23"
@@ -168,6 +175,13 @@ when = "2021-03-29"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
+
+[[publisher.encoding_rs]]
+version = "0.8.33"
+when = "2023-08-23"
+user-id = 4484
+user-login = "hsivonen"
+user-name = "Henri Sivonen"
 
 [[publisher.etagere]]
 version = "0.2.7"
@@ -367,6 +381,13 @@ user-login = "le-automaton"
 [[publisher.proc-macro2]]
 version = "1.0.59"
 when = "2023-05-25"
+user-id = 3618
+user-login = "dtolnay"
+user-name = "David Tolnay"
+
+[[publisher.proc-macro2]]
+version = "1.0.66"
+when = "2023-07-16"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"

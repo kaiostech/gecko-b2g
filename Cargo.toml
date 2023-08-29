@@ -169,6 +169,9 @@ web-sys = { path = "build/rust/dummy-web/web-sys" }
 # Overrides to allow easier use of common internal crates.
 moz_asserts = { path = "mozglue/static/rust/moz_asserts" }
 
+# Patch rayon core to import https://github.com/rayon-rs/rayon/pull/1063
+rayon-core = { path = "third_party/rust/rayon-core" }
+
 # Patch `rure` to disable building the cdylib and staticlib targets
 # Cargo has no way to disable building targets your dependencies provide which
 # you don't depend on, and linking the cdylib breaks during instrumentation
@@ -187,7 +190,7 @@ cose = { git = "https://github.com/franziskuskiefer/cose-rust", rev = "43c22248d
 firefox-on-glean = { path = "toolkit/components/glean/api" }
 icu_testdata = { path = "intl/icu_testdata" }
 libudev-sys = { path = "dom/webauthn/libudev-sys" }
-packed_simd = { package = "packed_simd_2", git = "https://github.com/hsivonen/packed_simd", rev = "412f9a0aa556611de021bde89dee8fefe6e0fbbd" }
+packed_simd = { git = "https://github.com/hsivonen/packed_simd", rev = "e588ceb568878e1a3156ea9ce551d5b63ef0cdc4" }
 midir = { git = "https://github.com/mozilla/midir.git", rev = "519e651241e867af3391db08f9ae6400bc023e18" }
 # Avoid the dependency on chrono
 minidump-writer = { git = "https://github.com/rust-minidump/minidump-writer.git", rev = "a15bd5cab6a3de251c0c23264be14b977c0af09c" }

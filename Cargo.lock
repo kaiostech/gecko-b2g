@@ -5,7 +5,7 @@ version = 3
 [[package]]
 name = "aa-stroke"
 version = "0.1.0"
-source = "git+https://github.com/FirefoxGraphics/aa-stroke?rev=c1916bc1b5336438207881a362fc3dd921d915e4#c1916bc1b5336438207881a362fc3dd921d915e4"
+source = "git+https://github.com/FirefoxGraphics/aa-stroke?rev=c7bc7190f6d3115bc81640c0433649c1fce9491c#c7bc7190f6d3115bc81640c0433649c1fce9491c"
 dependencies = [
  "euclid",
 ]
@@ -296,9 +296,9 @@ dependencies = [
 
 [[package]]
 name = "authenticator"
-version = "0.4.0-alpha.19"
+version = "0.4.0-alpha.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c9595e202b7acb03f6b85630bbd04bb85f220d7fdf406050c5d979df52eb96"
+checksum = "6552b35e6a39b2e059b8107e45abf2adfa7cd3d20d294f5a315996da38559cbe"
 dependencies = [
  "base64 0.21.0",
  "bitflags 1.3.2",
@@ -1484,12 +1484,12 @@ dependencies = [
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.32"
+version = "0.8.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "071a31f4ee85403370b58aca746f01041ede6f0da2730960ad001edc2b71b394"
+checksum = "7268b386296a025e474d5140678f75d6de9493ae55a5d709eeb9dd08149945e1"
 dependencies = [
  "cfg-if 1.0.0",
- "packed_simd_2",
+ "packed_simd",
 ]
 
 [[package]]
@@ -4139,11 +4139,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "packed_simd_2"
-version = "0.3.8"
-source = "git+https://github.com/hsivonen/packed_simd?rev=412f9a0aa556611de021bde89dee8fefe6e0fbbd#412f9a0aa556611de021bde89dee8fefe6e0fbbd"
+name = "packed_simd"
+version = "0.3.9"
+source = "git+https://github.com/hsivonen/packed_simd?rev=e588ceb568878e1a3156ea9ce551d5b63ef0cdc4#e588ceb568878e1a3156ea9ce551d5b63ef0cdc4"
 dependencies = [
  "cfg-if 1.0.0",
+ "num-traits",
 ]
 
 [[package]]
@@ -4370,9 +4371,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.59"
+version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aeca18b86b413c660b781aa319e4e2648a3e6f9eadc9b47e9038e6fe9f3451b"
+checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
 dependencies = [
  "unicode-ident",
 ]
@@ -4562,8 +4563,6 @@ dependencies = [
 [[package]]
 name = "rayon-core"
 version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b8f95bd6966f5c87776639160a66bd8ab9895d9d4ab01ddba9fc60661aebe8d"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
@@ -5219,6 +5218,7 @@ dependencies = [
  "parking_lot",
  "precomputed-hash",
  "rayon",
+ "rayon-core",
  "regex",
  "selectors",
  "serde",

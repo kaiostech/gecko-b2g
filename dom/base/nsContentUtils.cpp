@@ -4603,34 +4603,33 @@ EventMessage nsContentUtils::GetEventMessageAndAtomForListener(
   return msg;
 }
 
-static nsresult GetEventAndTarget(Document* aDoc, nsISupports* aTarget,
-                                  const nsAString& aEventName,
-                                  CanBubble aCanBubble, Cancelable aCancelable,
-                                  Composed aComposed, Trusted aTrusted,
-                                  Event** aEvent, EventTarget** aTargetOut) {
-  nsCOMPtr<EventTarget> target(do_QueryInterface(aTarget));
-  NS_ENSURE_TRUE(aDoc && target, NS_ERROR_INVALID_ARG);
+static already_AddRefed<Event> GetEventWithTarget(
+    Document* aDoc, EventTarget* aTarget, const nsAString& aEventName,
+    CanBubble aCanBubble, Cancelable aCancelable, Composed aComposed,
+    Trusted aTrusted, ErrorResult& aErrorResult) {
+  if (!aDoc || !aTarget) {
+    aErrorResult.Throw(NS_ERROR_INVALID_ARG);
+    return nullptr;
+  }
 
   ErrorResult err;
   RefPtr<Event> event =
       aDoc->CreateEvent(u"Events"_ns, CallerType::System, err);
-  if (NS_WARN_IF(err.Failed())) {
-    return err.StealNSResult();
+  if (err.Failed()) {
+    return nullptr;
   }
 
   event->InitEvent(aEventName, aCanBubble, aCancelable, aComposed);
   event->SetTrusted(aTrusted == Trusted::eYes);
 
-  event->SetTarget(target);
+  event->SetTarget(aTarget);
 
-  event.forget(aEvent);
-  target.forget(aTargetOut);
-  return NS_OK;
+  return event.forget();
 }
 
 // static
 nsresult nsContentUtils::DispatchTrustedEvent(
-    Document* aDoc, nsISupports* aTarget, const nsAString& aEventName,
+    Document* aDoc, EventTarget* aTarget, const nsAString& aEventName,
     CanBubble aCanBubble, Cancelable aCancelable, Composed aComposed,
     bool* aDefaultAction) {
   MOZ_ASSERT(!aEventName.EqualsLiteral("input") &&
@@ -4642,31 +4641,31 @@ nsresult nsContentUtils::DispatchTrustedEvent(
 
 // static
 nsresult nsContentUtils::DispatchUntrustedEvent(
-    Document* aDoc, nsISupports* aTarget, const nsAString& aEventName,
+    Document* aDoc, EventTarget* aTarget, const nsAString& aEventName,
     CanBubble aCanBubble, Cancelable aCancelable, bool* aDefaultAction) {
   return DispatchEvent(aDoc, aTarget, aEventName, aCanBubble, aCancelable,
                        Composed::eDefault, Trusted::eNo, aDefaultAction);
 }
 
 // static
-nsresult nsContentUtils::DispatchEvent(Document* aDoc, nsISupports* aTarget,
+nsresult nsContentUtils::DispatchEvent(Document* aDoc, EventTarget* aTarget,
                                        const nsAString& aEventName,
                                        CanBubble aCanBubble,
                                        Cancelable aCancelable,
                                        Composed aComposed, Trusted aTrusted,
                                        bool* aDefaultAction,
                                        ChromeOnlyDispatch aOnlyChromeDispatch) {
-  RefPtr<Event> event;
-  nsCOMPtr<EventTarget> target;
-  nsresult rv = GetEventAndTarget(
-      aDoc, aTarget, aEventName, aCanBubble, aCancelable, aComposed, aTrusted,
-      getter_AddRefs(event), getter_AddRefs(target));
-  NS_ENSURE_SUCCESS(rv, rv);
+  ErrorResult err;
+  RefPtr<Event> event =
+      GetEventWithTarget(aDoc, aTarget, aEventName, aCanBubble, aCancelable,
+                         aComposed, aTrusted, err);
+  if (err.Failed()) {
+    return err.StealNSResult();
+  }
   event->WidgetEventPtr()->mFlags.mOnlyChromeDispatch =
       aOnlyChromeDispatch == ChromeOnlyDispatch::eYes;
 
-  ErrorResult err;
-  bool doDefault = target->DispatchEvent(*event, CallerType::System, err);
+  bool doDefault = aTarget->DispatchEvent(*event, CallerType::System, err);
   if (aDefaultAction) {
     *aDefaultAction = doDefault;
   }
@@ -4674,7 +4673,7 @@ nsresult nsContentUtils::DispatchEvent(Document* aDoc, nsISupports* aTarget,
 }
 
 // static
-nsresult nsContentUtils::DispatchEvent(Document* aDoc, nsISupports* aTarget,
+nsresult nsContentUtils::DispatchEvent(Document* aDoc, EventTarget* aTarget,
                                        WidgetEvent& aEvent,
                                        EventMessage aEventMessage,
                                        CanBubble aCanBubble,
@@ -4683,8 +4682,6 @@ nsresult nsContentUtils::DispatchEvent(Document* aDoc, nsISupports* aTarget,
                                        ChromeOnlyDispatch aOnlyChromeDispatch) {
   MOZ_ASSERT_IF(aOnlyChromeDispatch == ChromeOnlyDispatch::eYes,
                 aTrusted == Trusted::eYes);
-
-  nsCOMPtr<EventTarget> target(do_QueryInterface(aTarget));
 
   aEvent.mSpecifiedEventType = GetEventTypeFromMessage(aEventMessage);
   aEvent.SetDefaultComposed();
@@ -4695,10 +4692,10 @@ nsresult nsContentUtils::DispatchEvent(Document* aDoc, nsISupports* aTarget,
   aEvent.mFlags.mOnlyChromeDispatch =
       aOnlyChromeDispatch == ChromeOnlyDispatch::eYes;
 
-  aEvent.mTarget = target;
+  aEvent.mTarget = aTarget;
 
   nsEventStatus status = nsEventStatus_eIgnore;
-  nsresult rv = EventDispatcher::DispatchDOMEvent(target, &aEvent, nullptr,
+  nsresult rv = EventDispatcher::DispatchDOMEvent(aTarget, &aEvent, nullptr,
                                                   nullptr, &status);
   if (aDefaultAction) {
     *aDefaultAction = (status != nsEventStatus_eConsumeNoDefault);
@@ -4874,14 +4871,15 @@ nsresult nsContentUtils::DispatchInputEvent(
 }
 
 nsresult nsContentUtils::DispatchChromeEvent(
-    Document* aDoc, nsISupports* aTarget, const nsAString& aEventName,
+    Document* aDoc, EventTarget* aTarget, const nsAString& aEventName,
     CanBubble aCanBubble, Cancelable aCancelable, bool* aDefaultAction) {
-  RefPtr<Event> event;
-  nsCOMPtr<EventTarget> target;
-  nsresult rv = GetEventAndTarget(
-      aDoc, aTarget, aEventName, aCanBubble, aCancelable, Composed::eDefault,
-      Trusted::eYes, getter_AddRefs(event), getter_AddRefs(target));
-  NS_ENSURE_SUCCESS(rv, rv);
+  ErrorResult err;
+  RefPtr<Event> event =
+      GetEventWithTarget(aDoc, aTarget, aEventName, aCanBubble, aCancelable,
+                         Composed::eDefault, Trusted::eYes, err);
+  if (err.Failed()) {
+    return err.StealNSResult();
+  }
 
   NS_ASSERTION(aDoc, "GetEventAndTarget lied?");
   if (!aDoc->GetWindow()) return NS_ERROR_INVALID_ARG;
@@ -4889,7 +4887,6 @@ nsresult nsContentUtils::DispatchChromeEvent(
   EventTarget* piTarget = aDoc->GetWindow()->GetParentTarget();
   if (!piTarget) return NS_ERROR_INVALID_ARG;
 
-  ErrorResult err;
   bool defaultActionEnabled =
       piTarget->DispatchEvent(*event, CallerType::System, err);
   if (aDefaultAction) {
@@ -4929,7 +4926,7 @@ void nsContentUtils::RequestFrameFocus(Element& aFrameElement, bool aCanRaise,
 }
 
 nsresult nsContentUtils::DispatchEventOnlyToChrome(
-    Document* aDoc, nsISupports* aTarget, const nsAString& aEventName,
+    Document* aDoc, EventTarget* aTarget, const nsAString& aEventName,
     CanBubble aCanBubble, Cancelable aCancelable, Composed aComposed,
     bool* aDefaultAction) {
   return DispatchEvent(aDoc, aTarget, aEventName, aCanBubble, aCancelable,

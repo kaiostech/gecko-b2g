@@ -483,38 +483,26 @@ class Element : public FragmentOrElement {
                                               int32_t aModType) const;
 
   inline Directionality GetDirectionality() const {
-    if (HasFlag(NODE_HAS_DIRECTION_RTL)) {
+    ElementState state = State();
+    if (state.HasState(ElementState::RTL)) {
       return eDir_RTL;
     }
-
-    if (HasFlag(NODE_HAS_DIRECTION_LTR)) {
+    if (state.HasState(ElementState::LTR)) {
       return eDir_LTR;
     }
-
     return eDir_NotSet;
   }
 
   inline void SetDirectionality(Directionality aDir, bool aNotify) {
-    UnsetFlags(NODE_ALL_DIRECTION_FLAGS);
-    if (!aNotify) {
-      RemoveStatesSilently(ElementState::DIR_STATES);
-    }
-
+    auto oldState = mState;
+    RemoveStatesSilently(ElementState::DIR_STATES);
     switch (aDir) {
-      case (eDir_RTL):
-        SetFlags(NODE_HAS_DIRECTION_RTL);
-        if (!aNotify) {
-          AddStatesSilently(ElementState::RTL);
-        }
+      case eDir_RTL:
+        AddStatesSilently(ElementState::RTL);
         break;
-
-      case (eDir_LTR):
-        SetFlags(NODE_HAS_DIRECTION_LTR);
-        if (!aNotify) {
-          AddStatesSilently(ElementState::LTR);
-        }
+      case eDir_LTR:
+        AddStatesSilently(ElementState::LTR);
         break;
-
       default:
         break;
     }
@@ -525,7 +513,7 @@ class Element : public FragmentOrElement {
      * for some elements.
      */
     if (aNotify) {
-      UpdateState(true);
+      NotifyStateChange(oldState ^ mState);
     }
   }
 
@@ -763,14 +751,13 @@ class Element : public FragmentOrElement {
   // Also need to allow Link to call UpdateLinkState.
   friend class Link;
 
-  void NotifyStateChange(ElementState aStates);
-
-  void NotifyStyleStateChange(ElementState aStates);
-
   // Style state computed from element's state and style locks.
   ElementState StyleStateFromLocks() const;
 
  protected:
+  void NotifyStateChange(ElementState aStates);
+  void NotifyStyleStateChange(ElementState aStates);
+
   // Methods for the ESM, nsGlobalWindow, focus manager and Document to
   // manage state bits.
   // These will handle setting up script blockers when they notify, so no need

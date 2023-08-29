@@ -425,22 +425,6 @@ void nsGenericHTMLElement::UpdateEditableState(bool aNotify) {
   nsStyledElement::UpdateEditableState(aNotify);
 }
 
-ElementState nsGenericHTMLElement::IntrinsicState() const {
-  ElementState state = nsGenericHTMLElementBase::IntrinsicState();
-
-  if (GetDirectionality() == eDir_RTL) {
-    state |= ElementState::RTL;
-    state &= ~ElementState::LTR;
-  } else {  // at least for HTML, directionality is exclusively LTR or RTL
-    NS_ASSERTION(GetDirectionality() == eDir_LTR,
-                 "HTML element's directionality must be either RTL or LTR");
-    state |= ElementState::LTR;
-    state &= ~ElementState::RTL;
-  }
-
-  return state;
-}
-
 nsresult nsGenericHTMLElement::BindToTree(BindContext& aContext,
                                           nsINode& aParent) {
   nsresult rv = nsGenericHTMLElementBase::BindToTree(aContext, aParent);
@@ -735,9 +719,6 @@ void nsGenericHTMLElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       // This needs to happen after we update our internal "dir" attribute
       // state but before we call SetDirectionalityOnDescendants.
       bool recomputeDirectionality = false;
-      // We don't want to have to keep getting the "dir" attribute in
-      // IntrinsicState, so we manually recompute our dir-related event states
-      // here and send the relevant update notifications.
       ElementState dirStates;
       if (aValue && aValue->Type() == nsAttrValue::eEnum) {
         SetHasValidDir();
@@ -2251,7 +2232,7 @@ void nsGenericHTMLElement::Click(CallerType aCallerType) {
   event.mFlags.mIsPositionless = true;
   event.mInputSource = MouseEvent_Binding::MOZ_SOURCE_UNKNOWN;
 
-  EventDispatcher::Dispatch(static_cast<nsIContent*>(this), context, &event);
+  EventDispatcher::Dispatch(this, context, &event);
 
   ClearHandlingClick();
 }
@@ -2414,9 +2395,7 @@ nsresult nsGenericHTMLElement::DispatchSimulatedClick(
                          WidgetMouseEvent::eReal);
   event.mInputSource = MouseEvent_Binding::MOZ_SOURCE_KEYBOARD;
   event.mFlags.mIsPositionless = true;
-  // TODO: Bug 1506441
-  return EventDispatcher::Dispatch(MOZ_KnownLive(ToSupports(aElement)),
-                                   aPresContext, &event);
+  return EventDispatcher::Dispatch(aElement, aPresContext, &event);
 }
 
 already_AddRefed<EditorBase> nsGenericHTMLElement::GetAssociatedEditor() {
@@ -3287,8 +3266,7 @@ bool nsGenericHTMLElement::FireToggleEvent(PopoverVisibilityState aOldState,
   event->SetTrusted(true);
   event->SetTarget(this);
 
-  EventDispatcher::DispatchDOMEvent(MOZ_KnownLive(ToSupports(this)), nullptr,
-                                    event, nullptr, nullptr);
+  EventDispatcher::DispatchDOMEvent(this, nullptr, event, nullptr, nullptr);
   return event->DefaultPrevented();
 }
 
@@ -3447,13 +3425,10 @@ void nsGenericHTMLElement::FocusPreviousElementAfterHidingPopover() {
     return;
   }
 
-  // Run the focusing steps for previouslyFocusedElement if focus is within the
-  // popover hierarchy.
-  if (IsShadowIncludingInclusiveDescendantOf(control)) {
-    FocusOptions options;
-    options.mPreventScroll = true;
-    control->Focus(options, CallerType::NonSystem, IgnoreErrors());
-  }
+  // Run the focusing steps for previouslyFocusedElement.
+  FocusOptions options;
+  options.mPreventScroll = true;
+  control->Focus(options, CallerType::NonSystem, IgnoreErrors());
 }
 
 // https://html.spec.whatwg.org/multipage/popover.html#dom-togglepopover

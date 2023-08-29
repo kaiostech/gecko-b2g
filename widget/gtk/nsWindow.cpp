@@ -1085,8 +1085,7 @@ void nsWindow::Move(double aX, double aY) {
 
   LOG("nsWindow::Move to %d x %d\n", x, y);
 
-  if (mSizeMode != nsSizeMode_Normal && (mWindowType == WindowType::TopLevel ||
-                                         mWindowType == WindowType::Dialog)) {
+  if (mSizeMode != nsSizeMode_Normal && IsTopLevelWindowType()) {
     LOG("  size state is not normal, bailing");
     return;
   }
@@ -3237,8 +3236,7 @@ LayoutDeviceIntRect nsWindow::GetClientBounds() {
 }
 
 void nsWindow::RecomputeClientOffset(bool aNotify) {
-  if (mWindowType != WindowType::Dialog &&
-      mWindowType != WindowType::TopLevel) {
+  if (!IsTopLevelWindowType()) {
     return;
   }
 
@@ -4039,8 +4037,7 @@ gboolean nsWindow::OnConfigureEvent(GtkWidget* aWidget,
 
   // Don't fire configure event for scale changes, we handle that
   // OnScaleChanged event. Skip that for toplevel windows only.
-  if (mGdkWindow && (mWindowType == WindowType::TopLevel ||
-                     mWindowType == WindowType::Dialog)) {
+  if (mGdkWindow && IsTopLevelWindowType()) {
     if (mWindowScaleFactor != gdk_window_get_scale_factor(mGdkWindow)) {
       LOG("  scale factor changed to %d,return early",
           gdk_window_get_scale_factor(mGdkWindow));
@@ -4050,8 +4047,7 @@ gboolean nsWindow::OnConfigureEvent(GtkWidget* aWidget,
 
   LayoutDeviceIntRect screenBounds = GetScreenBounds();
 
-  if (mWindowType == WindowType::TopLevel ||
-      mWindowType == WindowType::Dialog) {
+  if (IsTopLevelWindowType()) {
     // This check avoids unwanted rollup on spurious configure events from
     // Cygwin/X (bug 672103).
     if (mBounds.x != screenBounds.x || mBounds.y != screenBounds.y) {
@@ -4311,9 +4307,7 @@ void nsWindow::OnLeaveNotifyEvent(GdkEventCrossing* aEvent) {
 
   // The filter out for subwindows should make sure that this is targeted to
   // this nsWindow.
-  const bool leavingTopLevel =
-      mWindowType == WindowType::TopLevel || mWindowType == WindowType::Dialog;
-
+  const bool leavingTopLevel = IsTopLevelWindowType();
   if (leavingTopLevel && IsBogusLeaveNotifyEvent(mGdkWindow, aEvent)) {
     return;
   }
@@ -4830,8 +4824,7 @@ void nsWindow::OnContainerFocusInEvent(GdkEventFocus* aEvent) {
 void nsWindow::OnContainerFocusOutEvent(GdkEventFocus* aEvent) {
   LOG("OnContainerFocusOutEvent");
 
-  if (mWindowType == WindowType::TopLevel ||
-      mWindowType == WindowType::Dialog) {
+  if (IsTopLevelWindowType()) {
     // Rollup menus when a window is focused out unless a drag is occurring.
     // This check is because drags grab the keyboard and cause a focus out on
     // versions of GTK before 2.18.
@@ -5946,8 +5939,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   // gfxVars, used below.
   Unused << gfxPlatform::GetPlatform();
 
-  if (mWindowType == WindowType::TopLevel ||
-      mWindowType == WindowType::Dialog) {
+  if (IsTopLevelWindowType()) {
     mGtkWindowDecoration = GetSystemGtkWindowDecoration();
   }
 
@@ -8901,7 +8893,13 @@ GtkWindow* nsWindow::GetCurrentTopmostWindow() const {
   return topmostParentWindow;
 }
 
+// We're called from Renderer/Compositor thread where EGL Window size is set.
+// Just return what we have and keep scale update to main thread.
+gint nsWindow::GetCachedCeiledScaleFactor() const { return mWindowScaleFactor; }
+
 gint nsWindow::GdkCeiledScaleFactor() {
+  MOZ_ASSERT(NS_IsMainThread());
+
   // We depend on notify::scale-factor callback which is reliable for toplevel
   // windows only, so don't use scale cache for popup windows.
   if (mWindowType == WindowType::TopLevel && !mWindowScaleFactorChanged) {
@@ -9714,17 +9712,15 @@ void nsWindow::SetEGLNativeWindowSize(
     return;
   }
 
-  gint scale = GdkCeiledScaleFactor();
-  if (moz_container_wayland_egl_window_needs_size_update(
-          mContainer, aEGLWindowSize.ToUnknownSize(), scale)) {
-    LOG("nsWindow::SetEGLNativeWindowSize() %d x %d scale %d (unscaled %d x "
-        "%d)",
-        aEGLWindowSize.width, aEGLWindowSize.height, scale,
-        aEGLWindowSize.width / scale, aEGLWindowSize.height / scale);
-    moz_container_wayland_egl_window_set_size(mContainer,
-                                              aEGLWindowSize.ToUnknownSize());
-    moz_container_wayland_set_scale_factor(mContainer);
-  }
+  // SetEGLNativeWindowSize() may be called from Renderer/Compositor thread.
+  // In such case use cached scale factor.
+  gint scale =
+      NS_IsMainThread() ? GdkCeiledScaleFactor() : GetCachedCeiledScaleFactor();
+  LOG("nsWindow::SetEGLNativeWindowSize() %d x %d scale %d (unscaled %d x %d)",
+      aEGLWindowSize.width, aEGLWindowSize.height, scale,
+      aEGLWindowSize.width / scale, aEGLWindowSize.height / scale);
+  moz_container_wayland_egl_window_set_size(
+      mContainer, aEGLWindowSize.ToUnknownSize(), scale);
 }
 #endif
 

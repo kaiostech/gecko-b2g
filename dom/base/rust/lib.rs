@@ -81,6 +81,8 @@ bitflags! {
         const SUB_OPTIMUM = 1 << 29;
         /// Non-standard & undocumented.
         const SUB_SUB_OPTIMUM = 1 << 30;
+        /// All the above <meter> bits in one place.
+        const METER_OPTIMUM_STATES = Self::OPTIMUM.bits | Self::SUB_OPTIMUM.bits | Self::SUB_SUB_OPTIMUM.bits;
         /// Non-standard & undocumented.
         const INCREMENT_SCRIPT_LEVEL = 1u64 << 31;
         /// <https://drafts.csswg.org/selectors-4/#the-focus-visible-pseudo>
@@ -157,8 +159,10 @@ bitflags! {
         const EXTERNALLY_MANAGED_STATES =
             Self::MANUALLY_MANAGED_STATES.bits |
             Self::DIR_ATTR_STATES.bits |
+            Self::DIR_STATES.bits |
             Self::DISABLED_STATES.bits |
             Self::REQUIRED_STATES.bits |
+            Self::METER_OPTIMUM_STATES.bits |
             Self::ACTIVE.bits |
             Self::DEFINED.bits |
             Self::DRAGOVER.bits |
@@ -173,7 +177,9 @@ bitflags! {
             Self::INERT.bits |
             Self::TOPMOST_MODAL.bits |
             Self::REVEALED.bits |
-            Self::VALUE_EMPTY.bits;
+            Self::VALUE_EMPTY.bits |
+            Self::INCREMENT_SCRIPT_LEVEL.bits |
+            Self::PLACEHOLDER_SHOWN.bits;
 
         const INTRINSIC_STATES = !Self::EXTERNALLY_MANAGED_STATES.bits;
     }

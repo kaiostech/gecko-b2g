@@ -155,6 +155,10 @@ struct cubeb_stream {
   uint32_t input_buffer_length;
   /* Input frame size */
   uint32_t input_frame_size;
+  /* Input channel count */
+  uint32_t input_channels;
+  /* Input sample format */
+  cubeb_sample_format input_format;
   /* Device sampling rate. If user rate is not
    * accepted an compatible rate is set. If it is
    * accepted this is equal to params.rate. */
@@ -164,6 +168,8 @@ struct cubeb_stream {
   array_queue * input_queue;
   /* Silent input buffer used on full duplex. */
   void * input_silent_buffer;
+  /*  Buffer used for input sample conversion. */
+  void * input_converter_buffer;
   /* Number of input frames from the start of the stream*/
   uint32_t input_total_frames;
   /* Flag to stop the execution of user callback and
@@ -946,8 +952,18 @@ opensl_configure_capture(cubeb_stream * stm, cubeb_stream_params * params)
   lDataLocatorOut.locatorType = SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE;
   lDataLocatorOut.numBuffers = NBUFS;
 
+  // Workaround: AudioRecord's fast path doesn't support float data. Use s16
+  // and convert it in the data callback.
+  cubeb_stream_params params2 = *params;
+  if (params2.format == CUBEB_SAMPLE_FLOAT32LE) {
+    params2.format = CUBEB_SAMPLE_S16LE;
+  } else if (params2.format == CUBEB_SAMPLE_FLOAT32BE) {
+    params2.format = CUBEB_SAMPLE_S16BE;
+  }
+  stm->input_format = params->format;
+
   SLDataFormat_PCM lDataFormat;
-  int r = opensl_set_format(&lDataFormat, params);
+  int r = opensl_set_format(&lDataFormat, &params2);
   if (r != CUBEB_OK) {
     return CUBEB_ERROR_INVALID_FORMAT;
   }
@@ -1158,6 +1174,7 @@ opensl_configure_capture(cubeb_stream * stm, cubeb_stream_params * params)
   // Calculate length of input buffer according to requested latency
   stm->input_frame_size = params->channels * sizeof(int16_t);
   stm->input_buffer_length = (stm->input_frame_size * stm->buffer_size_frames);
+  stm->input_channels = params->channels;
 
   // Calculate the capacity of input array
   stm->input_array_capacity = NBUFS;
@@ -1182,6 +1199,14 @@ opensl_configure_capture(cubeb_stream * stm, cubeb_stream_params * params)
     assert(stm->input_queue);
     stm->input_silent_buffer = calloc(1, stm->input_buffer_length);
     assert(stm->input_silent_buffer);
+  }
+
+  if (params->format == CUBEB_SAMPLE_FLOAT32LE ||
+      params->format == CUBEB_SAMPLE_FLOAT32BE) {
+    uint32_t frame_size = params->channels * sizeof(float);
+    uint32_t buffer_length = frame_size * stm->buffer_size_frames;
+    stm->input_converter_buffer = calloc(1, buffer_length);
+    assert(stm->input_converter_buffer);
   }
 
   // Enqueue buffer to start rolling once recorder started
@@ -1476,6 +1501,26 @@ has_pref_set(cubeb_stream_params * input_params,
          (output_params && output_params->prefs & pref);
 }
 
+static long opensl_data_callback(cubeb_stream * stream, void * user_ptr,
+                                    void const * input_buffer,
+                                    void * output_buffer, long nframes) {
+  if (stream->input_converter_buffer) {
+    assert(stream->input_format == CUBEB_SAMPLE_FLOAT32LE ||
+           stream->input_format == CUBEB_SAMPLE_FLOAT32BE);
+    int16_t * src = (int16_t *)(input_buffer);
+    float * dst = (float *)(stream->input_converter_buffer);
+    uint32_t nsamples = stream->input_channels * nframes;
+    for (uint32_t i = 0; i < nsamples; i++) {
+      *dst++ = (float)(*src++) / 32768.0f;
+    }
+    return stream->data_callback(stream, user_ptr,
+                                 stream->input_converter_buffer, output_buffer,
+                                 nframes);
+  }
+  return stream->data_callback(stream, user_ptr, input_buffer, output_buffer,
+                               nframes);
+}
+
 static int
 opensl_stream_init(cubeb * ctx, cubeb_stream ** stream,
                    char const * stream_name, cubeb_devid input_device,
@@ -1592,7 +1637,7 @@ opensl_stream_init(cubeb * ctx, cubeb_stream ** stream,
   stm->resampler = cubeb_resampler_create(
       stm, input_stream_params ? &input_params : NULL,
       output_stream_params ? &output_params : NULL, target_sample_rate,
-      data_callback, user_ptr, CUBEB_RESAMPLER_QUALITY_DEFAULT,
+      opensl_data_callback, user_ptr, CUBEB_RESAMPLER_QUALITY_DEFAULT,
       CUBEB_RESAMPLER_RECLOCK_NONE);
   if (!stm->resampler) {
     LOG("Failed to create resampler");
@@ -1764,6 +1809,7 @@ opensl_destroy_recorder(cubeb_stream * stm)
     array_queue_destroy(stm->input_queue);
   }
   free(stm->input_silent_buffer);
+  free(stm->input_converter_buffer);
 
   return CUBEB_OK;
 }

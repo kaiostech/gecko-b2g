@@ -2930,8 +2930,7 @@ void nsFocusManager::FireFocusOrBlurEvent(EventMessage aEventMessage,
                                           EventTarget* aTarget,
                                           bool aWindowRaised, bool aIsRefocus,
                                           EventTarget* aRelatedTarget) {
-  nsCOMPtr<EventTarget> eventTarget = do_QueryInterface(aTarget);
-  nsCOMPtr<Document> eventTargetDoc = GetDocumentHelper(eventTarget);
+  nsCOMPtr<Document> eventTargetDoc = GetDocumentHelper(aTarget);
   nsCOMPtr<nsPIDOMWindowOuter> currentWindow = mFocusedWindow;
   nsCOMPtr<nsPIDOMWindowInner> targetWindow = do_QueryInterface(aTarget);
   nsCOMPtr<Document> targetDocument = do_QueryInterface(aTarget);

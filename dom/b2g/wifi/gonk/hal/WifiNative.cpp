@@ -14,6 +14,9 @@
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::wifi;
+#if ANDROID_VERSION >= 33
+using ::android::hardware::wifi::supplicant::DebugLevel;
+#endif
 
 static const int32_t CONNECTION_RETRY_INTERVAL_US = 100000;
 static const int32_t CONNECTION_RETRY_TIMES = 50;
@@ -342,13 +345,30 @@ Result_t WifiNative::StopWifi() {
 /**
  * Steps to setup supplicant.
  *
- * 1. initialize supplicant hidl client.
+ * 1. initialize supplicant hidl/aidl client.
  * 2. start supplicant daemon through wificond or ctl.stat.
  * 3. wait for hidl client registration ready.
  */
 Result_t WifiNative::StartSupplicant() {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
+#if ANDROID_VERSION >= 33
+  // start supplicant from wificond.
+  result = sWificondControl->StartSupplicant();
+  if (result != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to start supplicant daemon");
+    return result;
+  }
+
+  // start supplicant hal
+  if (!sSupplicantStaManager->IsInterfaceReady()) {
+    result = sSupplicantStaManager->InitSupplicantInterface();
+    if (result != nsIWifiResult::SUCCESS) {
+      WIFI_LOGE(LOG_TAG, "Failed to initialize supplicant hal");
+      return result;
+    }
+  }
+#else
   // start supplicant hal
   if (!sSupplicantStaManager->IsInterfaceReady()) {
     result = sSupplicantStaManager->InitInterface();
@@ -364,6 +384,7 @@ Result_t WifiNative::StartSupplicant() {
     WIFI_LOGE(LOG_TAG, "Failed to start supplicant daemon");
     return result;
   }
+#endif
 
   bool connected = false;
   int32_t connectTries = 0;
@@ -417,7 +438,11 @@ Result_t WifiNative::GetDebugLevel(uint32_t& aLevel) {
 }
 
 Result_t WifiNative::SetDebugLevel(SupplicantDebugLevelOptions* aLevel) {
+#if ANDROID_VERSION >= 33
+  CONFIG_WIFI_DEBUG(aLevel->mLogLevel < (uint32_t)DebugLevel::INFO);
+#else
   CONFIG_WIFI_DEBUG(aLevel->mLogLevel < nsISupplicantDebugLevel::LOG_INFO);
+#endif
   return sSupplicantStaManager->SetSupplicantDebugLevel(aLevel);
 }
 

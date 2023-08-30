@@ -362,7 +362,6 @@ mochitest-browser-media:
             default:
                 by-test-platform:
                     android.*: []
-                    .*wayland.*: []
                     default: built-projects
     tier: default
     max-run-time:
@@ -611,7 +610,6 @@ mochitest-chrome-gpu:
             1proc:
                 by-test-platform:
                     android.*/.*: []
-                    .*wayland.*: []
                     default: built-projects
     tier: default
     mozharness:

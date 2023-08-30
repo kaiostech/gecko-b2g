@@ -12,6 +12,7 @@
   --fxview-element-background-hover: color-mix(in srgb, var(--fxview-background-color) 90%, currentColor);
   --fxview-element-background-active: color-mix(in srgb, var(--fxview-background-color) 80%, currentColor);
   --fxview-text-primary-color: var(--newtab-text-primary-color, var(--in-content-page-color));
+  --fxview-text-secondary-color: color-mix(in srgb, currentColor 70%, transparent);
   --fxview-text-color-hover: var(--newtab-text-primary-color);
   --fxview-primary-action-background: var(--newtab-primary-action-background, #0061e0);
   --fxview-border: var(--fc-border-light, #CFCFD8);
@@ -23,6 +24,7 @@
 
   --fxview-sidebar-width: 286px;
   --fxview-margin-top: 72px;
+  --fxview-card-padding-inline: 4px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -115,6 +117,13 @@ fxview-tab-list.with-context-menu::part(secondary-button) {
 }
 
 .sticky-container.bottom-fade {
+  /*
+   * padding-inline is doubled to allow for the negative margin below to offset the
+   * container so that the box-shadows on the cards are hidden as they pass underneath.
+   */
+  padding-inline: calc(var(--fxview-card-padding-inline) * 2);
+  margin: 0 calc(var(--fxview-card-padding-inline) * -1);
+
   background:
   linear-gradient(
     to bottom,
@@ -129,7 +138,7 @@ fxview-tab-list.with-context-menu::part(secondary-button) {
 }
 
 .cards-container {
-  padding-inline: 4px;
+  padding-inline: var(--fxview-card-padding-inline);
 }
 
 /* This should be supported within panel-{item,list} rather than modifying it */
@@ -154,4 +163,8 @@ fxview-category-navigation {
 fxview-category-navigation h1 {
   font-size: 1.6em;
   font-weight: 700;
+}
+
+fxview-empty-state:not([isSelectedTab]) button[slot="primary-action"] {
+  margin-inline-start: 0;
 }

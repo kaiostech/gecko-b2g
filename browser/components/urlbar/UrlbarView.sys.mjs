@@ -1850,17 +1850,16 @@ export class UrlbarView {
       title.removeAttribute("isurl");
     }
 
+    item.toggleAttribute("has-action", actionSetter);
     if (actionSetter) {
       actionSetter();
       item._originalActionSetter = actionSetter;
-      item.setAttribute("has-action", "true");
     } else {
       item._originalActionSetter = () => {
         this.#removeElementL10n(action);
         action.textContent = "";
       };
       item._originalActionSetter();
-      item.removeAttribute("has-action");
     }
 
     if (!title.hasAttribute("isurl")) {
@@ -1959,10 +1958,13 @@ export class UrlbarView {
   #updateRowForRichSuggestion(item, result) {
     this.#setRowSelectable(item, true);
 
+    let favicon = item._elements.get("favicon");
     if (result.richSuggestionIconSize) {
       item.setAttribute("icon-size", result.richSuggestionIconSize);
+      favicon.setAttribute("icon-size", result.richSuggestionIconSize);
     } else {
       item.removeAttribute("icon-size");
+      favicon.removeAttribute("icon-size");
     }
 
     let description = item._elements.get("description");
@@ -2971,9 +2973,9 @@ export class UrlbarView {
         continue;
       }
 
-      let action = item.querySelector(".urlbarView-action");
-      let favicon = item.querySelector(".urlbarView-favicon");
-      let title = item.querySelector(".urlbarView-title");
+      let action = item._elements.get("action");
+      let favicon = item._elements.get("favicon");
+      let title = item._elements.get("title");
 
       // If a one-off button is the only selection, force the heuristic result
       // to show its action text, so the engine name is visible.

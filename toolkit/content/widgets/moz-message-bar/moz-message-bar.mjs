@@ -43,6 +43,7 @@ export default class MozMessageBar extends MozLitElement {
   static queries = {
     actionsSlotEl: "slot[name=actions]",
     actionsEl: ".actions",
+    closeButtonEl: "button.close",
   };
 
   static properties = {
@@ -61,7 +62,6 @@ export default class MozMessageBar extends MozLitElement {
     super();
     MozXULElement.insertFTLIfNeeded("toolkit/global/mozMessageBar.ftl");
     this.type = "info";
-    this.role = "status";
     this.dismissable = false;
   }
 
@@ -70,7 +70,13 @@ export default class MozMessageBar extends MozLitElement {
     this.actionsEl.classList.toggle("active", actions.length);
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.setAttribute("role", "status");
+  }
+
   disconnectedCallback() {
+    super.disconnectedCallback();
     this.dispatchEvent(new CustomEvent("message-bar:close"));
   }
 

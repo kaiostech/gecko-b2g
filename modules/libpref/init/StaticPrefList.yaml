@@ -2642,7 +2642,7 @@
 # If true, event is first captured then bubbled on target element
 - name: dom.events.phases.correctOrderOnTarget
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # This pref controls whether or not the `protected` dataTransfer state is
@@ -8591,12 +8591,6 @@
 - name: layout.css.cross-fade.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-  rust: true
-
-- name: layout.css.linear-easing-function.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
   rust: true
 
@@ -15776,6 +15770,12 @@
 #endif
 
 #ifdef MOZ_WIDGET_GTK
+# Whether to use DMABuf backend.
+- name: widget.dmabuf.enabled
+  type: bool
+  value: true
+  mirror: once
+
 # Whether to override the DMABuf blocklist.
 - name: widget.dmabuf.force-enabled
   type: bool

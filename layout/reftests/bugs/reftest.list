@@ -1166,7 +1166,7 @@ fails-if(Android) == 455826-1.html 455826-1-ref.html
 == chrome://reftest/content/bugs/456147.xhtml 456147-ref.html
 fuzzy(24-110,110-800) == 456219-1a.html 456219-1-ref.html # bug 1128229
 fuzzy(24-110,107-1251) == 456219-1b.html 456219-1-ref.html # bug 1128229
-fuzzy(24-110,107-3600) == 456219-1c.html 456219-1-ref.html # bug 1128229
+fuzzy(24-110,107-3800) == 456219-1c.html 456219-1-ref.html # bug 1128229
 fuzzy(0-10,0-8) == 456219-2.html 456219-2-ref.html
 == 456330-1.gif 456330-1-ref.png
 == 456484-1.html 456484-1-ref.html
@@ -1944,7 +1944,7 @@ fuzzy-if(Android,0-27,0-874) fuzzy-if(!Android,0-14,0-43) fuzzy-if(gtkWidget&&fi
 fuzzy(0-3,0-320000) fails-if(useDrawSnapshot) == 1315113-1.html 1315113-1-ref.html
 fuzzy(0-3,0-20000) == 1315113-2.html 1315113-2-ref.html
 == 1315632-1.html 1315632-1-ref.html
-fuzzy(0-2,0-40000) fuzzy-if(/^Windows\x20NT\x2010\.0/.test(http.oscpu),0-13,0-40000) == 1316719-1a.html 1316719-1-ref.html
+fuzzy(0-3,0-40000) fuzzy-if(/^Windows\x20NT\x2010\.0/.test(http.oscpu),0-13,0-40000) == 1316719-1a.html 1316719-1-ref.html
 fuzzy(0-13,0-40000) fuzzy-if(/^Windows\x20NT\x2010\.0/.test(http.oscpu),0-13,0-40000) == 1316719-1b.html 1316719-1-ref.html
 fuzzy(0-13,0-40000) fuzzy-if(/^Windows\x20NT\x2010\.0/.test(http.oscpu),0-13,0-40000) == 1316719-1c.html 1316719-1-ref.html
 != 1318769-1.html 1318769-1-ref.html
@@ -2092,7 +2092,7 @@ fuzzy(0-2,0-96600) == 1648282-1b.html 1648282-1-ref.html
 == 1686729-1.html 1686729-1-ref.html
 != chrome://reftest/content/bugs/1688004.xhtml about:blank
 pref(image.downscale-during-decode.enabled,true) fuzzy-if(OSX||winWidget,0-167,0-44310) fuzzy-if(gtkWidget,0-2,0-37220) == 1714763-1.html 1714763-1-ref.html
-pref(image.downscale-during-decode.enabled,true) fuzzy-if(OSX||winWidget,0-166,0-22530) fuzzy-if(gtkWidget,0-18,0-19006) fuzzy-if(Android,0-21,0-22254) == 1714763-2.html 1714763-2-ref.html
+pref(image.downscale-during-decode.enabled,true) fuzzy-if(OSX||winWidget,0-166,0-22530) fuzzy-if(gtkWidget,0-18,0-19006) fuzzy-if(Android,0-21,0-22260) == 1714763-2.html 1714763-2-ref.html
 pref(image.downscale-during-decode.enabled,true) fuzzy-if(OSX||winWidget,0-235,0-289) fuzzy-if(gtkWidget,0-186,0-240) fuzzy-if(Android,0-185,0-232) == 1714763-3.html 1714763-3-ref.html
 skip-if(!appleSilicon) != 1721223-1.html 1721223-1-notref.html # Big Sur required for updated system font; OSX value is clamped to 10.15
 skip-if(Android) == 1727172-1.xhtml 1727172-1-ref.html

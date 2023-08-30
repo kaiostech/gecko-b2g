@@ -525,32 +525,11 @@ void NetworkUtils::clearAddrForInterface(CommandChain* aChain,
 }
 
 
-  // FIXME: interface change.
-using android::net::NativeNetworkConfig;
-using android::net::NativeNetworkType;
-using android::net::NativeVpnType;
-NativeNetworkConfig makeNativeNetworkConfig(int netId, NativeNetworkType networkType,
-                                            int permission, bool secure, bool excludeLocalRoutes) {
-    NativeNetworkConfig config = {};
-    config.netId = netId;
-    config.networkType = networkType;
-    config.permission = permission;
-    config.secure = secure;
-    config.vpnType = NativeVpnType::PLATFORM;
-    config.excludeLocalRoutes = excludeLocalRoutes;
-    return config;
-}
-
 void NetworkUtils::createNetwork(CommandChain* aChain,
                                  CommandCallback aCallback,
                                  NetworkResultOptions& aResult) {
-  // FIXME: crash workaround
-  return;
-  // FIXME: interface change.
-  const auto& config = makeNativeNetworkConfig(GET_FIELD(mNetId), NativeNetworkType::PHYSICAL,
-                                               INetd::PERMISSION_NONE, false, false);
   Status networkStatus =
-      gNetd->networkCreate(config);
+      gNetd->networkCreatePhysical(GET_FIELD(mNetId), INetd::PERMISSION_NONE);
   Status dnsStatus = gDnsResolver->createNetworkCache(GET_FIELD(mNetId));
   NU_DBG("createNetwork physical %s, networkCache %s",
          networkStatus.isOk() ? "success" : "failed",
@@ -2149,7 +2128,7 @@ CommandResult NetworkUtils::startClatd(NetworkParams& aOptions) {
     return CommandResult(result);
   }
 
-// FIXME:  'clatdStart' is deprecated: 
+// FIXME: 'clatdStart' is deprecated:
 #if 0
   std::string clatAddress;
   Status status = gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mNat64Prefix),

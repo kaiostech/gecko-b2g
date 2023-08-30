@@ -347,7 +347,7 @@ Result_t WifiNative::StopWifi() {
  *
  * 1. initialize supplicant hidl/aidl client.
  * 2. start supplicant daemon through wificond or ctl.stat.
- * 3. wait for hidl client registration ready.
+ * 3. wait for hidl/aidl client registration ready.
  */
 Result_t WifiNative::StartSupplicant() {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;

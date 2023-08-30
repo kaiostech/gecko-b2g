@@ -93,10 +93,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi@1.5.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.1.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant@1.0.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant@1.1.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant@1.2.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant@1.3.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.system.wifi.keystore@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats-V1-ndk.so
@@ -250,6 +247,7 @@ out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_system_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_remotesimunlock_interface-V1-cpp-source/gen/include
+out/soong/.intermediates/hardware/interfaces/wifi/supplicant/aidl/android.hardware.wifi.supplicant-V1-cpp-source/gen/include
 out/soong/.intermediates/packages/modules/DnsResolver/dnsresolver_aidl_interface-V2-cpp-source/gen/include
 out/soong/.intermediates/system/netd/server/oemnetd_aidl_interface-cpp-source/gen/include
 out/soong/.intermediates/system/vold/libvold_binder_shared/android_${ARCH_FOLDER}_shared/gen/aidl
@@ -297,9 +295,6 @@ out/soong/.intermediates/hardware/interfaces/wifi/1.5/android.hardware.wifi@1.5_
 out/soong/.intermediates/hardware/interfaces/wifi/hostapd/1.0/android.hardware.wifi.hostapd@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/wifi/hostapd/1.1/android.hardware.wifi.hostapd@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.0/android.hardware.wifi.supplicant@1.0_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.1/android.hardware.wifi.supplicant@1.1_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.3/android.hardware.wifi.supplicant@1.3_genc++_headers/gen
 out/soong/.intermediates/system/hardware/interfaces/wifi/keystore/1.0/android.system.wifi.keystore@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen

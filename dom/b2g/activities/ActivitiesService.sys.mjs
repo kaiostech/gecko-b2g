@@ -260,10 +260,13 @@ var Activities = {
         Services.obs.removeObserver(this, "service-worker-shutdown");
         break;
       case "service-worker-shutdown":
-        let origin = Services.io.newURI(aData).prePath;
+        // Activity handlers registered on the root scope, but this shutdown
+        // notification might come from any sw which has registered.
+        // Close activities only when the scope is equal to the origin.
+        let shutdown_scope = Services.io.newURI(aData);
         let messages = [];
         for (const [key, value] of Object.entries(this.callers)) {
-          if (value.handlerOrigin == origin) {
+          if (shutdown_scope.equals(Services.io.newURI(value.handlerOrigin))) {
             messages.push(key);
             let detail = {
               reason: "service-worker-shutdown",

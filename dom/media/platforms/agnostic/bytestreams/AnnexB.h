@@ -89,9 +89,9 @@ class H265AnnexB final : private AnnexB {
   // an HVCC extradata must not be set.
   static bool ConvertSampleToHVCC(
       mozilla::MediaRawData* aSample,
-      const RefPtr<mozilla::MediaByteBuffer>& aAVCCHeader = nullptr);
+      const RefPtr<mozilla::MediaByteBuffer>& aHVCCHeader = nullptr);
 
-  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleTo4BytesHVCC(
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertHVCCTo4BytesHVCC(
       mozilla::MediaRawData* aSample);
 
   // Parse an AVCC extradata and construct the Annex B sample header.

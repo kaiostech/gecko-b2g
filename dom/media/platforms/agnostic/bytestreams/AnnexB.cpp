@@ -10,6 +10,7 @@
 #include "BufferReader.h"
 #include "ByteWriter.h"
 #include "H264.h"
+#include "H265.h"
 #include "MediaData.h"
 
 namespace mozilla {
@@ -429,7 +430,7 @@ Result<Ok, nsresult> H265AnnexB::ConvertSampleToAnnexB(
   }
   MOZ_ASSERT(aSample->Data());
 
-  MOZ_TRY(ConvertSampleTo4BytesHVCC(aSample));
+  MOZ_TRY(ConvertHVCCTo4BytesHVCC(aSample));
 
   if (aSample->Size() < 4) {
     // Nothing to do, it's corrupted anyway.
@@ -462,9 +463,8 @@ bool H265AnnexB::ConvertSampleToHVCC(
     mozilla::MediaRawData* aSample,
     const RefPtr<MediaByteBuffer>& aHVCCHeader) {
   if (IsHVCC(aSample)) {
-    return ConvertSampleTo4BytesHVCC(aSample).isOk();
+    return ConvertHVCCTo4BytesHVCC(aSample).isOk();
   }
-
   if (!IsAnnexB(aSample)) {
     // Not AnnexB, nothing to convert.
     return true;
@@ -491,52 +491,15 @@ bool H265AnnexB::ConvertSampleToHVCC(
   return true;
 }
 
-Result<mozilla::Ok, nsresult> H265AnnexB::ConvertSampleTo4BytesHVCC(
+Result<mozilla::Ok, nsresult> H265AnnexB::ConvertHVCCTo4BytesHVCC(
     mozilla::MediaRawData* aSample) {
-  MOZ_ASSERT(IsHVCC(aSample));
-
-  int nalLenSize = ((*aSample->mExtraData)[21] & 3) + 1;
-
-  if (nalLenSize == 4) {
-    return Ok();
-  }
-  nsTArray<uint8_t> dest;
-  ByteWriter<BigEndian> writer(dest);
-  BufferReader reader(aSample->Data(), aSample->Size());
-  while (reader.Remaining() > nalLenSize) {
-    uint32_t nalLen;
-    switch (nalLenSize) {
-      case 1:
-        MOZ_TRY_VAR(nalLen, reader.ReadU8());
-        break;
-      case 2:
-        MOZ_TRY_VAR(nalLen, reader.ReadU16());
-        break;
-      case 3:
-        MOZ_TRY_VAR(nalLen, reader.ReadU24());
-        break;
-    }
-
-    MOZ_ASSERT(nalLenSize != 4);
-
-    const uint8_t* p = reader.Read(nalLen);
-    if (!p) {
-      return Ok();
-    }
-    if (!writer.WriteU32(nalLen) || !writer.Write(p, nalLen)) {
-      return Err(NS_ERROR_OUT_OF_MEMORY);
-    }
-  }
-  UniquePtr<MediaRawDataWriter> samplewriter(aSample->CreateWriter());
-  if (!samplewriter->Replace(dest.Elements(), dest.Length())) {
-    return Err(NS_ERROR_OUT_OF_MEMORY);
-  }
-  return Ok();
+  auto hvcc = HVCCConfig::Parse(aSample);
+  MOZ_ASSERT(hvcc.isOk());
+  return ConvertNALUTo4BytesNALU(aSample, hvcc.unwrap().NALUSize());
 }
 
 bool H265AnnexB::IsHVCC(const mozilla::MediaRawData* aSample) {
-  return aSample->Size() >= 3 && aSample->mExtraData &&
-         aSample->mExtraData->Length() >= 23 && (*aSample->mExtraData)[0] == 1;
+  return HVCCConfig::Parse(aSample).isOk();
 }
 
 }  // namespace mozilla

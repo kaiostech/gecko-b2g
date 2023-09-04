@@ -150,7 +150,7 @@ WebActivityMain::~WebActivityMain() { MOZ_DIAGNOSTIC_ASSERT(!mOuter); }
 
 nsresult WebActivityMain::PermissionCheck() {
   MOZ_DIAGNOSTIC_ASSERT(mOuter);
-  auto* window = mOuter->mGlobal->AsInnerWindow();
+  auto* window = mOuter->mGlobal->GetAsInnerWindow();
   if (!window) {
     return NS_ERROR_UNEXPECTED;
   }

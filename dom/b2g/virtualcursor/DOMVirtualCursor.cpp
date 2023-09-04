@@ -51,7 +51,7 @@ already_AddRefed<DOMVirtualCursor> DOMVirtualCursor::Create(
 }
 
 void DOMVirtualCursor::Enable(ErrorResult& aRv) {
-  nsPIDOMWindowInner* inner = mGlobal->AsInnerWindow();
+  nsPIDOMWindowInner* inner = mGlobal->GetAsInnerWindow();
   MOZ_ASSERT(inner);
   if (!HasPermission(inner)) {
     MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
@@ -77,7 +77,7 @@ void DOMVirtualCursor::Enable(ErrorResult& aRv) {
 }
 
 void DOMVirtualCursor::Disable(ErrorResult& aRv) {
-  nsPIDOMWindowInner* inner = mGlobal->AsInnerWindow();
+  nsPIDOMWindowInner* inner = mGlobal->GetAsInnerWindow();
   MOZ_ASSERT(inner);
   if (!HasPermission(inner)) {
     MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
@@ -103,7 +103,7 @@ void DOMVirtualCursor::Disable(ErrorResult& aRv) {
 }
 
 bool DOMVirtualCursor::Enabled() const {
-  nsPIDOMWindowInner* inner = mGlobal->AsInnerWindow();
+  nsPIDOMWindowInner* inner = mGlobal->GetAsInnerWindow();
   MOZ_ASSERT(inner);
 
   nsPIDOMWindowOuter* outer = inner->GetOuterWindow();

@@ -304,7 +304,7 @@ already_AddRefed<Promise> B2G::GetFlashlightManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -330,7 +330,7 @@ already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -361,7 +361,7 @@ InputMethod* B2G::GetInputMethod(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -440,7 +440,7 @@ MobileConnectionArray* B2G::GetMobileConnections(ErrorResult& aRv) {
       return nullptr;
     }
 
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -486,7 +486,7 @@ SubsidyLockManager* B2G::GetSubsidyLockManager(ErrorResult& aRv) {
       return nullptr;
     }
   }
-  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -503,7 +503,7 @@ MobileMessageManager* B2G::GetMobileMessageManager(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -595,7 +595,7 @@ bluetooth::BluetoothManager* B2G::GetBluetooth(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -614,7 +614,7 @@ nsDOMCameraManager* B2G::GetCameras(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -861,7 +861,7 @@ bool B2G::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */) {
 
 already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString& aTopic,
                                                 ErrorResult& aRv) {
-  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -927,7 +927,7 @@ DeviceStorageAreaListener* B2G::GetDeviceStorageAreaListener(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
@@ -952,7 +952,7 @@ already_AddRefed<nsDOMDeviceStorage> B2G::FindDeviceStorage(
     return nullptr;
   }
 
-  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
   if (!innerWindow) {
     return nullptr;
   }
@@ -979,7 +979,7 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorage(
     return nullptr;
   }
 
-  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -1018,7 +1018,7 @@ void B2G::GetDeviceStorages(const nsAString& aType,
     return;
   }
 
-  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return;
@@ -1061,7 +1061,7 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorageByNameAndType(
     return nullptr;
   }
 
-  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -1103,7 +1103,7 @@ PowerSupplyManager* B2G::GetPowerSupplyManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     mPowerSupplyManager = new PowerSupplyManager(innerWindow);
     mPowerSupplyManager->Init();
   }
@@ -1124,7 +1124,7 @@ UsbManager* B2G::GetUsbManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    nsPIDOMWindowInner* innerWindow = mOwner->GetAsInnerWindow();
     mUsbManager = new UsbManager(innerWindow);
     mUsbManager->Init();
   }

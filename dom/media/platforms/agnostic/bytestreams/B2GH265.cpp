@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "H265.h"
+#include "B2GH265.h"
 #include <cmath>
 #include <limits>
 #include "AnnexB.h"
@@ -25,9 +25,9 @@
 
 namespace mozilla {
 
-H265::VPSData::VPSData() { PodZero(this); }
+B2GH265::VPSData::VPSData() { PodZero(this); }
 
-H265::SPSData::SPSData() { PodZero(this); }
+B2GH265::SPSData::SPSData() { PodZero(this); }
 
 // Described in ISO 23001-8:2016
 // Table 2
@@ -111,7 +111,7 @@ static MatrixID GetMatrixID(int aMatrix) {
   return static_cast<MatrixID>(aMatrix);
 }
 
-gfx::YUVColorSpace H265::SPSData::ColorSpace() const {
+gfx::YUVColorSpace B2GH265::SPSData::ColorSpace() const {
   // Bitfield, note that guesses with higher values take precedence over
   // guesses with lower values.
   enum Guess {
@@ -216,7 +216,7 @@ gfx::YUVColorSpace H265::SPSData::ColorSpace() const {
   }
 }
 
-gfx::ColorDepth H265::SPSData::ColorDepth() const {
+gfx::ColorDepth B2GH265::SPSData::ColorDepth() const {
   if (bit_depth_luma != 8 && bit_depth_luma != 10 && bit_depth_luma != 12) {
     // We don't know what that is, just assume 8 bits to prevent decoding
     // regressions if we ever encounter those.
@@ -226,8 +226,8 @@ gfx::ColorDepth H265::SPSData::ColorDepth() const {
 }
 
 /* static */
-already_AddRefed<MediaByteBuffer> H265::DecodeNALUnit(const uint8_t* aNAL,
-                                                      size_t aLength) {
+already_AddRefed<MediaByteBuffer> B2GH265::DecodeNALUnit(const uint8_t* aNAL,
+                                                         size_t aLength) {
   MOZ_ASSERT(aNAL);
 
   if (aLength < 2) {
@@ -260,7 +260,7 @@ already_AddRefed<MediaByteBuffer> H265::DecodeNALUnit(const uint8_t* aNAL,
 }
 
 /* static */
-bool H265::DecodeNALUnitFromExtraData(
+bool B2GH265::DecodeNALUnitFromExtraData(
     const MediaByteBuffer* aExtraData, uint8_t aNALType,
     const std::function<bool(const uint8_t*, size_t)>& aNALDecoder) {
   BufferReader reader(aExtraData->Elements(), aExtraData->Length());
@@ -284,8 +284,8 @@ bool H265::DecodeNALUnitFromExtraData(
 }
 
 /* static */
-bool H265::DecodeVPSFromExtraData(const MediaByteBuffer* aExtraData,
-                                  VPSData& aDest) {
+bool B2GH265::DecodeVPSFromExtraData(const MediaByteBuffer* aExtraData,
+                                     VPSData& aDest) {
   return DecodeNALUnitFromExtraData(
       aExtraData, H265_NAL_VPS, [&aDest](const uint8_t* aNAL, size_t aLength) {
         RefPtr<MediaByteBuffer> rbsp = DecodeNALUnit(aNAL, aLength);
@@ -294,8 +294,8 @@ bool H265::DecodeVPSFromExtraData(const MediaByteBuffer* aExtraData,
 }
 
 /* static */
-bool H265::DecodeSPSFromExtraData(const MediaByteBuffer* aExtraData,
-                                  SPSData& aDest) {
+bool B2GH265::DecodeSPSFromExtraData(const MediaByteBuffer* aExtraData,
+                                     SPSData& aDest) {
   return DecodeNALUnitFromExtraData(
       aExtraData, H265_NAL_SPS, [&aDest](const uint8_t* aNAL, size_t aLength) {
         RefPtr<MediaByteBuffer> rbsp = DecodeNALUnit(aNAL, aLength);
@@ -304,7 +304,7 @@ bool H265::DecodeSPSFromExtraData(const MediaByteBuffer* aExtraData,
 }
 
 /* static */
-bool H265::DecodeVPS(const MediaByteBuffer* aVPS, VPSData& aDest) {
+bool B2GH265::DecodeVPS(const MediaByteBuffer* aVPS, VPSData& aDest) {
   CHECK(aVPS);
 
   BitReader br(aVPS, BitReader::GetBitLength(aVPS));
@@ -312,7 +312,7 @@ bool H265::DecodeVPS(const MediaByteBuffer* aVPS, VPSData& aDest) {
 }
 
 /* static */
-bool H265::DecodeSPS(const MediaByteBuffer* aSPS, SPSData& aDest) {
+bool B2GH265::DecodeSPS(const MediaByteBuffer* aSPS, SPSData& aDest) {
   CHECK(aSPS);
 
   BitReader br(aSPS, BitReader::GetBitLength(aSPS));
@@ -339,7 +339,7 @@ static uint32_t ReadNalLen(BufferReader& aBr, int aNalLenSize) {
 }
 
 /* static */
-H265::FrameType H265::GetFrameType(const MediaRawData* aSample) {
+B2GH265::FrameType B2GH265::GetFrameType(const MediaRawData* aSample) {
   if (!H265AnnexB::IsHVCC(aSample)) {
     // We must have a valid HVCC frame with extradata.
     return FrameType::INVALID;
@@ -369,7 +369,7 @@ H265::FrameType H265::GetFrameType(const MediaRawData* aSample) {
 }
 
 /* static */
-bool H265::video_parameter_set_rbsp(BitReader& aBr, VPSData& aDest) {
+bool B2GH265::video_parameter_set_rbsp(BitReader& aBr, VPSData& aDest) {
   aDest.vps_video_parameter_set_id = aBr.ReadBits(4);
   aDest.vps_base_layer_internal_flag = aBr.ReadBit();
   aDest.vps_base_layer_available_flag = aBr.ReadBit();
@@ -434,7 +434,7 @@ bool H265::video_parameter_set_rbsp(BitReader& aBr, VPSData& aDest) {
 }
 
 /* static */
-bool H265::seq_parameter_set_rbsp(BitReader& aBr, SPSData& aDest) {
+bool B2GH265::seq_parameter_set_rbsp(BitReader& aBr, SPSData& aDest) {
   aDest.sps_video_parameter_set_id = aBr.ReadBits(4);
   aDest.sps_max_sub_layers = aBr.ReadBits(3) + 1;
   CHECK_RANGE(aDest.sps_max_sub_layers, 1, 7);
@@ -554,9 +554,9 @@ bool H265::seq_parameter_set_rbsp(BitReader& aBr, SPSData& aDest) {
 }
 
 /* static */
-bool H265::profile_tier_level(BitReader& aBr, PTLData& aDest,
-                              bool aProfilePresentFlag,
-                              uint8_t aMaxNumSubLayers) {
+bool B2GH265::profile_tier_level(BitReader& aBr, PTLData& aDest,
+                                 bool aProfilePresentFlag,
+                                 uint8_t aMaxNumSubLayers) {
   if (aProfilePresentFlag) {
     aDest.general_ptl.profile_space = aBr.ReadBits(2);
     aDest.general_ptl.tier_flag = aBr.ReadBit();
@@ -682,8 +682,8 @@ bool H265::profile_tier_level(BitReader& aBr, PTLData& aDest,
   return true;
 }
 
-bool H265::ScalingList::Get(int aSizeId, int aMatrixId, Span<uint8_t>* aSl,
-                            int16_t** aSlDc) {
+bool B2GH265::ScalingList::Get(int aSizeId, int aMatrixId, Span<uint8_t>* aSl,
+                               int16_t** aSlDc) {
   int index = (aSizeId == 3) ? aMatrixId / 3 : aMatrixId;
   switch (aSizeId) {
     case 0:  // 4x4
@@ -709,7 +709,7 @@ bool H265::ScalingList::Get(int aSizeId, int aMatrixId, Span<uint8_t>* aSl,
   }
 }
 
-bool H265::ScalingList::UseDefault(int aSizeId, int aMatrixId) {
+bool B2GH265::ScalingList::UseDefault(int aSizeId, int aMatrixId) {
   static const uint8_t sDefaultScalingList0[16] = {
       16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16};
 
@@ -759,8 +759,8 @@ bool H265::ScalingList::UseDefault(int aSizeId, int aMatrixId) {
   return true;
 }
 
-bool H265::ScalingList::UseReference(int aSizeId, int aMatrixId,
-                                     int aRefMatrixId) {
+bool B2GH265::ScalingList::UseReference(int aSizeId, int aMatrixId,
+                                        int aRefMatrixId) {
   Span<uint8_t> sl;
   int16_t* slDc = nullptr;
   CHECK(Get(aSizeId, aMatrixId, &sl, &slDc));
@@ -780,7 +780,7 @@ bool H265::ScalingList::UseReference(int aSizeId, int aMatrixId,
 }
 
 /* static */
-bool H265::scaling_list_data(BitReader& aBr, ScalingList& aDest) {
+bool B2GH265::scaling_list_data(BitReader& aBr, ScalingList& aDest) {
   for (int sizeId = 0; sizeId < 4; sizeId++) {
     for (int matrixId = 0; matrixId < 6; matrixId += (sizeId == 3) ? 3 : 1) {
       bool scaling_list_pred_mode_flag = aBr.ReadBit();
@@ -823,8 +823,8 @@ bool H265::scaling_list_data(BitReader& aBr, ScalingList& aDest) {
 }
 
 /* static */
-bool H265::st_ref_pic_set(BitReader& aBr, ShortTermRPS& aStRps, SPSData& aSps,
-                          int aStRpsIdx) {
+bool B2GH265::st_ref_pic_set(BitReader& aBr, ShortTermRPS& aStRps,
+                             SPSData& aSps, int aStRpsIdx) {
   bool inter_ref_pic_set_prediction_flag = false;
   if (aStRpsIdx != 0) {
     inter_ref_pic_set_prediction_flag = aBr.ReadBit();
@@ -936,8 +936,8 @@ bool H265::st_ref_pic_set(BitReader& aBr, ShortTermRPS& aStRps, SPSData& aSps,
 }
 
 /* static */
-bool H265::vui_parameters(BitReader& aBr, VUIData& aDest,
-                          uint8_t aMaxNumSubLayers) {
+bool B2GH265::vui_parameters(BitReader& aBr, VUIData& aDest,
+                             uint8_t aMaxNumSubLayers) {
   aDest.aspect_ratio_info_present_flag = aBr.ReadBit();
   if (aDest.aspect_ratio_info_present_flag) {
     aDest.aspect_ratio_idc = aBr.ReadBits(8);
@@ -1155,8 +1155,8 @@ bool H265::vui_parameters(BitReader& aBr, VUIData& aDest,
 }
 
 /* static */
-bool H265::hrd_parameters(BitReader& aBr, bool aCommonInfPresentFlag,
-                          uint8_t aMaxNumSubLayers) {
+bool B2GH265::hrd_parameters(BitReader& aBr, bool aCommonInfPresentFlag,
+                             uint8_t aMaxNumSubLayers) {
   bool nal_hrd_parameters_present_flag = false;
   bool vcl_hrd_parameters_present_flag = false;
   bool sub_pic_hrd_params_present_flag = false;
@@ -1209,8 +1209,8 @@ bool H265::hrd_parameters(BitReader& aBr, bool aCommonInfPresentFlag,
 }
 
 /* static */
-bool H265::sub_layer_hrd_parameters(BitReader& aBr, uint32_t aCpbCnt,
-                                    bool aSubPicHRDParamsPresentFlag) {
+bool B2GH265::sub_layer_hrd_parameters(BitReader& aBr, uint32_t aCpbCnt,
+                                       bool aSubPicHRDParamsPresentFlag) {
   for (int i = 0; i < aCpbCnt; i++) {
     aBr.ReadUE();  // bit_rate_value_minus1
     aBr.ReadUE();  // cpb_size_value_minus1
@@ -1224,7 +1224,7 @@ bool H265::sub_layer_hrd_parameters(BitReader& aBr, uint32_t aCpbCnt,
 }
 
 /* static */
-bool H265::HasParamSets(const MediaByteBuffer* aExtraData) {
+bool B2GH265::HasParamSets(const MediaByteBuffer* aExtraData) {
   if (!aExtraData || aExtraData->IsEmpty()) {
     return false;
   }
@@ -1238,7 +1238,7 @@ bool H265::HasParamSets(const MediaByteBuffer* aExtraData) {
 }
 
 /* static */
-already_AddRefed<MediaByteBuffer> H265::ExtractExtraData(
+already_AddRefed<MediaByteBuffer> B2GH265::ExtractExtraData(
     const MediaRawData* aSample) {
   MOZ_ASSERT(H265AnnexB::IsHVCC(aSample));
 

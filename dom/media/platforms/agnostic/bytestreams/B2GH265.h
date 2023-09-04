@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef H265_H
-#define H265_H
+#ifndef B2GH265_H
+#define B2GH265_H
 
 #include "DecoderData.h"
 #include "mozilla/gfx/Types.h"
@@ -32,7 +32,7 @@ class BitReader;
 // 7.4.3.2.1: num_long_term_ref_pics_sps is in [0, 32].
 #define HEVC_MAX_LONG_TERM_REF_PICS 32
 
-class H265 {
+class B2GH265 {
  public:
   // NAL unit types
   enum NAL_TYPES {
@@ -296,4 +296,4 @@ class H265 {
 
 }  // namespace mozilla
 
-#endif  // H265_H
+#endif  // B2GH265_H

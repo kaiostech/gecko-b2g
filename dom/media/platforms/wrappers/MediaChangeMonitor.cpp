@@ -7,8 +7,8 @@
 #include "MediaChangeMonitor.h"
 
 #include "AnnexB.h"
+#include "B2GH265.h"
 #include "H264.h"
-#include "H265.h"
 #include "GeckoProfiler.h"
 #include "ImageContainer.h"
 #include "MP4Decoder.h"
@@ -179,7 +179,7 @@ class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   }
 
   bool CanBeInstantiated() const override {
-    return H265::HasParamSets(mCurrentConfig.mExtraData);
+    return B2GH265::HasParamSets(mCurrentConfig.mExtraData);
   }
 
   MediaResult CheckForChange(MediaRawData* aSample) override {
@@ -223,8 +223,8 @@ class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
 
  private:
   void UpdateConfigFromExtraData(MediaByteBuffer* aExtraData) {
-    H265::SPSData spsdata;
-    if (H265::DecodeSPSFromExtraData(aExtraData, spsdata)) {
+    B2GH265::SPSData spsdata;
+    if (B2GH265::DecodeSPSFromExtraData(aExtraData, spsdata)) {
       mCurrentConfig.mImage.width = spsdata.pic_width_in_luma_samples;
       mCurrentConfig.mImage.height = spsdata.pic_height_in_luma_samples;
       // TODO: apply sample_ratio

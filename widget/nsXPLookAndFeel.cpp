@@ -188,6 +188,7 @@ static const char sIntPrefs[][45] = {
     "ui.dynamicRange",
     "ui.videoDynamicRange",
     "ui.panelAnimations",
+    "ui.hideCursorWhileTyping",
 };
 
 static_assert(ArrayLength(sIntPrefs) == size_t(LookAndFeel::IntID::End),
@@ -486,11 +487,12 @@ static constexpr struct {
     // Affects whether standins are used for the accent color.
     {"widget.non-native-theme.use-theme-accent"_ns,
      widget::ThemeChangeKind::Style},
-    // These two affect system colors on Windows.
+    // These three affect system colors on Windows.
     {"widget.windows.uwp-system-colors.enabled"_ns,
      widget::ThemeChangeKind::Style},
-    // These two affect system colors on Windows.
     {"widget.windows.uwp-system-colors.highlight-accent"_ns,
+     widget::ThemeChangeKind::Style},
+    {"widget.windows.titlebar-accent.enabled"_ns,
      widget::ThemeChangeKind::Style},
     // Affects env().
     {"layout.css.prefers-color-scheme.content-override"_ns,
@@ -625,9 +627,15 @@ nscolor nsXPLookAndFeel::GetStandinForNativeColor(ColorID aID,
       COLOR(SpellCheckerUnderline, 0xff, 0x00, 0x00)
       COLOR(TextSelectDisabledBackground, 0xaa, 0xaa, 0xaa)
 
-      // CSS 2 colors:
+      // Titlebar colors
       COLOR(Activeborder, 0xB4, 0xB4, 0xB4)
-      COLOR(Activecaption, 0x99, 0xB4, 0xD1)
+      COLOR(Inactiveborder, 0xB4, 0xB4, 0xB4)
+      COLOR(Activecaption, 0xF0, 0xF0, 0xF4)
+      COLOR(Inactivecaption, 0xF0, 0xF0, 0xF4)
+      COLOR(Captiontext, 0x00, 0x00, 0x00)
+      COLOR(Inactivecaptiontext, 0x00, 0x00, 0x00)
+
+      // CSS 2 colors:
       COLOR(Appworkspace, 0xAB, 0xAB, 0xAB)
       COLOR(Background, 0x00, 0x00, 0x00)
       COLOR(Buttonhighlight, 0xFF, 0xFF, 0xFF)
@@ -643,13 +651,9 @@ nscolor nsXPLookAndFeel::GetStandinForNativeColor(ColorID aID,
       COLOR(Buttontext, 0x00, 0x00, 0x00)
       COLOR(MozComboboxtext, 0x00, 0x00, 0x00)
 
-      COLOR(Captiontext, 0x00, 0x00, 0x00)
       COLOR(Graytext, 0x6D, 0x6D, 0x6D)
       COLOR(Highlight, 0x33, 0x99, 0xFF)
       COLOR(Highlighttext, 0xFF, 0xFF, 0xFF)
-      COLOR(Inactiveborder, 0xF4, 0xF7, 0xFC)
-      COLOR(Inactivecaption, 0xBF, 0xCD, 0xDB)
-      COLOR(Inactivecaptiontext, 0x43, 0x4E, 0x54)
       COLOR(Infobackground, 0xFF, 0xFF, 0xE1)
       COLOR(Infotext, 0x00, 0x00, 0x00)
       COLOR(Menu, 0xF0, 0xF0, 0xF0)
@@ -752,6 +756,8 @@ Maybe<nscolor> nsXPLookAndFeel::GenericDarkColor(ColorID aID) {
     case ColorID::MozButtonhovertext:
     case ColorID::MozButtonactivetext:
     case ColorID::Captiontext:
+    case ColorID::Inactivecaptiontext:  // TODO(emilio): Maybe make
+                                        // Inactivecaptiontext Graytext?
       color = kWindowText;
       break;
     case ColorID::Buttonshadow:
@@ -763,7 +769,6 @@ Maybe<nscolor> nsXPLookAndFeel::GenericDarkColor(ColorID aID) {
     case ColorID::Graytext:      // opacity: 0.4 of kWindowText blended over the
                              // "Window" background color, which happens to be
                              // the same :-)
-    case ColorID::Inactivecaptiontext:
       color = NS_ComposeColors(kWindowBackground, NS_RGBA(251, 251, 254, 102));
       break;
     case ColorID::MozCellhighlight:

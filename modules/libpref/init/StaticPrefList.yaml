@@ -3134,7 +3134,7 @@
 # disabled.
 - name: dom.keyboardevent.init_key_event.enabled_in_addons
   type: bool
-  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
 # If this is true, keypress events for non-printable keys are dispatched only
@@ -8741,12 +8741,6 @@
   mirror: always
   rust: true
 
-# Is support for CSS hyphenate-character enabled?
-- name: layout.css.hyphenate-character.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Is support for CSS individual transform enabled?
 - name: layout.css.individual-transform.enabled
   type: bool
@@ -8872,11 +8866,6 @@
 
 # Is support for overscroll-behavior enabled?
 - name: layout.css.overscroll-behavior.enabled
-  type: bool
-  value: true
-  mirror: always
-
-- name: layout.css.overflow-logical.enabled
   type: bool
   value: true
   mirror: always
@@ -9474,17 +9463,17 @@
   value: false
   mirror: always
 
-# Whether the `scrollbar-gutter` CSS property is enabled.
-- name: layout.css.scrollbar-gutter.enabled
+# Whether supports() conditions in @import is enabled
+- name: layout.css.import-supports.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
   rust: true
 
-# Whether supports() conditions in @import is enabled
-- name: layout.css.import-supports.enabled
+# Whether :-moz-broken is supported in content.
+- name: layout.css.moz-broken.content.enabled
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
   rust: true
 
@@ -11155,7 +11144,7 @@
 
 - name: media.webrtc.capture.allow-wgc
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 #endif
 
@@ -15383,6 +15372,11 @@
   value: 1024
   mirror: always
 
+- name: webgl.max-vert-ids-per-draw
+  type: RelaxedAtomicUint32
+  value: 30*1000*1000
+  mirror: always
+
 - name: webgl.max-warnings-per-context
   type: RelaxedAtomicUint32
   value: 32
@@ -15921,6 +15915,13 @@
   value: false
   mirror: always
 
+# Whether to use the accent color for the titlebar, if the relevant Windows
+# setting says so. See bug 1851155.
+- name: widget.windows.titlebar-accent.enabled
+  type: bool
+  value: false
+  mirror: always
+
 - name: widget.windows.window_occlusion_tracking_display_state.enabled
   type: bool
   value: false
@@ -15929,11 +15930,6 @@
 - name: widget.windows.window_occlusion_tracking_session_lock.enabled
   type: bool
   value: true
-  mirror: always
-
-- name: widget.windows.hide_cursor_when_typing
-  type: bool
-  value: false
   mirror: always
 
 # Whether to give explorer.exe a delated nudge to recalculate the fullscreenness

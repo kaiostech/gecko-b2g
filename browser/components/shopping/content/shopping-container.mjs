@@ -29,10 +29,12 @@ export class ShoppingContainer extends MozLitElement {
     data: { type: Object },
     showOnboarding: { type: Boolean },
     productUrl: { type: String },
-    recommendationData: { type: Object },
+    recommendationData: { type: Array },
     isOffline: { type: Boolean },
     analysisEvent: { type: Object },
     userReportedAvailable: { type: Boolean },
+    adsEnabled: { type: Boolean },
+    adsEnabledByUser: { type: Boolean },
   };
 
   static get queries() {
@@ -44,6 +46,7 @@ export class ShoppingContainer extends MozLitElement {
       analysisExplainerEl: "analysis-explainer",
       unanalyzedProductEl: "unanalyzed-product-card",
       shoppingMessageBarEl: "shopping-message-bar",
+      recommendedAdEl: "recommended-ad",
     };
   }
 
@@ -58,6 +61,7 @@ export class ShoppingContainer extends MozLitElement {
     window.document.addEventListener("NewAnalysisRequested", this);
     window.document.addEventListener("ReAnalysisRequested", this);
     window.document.addEventListener("ReportedProductAvailable", this);
+    window.document.addEventListener("adsEnabledByUserChanged", this);
 
     window.dispatchEvent(
       new CustomEvent("ContentReady", {
@@ -73,6 +77,8 @@ export class ShoppingContainer extends MozLitElement {
     productUrl,
     recommendationData,
     isPolledRequestDone,
+    adsEnabled,
+    adsEnabledByUser,
   }) {
     // If we're not opted in or there's no shopping URL in the main browser,
     // the actor will pass `null`, which means this will clear out any existing
@@ -83,6 +89,8 @@ export class ShoppingContainer extends MozLitElement {
     this.recommendationData = recommendationData;
     this.isOffline = !navigator.onLine;
     this.isPolledRequestDone = isPolledRequestDone;
+    this.adsEnabled = adsEnabled;
+    this.adsEnabledByUser = adsEnabledByUser;
   }
 
   handleEvent(event) {
@@ -105,6 +113,9 @@ export class ShoppingContainer extends MozLitElement {
         break;
       case "ReportedProductAvailable":
         this.userReportedAvailable = true;
+        break;
+      case "adsEnabledByUserChanged":
+        this.adsEnabledByUser = event.detail?.adsEnabledByUser;
         break;
     }
   }
@@ -177,7 +188,10 @@ export class ShoppingContainer extends MozLitElement {
       // We successfully analyzed the product before, but the current analysis is outdated and can be updated
       // via a re-analysis.
       return html`
-        <shopping-message-bar type="stale"></shopping-message-bar>
+        <shopping-message-bar
+          type="stale"
+          .productUrl=${this.productUrl}
+        ></shopping-message-bar>
         ${this.getAnalysisDetailsTemplate()}
       `;
     }
@@ -186,7 +200,8 @@ export class ShoppingContainer extends MozLitElement {
   }
 
   recommendationTemplate() {
-    if (this.recommendationData?.length) {
+    const canShowAds = this.adsEnabled && this.adsEnabledByUser;
+    if (this.recommendationData?.length && canShowAds) {
       return html`<recommended-ad
         .product=${this.recommendationData[0]}
       ></recommended-ad>`;
@@ -223,10 +238,7 @@ export class ShoppingContainer extends MozLitElement {
         <div id="header-wrapper">
           <div id="shopping-header">
             <span id="shopping-icon"></span>
-            <span
-              id="header"
-              data-l10n-id="shopping-main-container-title"
-            ></span>
+            <h1 id="header" data-l10n-id="shopping-main-container-title"></h1>
           </div>
           <button
             id="close-button"
@@ -238,7 +250,9 @@ export class ShoppingContainer extends MozLitElement {
         <div id="content" aria-busy=${!this.data}>
           ${sidebarContent}
           ${!hideSettings
-            ? html`<shopping-settings></shopping-settings>`
+            ? html`<shopping-settings
+                ?adsEnabledByUser=${this.adsEnabledByUser}
+              ></shopping-settings>`
             : null}
         </div>
       </div>`;

@@ -4303,10 +4303,8 @@ nsDOMWindowUtils::LeaveChaosMode() {
 
 NS_IMETHODIMP
 nsDOMWindowUtils::TriggerDeviceReset() {
-  ContentChild* cc = ContentChild::GetSingleton();
-  if (cc) {
-    cc->SendDeviceReset();
-    return NS_OK;
+  if (!XRE_IsParentProcess()) {
+    return NS_ERROR_NOT_AVAILABLE;
   }
 
   GPUProcessManager* pm = GPUProcessManager::Get();
@@ -4406,7 +4404,7 @@ nsDOMWindowUtils::AddManuallyManagedState(Element* aElement,
     return NS_ERROR_INVALID_ARG;
   }
 
-  aElement->AddManuallyManagedStates(state);
+  aElement->AddStates(state);
   return NS_OK;
 }
 
@@ -4422,7 +4420,7 @@ nsDOMWindowUtils::RemoveManuallyManagedState(Element* aElement,
     return NS_ERROR_INVALID_ARG;
   }
 
-  aElement->RemoveManuallyManagedStates(state);
+  aElement->RemoveStates(state);
   return NS_OK;
 }
 

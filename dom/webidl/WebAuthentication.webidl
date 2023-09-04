@@ -34,6 +34,9 @@ interface AuthenticatorResponse {
  Exposed=Window]
 interface AuthenticatorAttestationResponse : AuthenticatorResponse {
     [SameObject, Throws] readonly attribute ArrayBuffer attestationObject;
+    [Throws] ArrayBuffer                                getAuthenticatorData();
+    [Throws] ArrayBuffer?                               getPublicKey();
+    [Throws] COSEAlgorithmIdentifier                    getPublicKeyAlgorithm();
 };
 
 [SecureContext, Pref="security.webauth.webauthn",
@@ -67,7 +70,6 @@ dictionary PublicKeyCredentialCreationOptions {
 
 dictionary PublicKeyCredentialEntity {
     required DOMString    name;
-    USVString             icon;
 };
 
 dictionary PublicKeyCredentialRpEntity : PublicKeyCredentialEntity {

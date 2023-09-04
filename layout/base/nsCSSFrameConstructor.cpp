@@ -3642,20 +3642,19 @@ static nsIFrame* NS_NewSubDocumentOrImageFrame(mozilla::PresShell* aPresShell,
 const nsCSSFrameConstructor::FrameConstructionData*
 nsCSSFrameConstructor::FindObjectData(const Element& aElement,
                                       ComputedStyle& aStyle) {
-  // GetDisplayedType isn't necessarily nsIObjectLoadingContent::TYPE_NULL for
-  // cases when the object is broken/suppressed/etc (e.g. a broken image), but
-  // we want to treat those cases as TYPE_NULL
   uint32_t type;
-  if (aElement.State().HasState(ElementState::BROKEN)) {
+  nsCOMPtr<nsIObjectLoadingContent> objContent =
+      do_QueryInterface(const_cast<Element*>(&aElement));
+  NS_ASSERTION(objContent,
+               "embed and object must implement "
+               "nsIObjectLoadingContent!");
+  objContent->GetDisplayedType(&type);
+  if (type == nsIObjectLoadingContent::TYPE_IMAGE &&
+      aElement.State().HasState(ElementState::BROKEN)) {
+    // GetDisplayedType isn't necessarily nsIObjectLoadingContent::TYPE_NULL for
+    // cases when the object is broken/suppressed/etc (e.g. a broken image), but
+    // we want to treat those cases as TYPE_NULL
     type = nsIObjectLoadingContent::TYPE_NULL;
-  } else {
-    nsCOMPtr<nsIObjectLoadingContent> objContent =
-        do_QueryInterface(const_cast<Element*>(&aElement));
-    NS_ASSERTION(objContent,
-                 "embed and object must implement "
-                 "nsIObjectLoadingContent!");
-
-    objContent->GetDisplayedType(&type);
   }
 
   if (type == nsIObjectLoadingContent::TYPE_FALLBACK &&
@@ -7695,6 +7694,13 @@ void nsCSSFrameConstructor::CharacterDataChanged(
         aContent, ContentTag(aContent, 0),
         aSubContent, frame));
 #endif
+
+    if (frame->HasAnyStateBits(NS_FRAME_IS_IN_SINGLE_CHAR_MI)) {
+      LAYOUT_PHASE_TEMP_EXIT();
+      RecreateFramesForContent(aContent, InsertionKind::Async);
+      LAYOUT_PHASE_TEMP_REENTER();
+      return;
+    }
 
     // Special check for text content that is a child of a letter frame.  If
     // this happens, we should remove the letter frame, do whatever we're

@@ -237,9 +237,11 @@ export let RemotePageAccessManager = {
       RPMRecordTelemetryEvent: ["*"],
     },
     "about:shoppingsidebar": {
+      RPMGetBoolPref: ["browser.shopping.experience2023.ads.enabled"],
       RPMSetPref: [
         "browser.shopping.experience2023.optedIn",
         "browser.shopping.experience2023.active",
+        "browser.shopping.experience2023.ads.userEnabled",
       ],
       RPMGetFormatURLPref: ["app.support.baseURL"],
     },

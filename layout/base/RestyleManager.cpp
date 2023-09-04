@@ -35,6 +35,7 @@
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/HTMLBodyElement.h"
+#include "mozilla/dom/HTMLInputElement.h"
 
 #include "ScrollSnap.h"
 #include "nsAnimationManager.h"
@@ -505,37 +506,36 @@ static bool StateChangeMayAffectFrame(const Element& aElement,
                                       const nsIFrame& aFrame,
                                       ElementState aStates) {
   const bool brokenChanged = aStates.HasState(ElementState::BROKEN);
+  if (!brokenChanged) {
+    return false;
+  }
+
   if (aFrame.IsGeneratedContentFrame()) {
-    if (aElement.IsHTMLElement(nsGkAtoms::mozgeneratedcontentimage)) {
-      return brokenChanged;
+    // If it's other generated content, ignore state changes on it.
+    return aElement.IsHTMLElement(nsGkAtoms::mozgeneratedcontentimage);
+  }
+
+  if (aElement.IsAnyOfHTMLElements(nsGkAtoms::object, nsGkAtoms::embed)) {
+    // Broken affects object fallback behavior.
+    return true;
+  }
+
+  const bool mightChange = [&] {
+    if (aElement.IsHTMLElement(nsGkAtoms::img)) {
+      return true;
     }
-    // If it's other generated content, ignore LOADING/etc state changes on it.
+    const auto* input = HTMLInputElement::FromNode(aElement);
+    return input && input->ControlType() == FormControlType::InputImage;
+  }();
+
+  if (!mightChange) {
     return false;
   }
 
-  const bool loadingChanged = aStates.HasState(ElementState::LOADING);
-  if (!brokenChanged && !loadingChanged) {
-    return false;
-  }
-
-  if (aElement.IsHTMLElement(nsGkAtoms::img)) {
-    if (!brokenChanged) {
-      // Loading state doesn't affect <img>, see
-      // `nsImageFrame::ImageFrameTypeForElement`.
-      return false;
-    }
-    const bool needsImageFrame =
-        nsImageFrame::ImageFrameTypeFor(aElement, *aFrame.Style()) !=
-        nsImageFrame::ImageFrameType::None;
-    return needsImageFrame != aFrame.IsImageFrameOrSubclass();
-  }
-
-  if (aElement.IsSVGElement(nsGkAtoms::image)) {
-    // <image> gets an SVGImageFrame all the time.
-    return false;
-  }
-
-  return brokenChanged || loadingChanged;
+  const bool needsImageFrame =
+      nsImageFrame::ImageFrameTypeFor(aElement, *aFrame.Style()) !=
+      nsImageFrame::ImageFrameType::None;
+  return needsImageFrame != aFrame.IsImageFrameOrSubclass();
 }
 
 /**

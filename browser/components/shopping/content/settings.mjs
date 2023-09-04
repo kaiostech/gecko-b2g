@@ -13,7 +13,9 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import "chrome://global/content/elements/moz-toggle.mjs";
 
 class ShoppingSettings extends MozLitElement {
-  #isRecommendationsEnabled;
+  static properties = {
+    adsEnabledByUser: { type: Boolean },
+  };
 
   static get queries() {
     return {
@@ -23,8 +25,11 @@ class ShoppingSettings extends MozLitElement {
   }
 
   onToggleRecommendations() {
-    // TODO: we will need to hide the recommendations card here
-    this.#isRecommendationsEnabled = this.recommendationsToggleEl.pressed;
+    this.adsEnabledByUser = this.recommendationsToggleEl.pressed;
+    RPMSetPref(
+      "browser.shopping.experience2023.ads.userEnabled",
+      this.adsEnabledByUser
+    );
   }
 
   onDisableShopping() {
@@ -32,31 +37,42 @@ class ShoppingSettings extends MozLitElement {
   }
 
   render() {
-    // TODO: for now, we will hardcode the value until a pref is made.
-    this.#isRecommendationsEnabled = true;
+    // Whether we show recommendations at all (including offering a user
+    // control for them) is controlled via a nimbus-enabled pref.
+    let canShowRecommendationToggle = RPMGetBoolPref(
+      "browser.shopping.experience2023.ads.enabled"
+    );
+    let toggleMarkup = canShowRecommendationToggle
+      ? html`
+        <moz-toggle
+          id="shopping-settings-recommendations-toggle"
+          ?pressed=${this.adsEnabledByUser}
+          data-l10n-id="shopping-settings-recommendations-toggle"
+          data-l10n-attrs="label"
+          @toggle=${this.onToggleRecommendations}>
+        </moz-toggle/>`
+      : null;
 
     return html`
-        <link
+      <link
         rel="stylesheet"
         href="chrome://browser/content/shopping/settings.css"
-        />
-        <shopping-card
+      />
+      <shopping-card
         data-l10n-id="shopping-settings-label"
         data-l10n-attrs="label"
         type="accordion"
-        >
-          <div id="shopping-settings-wrapper" slot="content">
-              <moz-toggle id="shopping-settings-recommendations-toggle" pressed=${
-                this.#isRecommendationsEnabled
-              } data-l10n-id="shopping-settings-recommendations-toggle" data-l10n-attrs="label" @toggle=${
-      this.onToggleRecommendations
-    }></moz-toggle/>
-              <button id="shopping-settings-opt-out-button" data-l10n-id="shopping-settings-opt-out-button" @click=${
-                this.onDisableShopping
-              }></button>
-          </div>
-        </shopping-card>
-        `;
+      >
+        <div id="shopping-settings-wrapper" slot="content">
+          ${toggleMarkup}
+          <button
+            id="shopping-settings-opt-out-button"
+            data-l10n-id="shopping-settings-opt-out-button"
+            @click=${this.onDisableShopping}
+          ></button>
+        </div>
+      </shopping-card>
+    `;
   }
 }
 

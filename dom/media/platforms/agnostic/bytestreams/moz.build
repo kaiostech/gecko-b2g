@@ -16,12 +16,14 @@ EXPORTS += [
     "AnnexB.h",
     "B2GH265.h",
     "H264.h",
+    "H265.h",
 ]
 
 UNIFIED_SOURCES += [
     "Adts.cpp",
     "AnnexB.cpp",
     "H264.cpp",
+    "H265.cpp",
 ]
 
 SOURCES += [

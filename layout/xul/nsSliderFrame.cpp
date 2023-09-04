@@ -1508,7 +1508,6 @@ void nsSliderFrame::PageScroll(bool aClickAndHold) {
   // succession, we want to make sure we scroll by a full page for
   // each click, so we use ScrollByPage().
   if (aClickAndHold && sf) {
-    nscoord distance;
     const bool isHorizontal = sb->IsHorizontal();
 
     nsIFrame* thumbFrame = mFrames.FirstChild();
@@ -1518,30 +1517,50 @@ void nsSliderFrame::PageScroll(bool aClickAndHold) {
 
     nsRect thumbRect = thumbFrame->GetRect();
 
+    nscoord maxDistanceAlongTrack;
     if (isHorizontal) {
-      distance = mDestinationPoint.x - thumbRect.x - thumbRect.width / 2;
+      maxDistanceAlongTrack =
+          mDestinationPoint.x - thumbRect.x - thumbRect.width / 2;
     } else {
-      distance = mDestinationPoint.y - thumbRect.y - thumbRect.height / 2;
+      maxDistanceAlongTrack =
+          mDestinationPoint.y - thumbRect.y - thumbRect.height / 2;
     }
 
     // Convert distance along scrollbar track to amount of scrolled content.
-    distance = distance / GetThumbRatio();
+    nscoord maxDistanceToScroll = maxDistanceAlongTrack / GetThumbRatio();
 
     nsIContent* content = sb->GetContent();
     const CSSIntCoord pageLength = GetPageIncrement(content);
 
     nsPoint pos = sf->GetScrollPosition();
 
-    distance =
-        std::min(abs(distance), CSSPixel::ToAppUnits(CSSCoord(pageLength))) *
+    if (mCurrentClickHoldDestination) {
+      // We may not have arrived at the destination of the scroll from the
+      // previous repeat timer tick, some of that scroll may still be pending.
+      nsPoint pendingScroll =
+          *mCurrentClickHoldDestination - sf->GetScrollPosition();
+
+      // Scroll by one page relative to the previous destination, so that we
+      // scroll at a rate of a full page per repeat timer tick.
+      pos += pendingScroll;
+
+      // Make a corresponding adjustment to the maxium distance we can scroll,
+      // so we successfully avoid overshoot.
+      maxDistanceToScroll -= (isHorizontal ? pendingScroll.x : pendingScroll.y);
+    }
+
+    nscoord distanceToScroll =
+        std::min(abs(maxDistanceToScroll),
+                 CSSPixel::ToAppUnits(CSSCoord(pageLength))) *
         changeDirection;
 
     if (isHorizontal) {
-      pos.x += distance;
+      pos.x += distanceToScroll;
     } else {
-      pos.y += distance;
+      pos.y += distanceToScroll;
     }
 
+    mCurrentClickHoldDestination = Some(pos);
     sf->ScrollTo(pos,
                  StaticPrefs::general_smoothScroll() &&
                          StaticPrefs::general_smoothScroll_pages()

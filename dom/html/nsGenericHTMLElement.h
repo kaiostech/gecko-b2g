@@ -359,12 +359,6 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
 
   void UpdateEditableState(bool aNotify) override;
 
-  // Helper for setting our editable flag and notifying
-  void DoSetEditableFlag(bool aEditable, bool aNotify) {
-    SetEditableFlag(aEditable);
-    UpdateState(aNotify);
-  }
-
   bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                       const nsAString& aValue,
                       nsIPrincipal* aMaybeScriptedPrincipal,
@@ -1021,6 +1015,11 @@ class nsGenericHTMLFormElement : public nsGenericHTMLElement {
    */
   already_AddRefed<nsILayoutHistoryState> GetLayoutHistory(bool aRead);
 
+  // Form changes (in particular whether our current form has been submitted
+  // invalidly) affect the user-valid/user-invalid pseudo-classes. Sub-classes
+  // can override this to react to it.
+  virtual void UpdateValidityElementStates(bool aNotify) {}
+
  protected:
   virtual ~nsGenericHTMLFormElement() = default;
 
@@ -1041,6 +1040,7 @@ class nsGenericHTMLFormElement : public nsGenericHTMLElement {
    * state to decide whether our disabled flag should be toggled.
    */
   virtual void UpdateDisabledState(bool aNotify);
+  bool IsReadOnlyInternal() const final;
 
   virtual void SetFormInternal(mozilla::dom::HTMLFormElement* aForm,
                                bool aBindToTree) {}
@@ -1161,7 +1161,6 @@ class nsGenericHTMLFormControlElement : public nsGenericHTMLFormElement,
   virtual ~nsGenericHTMLFormControlElement();
 
   // Element
-  mozilla::dom::ElementState IntrinsicState() const override;
   bool IsLabelable() const override;
 
   // nsGenericHTMLFormElement

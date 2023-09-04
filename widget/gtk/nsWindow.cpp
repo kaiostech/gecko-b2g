@@ -400,7 +400,6 @@ nsWindow::nsWindow()
       mCreated(false),
       mHandleTouchEvent(false),
       mIsDragPopup(false),
-      mWindowScaleFactorChanged(true),
       mCompositedScreen(gdk_screen_is_composited(gdk_screen_get_default())),
       mIsAccelerated(false),
       mWindowShouldStartDragging(false),
@@ -696,7 +695,7 @@ double nsWindow::GetDefaultScaleInternal() { return FractionalScaleFactor(); }
 DesktopToLayoutDeviceScale nsWindow::GetDesktopToDeviceScale() {
 #ifdef MOZ_WAYLAND
   if (GdkIsWaylandDisplay()) {
-    return DesktopToLayoutDeviceScale(GdkCeiledScaleFactor());
+    return DesktopToLayoutDeviceScale(FractionalScaleFactor());
   }
 #endif
 
@@ -1670,13 +1669,10 @@ void nsWindow::LogPopupHierarchy() {
 }
 #endif
 
-nsWindow* nsWindow::WaylandPopupGetTopmostWindow() {
-  nsView* view = nsView::GetViewFor(this);
-  if (view) {
-    nsView* parentView = view->GetParent();
-    if (parentView) {
-      nsIWidget* parentWidget = parentView->GetNearestWidget(nullptr);
-      if (parentWidget) {
+nsWindow* nsWindow::GetTopmostWindow() {
+  if (nsView* view = nsView::GetViewFor(this)) {
+    if (nsView* parentView = view->GetParent()) {
+      if (nsIWidget* parentWidget = parentView->GetNearestWidget(nullptr)) {
         nsWindow* parentnsWindow = static_cast<nsWindow*>(parentWidget);
         LOG("  Topmost window: %p [nsWindow]\n", parentnsWindow);
         return parentnsWindow;
@@ -1778,7 +1774,7 @@ void nsWindow::AddWindowToPopupHierarchy() {
 
   // Check if we're already in the hierarchy
   if (!IsInPopupHierarchy()) {
-    mWaylandToplevel = WaylandPopupGetTopmostWindow();
+    mWaylandToplevel = GetTopmostWindow();
     AppendPopupToHierarchyList(mWaylandToplevel);
   }
 }
@@ -4038,7 +4034,7 @@ gboolean nsWindow::OnConfigureEvent(GtkWidget* aWidget,
   // Don't fire configure event for scale changes, we handle that
   // OnScaleChanged event. Skip that for toplevel windows only.
   if (mGdkWindow && IsTopLevelWindowType()) {
-    if (mWindowScaleFactor != gdk_window_get_scale_factor(mGdkWindow)) {
+    if (mCeiledScaleFactor != gdk_window_get_scale_factor(mGdkWindow)) {
       LOG("  scale factor changed to %d,return early",
           gdk_window_get_scale_factor(mGdkWindow));
       return FALSE;
@@ -5289,29 +5285,42 @@ void nsWindow::OnCompositedChanged() {
   mCompositedScreen = gdk_screen_is_composited(gdk_screen_get_default());
 }
 
-void nsWindow::OnScaleChanged(bool aForce) {
-  // Force scale factor recalculation
-  if (!mGdkWindow) {
-    mWindowScaleFactorChanged = true;
+void nsWindow::OnScaleChanged(bool aNotify) {
+  if (!IsTopLevelWindowType()) {
     return;
   }
-  LOG("OnScaleChanged -> %d, frac=%f\n",
-      gdk_window_get_scale_factor(mGdkWindow), FractionalScaleFactor());
+  if (!mGdkWindow) {
+    return;  // We'll get there again when we configure the window.
+  }
+  gint newCeiled = gdk_window_get_scale_factor(mGdkWindow);
+  double newFractional = [&] {
+#ifdef MOZ_WAYLAND
+    if (GdkIsWaylandDisplay()) {
+      return moz_container_wayland_get_fractional_scale(mContainer);
+    }
+#endif
+    return 0.0;
+  }();
+  LOG("OnScaleChanged %d, %f -> %d, %f\n", int(mCeiledScaleFactor),
+      FractionalScaleFactor(), newCeiled, newFractional);
 
-  // Gtk supply us sometimes with doubled events so stay calm in such case.
-  if (!aForce &&
-      gdk_window_get_scale_factor(mGdkWindow) == mWindowScaleFactor) {
+  if (mCeiledScaleFactor == newCeiled &&
+      mFractionalScaleFactor == newFractional) {
+    return;
+  }
+
+  mCeiledScaleFactor = newCeiled;
+  mFractionalScaleFactor = newFractional;
+
+  if (!aNotify) {
     return;
   }
 
   // We pause compositor to avoid rendering of obsoleted remote content which
   // produces flickering.
-  // Re-enable compositor again when remote content is updated or
-  // timeout happens.
+  // Re-enable compositor again when remote content is updated or timeout
+  // happens.
   PauseCompositorFlickering();
-
-  // Force scale factor recalculation
-  mWindowScaleFactorChanged = true;
 
   GtkAllocation allocation;
   gtk_widget_get_allocation(GTK_WIDGET(mContainer), &allocation);
@@ -5734,6 +5743,7 @@ void nsWindow::ConfigureGdkWindow() {
   LOG("nsWindow::ConfigureGdkWindow()");
 
   EnsureGdkWindow();
+  OnScaleChanged(/* aNotify = */ false);
 
 #ifdef MOZ_X11
   if (GdkIsX11Display()) {
@@ -7116,7 +7126,7 @@ LayoutDeviceIntRect nsWindow::GetTitlebarRect() {
 
   int height = 0;
   if (DoDrawTilebarCorners()) {
-    height = GdkCeiledScaleFactor() * TITLEBAR_HEIGHT;
+    height = std::ceil(FractionalScaleFactor() * TITLEBAR_HEIGHT);
   }
   return LayoutDeviceIntRect(0, 0, mBounds.width, height);
 }
@@ -8371,7 +8381,7 @@ static void scale_changed_cb(GtkWidget* widget, GParamSpec* aPSpec,
     return;
   }
 
-  window->OnScaleChanged(/* aForce = */ false);
+  window->OnScaleChanged(/* aNotify = */ true);
 }
 
 static gboolean touch_event_cb(GtkWidget* aWidget, GdkEventTouch* aEvent) {
@@ -8926,56 +8936,29 @@ GtkWindow* nsWindow::GetCurrentTopmostWindow() const {
   return topmostParentWindow;
 }
 
-// We're called from Renderer/Compositor thread where EGL Window size is set.
-// Just return what we have and keep scale update to main thread.
-gint nsWindow::GetCachedCeiledScaleFactor() const { return mWindowScaleFactor; }
-
 gint nsWindow::GdkCeiledScaleFactor() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  // We depend on notify::scale-factor callback which is reliable for toplevel
-  // windows only, so don't use scale cache for popup windows.
-  if (mWindowType == WindowType::TopLevel && !mWindowScaleFactorChanged) {
-    return mWindowScaleFactor;
+  if (IsTopLevelWindowType()) {
+    return mCeiledScaleFactor;
   }
-
-  GdkWindow* scaledGdkWindow = nullptr;
-  if (GdkIsWaylandDisplay()) {
-    // For popup windows/dialogs with parent window we need to get scale factor
-    // of the topmost window. Otherwise the scale factor of the popup is
-    // not updated during it's hidden.
-    if (mWindowType == WindowType::Popup || mWindowType == WindowType::Dialog) {
-      // Get toplevel window for scale factor:
-      GtkWindow* topmostParentWindow = GetCurrentTopmostWindow();
-      if (topmostParentWindow) {
-        scaledGdkWindow =
-            gtk_widget_get_window(GTK_WIDGET(topmostParentWindow));
-      } else {
-        NS_WARNING("Popup/Dialog has no parent.");
-      }
-    }
+  if (nsWindow* topmost = GetTopmostWindow()) {
+    return topmost->mCeiledScaleFactor;
   }
-  // Fallback for windows which parent has been unrealized.
-  if (!scaledGdkWindow) {
-    scaledGdkWindow = mGdkWindow;
-  }
-  if (scaledGdkWindow) {
-    mWindowScaleFactor = gdk_window_get_scale_factor(scaledGdkWindow);
-    mWindowScaleFactorChanged = false;
-  } else {
-    mWindowScaleFactor = ScreenHelperGTK::GetGTKMonitorScaleFactor();
-  }
-  return mWindowScaleFactor;
+  return ScreenHelperGTK::GetGTKMonitorScaleFactor();
 }
 
 double nsWindow::FractionalScaleFactor() {
 #ifdef MOZ_WAYLAND
-  if (mContainer) {
-    double fractional_scale =
-        moz_container_wayland_get_fractional_scale(mContainer);
-    if (fractional_scale != 0.0) {
-      return fractional_scale;
+  double fractional_scale = [&] {
+    if (IsTopLevelWindowType()) {
+      return mFractionalScaleFactor;
     }
+    if (nsWindow* topmost = GetTopmostWindow()) {
+      return topmost->mFractionalScaleFactor;
+    }
+    return 0.0;
+  }();
+  if (fractional_scale != 0.0) {
+    return fractional_scale;
   }
 #endif
   return GdkCeiledScaleFactor();
@@ -9533,7 +9516,7 @@ static void relative_pointer_handle_relative_motion(
 
   WidgetMouseEvent event(true, eMouseMove, window, WidgetMouseEvent::eReal);
 
-  gint scale = window->GdkCeiledScaleFactor();
+  double scale = window->FractionalScaleFactor();
   event.mRefPoint = window->GetNativePointerLockCenter();
   event.mRefPoint.x += int(wl_fixed_to_double(dx_w) * scale);
   event.mRefPoint.y += int(wl_fixed_to_double(dy_w) * scale);
@@ -9747,8 +9730,7 @@ void nsWindow::SetEGLNativeWindowSize(
 
   // SetEGLNativeWindowSize() may be called from Renderer/Compositor thread.
   // In such case use cached scale factor.
-  gint scale =
-      NS_IsMainThread() ? GdkCeiledScaleFactor() : GetCachedCeiledScaleFactor();
+  gint scale = GdkCeiledScaleFactor();
   LOG("nsWindow::SetEGLNativeWindowSize() %d x %d scale %d (unscaled %d x %d)",
       aEGLWindowSize.width, aEGLWindowSize.height, scale,
       aEGLWindowSize.width / scale, aEGLWindowSize.height / scale);

@@ -6985,22 +6985,21 @@ void ContentParent::SendGetFilesResponseAndForget(
   }
 }
 
-void ContentParent::PaintTabWhileInterruptingJS(
-    BrowserParent* aBrowserParent, const layers::LayersObserverEpoch& aEpoch) {
+void ContentParent::PaintTabWhileInterruptingJS(BrowserParent* aBrowserParent) {
   if (!mHangMonitorActor) {
     return;
   }
   ProcessHangMonitor::PaintWhileInterruptingJS(mHangMonitorActor,
-                                               aBrowserParent, aEpoch);
+                                               aBrowserParent);
 }
 
 void ContentParent::UnloadLayersWhileInterruptingJS(
-    BrowserParent* aBrowserParent, const layers::LayersObserverEpoch& aEpoch) {
+    BrowserParent* aBrowserParent) {
   if (!mHangMonitorActor) {
     return;
   }
   ProcessHangMonitor::UnloadLayersWhileInterruptingJS(mHangMonitorActor,
-                                                      aBrowserParent, aEpoch);
+                                                      aBrowserParent);
 }
 
 void ContentParent::CancelContentJSExecutionIfRunning(
@@ -7417,15 +7416,6 @@ bool ContentParent::DeallocPSessionStorageObserverParent(
   MOZ_ASSERT(aActor);
 
   return mozilla::dom::DeallocPSessionStorageObserverParent(aActor);
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvDeviceReset() {
-  GPUProcessManager* pm = GPUProcessManager::Get();
-  if (pm) {
-    pm->SimulateDeviceReset();
-  }
-
-  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvBHRThreadHang(

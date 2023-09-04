@@ -47,7 +47,7 @@ const RECENTLY_CLOSED_STATE_PREF =
 const TAB_PICKUP_STATE_PREF =
   "browser.tabs.firefox-view.ui-state.tab-pickup.open";
 
-const calloutId = "multi-stage-message-root";
+const calloutId = "feature-callout";
 const calloutSelector = `#${calloutId}.featureCallout`;
 const CTASelector = `#${calloutId} :is(.primary, .secondary)`;
 
@@ -597,4 +597,16 @@ function navigateToCategory(document, category) {
     }
   )[0];
   navButton.buttonEl.click();
+}
+
+/**
+ * Switch to the Firefox View tab.
+ *
+ * @param {Window} [win]
+ *   The window to use, if specified. Defaults to the global window instance.
+ * @return {Promise<MozTabbrowserTab>}
+ *   The tab switched to.
+ */
+async function switchToFxViewTab(win = window) {
+  return BrowserTestUtils.switchTab(win.gBrowser, win.FirefoxViewHandler.tab);
 }

@@ -14,6 +14,7 @@
 #include "mozilla/Hal.h"
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/IMEStateManager.h"
+#include "mozilla/Likely.h"
 #include "mozilla/MiscEvents.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/MouseEvents.h"
@@ -365,7 +366,6 @@ constexpr const StyleCursorKind kInvalidCursorKind =
 
 EventStateManager::EventStateManager()
     : mLockCursor(kInvalidCursorKind),
-      mLastFrameConsumedSetCursor(false),
       mCurrentTarget(nullptr),
       // init d&d gesture state machine variables
       mGestureDownPoint(0, 0),
@@ -877,7 +877,7 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
       // that ClearFrameRefs() has been called and it cleared out
       // |mCurrentTarget|. As a result, we should pass |mCurrentTarget|
       // into UpdateCursor().
-      UpdateCursor(aPresContext, aEvent, mCurrentTarget, aStatus);
+      UpdateCursor(aPresContext, mouseEvent, mCurrentTarget, aStatus);
 
       UpdateLastRefPointOfMouseEvent(mouseEvent);
       if (PointerLockManager::IsLocked()) {
@@ -4289,7 +4289,7 @@ static CursorImage ComputeCustomCursor(nsPresContext* aPresContext,
 }
 
 void EventStateManager::UpdateCursor(nsPresContext* aPresContext,
-                                     WidgetEvent* aEvent,
+                                     WidgetMouseEvent* aEvent,
                                      nsIFrame* aTargetFrame,
                                      nsEventStatus* aStatus) {
   if (aTargetFrame && IsRemoteTarget(aTargetFrame->GetContent())) {
@@ -4301,12 +4301,18 @@ void EventStateManager::UpdateCursor(nsPresContext* aPresContext,
   ImageResolution resolution;
   Maybe<gfx::IntPoint> hotspot;
 
-  // If cursor is locked just use the locked one
-  if (mLockCursor != kInvalidCursorKind) {
-    cursor = mLockCursor;
+  if (mHidingCursorWhileTyping && aEvent->IsReal()) {
+    // Any non-synthetic mouse event makes us show the cursor again.
+    mHidingCursorWhileTyping = false;
   }
-  // If not locked, look for correct cursor
-  else if (aTargetFrame) {
+
+  if (mHidingCursorWhileTyping) {
+    cursor = StyleCursorKind::None;
+  } else if (mLockCursor != kInvalidCursorKind) {
+    // If cursor is locked just use the locked one
+    cursor = mLockCursor;
+  } else if (aTargetFrame) {
+    // If not locked, look for correct cursor
     nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(
         aEvent, RelativeTo{aTargetFrame});
     Maybe<nsIFrame::Cursor> framecursor = aTargetFrame->GetCursor(pt);
@@ -4384,6 +4390,14 @@ void EventStateManager::ClearCachedWidgetCursor(nsIFrame* aTargetFrame) {
     return;
   }
   aWidget->ClearCachedCursor();
+}
+
+void EventStateManager::StartHidingCursorWhileTyping(nsIWidget* aWidget) {
+  if (mHidingCursorWhileTyping) {
+    return;
+  }
+  mHidingCursorWhileTyping = true;
+  SetCursor(StyleCursorKind::None, nullptr, {}, {}, aWidget, false);
 }
 
 nsresult EventStateManager::SetCursor(StyleCursorKind aCursor,

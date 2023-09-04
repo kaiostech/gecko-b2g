@@ -2475,7 +2475,9 @@ static void OnDefaultAgentRemoteSettingsPrefChanged(const char* aPref,
 
   nsAutoString prefVal;
   rv = Preferences::GetString(aPref, prefVal);
-  NS_ENSURE_SUCCESS_VOID(rv);
+  if (NS_FAILED(rv)) {
+    return;
+  }
 
   if (prefVal.IsEmpty()) {
     rv = regKey->RemoveValue(valueName);

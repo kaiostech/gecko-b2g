@@ -229,11 +229,11 @@
   mask-image: linear-gradient(to left, transparent, black 2em);
 }
 
-.urlbarView-overflowable[overflow]:not(.urlbarView-title[isurl]):-moz-locale-dir(rtl) {
+.urlbarView-overflowable[overflow]:not(.urlbarView-title[is-url]):-moz-locale-dir(rtl) {
   mask-image: linear-gradient(to right, transparent, black 2em);
 }
 
-.urlbarView-title[isurl]:-moz-locale-dir(rtl),
+.urlbarView-title[is-url]:-moz-locale-dir(rtl),
 .urlbarView-url:-moz-locale-dir(rtl) {
   direction: ltr !important;
 }
@@ -356,8 +356,8 @@
 
   /* Labeled result menu button */
 
-  .urlbarView-row > &:not(:empty) {
-    .urlbarView-results:not([wrap]) > & {
+  &:not(:empty) {
+    .urlbarView-results:not([wrap]) > .urlbarView-row > & {
       display: inline-flex;
       align-items: center;
       border-radius: var(--urlbarView-result-button-size);
@@ -370,7 +370,7 @@
       }
     }
 
-    .urlbarView-results[wrap] > & {
+    .urlbarView-results[wrap] > .urlbarView-row > & {
       /* Hide the label in narrow windows. */
       font-size: 0;
     }

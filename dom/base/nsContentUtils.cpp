@@ -10937,7 +10937,7 @@ bool nsContentUtils::
 static nsGlobalWindowInner* GetInnerWindowForGlobal(nsIGlobalObject* aGlobal) {
   NS_ENSURE_TRUE(aGlobal, nullptr);
 
-  if (auto* window = aGlobal->AsInnerWindow()) {
+  if (auto* window = aGlobal->GetAsInnerWindow()) {
     return nsGlobalWindowInner::Cast(window);
   }
 
@@ -10961,7 +10961,7 @@ static nsGlobalWindowInner* GetInnerWindowForGlobal(nsIGlobalObject* aGlobal) {
 
   // The calling window must be holding a reference, so we can return a weak
   // pointer.
-  return nsGlobalWindowInner::Cast(aGlobal->AsInnerWindow());
+  return nsGlobalWindowInner::Cast(aGlobal->GetAsInnerWindow());
 }
 
 /* static */

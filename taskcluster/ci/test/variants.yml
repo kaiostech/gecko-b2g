@@ -83,14 +83,14 @@ geckoview-fission:
 fission:
     description: "{description} with fission enabled"
     component: "Core::DOM: Content Processes"
-    expiration: "2023-09-01"
+    expiration: "never"
     suffix: "fis"
     mozinfo: "fission"
 
 no-fission:
     description: "{description} without fission enabled"
     component: "Core::DOM: Content Processes"
-    expiration: "2023-09-01"
+    expiration: "2024-03-01"
     suffix: "nofis"
     mozinfo: "fission"
     merge:
@@ -101,7 +101,7 @@ no-fission:
 xorigin:
     description: "{description} with cross-origin"
     component: "Core::DOM: Content Processes"
-    expiration: "2023-09-01"
+    expiration: "never"
     suffix: "xorig"
     mozinfo: "xorigin"
     replace:

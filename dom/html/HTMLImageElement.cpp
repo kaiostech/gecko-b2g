@@ -341,8 +341,7 @@ void HTMLImageElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
 
   bool forceReload = false;
 
-  if (aName == nsGkAtoms::loading &&
-      !ImageState().HasState(ElementState::LOADING)) {
+  if (aName == nsGkAtoms::loading && !mLoading) {
     if (aValue && Loading(aValue->GetEnumValue()) == Loading::Lazy) {
       SetLazyLoading();
     } else if (aOldValue &&
@@ -648,11 +647,6 @@ void HTMLImageElement::MaybeLoadImage(bool aAlwaysForceLoad) {
   if (!LoadingEnabled()) {
     CancelImageRequests(true);
   }
-}
-
-ElementState HTMLImageElement::IntrinsicState() const {
-  return nsGenericHTMLElement::IntrinsicState() |
-         nsImageLoadingContent::ImageState();
 }
 
 void HTMLImageElement::NodeInfoChanged(Document* aOldDoc) {

@@ -8,6 +8,7 @@
 // HttpLog.h should generally be included first
 #include "HttpLog.h"
 
+#include "mozilla/net/PBackgroundDataBridge.h"
 #include "nsHttp.h"
 #include "nsICacheEntry.h"
 #include "mozilla/BasePrincipal.h"
@@ -360,11 +361,6 @@ void HttpChannelChild::ProcessOnStartRequest(
 #ifdef NIGHTLY_BUILD
              aUseResponseHead, aRequestHeaders, aArgs, start]() {
         TimeDuration delay = TimeStamp::Now() - start;
-        if (self->mLoadFlags & nsIRequest::LOAD_RECORD_START_REQUEST_DELAY) {
-          Telemetry::Accumulate(
-              Telemetry::HTTP_PRELOAD_IMAGE_STARTREQUEST_DELAY,
-              static_cast<uint32_t>(delay.ToMilliseconds()));
-        }
         glean::networking::http_content_onstart_delay.AccumulateRawDuration(
             delay);
 #else
@@ -3170,11 +3166,20 @@ void HttpChannelChild::MaybeConnectToSocketProcess() {
   }
   SocketProcessBridgeChild::GetSocketProcessBridge()->Then(
       GetCurrentSerialEventTarget(), __func__,
-      [bgChild]() {
+      [bgChild, channelId = ChannelId()](
+          const RefPtr<SocketProcessBridgeChild>& aBridge) {
+        Endpoint<PBackgroundDataBridgeParent> parentEndpoint;
+        Endpoint<PBackgroundDataBridgeChild> childEndpoint;
+        PBackgroundDataBridge::CreateEndpoints(&parentEndpoint, &childEndpoint);
+        aBridge->SendInitBackgroundDataBridge(std::move(parentEndpoint),
+                                              channelId);
+
         gSocketTransportService->Dispatch(
-            NewRunnableMethod("HttpBackgroundChannelChild::CreateDataBridge",
-                              bgChild,
-                              &HttpBackgroundChannelChild::CreateDataBridge),
+            NS_NewRunnableFunction(
+                "HttpBackgroundChannelChild::CreateDataBridge",
+                [bgChild, endpoint = std::move(childEndpoint)]() mutable {
+                  bgChild->CreateDataBridge(std::move(endpoint));
+                }),
             NS_DISPATCH_NORMAL);
       },
       []() { NS_WARNING("Failed to create SocketProcessBridgeChild"); });

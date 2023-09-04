@@ -592,7 +592,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
       const ScrollableLayerGuid& aGuid, const uint64_t& aInputBlockId);
 
   bool UpdateFrame(const layers::RepaintRequest& aRequest);
-  bool NotifyAPZStateChange(
+  void NotifyAPZStateChange(
       const ViewID& aViewId,
       const layers::GeckoContentController_APZStateChange& aChange,
       const int& aArg, Maybe<uint64_t> aInputBlockId);
@@ -602,18 +602,13 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                   const CSSRect& aRect, const uint32_t& aFlags);
 
   // Request that the docshell be marked as active.
-  void PaintWhileInterruptingJS(const layers::LayersObserverEpoch& aEpoch);
+  void PaintWhileInterruptingJS();
 
-  void UnloadLayersWhileInterruptingJS(
-      const layers::LayersObserverEpoch& aEpoch);
+  void UnloadLayersWhileInterruptingJS();
 
   nsresult CanCancelContentJS(nsIRemoteTab::NavigationType aNavigationType,
                               int32_t aNavigationIndex, nsIURI* aNavigationURI,
                               int32_t aEpoch, bool* aCanCancel);
-
-  layers::LayersObserverEpoch LayersObserverEpoch() const {
-    return mLayersObserverEpoch;
-  }
 
 #if defined(XP_WIN) && defined(ACCESSIBILITY)
   uintptr_t GetNativeWindowHandle() const { return mNativeWindowHandle; }
@@ -700,8 +695,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvDestroy();
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  mozilla::ipc::IPCResult RecvRenderLayers(
-      const bool& aEnabled, const layers::LayersObserverEpoch& aEpoch);
+  mozilla::ipc::IPCResult RecvRenderLayers(const bool& aEnabled);
 
   mozilla::ipc::IPCResult RecvPreserveLayers(bool);
 
@@ -879,9 +873,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   RefPtr<layers::IAPZCTreeManager> mApzcTreeManager;
   RefPtr<SessionStoreChild> mSessionStoreChild;
-
-  // The most recently seen layer observer epoch in RecvSetDocShellIsActive.
-  layers::LayersObserverEpoch mLayersObserverEpoch;
 
 #if defined(XP_WIN) && defined(ACCESSIBILITY)
   // The handle associated with the native window that contains this tab

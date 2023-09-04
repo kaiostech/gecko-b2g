@@ -673,7 +673,7 @@ class BrowserParent final : public PBrowserParent,
   bool SendLoadRemoteScript(const nsAString& aURL,
                             const bool& aRunInGlobalScope);
 
-  void LayerTreeUpdate(const LayersObserverEpoch& aEpoch, bool aActive);
+  void LayerTreeUpdate(bool aActive);
 
   mozilla::ipc::IPCResult RecvInvokeDragSession(
       nsTArray<IPCTransferableData>&& aTransferables, const uint32_t& aAction,
@@ -740,9 +740,6 @@ class BrowserParent final : public PBrowserParent,
   virtual void ActorDestroy(ActorDestroyReason why) override;
 
   mozilla::ipc::IPCResult RecvRemoteIsReadyToHandleInputEvents();
-
-  mozilla::ipc::IPCResult RecvPaintWhileInterruptingJSNoOp(
-      const LayersObserverEpoch& aEpoch);
 
   mozilla::ipc::IPCResult RecvSetDimensions(mozilla::DimensionRequest aRequest,
                                             const double& aScale);
@@ -909,7 +906,6 @@ class BrowserParent final : public PBrowserParent,
   ContentCacheInParent mContentCache;
 
   layout::RemoteLayerTreeOwner mRemoteLayerTreeOwner;
-  LayersObserverEpoch mLayerTreeEpoch;
 
   Maybe<LayoutDeviceToLayoutDeviceMatrix4x4> mChildToParentConversionMatrix;
   Maybe<ScreenRect> mRemoteDocumentRect;

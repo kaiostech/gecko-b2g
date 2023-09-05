@@ -20,9 +20,7 @@ using mozilla::system::Property;
 
 static const char DAEMON_NAME[] = "dhcpcd";
 static const char DAEMON_PROP_NAME[] = "init.svc.dhcpcd";
-static const char HOSTNAME_PROP_NAME[] = "net.hostname";
 static const char DHCP_PROP_NAME_PREFIX[] = "dhcp";
-static const char DHCP_CONFIG_PATH[] = "/system/etc/dhcpcd/dhcpcd.conf";
 static const int NAP_TIME = 200; /* wait for 200ms at a time */
                                  /* when polling for property values */
 static const char DAEMON_NAME_RENEW[] = "iprenew";
@@ -207,7 +205,7 @@ int DhcpUtils::DhcpStart(const char* interface) {
   char resultPropName[Property::KEY_MAX_LENGTH];
   char daemonPropName[Property::KEY_MAX_LENGTH];
   char propValue[Property::VALUE_MAX_LENGTH] = {'\0'};
-  char daemonCmd[Property::VALUE_MAX_LENGTH * 2 + sizeof(DHCP_CONFIG_PATH)];
+  char daemonCmd[Property::VALUE_MAX_LENGTH * 2];
   const char* ctrlProp = "ctl.start";
   const char* desiredStatus = "running";
   /* Interface name after converting p2p0-p2p0-X to p2p to reuse system
@@ -225,12 +223,8 @@ int DhcpUtils::DhcpStart(const char* interface) {
   Property::Set(resultPropName, "");
 
   /* Start the daemon and wait until it's ready */
-  if (Property::Get(HOSTNAME_PROP_NAME, propValue, NULL) &&
-      (propValue[0] != '\0'))
-    SprintfLiteral(daemonCmd, "%s_%s:-f %s -h %s %s", DAEMON_NAME, p2pInterface,
-                   DHCP_CONFIG_PATH, propValue, interface);
-  else
-    SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
+  SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
+
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   Property::Set(ctrlProp, daemonCmd);
   if (WaitForProperty(daemonPropName, desiredStatus, 10) < 0) {

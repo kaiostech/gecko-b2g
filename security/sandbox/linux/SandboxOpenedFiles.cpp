@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "SandboxLogging.h"
+#include "mozilla/SandboxInfo.h"
 
 namespace mozilla {
 

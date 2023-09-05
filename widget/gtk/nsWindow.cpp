@@ -392,7 +392,8 @@ static void GtkWindowSetTransientFor(GtkWindow* aWindow, GtkWindow* aParent) {
   }
 
 nsWindow::nsWindow()
-    : mIsDestroyed(false),
+    : mDestroyMutex("nsWindow::mDestroyMutex"),
+      mIsDestroyed(false),
       mIsShown(false),
       mNeedsShow(false),
       mIsMapped(false),
@@ -596,6 +597,7 @@ void nsWindow::Destroy() {
 
   LOG("nsWindow::Destroy\n");
 
+  MutexAutoLock lock(mDestroyMutex);
   mIsDestroyed = true;
   mCreated = false;
 
@@ -3413,23 +3415,39 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
       return nullptr;
     case NS_NATIVE_EGL_WINDOW: {
       void* eglWindow = nullptr;
+
+      // We can't block on mutex here as it leads to a deadlock:
+      // 1) mutex is taken at nsWindow::Destroy()
+      // 2) NS_NATIVE_EGL_WINDOW is called from compositor/rendering thread,
+      //    blocking on mutex.
+      // 3) DestroyCompositor() is called by nsWindow::Destroy(). As a sync
+      //    call it waits to compositor/rendering threads,
+      //    but they're blocked at 2).
+      //    It's fine if we return null EGL window during DestroyCompositor(),
+      //    in such case compositor painting is skipped.
+      if (mDestroyMutex.TryLock()) {
+        if (mGdkWindow && !mIsDestroyed) {
 #ifdef MOZ_X11
-      if (GdkIsX11Display()) {
-        eglWindow = mGdkWindow ? (void*)GDK_WINDOW_XID(mGdkWindow) : nullptr;
-      }
+          if (GdkIsX11Display()) {
+            eglWindow = (void*)GDK_WINDOW_XID(mGdkWindow);
+          }
 #endif
 #ifdef MOZ_WAYLAND
-      if (GdkIsWaylandDisplay()) {
-        if (mCompositorWidgetDelegate &&
-            mCompositorWidgetDelegate->AsGtkCompositorWidget() &&
-            mCompositorWidgetDelegate->AsGtkCompositorWidget()->IsHidden()) {
-          NS_WARNING("Getting OpenGL EGL window for hidden Gtk window!");
-          return nullptr;
-        }
-        eglWindow = moz_container_wayland_get_egl_window(
-            mContainer, FractionalScaleFactor());
-      }
+          if (GdkIsWaylandDisplay()) {
+            bool hiddenWindow =
+                mCompositorWidgetDelegate &&
+                mCompositorWidgetDelegate->AsGtkCompositorWidget() &&
+                mCompositorWidgetDelegate->AsGtkCompositorWidget()->IsHidden();
+            if (!hiddenWindow) {
+              eglWindow = moz_container_wayland_get_egl_window(
+                  mContainer, FractionalScaleFactor());
+            }
+          }
 #endif
+        }
+        mDestroyMutex.Unlock();
+      }
+
       LOG("Get NS_NATIVE_EGL_WINDOW mGdkWindow %p returned eglWindow %p",
           mGdkWindow, eglWindow);
       return eglWindow;
@@ -5950,6 +5968,11 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
   if (IsTopLevelWindowType()) {
     mGtkWindowDecoration = GetSystemGtkWindowDecoration();
+    // Inherit initial scale from our parent, or use the default monitor scale
+    // otherwise.
+    mCeiledScaleFactor = parentnsWindow
+                             ? int32_t(parentnsWindow->mCeiledScaleFactor)
+                             : ScreenHelperGTK::GetGTKMonitorScaleFactor();
   }
 
   // Don't use transparency for PictureInPicture windows.
@@ -6201,6 +6224,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
     } else {
       LOG("  set kiosk mode");
     }
+    // Kiosk mode always use fullscreen.
+    MakeFullScreen(/* aFullScreen */ true);
   }
 
   if (mWindowType == WindowType::Popup) {
@@ -7120,15 +7145,21 @@ nsresult nsWindow::UpdateTranslucentWindowAlphaInternal(const nsIntRect& aRect,
 #define TITLEBAR_HEIGHT 10
 
 LayoutDeviceIntRect nsWindow::GetTitlebarRect() {
-  if (!mGdkWindow || !mDrawInTitlebar) {
-    return LayoutDeviceIntRect();
+  // See NS_NATIVE_EGL_WINDOW why we can't block here.
+  auto ret = LayoutDeviceIntRect();
+
+  if (mDestroyMutex.TryLock()) {
+    if (mGdkWindow && mDrawInTitlebar) {
+      int height = 0;
+      if (DoDrawTilebarCorners()) {
+        height = GdkCeiledScaleFactor() * TITLEBAR_HEIGHT;
+      }
+      ret = LayoutDeviceIntRect(0, 0, mBounds.width, height);
+    }
+    mDestroyMutex.Unlock();
   }
 
-  int height = 0;
-  if (DoDrawTilebarCorners()) {
-    height = std::ceil(FractionalScaleFactor() * TITLEBAR_HEIGHT);
-  }
-  return LayoutDeviceIntRect(0, 0, mBounds.width, height);
+  return ret;
 }
 
 void nsWindow::UpdateTitlebarTransparencyBitmap() {
@@ -8795,6 +8826,7 @@ void nsWindow::SetCompositorWidgetDelegate(CompositorWidgetDelegate* delegate) {
       "mCompositorWidgetDelegate %p\n",
       delegate, mIsMapped, mCompositorWidgetDelegate);
 
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
   if (delegate) {
     mCompositorWidgetDelegate = delegate->AsPlatformSpecificDelegate();
     MOZ_ASSERT(mCompositorWidgetDelegate,
@@ -8814,7 +8846,7 @@ nsresult nsWindow::SetNonClientMargins(const LayoutDeviceIntMargin& aMargins) {
 }
 
 bool nsWindow::IsAlwaysUndecoratedWindow() const {
-  if (mIsPIPWindow || mIsWaylandPanelWindow) {
+  if (mIsPIPWindow || mIsWaylandPanelWindow || gKioskMode) {
     return true;
   }
   if (mWindowType == WindowType::Dialog &&
@@ -9724,18 +9756,25 @@ nsWindow* nsWindow::GetFocusedWindow() { return gFocusWindow; }
 #ifdef MOZ_WAYLAND
 void nsWindow::SetEGLNativeWindowSize(
     const LayoutDeviceIntSize& aEGLWindowSize) {
-  if (!mContainer || !GdkIsWaylandDisplay()) {
+  if (!GdkIsWaylandDisplay()) {
     return;
   }
 
-  // SetEGLNativeWindowSize() may be called from Renderer/Compositor thread.
-  // In such case use cached scale factor.
-  gint scale = GdkCeiledScaleFactor();
-  LOG("nsWindow::SetEGLNativeWindowSize() %d x %d scale %d (unscaled %d x %d)",
-      aEGLWindowSize.width, aEGLWindowSize.height, scale,
-      aEGLWindowSize.width / scale, aEGLWindowSize.height / scale);
-  moz_container_wayland_egl_window_set_size(
-      mContainer, aEGLWindowSize.ToUnknownSize(), scale);
+  // SetEGLNativeWindowSize() is called from renderer/compositor thread,
+  // make sure nsWindow is not destroyed.
+  // See NS_NATIVE_EGL_WINDOW why we can't block here.
+  if (mDestroyMutex.TryLock()) {
+    if (!mIsDestroyed && mContainer) {
+      gint scale = GdkCeiledScaleFactor();
+      LOG("nsWindow::SetEGLNativeWindowSize() %d x %d scale %d (unscaled %d x "
+          "%d)",
+          aEGLWindowSize.width, aEGLWindowSize.height, scale,
+          aEGLWindowSize.width / scale, aEGLWindowSize.height / scale);
+      moz_container_wayland_egl_window_set_size(
+          mContainer, aEGLWindowSize.ToUnknownSize(), scale);
+    }
+    mDestroyMutex.Unlock();
+  }
 }
 #endif
 

@@ -23,7 +23,8 @@ interface nsICellBroadcastListener : nsISupports
                              in boolean aHasEtwsInfo,
                              in unsigned long aEtwsWarningType,
                              in boolean aEtwsEmergencyUserAlert,
-                             in boolean aEtwsPopup);
+                             in boolean aEtwsPopup,
+                             in unsigned short aUpdateNumber);
 };
 
 %{C++

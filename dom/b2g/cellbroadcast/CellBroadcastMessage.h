@@ -30,7 +30,8 @@ class CellBroadcastMessage final : public nsISupports, public nsWrapperCache {
                        const nsAString& aBody, uint32_t aMessageClass,
                        uint64_t aTimestamp, uint32_t aCdmaServiceCategory,
                        bool aHasEtwsInfo, uint32_t aEtwsWarningType,
-                       bool aEtwsEmergencyUserAlert, bool aEtwsPopup);
+                       bool aEtwsEmergencyUserAlert, bool aEtwsPopup,
+                       uint16_t aUpdateNumber);
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
@@ -46,6 +47,8 @@ class CellBroadcastMessage final : public nsISupports, public nsWrapperCache {
   }
 
   uint16_t MessageCode() const { return mMessageCode; }
+
+  uint16_t UpdateNumber() const { return mUpdateNumber; }
 
   uint16_t MessageId() const { return mMessageId; }
 
@@ -77,6 +80,7 @@ class CellBroadcastMessage final : public nsISupports, public nsWrapperCache {
   uint32_t mServiceId;
   Nullable<CellBroadcastGsmGeographicalScope> mGsmGeographicalScope;
   uint16_t mMessageCode;
+  uint16_t mUpdateNumber;
   uint16_t mMessageId;
   nsString mLanguage;
   nsString mBody;

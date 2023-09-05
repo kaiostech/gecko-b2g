@@ -10,7 +10,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function () {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
@@ -18,7 +18,7 @@ XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
 /**
  * RILSystemMessenger
  */
-const RILSystemMessenger = function() {};
+const RILSystemMessenger = function () {};
 RILSystemMessenger.prototype = {
   /**
    * Hook of Broadcast function
@@ -254,7 +254,8 @@ RILSystemMessenger.prototype = {
     aHasEtwsInfo,
     aEtwsWarningType,
     aEtwsEmergencyUserAlert,
-    aEtwsPopup
+    aEtwsPopup,
+    aUpdateNumber
   ) {
     // Align the same layout to MozCellBroadcastMessage
     let data = {
@@ -270,6 +271,7 @@ RILSystemMessenger.prototype = {
       timestamp: aTimestamp,
       cdmaServiceCategory: null,
       etws: null,
+      updateNumber: aUpdateNumber,
     };
 
     if (aHasEtwsInfo) {

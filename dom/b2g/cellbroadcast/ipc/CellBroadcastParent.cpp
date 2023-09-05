@@ -45,12 +45,12 @@ CellBroadcastParent::NotifyMessageReceived(
     uint16_t aMessageId, const nsAString& aLanguage, const nsAString& aBody,
     uint32_t aMessageClass, DOMTimeStamp aTimestamp,
     uint32_t aCdmaServiceCategory, bool aHasEtwsInfo, uint32_t aEtwsWarningType,
-    bool aEtwsEmergencyUserAlert, bool aEtwsPopup) {
+    bool aEtwsEmergencyUserAlert, bool aEtwsPopup, uint16_t aUpdateNumber) {
   return SendNotifyReceivedMessage(
              aServiceId, aGsmGeographicalScope, aMessageCode, aMessageId,
              nsString(aLanguage), nsString(aBody), aMessageClass, aTimestamp,
              aCdmaServiceCategory, aHasEtwsInfo, aEtwsWarningType,
-             aEtwsEmergencyUserAlert, aEtwsPopup)
+             aEtwsEmergencyUserAlert, aEtwsPopup, aUpdateNumber)
              ? NS_OK
              : NS_ERROR_FAILURE;
 }

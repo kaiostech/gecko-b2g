@@ -76,7 +76,7 @@ mozilla::ipc::IPCResult CellBroadcastChild::RecvNotifyReceivedMessage(
     const uint32_t& aMessageClass, const uint64_t& aTimestamp,
     const uint32_t& aCdmaServiceCategory, const bool& aHasEtwsInfo,
     const uint32_t& aEtwsWarningType, const bool& aEtwsEmergencyUserAlert,
-    const bool& aEtwsPopup) {
+    const bool& aEtwsPopup, const uint16_t& aUpdateNumber) {
   // UnregisterListener() could be triggered in
   // nsICellBroadcastListener::NotifyMessageReceived().
   // Make a immutable copy for notifying the event.
@@ -86,7 +86,7 @@ mozilla::ipc::IPCResult CellBroadcastChild::RecvNotifyReceivedMessage(
     immutableListeners[i]->NotifyMessageReceived(
         aServiceId, aGsmGeographicalScope, aMessageCode, aMessageId, aLanguage,
         aBody, aMessageClass, aTimestamp, aCdmaServiceCategory, aHasEtwsInfo,
-        aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
+        aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup, aUpdateNumber);
   }
 
   return IPC_OK();

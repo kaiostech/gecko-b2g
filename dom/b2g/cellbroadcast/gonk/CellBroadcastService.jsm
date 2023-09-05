@@ -13,7 +13,7 @@ const RIL = ChromeUtils.import("resource://gre/modules/ril_consts.js");
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "RIL_DEBUG", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL_DEBUG", function () {
   // eslint-disable-next-line mozilla/reject-chromeutils-import-params
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts_debug.js");
   return obj;
@@ -44,7 +44,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsISettingsManager"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function () {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -66,7 +66,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIGonkMobileMessageDatabaseService"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gGeolocation", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gGeolocation", function () {
   let geolocation = {};
   try {
     geolocation = Cc["@mozilla.org/geolocation;1"].getService(Ci.nsISupports);
@@ -442,7 +442,7 @@ CellBroadcastService.prototype = {
         lazy.gMobileMessageDBService.getCellBroadcastMessage(
           identity.serialNumber,
           identity.messageIdentifier,
-          function(aRv, aMessageRecord, aCellBroadCastMessage) {
+          function (aRv, aMessageRecord, aCellBroadCastMessage) {
             if (Components.isSuccessCode(aRv) && aMessageRecord) {
               allBroadcastMessages.push(aMessageRecord);
             }
@@ -532,6 +532,10 @@ CellBroadcastService.prototype = {
   _broadcastCellBroadcastMessage(aServiceId, aCellBroadcastMessage) {
     this._acquireCbHandledWakeLock();
     // Broadcast CBS System message
+    let updateNumber = 0;
+    if (aCellBroadcastMessage.serialNumber) {
+      updateNumber = aCellBroadcastMessage.serialNumber & 0x0f;
+    }
     lazy.gCellbroadcastMessenger.notifyCbMessageReceived(
       aServiceId,
       aCellBroadcastMessage.gsmGeographicalScope,
@@ -545,7 +549,8 @@ CellBroadcastService.prototype = {
       aCellBroadcastMessage.hasEtwsInfo,
       aCellBroadcastMessage.etwsWarningType,
       aCellBroadcastMessage.etwsEmergencyUserAlert,
-      aCellBroadcastMessage.etwsPopup
+      aCellBroadcastMessage.etwsPopup,
+      updateNumber
     );
 
     // Notify received message to registered listener
@@ -564,7 +569,8 @@ CellBroadcastService.prototype = {
           aCellBroadcastMessage.hasEtwsInfo,
           aCellBroadcastMessage.etwsWarningType,
           aCellBroadcastMessage.etwsEmergencyUserAlert,
-          aCellBroadcastMessage.etwsPopup
+          aCellBroadcastMessage.etwsPopup,
+          updateNumber
         );
       } catch (e) {
         debug("listener threw an exception: " + e);

@@ -10,10 +10,8 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "RSM", function() {
-  let obj = ChromeUtils.import(
-    "resource://gre/modules/RILSystemMessenger.jsm"
-  );
+XPCOMUtils.defineLazyGetter(lazy, "RSM", function () {
+  let obj = ChromeUtils.import("resource://gre/modules/RILSystemMessenger.jsm");
   return obj;
 });
 
@@ -212,7 +210,8 @@ RILSystemMessengerHelper.prototype = {
     aHasEtwsInfo,
     aEtwsWarningType,
     aEtwsEmergencyUserAlert,
-    aEtwsPopup
+    aEtwsPopup,
+    aUpdateNumber
   ) {
     this.messenger.notifyCbMessageReceived(
       aServiceId,
@@ -227,7 +226,8 @@ RILSystemMessengerHelper.prototype = {
       aHasEtwsInfo,
       aEtwsWarningType,
       aEtwsEmergencyUserAlert,
-      aEtwsPopup
+      aEtwsPopup,
+      aUpdateNumber
     );
   },
 

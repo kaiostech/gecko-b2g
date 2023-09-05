@@ -64,7 +64,8 @@ CellBroadcastMessage::CellBroadcastMessage(
     uint32_t aGsmGeographicalScope, uint16_t aMessageCode, uint16_t aMessageId,
     const nsAString& aLanguage, const nsAString& aBody, uint32_t aMessageClass,
     uint64_t aTimestamp, uint32_t aCdmaServiceCategory, bool aHasEtwsInfo,
-    uint32_t aEtwsWarningType, bool aEtwsEmergencyUserAlert, bool aEtwsPopup)
+    uint32_t aEtwsWarningType, bool aEtwsEmergencyUserAlert, bool aEtwsPopup,
+    uint16_t aUpdateNumber)
     : mWindow(aWindow),
       mServiceId(aServiceId),
       mMessageCode(aMessageCode),
@@ -72,6 +73,7 @@ CellBroadcastMessage::CellBroadcastMessage(
       mLanguage(aLanguage),
       mBody(aBody),
       mTimestamp(aTimestamp),
+      mUpdateNumber(aUpdateNumber),
       mEtwsInfo(aHasEtwsInfo ? new CellBroadcastEtwsInfo(
                                    aWindow, aEtwsWarningType,
                                    aEtwsEmergencyUserAlert, aEtwsPopup)

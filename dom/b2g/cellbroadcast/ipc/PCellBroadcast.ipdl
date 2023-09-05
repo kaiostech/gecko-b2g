@@ -26,7 +26,8 @@ child:
                               bool aHasEtwsInfo,
                               uint32_t aEtwsWarningType,
                               bool aEtwsEmergencyUserAlert,
-                              bool aEtwsPopup);
+                              bool aEtwsPopup,
+                              uint16_t aUpdateNumber);
 
 parent:
   /**

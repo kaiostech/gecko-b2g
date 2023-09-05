@@ -34,7 +34,7 @@ class CellBroadcastChild final : public PCellBroadcastChild,
       const uint32_t& aMessageClass, const uint64_t& aTimestamp,
       const uint32_t& aCdmaServiceCategory, const bool& aHasEtwsInfo,
       const uint32_t& aEtwsWarningType, const bool& aEtwsEmergencyUserAlert,
-      const bool& aEtwsPopup);
+      const bool& aEtwsPopup, const uint16_t& aUpdateNumber);
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 

@@ -120,14 +120,14 @@ CellBroadcast::NotifyMessageReceived(
     uint16_t aMessageId, const nsAString& aLanguage, const nsAString& aBody,
     uint32_t aMessageClass, DOMTimeStamp aTimestamp,
     uint32_t aCdmaServiceCategory, bool aHasEtwsInfo, uint32_t aEtwsWarningType,
-    bool aEtwsEmergencyUserAlert, bool aEtwsPopup) {
+    bool aEtwsEmergencyUserAlert, bool aEtwsPopup, uint16_t aUpdateNumber) {
   CellBroadcastEventInit init;
   init.mBubbles = true;
   init.mCancelable = false;
   init.mMessage = new CellBroadcastMessage(
       GetOwner(), aServiceId, aGsmGeographicalScope, aMessageCode, aMessageId,
       aLanguage, aBody, aMessageClass, aTimestamp, aCdmaServiceCategory,
-      aHasEtwsInfo, aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
+      aHasEtwsInfo, aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup, aUpdateNumber);
 
   RefPtr<CellBroadcastEvent> event =
       CellBroadcastEvent::Constructor(this, u"received"_ns, init);

@@ -21,6 +21,7 @@ XPCOMUtils.defineLazyGetter(lazy, "RIL_DEBUG", function () {
 
 const kSettingsCellBroadcastDisabled = "ril.cellbroadcast.disabled";
 const kSettingsCellBroadcastSearchList = "ril.cellbroadcast.searchlist";
+const kSettingsGeolocationEnabled = "geolocation.enabled";
 const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
 //Geo-Fencing Maximum wait time(second).
 const kPrefCellBroadcastMaxWaitTime = "dom.cellbroadcast.maximumWaitTime";
@@ -127,9 +128,11 @@ function CellBroadcastService() {
      *   2. set search list per RadioInterface.
      */
     this.getSettingValue(kSettingsCellBroadcastSearchList);
+    this.getSettingValue(kSettingsGeolocationEnabled);
 
     this.addSettingObserver(kSettingsCellBroadcastDisabled);
     this.addSettingObserver(kSettingsCellBroadcastSearchList);
+    this.addSettingObserver(kSettingsGeolocationEnabled);
   }
 }
 CellBroadcastService.prototype = {
@@ -147,6 +150,8 @@ CellBroadcastService.prototype = {
 
   // Setting values of Cell Broadcast SearchList.
   _cellBroadcastSearchList: null,
+
+  _isGeolocationEnabled: false,
 
   _updateDebugFlag() {
     try {
@@ -477,7 +482,16 @@ CellBroadcastService.prototype = {
     aGeometryMessage,
     aBroadcastArea = aGeometryMessage.geometries
   ) {
-    if (aGeometryMessage.maximumWaitingTimeSec > 0) {
+    if (DEBUG) {
+      debug(
+        "_handleGeometryMessage: this._isGeolocationEnabled = " +
+          this._isGeolocationEnabled
+      );
+    }
+    if (
+      aGeometryMessage.maximumWaitingTimeSec > 0 &&
+      this._isGeolocationEnabled === "true"
+    ) {
       let timeout = aGeometryMessage.maximumWaitingTimeSec * 1000;
       if (
         aGeometryMessage.maximumWaitingTimeSec ==
@@ -620,6 +634,7 @@ CellBroadcastService.prototype = {
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
         this.removeSettingObserver(kSettingsCellBroadcastDisabled);
         this.removeSettingObserver(kSettingsCellBroadcastSearchList);
+        this.removeSettingObserver(kSettingsGeolocationEnabled);
 
         // Remove all listeners.
         this._listeners = [];
@@ -652,6 +667,12 @@ CellBroadcastService.prototype = {
         }
         let resultDisableObj = JSON.parse(aResult);
         this.setCellBroadcastDisabled(resultDisableObj);
+        break;
+      case kSettingsGeolocationEnabled:
+        this._isGeolocationEnabled = aResult;
+        if (DEBUG) {
+          debug("'" + kSettingsGeolocationEnabled + "' is now " + aResult);
+        }
         break;
     }
   },

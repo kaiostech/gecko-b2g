@@ -59,15 +59,18 @@ extern crate webext_storage_bridge;
 // #[cfg(not(target_os = "android"))]
 extern crate tabs;
 
-#[cfg(not(target_os = "android"))]
+// Build on Gonk for now.
+// #[cfg(not(target_os = "android"))]
 mod reexport_tabs {
     tabs::uniffi_reexport_scaffolding!();
 }
 
-#[cfg(not(target_os = "android"))]
+// Build on Gonk for now.
+// #[cfg(not(target_os = "android"))]
 extern crate suggest;
 
-#[cfg(not(target_os = "android"))]
+// Build on Gonk for now.
+// #[cfg(not(target_os = "android"))]
 mod reexport_suggest {
     suggest::uniffi_reexport_scaffolding!();
 }

@@ -29,6 +29,7 @@ const kPrefCellBroadcastMaxWaitTime = "dom.cellbroadcast.maximumWaitTime";
 const kPrefCellBroadcastGeoFencingThreshold =
   "dom.cellbroadcast.geoFencingThreshold";
 
+const kSettingsCmasMultiLanguageSupport = "cmas.multi.language.support";
 const DEFAULT_MAXIMUM_WAIT_TIME = 30; // 30 seconds
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -404,12 +405,47 @@ CellBroadcastService.prototype = {
         debug("Failed to delete cellbroadcast message");
       }
     };
-    lazy.gMobileMessageDBService.deleteCellBroadcastMessage(
-      aGeometryMessage.serialNumber,
-      aGeometryMessage.messageId,
-      callback
-    );
-    this._broadcastCellBroadcastMessage(aServiceId, aGeometryMessage);
+
+    let self = this;
+    if (aGeometryMessage.language.toLowerCase() === "en") {
+      if (DEBUG) {
+        debug("notify en message directly");
+      }
+      lazy.gMobileMessageDBService.deleteCellBroadcastMessage(
+        aGeometryMessage.serialNumber,
+        aGeometryMessage.messageId,
+        callback
+      );
+      this._broadcastCellBroadcastMessage(aServiceId, aGeometryMessage);
+    } else {
+      lazy.gSettingsManager.get(kSettingsCmasMultiLanguageSupport, {
+        resolve: info => {
+          if (DEBUG) {
+            debug(
+              "kSettingsCmasMultiLanguageSupport info:" + JSON.stringify(info)
+            );
+          }
+          if (info.value.toLowerCase() === "true") {
+            if (DEBUG) {
+              debug("Notify non en message");
+            }
+            lazy.gMobileMessageDBService.deleteCellBroadcastMessage(
+              aGeometryMessage.serialNumber,
+              aGeometryMessage.messageId,
+              callback
+            );
+            self._broadcastCellBroadcastMessage(aServiceId, aGeometryMessage);
+          } else if (DEBUG) {
+            debug("No support multi language cmas, ignore");
+          }
+        },
+        reject: () => {
+          if (DEBUG) {
+            debug("get " + kSettingsCmasMultiLanguageSupport + " failed.");
+          }
+        },
+      });
+    }
   },
 
   _performGeoFencing(

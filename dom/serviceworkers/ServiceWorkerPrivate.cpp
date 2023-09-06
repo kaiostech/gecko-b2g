@@ -1694,10 +1694,12 @@ RefPtr<GenericNonExclusivePromise> ServiceWorkerPrivate::ShutdownInternal(
 
   mControllerChild->get()->RevokeObserver(this);
 
-  if (StaticPrefs::dom_serviceWorkers_testing_enabled()) {
+  if (StaticPrefs::dom_serviceWorkers_testing_enabled() ||
+      StaticPrefs::dom_serviceWorkers_shutdown_observer_enabled()) {
     nsCOMPtr<nsIObserverService> os = services::GetObserverService();
     if (os) {
-      os->NotifyObservers(nullptr, "service-worker-shutdown", nullptr);
+      os->NotifyObservers(nullptr, "service-worker-shutdown",
+                          NS_ConvertUTF8toUTF16(mInfo->Scope()).get());
     }
   }
 

@@ -1720,7 +1720,7 @@
 #if defined(ANDROID)
   value: false
 #else
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
 #endif
   mirror: always
 
@@ -1728,7 +1728,7 @@
 # ORB.
 - name: browser.opaqueResponseBlocking.javascriptValidator
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # This pref controls how filtering of opaque responses for calls to `Window.fetch`.
@@ -2889,6 +2889,27 @@
 
 # Whether we allow BrowsingContextGroup to suspend input events
 - name: dom.input_events.canSuspendInBCG.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# The minimum number of ticks after page navigation
+# that need to occur before user input events are allowed to be handled.
+- name: dom.input_events.security.minNumTicks
+  type: uint32_t
+  value: 3
+  mirror: always
+
+# The minimum elapsed time (in milliseconds) after page navigation
+# for user input events are allowed to be handled.
+- name: dom.input_events.security.minTimeElapsedInMS
+  type: uint32_t
+  value: 100
+  mirror: always
+
+# By default user input handling delay is disabled (mostly) for testing ,
+# this is used for forcefully enable it for certain tests.
+- name: dom.input_events.security.isUserInputHandlingDelayTest
   type: bool
   value: false
   mirror: always
@@ -10222,11 +10243,11 @@
 # We do that only on nightly builds for now.
 -   name: media.allow-audio-non-utility
     type: RelaxedAtomicBool
-#if defined(NIGHTLY_BUILD)
+#if defined(NIGHTLY_BUILD) || defined(EARLY_BETA_OR_EARLIER)
     value: false
 #else
     value: true
-#endif // defined(NIGHTLY_BUILD)
+#endif // defined(NIGHTLY_BUILD) || defined(EARLY_BETA_OR_EARLIER)
     mirror: always
 
 #ifdef MOZ_OMX
@@ -14979,12 +15000,6 @@
   value: false
   mirror: always
 
-# Disable page loading activity cursor by default.
-- name: ui.use_activity_cursor
-  type: bool
-  value: false
-  mirror: always
-
 # Whether context menus should only appear on mouseup instead of mousedown,
 # on OSes where they normally appear on mousedown (macOS, *nix).
 # Note: ignored on Windows (context menus always use mouseup).
@@ -15669,6 +15684,16 @@
   type: bool
   value: true
   mirror: always
+
+# Whether we enable rounded bottom corners on GTK by default.
+#
+# The implementation is a bit hacky (see details in bug 1850827) so behind a
+# pref for emergency purposes.
+- name: widget.gtk.rounded-bottom-corners.enabled
+  type: bool
+  value: true
+  mirror: always
+  rust: true
 
 # Whether selection colors for the non-system theme get passed from the system
 # GTK theme.

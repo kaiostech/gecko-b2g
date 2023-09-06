@@ -6,6 +6,11 @@
 #ifndef DEFAULT_BROWSER_SET_DEFAULT_BROWSER_H__
 #define DEFAULT_BROWSER_SET_DEFAULT_BROWSER_H__
 
+#include "nsStringFwd.h"
+#include "nsTArray.h"
+
+namespace mozilla::default_agent {
+
 /*
  * Set the default browser by writing the UserChoice registry keys.
  *
@@ -17,9 +22,8 @@
  *
  * @param aAumi The AUMI of the installation to set as default.
  *
- * @param aExtraFileExtensions Optional null-terminated list of extra file
- * association pairs to set as default, like `{ L".pdf", "FirefoxPDF", nullptr
- * }`.
+ * @param aExtraFileExtensions Optional array of extra file association pairs to
+ * set as default, like `[ ".pdf", "FirefoxPDF" ]`.
  *
  * @return S_OK             All associations set and checked successfully.
  *         MOZ_E_NO_PROGID  The ProgID classes had not been registered.
@@ -32,7 +36,8 @@
  *         E_FAIL           other failure
  */
 HRESULT SetDefaultBrowserUserChoice(
-    const wchar_t* aAumi, const wchar_t* const* aExtraFileExtensions = nullptr);
+    const wchar_t* aAumi,
+    const nsTArray<nsString>& aExtraFileExtensions = nsTArray<nsString>());
 
 /*
  * Set the default extension handlers for the given file extensions by writing
@@ -40,8 +45,8 @@ HRESULT SetDefaultBrowserUserChoice(
  *
  * @param aAumi The AUMI of the installation to set as default.
  *
- * @param aFileExtensions Optional null-terminated list of file association
- * pairs to set as default, like `{ L".pdf", "FirefoxPDF", nullptr }`.
+ * @param aExtraFileExtensions Optional array of extra file association pairs to
+ * set as default, like `[ ".pdf", "FirefoxPDF" ]`.
  *
  * @returns S_OK           All associations set and checked successfully.
  *          MOZ_E_REJECTED UserChoice was set, but checking the default did not
@@ -49,7 +54,7 @@ HRESULT SetDefaultBrowserUserChoice(
  *          E_FAIL         Failed to set at least one association.
  */
 HRESULT SetDefaultExtensionHandlersUserChoice(
-    const wchar_t* aAumi, const wchar_t* const* aFileExtensions = nullptr);
+    const wchar_t* aAumi, const nsTArray<nsString>& aFileExtensions);
 
 /*
  * Additional HRESULT error codes from SetDefaultBrowserUserChoice
@@ -60,5 +65,7 @@ const HRESULT MOZ_E_NO_PROGID = 0xa0000001L;
 const HRESULT MOZ_E_HASH_CHECK = 0xa0000002L;
 const HRESULT MOZ_E_REJECTED = 0xa0000003L;
 const HRESULT MOZ_E_BUILD = 0xa0000004L;
+
+}  // namespace mozilla::default_agent
 
 #endif  // DEFAULT_BROWSER_SET_DEFAULT_BROWSER_H__

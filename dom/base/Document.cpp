@@ -7084,6 +7084,12 @@ bool Document::ShouldThrottleFrameRequests() const {
     return true;
   }
 
+  if (mPresShell->IsUnderHiddenEmbedderElement()) {
+    // For display: none and visibility: hidden we always throttle, for
+    // consistency with OOP iframes.
+    return true;
+  }
+
   Element* el = GetEmbedderElement();
   if (!el) {
     // If we're not in-process, our refresh driver is throttled separately (via
@@ -7101,7 +7107,7 @@ bool Document::ShouldThrottleFrameRequests() const {
   // acceptable / unlikely to be human-perceivable, though we could improve on
   // it if needed by adding an intersection margin or something of that sort.
   const IntersectionInput input = DOMIntersectionObserver::ComputeInput(
-      *el->OwnerDoc(), /* aRoot = */ nullptr, /* aMargin = */ nullptr);
+      *el->OwnerDoc(), /* aRoot = */ nullptr, /* aRootMargin = */ nullptr);
   const IntersectionOutput output =
       DOMIntersectionObserver::Intersect(input, *el);
   return !output.Intersects();
@@ -12221,7 +12227,7 @@ void Document::SetReadyStateInternal(ReadyState aReadyState,
   }
 
   if (aUpdateTimingInformation && READYSTATE_LOADING == aReadyState) {
-    mLoadingTimeStamp = TimeStamp::Now();
+    SetLoadingOrRestoredFromBFCacheTimeStampToNow();
   }
   NotifyLoading(mAncestorIsLoading, mReadyState, aReadyState);
   mReadyState = aReadyState;
@@ -13565,8 +13571,9 @@ nsresult Document::GetStateObject(JS::MutableHandle<JS::Value> aState) {
 
 void Document::SetNavigationTiming(nsDOMNavigationTiming* aTiming) {
   mTiming = aTiming;
-  if (!mLoadingTimeStamp.IsNull() && mTiming) {
-    mTiming->SetDOMLoadingTimeStamp(GetDocumentURI(), mLoadingTimeStamp);
+  if (!mLoadingOrRestoredFromBFCacheTimeStamp.IsNull() && mTiming) {
+    mTiming->SetDOMLoadingTimeStamp(GetDocumentURI(),
+                                    mLoadingOrRestoredFromBFCacheTimeStamp);
   }
 
   // If there's already the DocumentTimeline instance, tell it since the

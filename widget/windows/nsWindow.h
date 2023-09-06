@@ -277,7 +277,6 @@ class nsWindow final : public nsBaseWidget {
   TransparencyMode GetTransparencyMode() override;
   nsresult SetNonClientMargins(const LayoutDeviceIntMargin&) override;
   void SetResizeMargin(mozilla::LayoutDeviceIntCoord aResizeMargin) override;
-  void SetDrawsInTitlebar(bool aState) override;
   void UpdateWindowDraggingRegion(
       const LayoutDeviceIntRegion& aRegion) override;
 
@@ -828,8 +827,6 @@ class nsWindow final : public nsBaseWidget {
   LayoutDeviceIntRegion mDraggableRegion;
 
   // Graphics
-  HDC mPaintDC = nullptr;  // only set during painting
-
   LayoutDeviceIntRect mLastPaintBounds;
 
   ResizeState mResizeState = NOT_RESIZING;

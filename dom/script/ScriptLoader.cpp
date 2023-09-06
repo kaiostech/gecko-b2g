@@ -666,38 +666,9 @@ void ScriptLoader::PrepareCacheInfoChannel(nsIChannel* aChannel,
   }
 }
 
-nsresult ScriptLoader::StartLoadInternal(
-    ScriptLoadRequest* aRequest, nsSecurityFlags securityFlags,
-    const Maybe<nsAutoString>& aCharsetForPreload) {
-  nsCOMPtr<nsIChannel> channel;
-  nsresult rv = CreateChannelForScriptLoading(
-      getter_AddRefs(channel), mDocument, aRequest, securityFlags);
-
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  if (aRequest->mEarlyHintPreloaderId) {
-    nsCOMPtr<nsIHttpChannelInternal> channelInternal =
-        do_QueryInterface(channel);
-    NS_ENSURE_TRUE(channelInternal != nullptr, NS_ERROR_FAILURE);
-
-    rv = channelInternal->SetEarlyHintPreloaderId(
-        aRequest->mEarlyHintPreloaderId);
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
-
-  PrepareLoadInfoForScriptLoading(channel, aRequest);
-
-  nsCOMPtr<nsIScriptGlobalObject> scriptGlobal = GetScriptGlobalObject();
-  if (!scriptGlobal) {
-    return NS_ERROR_FAILURE;
-  }
-
-  ScriptLoader::PrepareCacheInfoChannel(channel, aRequest);
-
-  LOG(("ScriptLoadRequest (%p): mode=%u tracking=%d", aRequest,
-       unsigned(aRequest->GetScriptLoadContext()->mScriptMode),
-       aRequest->GetScriptLoadContext()->IsTracking()));
-
+// static
+void ScriptLoader::PrepareRequestPriorityAndRequestDependencies(
+    nsIChannel* aChannel, ScriptLoadRequest* aRequest) {
   if (aRequest->GetScriptLoadContext()->IsLinkPreloadScript()) {
     // This is <link rel="preload" as="script"> or <link rel="modulepreload">
     // initiated speculative load, put it to the group that is not blocked by
@@ -705,9 +676,9 @@ nsresult ScriptLoader::StartLoadInternal(
     // higher priority will make this request be processed ahead of other
     // Unblocked requests, but with the same weight as Leaders. This will make
     // us behave similar way for both http2 and http1.
-    ScriptLoadContext::PrioritizeAsPreload(channel);
-    ScriptLoadContext::AddLoadBackgroundFlag(channel);
-  } else if (nsCOMPtr<nsIClassOfService> cos = do_QueryInterface(channel)) {
+    ScriptLoadContext::PrioritizeAsPreload(aChannel);
+    ScriptLoadContext::AddLoadBackgroundFlag(aChannel);
+  } else if (nsCOMPtr<nsIClassOfService> cos = do_QueryInterface(aChannel)) {
     if (aRequest->GetScriptLoadContext()->mScriptFromHead &&
         aRequest->GetScriptLoadContext()->IsBlockingScript()) {
       // synchronous head scripts block loading of most other non js/css
@@ -738,8 +709,15 @@ nsresult ScriptLoader::StartLoadInternal(
       }
     }
   }
+}
 
-  nsCOMPtr<nsIHttpChannel> httpChannel(do_QueryInterface(channel));
+// static
+nsresult ScriptLoader::PrepareHttpRequestAndInitiatorType(
+    nsIChannel* aChannel, ScriptLoadRequest* aRequest,
+    const Maybe<nsAutoString>& aCharsetForPreload) {
+  nsCOMPtr<nsIHttpChannel> httpChannel(do_QueryInterface(aChannel));
+  nsresult rv = NS_OK;
+
   if (httpChannel) {
     // HTTP content negotation has little value in this context.
     nsAutoCString acceptTypes("*/*");
@@ -772,11 +750,6 @@ nsresult ScriptLoader::StartLoadInternal(
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  mozilla::net::PredictorLearn(
-      aRequest->mURI, mDocument->GetDocumentURI(),
-      nsINetworkPredictor::LEARN_LOAD_SUBRESOURCE,
-      mDocument->NodePrincipal()->OriginAttributesRef());
-
   // Set the initiator type
   nsCOMPtr<nsITimedChannel> timedChannel(do_QueryInterface(httpChannel));
   if (timedChannel) {
@@ -789,6 +762,11 @@ nsresult ScriptLoader::StartLoadInternal(
     }
   }
 
+  return rv;
+}
+
+nsresult ScriptLoader::PrepareIncrementalStreamLoader(
+    nsIIncrementalStreamLoader** aOutLoader, ScriptLoadRequest* aRequest) {
   UniquePtr<mozilla::dom::SRICheckDataVerifier> sriDataVerifier;
   if (!aRequest->mIntegrity.IsEmpty()) {
     nsAutoCString sourceUri;
@@ -802,8 +780,56 @@ nsresult ScriptLoader::StartLoadInternal(
   RefPtr<ScriptLoadHandler> handler =
       new ScriptLoadHandler(this, aRequest, std::move(sriDataVerifier));
 
+  nsresult rv = NS_NewIncrementalStreamLoader(aOutLoader, handler);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return rv;
+}
+
+nsresult ScriptLoader::StartLoadInternal(
+    ScriptLoadRequest* aRequest, nsSecurityFlags securityFlags,
+    const Maybe<nsAutoString>& aCharsetForPreload) {
+  nsCOMPtr<nsIChannel> channel;
+  nsresult rv = CreateChannelForScriptLoading(
+      getter_AddRefs(channel), mDocument, aRequest, securityFlags);
+
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (aRequest->mEarlyHintPreloaderId) {
+    nsCOMPtr<nsIHttpChannelInternal> channelInternal =
+        do_QueryInterface(channel);
+    NS_ENSURE_TRUE(channelInternal != nullptr, NS_ERROR_FAILURE);
+
+    rv = channelInternal->SetEarlyHintPreloaderId(
+        aRequest->mEarlyHintPreloaderId);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  PrepareLoadInfoForScriptLoading(channel, aRequest);
+
+  nsCOMPtr<nsIScriptGlobalObject> scriptGlobal = GetScriptGlobalObject();
+  if (!scriptGlobal) {
+    return NS_ERROR_FAILURE;
+  }
+
+  ScriptLoader::PrepareCacheInfoChannel(channel, aRequest);
+
+  LOG(("ScriptLoadRequest (%p): mode=%u tracking=%d", aRequest,
+       unsigned(aRequest->GetScriptLoadContext()->mScriptMode),
+       aRequest->GetScriptLoadContext()->IsTracking()));
+
+  PrepareRequestPriorityAndRequestDependencies(channel, aRequest);
+
+  rv =
+      PrepareHttpRequestAndInitiatorType(channel, aRequest, aCharsetForPreload);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  mozilla::net::PredictorLearn(
+      aRequest->mURI, mDocument->GetDocumentURI(),
+      nsINetworkPredictor::LEARN_LOAD_SUBRESOURCE,
+      mDocument->NodePrincipal()->OriginAttributesRef());
+
   nsCOMPtr<nsIIncrementalStreamLoader> loader;
-  rv = NS_NewIncrementalStreamLoader(getter_AddRefs(loader), handler);
+  rv = PrepareIncrementalStreamLoader(getter_AddRefs(loader), aRequest);
   NS_ENSURE_SUCCESS(rv, rv);
 
   auto key = PreloadHashKey::CreateAsScript(

@@ -72,7 +72,7 @@ module.exports = {
   // tools/lint/eslint/eslint-plugin-mozilla/lib/configs/recommended.js to
   // allow external repositories that use the plugin to pick them up as well.
   extends: ["plugin:mozilla/recommended"],
-  plugins: ["mozilla", "import"],
+  plugins: ["mozilla", "import", "json"],
   overrides: [
     {
       // All .eslintrc.js files are in the node environment, so turn that
@@ -604,6 +604,11 @@ module.exports = {
         "browser/components/pocket/**",
         "devtools/**",
       ],
+      rules: {
+        // react-hooks/recommended has exhaustive-deps as a warning, we prefer
+        // errors, so that raised issues get addressed one way or the other.
+        "react-hooks/exhaustive-deps": "error",
+      },
     },
     {
       // Exempt files with these paths since they have to use http for full coverage

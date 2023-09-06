@@ -1057,12 +1057,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cty"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
-
-[[package]]
 name = "cubeb"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1212,6 +1206,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_storage"
+version = "0.0.1"
+dependencies = [
+ "byteorder",
+ "cstr",
+ "firefox-on-glean",
+ "log",
+ "malloc_size_of_derive",
+ "moz_task",
+ "nserror",
+ "nsstring",
+ "thin-vec",
+ "wr_malloc_size_of",
+ "xpcom",
+]
+
+[[package]]
 name = "dbus"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1228,22 +1239,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef552e6f588e446098f6ba40d89ac146c8c7b64aade83c051ee00bb5d2bc18d"
 dependencies = [
  "uuid",
-]
-
-[[package]]
-name = "defaultagent-static"
-version = "0.1.0"
-dependencies = [
- "log",
- "mozilla-central-workspace-hack",
- "serde",
- "serde_derive",
- "serde_json",
- "url",
- "viaduct",
- "winapi",
- "wineventlog",
- "wio",
 ]
 
 [[package]]
@@ -2156,6 +2151,7 @@ dependencies = [
  "cubeb-sys",
  "dap_ffi",
  "data-encoding-ffi",
+ "data_storage",
  "detect_win32k_conflicts",
  "dom",
  "encoding_glue",
@@ -2207,6 +2203,7 @@ dependencies = [
  "rust_minidump_writer_linux",
  "static_prefs",
  "storage",
+ "suggest",
  "tabs",
  "unic-langid",
  "unic-langid-ffi",
@@ -4543,12 +4540,9 @@ dependencies = [
 
 [[package]]
 name = "raw-window-handle"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed7e3d950b66e19e0c372f3fa3fbbcf85b1746b571f74e0c2af6042a5c93420a"
-dependencies = [
- "cty",
-]
+checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
 name = "rayon"
@@ -4601,6 +4595,20 @@ name = "regex-syntax"
 version = "0.6.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "456c603be3e8d448b072f410900c09faf164fbce2d480456f50eea6e25f9c848"
+
+[[package]]
+name = "remote_settings"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
+dependencies = [
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uniffi",
+ "url",
+ "viaduct",
+]
 
 [[package]]
 name = "remove_dir_all"
@@ -5284,6 +5292,24 @@ name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
+
+[[package]]
+name = "suggest"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=25972c388a4cf3a6d8256504f3a09b711db2fc6a#25972c388a4cf3a6d8256504f3a09b711db2fc6a"
+dependencies = [
+ "anyhow",
+ "interrupt-support",
+ "once_cell",
+ "parking_lot",
+ "remote_settings",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sql-support",
+ "thiserror",
+ "uniffi",
+]
 
 [[package]]
 name = "svg_fmt"
@@ -6443,15 +6469,6 @@ version = "0.48.999"
 dependencies = [
  "quote",
  "syn",
-]
-
-[[package]]
-name = "wineventlog"
-version = "0.1.0"
-dependencies = [
- "log",
- "winapi",
- "wio",
 ]
 
 [[package]]

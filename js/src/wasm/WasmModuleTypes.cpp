@@ -154,9 +154,14 @@ size_t TagDesc::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
   return type->sizeOfExcludingThis(mallocSizeOf);
 }
 
-size_t ElemSegment::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
+size_t ModuleElemSegment::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {
   return SizeOfMaybeExcludingThis(offsetIfActive, mallocSizeOf) +
-         elemFuncIndices.sizeOfExcludingThis(mallocSizeOf);
+         elemIndices.sizeOfExcludingThis(mallocSizeOf);
+}
+
+size_t ModuleElemSegment::Expressions::sizeOfExcludingThis(
+    MallocSizeOf mallocSizeOf) const {
+  return exprBytes.sizeOfExcludingThis(mallocSizeOf);
 }
 
 size_t DataSegment::sizeOfExcludingThis(MallocSizeOf mallocSizeOf) const {

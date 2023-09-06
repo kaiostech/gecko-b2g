@@ -214,8 +214,8 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel) {
   }
   mLastPaintBounds = mBounds;
 
-  if (!aDC && (renderer->GetBackendType() == LayersBackend::LAYERS_NONE) &&
-      (TransparencyMode::Transparent == mTransparencyMode)) {
+  if (!aDC && renderer->GetBackendType() == LayersBackend::LAYERS_NONE &&
+      TransparencyMode::Transparent == mTransparencyMode) {
     // For layered translucent windows all drawing should go to memory DC and no
     // WM_PAINT messages are normally generated. To support asynchronous
     // painting we force generation of WM_PAINT messages by invalidating window
@@ -231,11 +231,9 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel) {
     aDC = mBasicLayersSurface->GetTransparentDC();
   }
 
-  HDC hDC = aDC ? aDC : (::BeginPaint(mWnd, &ps));
-  mPaintDC = hDC;
+  HDC hDC = aDC ? aDC : ::BeginPaint(mWnd, &ps);
 
-  bool forceRepaint =
-      aDC || (TransparencyMode::Transparent == mTransparencyMode);
+  bool forceRepaint = aDC || TransparencyMode::Transparent == mTransparencyMode;
   LayoutDeviceIntRegion region = GetRegionToPaint(forceRepaint, ps, hDC);
 
   if (knowsCompositor && layerManager) {
@@ -357,7 +355,6 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel) {
     ::EndPaint(mWnd, &ps);
   }
 
-  mPaintDC = nullptr;
   mLastPaintEndTime = TimeStamp::Now();
 
   // Re-get the listener since painting may have killed it.

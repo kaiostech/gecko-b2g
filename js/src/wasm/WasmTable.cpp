@@ -25,6 +25,7 @@
 #include "vm/Realm.h"
 #include "wasm/WasmInstance.h"
 #include "wasm/WasmJS.h"
+#include "wasm/WasmValue.h"
 
 #include "gc/StableCellHasher-inl.h"
 #include "wasm/WasmInstance-inl.h"
@@ -165,6 +166,24 @@ bool Table::getFuncRef(JSContext* cx, uint32_t index,
                                           codeRange.funcIndex(), fun);
 }
 
+void Table::setFuncRef(uint32_t index, JSFunction* fun) {
+  MOZ_ASSERT(isFunction());
+  MOZ_ASSERT(fun->isWasm());
+
+  // Tables can store references to wasm functions from other instances. To
+  // preserve the === function identity required by the JS embedding spec, we
+  // must set the element to the function's underlying
+  // CodeRange.funcCheckedCallEntry and Instance so that Table.get()s always
+  // produce the same function object as was imported.
+  WasmInstanceObject* instanceObj = ExportedFunctionToInstanceObject(fun);
+  Instance& instance = instanceObj->instance();
+  Tier tier = instance.code().bestTier();
+  const CodeRange& calleeCodeRange =
+      instanceObj->getExportedFunctionCodeRange(fun, tier);
+  void* code = instance.codeBase(tier) + calleeCodeRange.funcCheckedCallEntry();
+  setFuncRef(index, code, &instance);
+}
+
 void Table::setFuncRef(uint32_t index, void* code, Instance* instance) {
   MOZ_ASSERT(isFunction());
 
@@ -224,10 +243,26 @@ AnyRef Table::getAnyRef(uint32_t index) const {
   return objects_[index];
 }
 
+void Table::setAnyRef(uint32_t index, AnyRef ref) {
+  MOZ_ASSERT(!isFunction());
+  objects_[index] = ref;
+}
+
 void Table::fillAnyRef(uint32_t index, uint32_t fillCount, AnyRef ref) {
   MOZ_ASSERT(!isFunction());
   for (uint32_t i = index, end = index + fillCount; i != end; i++) {
     objects_[i] = ref;
+  }
+}
+
+void Table::setRef(uint32_t index, AnyRef ref) {
+  if (ref.isNull()) {
+    setNull(index);
+  } else if (isFunction()) {
+    JSFunction* func = &ref.toJSObject().as<JSFunction>();
+    setFuncRef(index, func);
+  } else {
+    setAnyRef(index, ref);
   }
 }
 
@@ -270,7 +305,7 @@ void Table::setNull(uint32_t index) {
       break;
     }
     case TableRepr::Ref: {
-      fillAnyRef(index, 1, AnyRef::null());
+      setAnyRef(index, AnyRef::null());
       break;
     }
   }
@@ -304,7 +339,7 @@ bool Table::copy(JSContext* cx, const Table& srcTable, uint32_t dstIndex,
     case TableRepr::Ref: {
       switch (srcTable.repr()) {
         case TableRepr::Ref: {
-          fillAnyRef(dstIndex, 1, srcTable.getAnyRef(srcIndex));
+          setAnyRef(dstIndex, srcTable.getAnyRef(srcIndex));
           break;
         }
         case TableRepr::Func: {
@@ -315,7 +350,7 @@ bool Table::copy(JSContext* cx, const Table& srcTable, uint32_t dstIndex,
             // OOM, so just pass it on.
             return false;
           }
-          fillAnyRef(dstIndex, 1, AnyRef::fromJSObject(*fun));
+          setAnyRef(dstIndex, AnyRef::fromJSObject(*fun));
           break;
         }
       }

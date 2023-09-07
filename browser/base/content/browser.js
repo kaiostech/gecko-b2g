@@ -5886,7 +5886,7 @@ var TabsProgressListener = {
     // Some shops use pushState to move between individual products, so
     // the shopping code needs to be told about all of these.
     if (AppConstants.NIGHTLY_BUILD) {
-      ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI);
+      ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI, aFlags);
     }
 
     // Filter out location changes caused by anchor navigation
@@ -10052,7 +10052,7 @@ var ShoppingSidebarManager = {
     }
 
     let { selectedBrowser, currentURI } = gBrowser;
-    this.onLocationChange(selectedBrowser, currentURI);
+    this.onLocationChange(selectedBrowser, currentURI, 0);
   },
 
   /**
@@ -10061,7 +10061,7 @@ var ShoppingSidebarManager = {
    * Note that this includes hash changes / pushState navigations, because
    * those can be significant for us.
    */
-  onLocationChange(aBrowser, aLocationURI) {
+  onLocationChange(aBrowser, aLocationURI, aFlags) {
     if (!this._enabled) {
       return;
     }
@@ -10074,7 +10074,6 @@ var ShoppingSidebarManager = {
         sidebar.querySelector("browser").browsingContext.currentWindowGlobal;
       actor = global.getExistingActor("ShoppingSidebar");
     }
-    let button = document.getElementById("shopping-sidebar-button");
     let isProduct = isProductURL(aLocationURI);
     if (isProduct && this.isActive) {
       if (!sidebar) {
@@ -10083,7 +10082,7 @@ var ShoppingSidebarManager = {
         sidebar.hidden = false;
         browserPanel.appendChild(sidebar);
       } else {
-        actor?.updateProductURL(aLocationURI);
+        actor?.updateProductURL(aLocationURI, aFlags);
         sidebar.hidden = false;
       }
     } else if (sidebar && !sidebar.hidden) {
@@ -10091,17 +10090,31 @@ var ShoppingSidebarManager = {
       sidebar.hidden = true;
     }
 
-    button.hidden = !isProduct;
-    button.setAttribute("shoppingsidebaropen", !!this.isActive);
-    document.l10n.setAttributes(
-      button,
-      `shopping-sidebar-${this.isActive ? "close" : "open"}-button`
-    );
+    this.setShoppingButtonState(aBrowser);
+
     if (isProduct) {
       // This is the auto-enable behavior that toggles the `active` pref. It
       // must be at the end of this function, or 2 sidebars could be created.
       ShoppingUtils.handleAutoActivateOnProduct();
     }
+  },
+
+  setShoppingButtonState(aBrowser) {
+    if (aBrowser !== gBrowser.selectedBrowser) {
+      return;
+    }
+
+    let button = document.getElementById("shopping-sidebar-button");
+
+    let isCurrentBrowserProduct = isProductURL(
+      gBrowser.selectedBrowser.currentURI
+    );
+    button.hidden = !isCurrentBrowserProduct;
+    button.setAttribute("shoppingsidebaropen", !!this.isActive);
+    let l10nId = this.isActive
+      ? "shopping-sidebar-close-button"
+      : "shopping-sidebar-open-button";
+    document.l10n.setAttributes(button, l10nId);
   },
 
   handleEvent(event) {

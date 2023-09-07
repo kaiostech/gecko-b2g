@@ -199,12 +199,50 @@ export class TranslationsParent extends JSWindowActorParent {
    */
   static #previousDetectedLanguages = null;
 
+  /**
+   * Used to determine if we should schedule a sync from RemoteSettings.
+   * This is done once per TranslationsParent process, and is handled
+   * during requestIdleCallback.
+   */
+  static #shouldSyncRemoteSettings = true;
+
+  /**
+   * Schedules a requestIdleCallback to sync from Remote Settings
+   * the first time this function is called, and does nothing on
+   * all subsequent calls.
+   */
+  #maybeScheduleRemoteSettingsSync() {
+    // Never schedule a sync if we are running tests: Remote Settings isn't available.
+    if (
+      TranslationsParent.isInAutomation() ||
+      TranslationsParent.#isTranslationsEngineMocked
+    ) {
+      return;
+    }
+
+    if (TranslationsParent.#shouldSyncRemoteSettings) {
+      // Only do this once per TranslationsParent process.
+      TranslationsParent.#shouldSyncRemoteSettings = false;
+      this.browsingContext.top.currentWindowGlobal.requestIdleCallback(
+        async () => {
+          await Promise.all([
+            TranslationsParent.#getLanguageIdModelRemoteClient().sync(),
+            TranslationsParent.#getTranslationsWasmRemoteClient().sync(),
+            TranslationsParent.#getTranslationModelsRemoteClient().sync(),
+          ]);
+        }
+      );
+    }
+  }
+
   actorCreated() {
     this.languageState = new TranslationsLanguageState(
       this,
       TranslationsParent.#previousDetectedLanguages
     );
     TranslationsParent.#previousDetectedLanguages = null;
+
+    this.#maybeScheduleRemoteSettingsSync();
 
     if (TranslationsParent.#translateOnPageReload) {
       // The actor was recreated after a page reload, start the translation.
@@ -425,6 +463,14 @@ export class TranslationsParent extends JSWindowActorParent {
       return;
     }
 
+    if (detectedLanguages.docLangTag === detectedLanguages.userLangTag) {
+      lazy.console.error(
+        "maybeOfferTranslations - The document and user lang tag are the same, not offering a translation.",
+        documentURI.spec
+      );
+      return;
+    }
+
     // Only offer the translation if it's still the current page.
     if (
       documentURI.spec ===
@@ -590,6 +636,14 @@ export class TranslationsParent extends JSWindowActorParent {
         // The user hasn't customized their accept languages, this means that English
         // is always provided as a fallback language, even if it is not available.
         TranslationsParent.#webContentLanguages.delete("en");
+      }
+
+      if (TranslationsParent.#webContentLanguages.size === 0) {
+        // The user has removed all of their web content languages, default to the
+        // app locale.
+        TranslationsParent.#webContentLanguages.add(
+          new Intl.Locale(Services.locale.appLocaleAsBCP47).language
+        );
       }
     }
 
@@ -1169,8 +1223,19 @@ export class TranslationsParent extends JSWindowActorParent {
       return [];
     }
     const retrievedRecords = await remoteSettingsClient.get({
-      // Pull the records from the network.
+      // Pull the records from the network if empty.
       syncIfEmpty: true,
+      // Do not load the JSON dump if it is newer.
+      //
+      // The JSON dump comes from the Prod RemoteSettings channel
+      // so we shouldn't ever have an issue with the Prod server
+      // being older than the JSON dump itself (this is good).
+      //
+      // However, setting this to true will prevent us from
+      // testing RemoteSettings on the Dev and Stage
+      // environments if they happen to be older than the
+      // most recent JSON dump from Prod.
+      loadDumpIfNewer: false,
       // Don't verify the signature if the client is mocked.
       verifySignature: VERIFY_SIGNATURES_FROM_FS,
       // Apply any filters for retrieving the records.

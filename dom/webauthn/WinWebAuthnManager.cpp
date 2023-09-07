@@ -9,7 +9,6 @@
 #include "mozilla/MozPromise.h"
 #include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/ClearOnShutdown.h"
-#include "mozilla/dom/CryptoBuffer.h"
 #include "mozilla/Unused.h"
 #include "nsIWebAuthnController.h"
 #include "nsTextFormatter.h"
@@ -454,7 +453,6 @@ void WinWebAuthnManager::Register(
     }
 
     nsTArray<WebAuthnExtensionResult> extensions;
-
     if (pWebAuthNCredentialAttestation->dwVersion >=
         WEBAUTHN_CREDENTIAL_ATTESTATION_VERSION_2) {
       PCWEBAUTHN_EXTENSIONS pExtensionList =
@@ -479,8 +477,29 @@ void WinWebAuthnManager::Register(
       }
     }
 
+    nsTArray<nsString> transports;
+    if (pWebAuthNCredentialAttestation->dwVersion >=
+        WEBAUTHN_CREDENTIAL_ATTESTATION_VERSION_3) {
+      if (pWebAuthNCredentialAttestation->dwUsedTransport &
+          WEBAUTHN_CTAP_TRANSPORT_USB) {
+        transports.AppendElement(u"usb"_ns);
+      }
+      if (pWebAuthNCredentialAttestation->dwUsedTransport &
+          WEBAUTHN_CTAP_TRANSPORT_NFC) {
+        transports.AppendElement(u"nfc"_ns);
+      }
+      if (pWebAuthNCredentialAttestation->dwUsedTransport &
+          WEBAUTHN_CTAP_TRANSPORT_BLE) {
+        transports.AppendElement(u"ble"_ns);
+      }
+      if (pWebAuthNCredentialAttestation->dwUsedTransport &
+          WEBAUTHN_CTAP_TRANSPORT_INTERNAL) {
+        transports.AppendElement(u"internal"_ns);
+      }
+    }
+
     WebAuthnMakeCredentialResult result(aInfo.ClientDataJSON(), attObject,
-                                        credentialId, extensions);
+                                        credentialId, transports, extensions);
 
     Unused << mTransactionParent->SendConfirmRegister(aTransactionId, result);
     ClearTransaction();

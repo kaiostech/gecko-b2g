@@ -385,9 +385,10 @@ AnnexB::ConvertNALUTo4BytesNALU(mozilla::MediaRawData* aSample,
   if (aNALUSize == 0 || aNALUSize > 4) {
     return Err(NS_ERROR_FAILURE);
   }
-  if (aNALUSize == 4) {
-    return Ok();
-  }
+
+  // If the nalLenSize is already 4, we can only check if the data is corrupt
+  // without replacing data in aSample.
+  bool needConversion = aNALUSize != 4;
 
   MOZ_ASSERT(aSample);
   nsTArray<uint8_t> dest;
@@ -405,14 +406,29 @@ AnnexB::ConvertNALUTo4BytesNALU(mozilla::MediaRawData* aSample,
       case 3:
         MOZ_TRY_VAR(nalLen, reader.ReadU24());
         break;
+      case 4:
+        MOZ_TRY_VAR(nalLen, reader.ReadU32());
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Bytes of the NAL body length must be in [1,4]");
+        return Err(NS_ERROR_ILLEGAL_VALUE);
     }
     const uint8_t* p = reader.Read(nalLen);
     if (!p) {
-      return Ok();
+      // The data may be corrupt.
+      return Err(NS_ERROR_UNEXPECTED);
+    }
+    if (!needConversion) {
+      // We only parse aSample to see if it's corrupt.
+      continue;
     }
     if (!writer.WriteU32(nalLen) || !writer.Write(p, nalLen)) {
       return Err(NS_ERROR_OUT_OF_MEMORY);
     }
+  }
+  if (!needConversion) {
+    // We've parsed all the data, and it's all good.
+    return Ok();
   }
   UniquePtr<MediaRawDataWriter> samplewriter(aSample->CreateWriter());
   if (!samplewriter->Replace(dest.Elements(), dest.Length())) {

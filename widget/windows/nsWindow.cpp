@@ -5223,12 +5223,8 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
       break;
 
     case WM_PAINT:
-      *aRetValue = (int)OnPaint(nullptr, 0);
+      *aRetValue = (int)OnPaint(0);
       result = true;
-      break;
-
-    case WM_PRINTCLIENT:
-      result = OnPaint((HDC)wParam, 0);
       break;
 
     case WM_HOTKEY:
@@ -8799,8 +8795,6 @@ mozilla::Maybe<UINT> nsWindow::GetHiddenTaskbarEdge() {
   const auto kEdges = {ABE_BOTTOM, ABE_TOP, ABE_LEFT, ABE_RIGHT};
   for (auto edge : kEdges) {
     appBarData.uEdge = edge;
-    // ABM_GETAUTOHIDEBAREX is not defined before Windows 8.
-    static constexpr DWORD ABM_GETAUTOHIDEBAREX = 0x000b;
     HWND appBarHwnd = (HWND)SHAppBarMessage(ABM_GETAUTOHIDEBAREX, &appBarData);
     if (appBarHwnd) {
       nsAutoString className;

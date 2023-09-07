@@ -319,7 +319,7 @@ pref("browser.startup.preXulSkeletonUI", true);
 #endif
 
 // Show an upgrade dialog on major upgrades.
-pref("browser.startup.upgradeDialog.enabled", true);
+pref("browser.startup.upgradeDialog.enabled", false);
 
 // Don't create the hidden window during startup on
 // platforms that don't always need it (Win/Linux).
@@ -617,7 +617,7 @@ pref("browser.urlbar.bestMatch.blockingEnabled", true);
 pref("browser.urlbar.contextualSearch.enabled", false);
 
 // Feature gate pref for addon suggestions in the urlbar.
-pref("browser.urlbar.addons.featureGate", false);
+pref("browser.urlbar.addons.featureGate", true);
 
 // If `browser.urlbar.addons.featureGate` is true, this controls whether
 // addons suggestions are turned on.
@@ -2813,10 +2813,8 @@ pref("svg.context-properties.content.allowed-domains", "profile.accounts.firefox
   pref("extensions.translations.disabled", true);
 #endif
 
-// Turn on interaction measurements in Nightly only
-#ifdef NIGHTLY_BUILD
-  pref("browser.places.interactions.enabled", true);
-#endif
+// Turn on interaction measurements
+pref("browser.places.interactions.enabled", true);
 
 // If the user has seen the Firefox View feature tour this value reflects
 // the id of the last screen they saw and whether they completed the tour

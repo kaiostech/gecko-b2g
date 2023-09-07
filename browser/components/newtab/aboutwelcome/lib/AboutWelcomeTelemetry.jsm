@@ -268,9 +268,13 @@ class AboutWelcomeTelemetry {
               // corresponds to 'Analyze Reviews'
               Glean.shopping.surfaceOptInClicked.record();
               break;
-            case "secondary_button":
+            case "additional_button":
               // corresponds to "Not Now"
               Glean.shopping.surfaceNotNowClicked.record();
+              break;
+            case "cta_paragraph":
+              // corresponds to "Learn More"
+              Glean.shopping.surfaceLearnMoreClicked.record();
               break;
           }
           break;

@@ -261,9 +261,9 @@ void AndroidWebAuthnTokenManager::HandleRegisterResult(
         [self = RefPtr<AndroidWebAuthnTokenManager>(this),
          aResult = std::move(aResult)]() {
           nsTArray<WebAuthnExtensionResult> extensions;
-          WebAuthnMakeCredentialResult result(aResult.mClientDataJSON,
-                                              aResult.mAttObj,
-                                              aResult.mKeyHandle, extensions);
+          WebAuthnMakeCredentialResult result(
+              aResult.mClientDataJSON, aResult.mAttObj, aResult.mKeyHandle,
+              aResult.mTransports, extensions);
           self->mRegisterPromise.Resolve(std::move(result), __func__);
         }));
   }
@@ -401,12 +401,21 @@ AndroidWebAuthnResult::AndroidWebAuthnResult(
       reinterpret_cast<const char*>(
           aResponse->ClientDataJson()->GetElements().Elements()),
       aResponse->ClientDataJson()->Length());
-  mKeyHandle.Assign(reinterpret_cast<uint8_t*>(
-                        aResponse->KeyHandle()->GetElements().Elements()),
-                    aResponse->KeyHandle()->Length());
-  mAttObj.Assign(reinterpret_cast<uint8_t*>(
-                     aResponse->AttestationObject()->GetElements().Elements()),
-                 aResponse->AttestationObject()->Length());
+  mKeyHandle.Clear();
+  mKeyHandle.AppendElements(
+      reinterpret_cast<uint8_t*>(
+          aResponse->KeyHandle()->GetElements().Elements()),
+      aResponse->KeyHandle()->Length());
+  mAttObj.Clear();
+  mAttObj.AppendElements(
+      reinterpret_cast<uint8_t*>(
+          aResponse->AttestationObject()->GetElements().Elements()),
+      aResponse->AttestationObject()->Length());
+  auto transports = aResponse->Transports();
+  for (size_t i = 0; i < transports->Length(); i++) {
+    mTransports.AppendElement(
+        jni::String::LocalRef(transports->GetElement(i))->ToString());
+  }
 }
 
 AndroidWebAuthnResult::AndroidWebAuthnResult(
@@ -416,18 +425,25 @@ AndroidWebAuthnResult::AndroidWebAuthnResult(
       reinterpret_cast<const char*>(
           aResponse->ClientDataJson()->GetElements().Elements()),
       aResponse->ClientDataJson()->Length());
-  mKeyHandle.Assign(reinterpret_cast<uint8_t*>(
-                        aResponse->KeyHandle()->GetElements().Elements()),
-                    aResponse->KeyHandle()->Length());
-  mAuthData.Assign(reinterpret_cast<uint8_t*>(
-                       aResponse->AuthData()->GetElements().Elements()),
-                   aResponse->AuthData()->Length());
-  mSignature.Assign(reinterpret_cast<uint8_t*>(
-                        aResponse->Signature()->GetElements().Elements()),
-                    aResponse->Signature()->Length());
-  mUserHandle.Assign(reinterpret_cast<uint8_t*>(
-                         aResponse->UserHandle()->GetElements().Elements()),
-                     aResponse->UserHandle()->Length());
+  mKeyHandle.Clear();
+  mKeyHandle.AppendElements(
+      reinterpret_cast<uint8_t*>(
+          aResponse->KeyHandle()->GetElements().Elements()),
+      aResponse->KeyHandle()->Length());
+  mAuthData.Clear();
+  mAuthData.AppendElements(reinterpret_cast<uint8_t*>(
+                               aResponse->AuthData()->GetElements().Elements()),
+                           aResponse->AuthData()->Length());
+  mSignature.Clear();
+  mSignature.AppendElements(
+      reinterpret_cast<uint8_t*>(
+          aResponse->Signature()->GetElements().Elements()),
+      aResponse->Signature()->Length());
+  mUserHandle.Clear();
+  mUserHandle.AppendElements(
+      reinterpret_cast<uint8_t*>(
+          aResponse->UserHandle()->GetElements().Elements()),
+      aResponse->UserHandle()->Length());
 }
 
 }  // namespace dom

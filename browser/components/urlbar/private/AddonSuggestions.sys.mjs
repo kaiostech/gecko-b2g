@@ -19,6 +19,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarView: "resource:///modules/UrlbarView.sys.mjs",
 });
 
+const UTM_PARAMS = {
+  utm_medium: "firefox-desktop",
+  utm_source: "firefox-suggest",
+};
+
 const VIEW_TEMPLATE = {
   attributes: {
     selectable: true,
@@ -226,9 +231,19 @@ export class AddonSuggestions extends BaseFeature {
       return null;
     }
 
+    // Set UTM params unless they're already defined. This allows remote
+    // settings or Merino to override them if need be.
+    let url = new URL(suggestion.url);
+    for (let [key, value] of Object.entries(UTM_PARAMS)) {
+      if (!url.searchParams.has(key)) {
+        url.searchParams.set(key, value);
+      }
+    }
+
     const payload = {
       icon: suggestion.icon,
-      url: suggestion.url,
+      url: url.href,
+      originalUrl: suggestion.url,
       title: suggestion.title,
       description: suggestion.description,
       rating: Number(rating),
@@ -238,7 +253,7 @@ export class AddonSuggestions extends BaseFeature {
       dynamicType: "addons",
     };
 
-    return Object.assign(
+    let result = Object.assign(
       new lazy.UrlbarResult(
         lazy.UrlbarUtils.RESULT_TYPE.DYNAMIC,
         lazy.UrlbarUtils.RESULT_SOURCE.SEARCH,
@@ -249,6 +264,17 @@ export class AddonSuggestions extends BaseFeature {
       ),
       { showFeedbackMenu: true }
     );
+
+    // UrlbarProviderQuickSuggest will make the result a best match only if
+    // `browser.urlbar.bestMatch.enabled` is true. Addon suggestions should be
+    // best matches regardless (as long as `suggestion.is_top_pick` is true), so
+    // override the provider behavior by setting the related properties here.
+    if (suggestion.is_top_pick) {
+      result.isBestMatch = true;
+      result.suggestedIndex = 1;
+    }
+
+    return result;
   }
 
   getViewUpdate(result) {
@@ -363,8 +389,13 @@ export class AddonSuggestions extends BaseFeature {
         break;
       // selType == "dismiss" when the user presses the dismiss key shortcut.
       case "dismiss":
-      case RESULT_MENU_COMMAND.NOT_INTERESTED:
       case RESULT_MENU_COMMAND.NOT_RELEVANT:
+        lazy.QuickSuggest.blockedSuggestions.add(result.payload.originalUrl);
+        view.acknowledgeDismissal(result, {
+          id: "firefox-suggest-dismissal-acknowledgment-one",
+        });
+        break;
+      case RESULT_MENU_COMMAND.NOT_INTERESTED:
         lazy.UrlbarPrefs.set("suggest.addons", false);
         view.acknowledgeDismissal(result, {
           id: "firefox-suggest-dismissal-acknowledgment-all",

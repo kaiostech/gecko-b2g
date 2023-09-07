@@ -90,7 +90,6 @@ interface nsICtapSignArgs : nsISupports {
     // return code to signal presence.
     [must_use] readonly attribute bool hmacCreateSecret;
     [must_use] readonly attribute AString appId;
-    [must_use] readonly attribute Array<octet> appIdHash;
 
     // Options
     [must_use] readonly attribute AString userVerification;
@@ -120,12 +119,7 @@ interface nsICtapRegisterResult : nsISupports {
     // attestationObject.
     readonly attribute Array<octet> credentialId;
 
-    // Bug 1536155
-    // readonly attribute Array<AString> transports;
-
-    // Bug 1816520
-    // readonly attribute Array<octet> publicKey
-    // readonly attribute COSEAlgorithmIdentifier publicKeyAlgorithm;
+    readonly attribute Array<AString> transports;
 
     // bug 1593571
     // readonly attribute bool hmacCreateSecret;

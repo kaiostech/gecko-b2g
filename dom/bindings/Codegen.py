@@ -381,7 +381,7 @@ def fill(template, **args):
 
     t, argModList = compile_fill_template(template)
     # Now apply argModList to args
-    for (name, modified_name, depth) in argModList:
+    for name, modified_name, depth in argModList:
         if not (args[name] == "" or args[name].endswith("\n")):
             raise ValueError(
                 "Argument %s with value %r is missing a newline" % (name, args[name])
@@ -4391,7 +4391,7 @@ def InitUnforgeablePropertiesOnHolder(
         (defineUnforgeableAttrs, properties.unforgeableAttrs),
         (defineUnforgeableMethods, properties.unforgeableMethods),
     ]
-    for (template, array) in unforgeableMembers:
+    for template, array in unforgeableMembers:
         if array.hasNonChromeOnly():
             unforgeables.append(CGGeneric(template % array.variableName(False)))
         if array.hasChromeOnly():
@@ -13040,7 +13040,6 @@ class CGUnionStruct(CGThing):
         return self.type.getDeps()
 
     def getStruct(self):
-
         members = [
             ClassMember("mType", "TypeOrUninit", body="eUninitialized"),
             ClassMember("mValue", "Value"),
@@ -17084,7 +17083,6 @@ class CGDescriptor(CGThing):
 
 class CGNamespacedEnum(CGThing):
     def __init__(self, namespace, enumName, names, values, comment=""):
-
         if not values:
             values = []
 
@@ -23444,7 +23442,6 @@ class GlobalGenRoots:
 
     @staticmethod
     def PrototypeList(config):
-
         # Prototype ID enum.
         descriptorsWithPrototype = config.getDescriptors(
             hasInterfacePrototypeObject=True
@@ -23632,7 +23629,6 @@ class GlobalGenRoots:
 
     @staticmethod
     def RegisterBindings(config):
-
         curr = CGNamespace.build(
             ["mozilla", "dom"], CGGlobalNames(config.windowGlobalNames)
         )
@@ -23660,7 +23656,6 @@ class GlobalGenRoots:
 
     @staticmethod
     def RegisterWorkerBindings(config):
-
         curr = CGRegisterWorkerBindings(config)
 
         # Wrap all of that in our namespaces.
@@ -23687,7 +23682,6 @@ class GlobalGenRoots:
 
     @staticmethod
     def RegisterWorkerDebuggerBindings(config):
-
         curr = CGRegisterWorkerDebuggerBindings(config)
 
         # Wrap all of that in our namespaces.
@@ -23714,7 +23708,6 @@ class GlobalGenRoots:
 
     @staticmethod
     def RegisterWorkletBindings(config):
-
         curr = CGRegisterWorkletBindings(config)
 
         # Wrap all of that in our namespaces.
@@ -23741,7 +23734,6 @@ class GlobalGenRoots:
 
     @staticmethod
     def RegisterShadowRealmBindings(config):
-
         curr = CGRegisterShadowRealmBindings(config)
 
         # Wrap all of that in our namespaces.

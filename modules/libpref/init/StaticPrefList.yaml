@@ -188,6 +188,14 @@
 #define IS_NOT_XP_WIN true
 #endif
 
+#ifdef XP_MACOSX
+#define IS_XP_MACOSX true
+#define IS_NOT_XP_MACOSX false
+#else
+#define IS_XP_MACOSX false
+#define IS_NOT_XP_MACOSX true
+#endif
+
 #---------------------------------------------------------------------------
 # Prefs starting with "accessibility."
 #---------------------------------------------------------------------------
@@ -1363,6 +1371,12 @@
 
 # See bug 1772569
 - name: browser.download.open_pdf_attachments_inline
+  type: bool
+  value: false
+  mirror: always
+
+# See bug 1811830
+- name: browser.download.force_save_internally_handled_attachments
   type: bool
   value: false
   mirror: always
@@ -5550,6 +5564,21 @@
     value: false
     mirror: always
     rust: true
+
+# This configures a virtual authenticator for WebAuthn. The value encodes the
+# arguments to the WebDriver "Add Virtual Authenticator" extension command.
+# Bits 0, 1, 2, and 3 encode "is_user_verified", "is_user_consenting",
+# "has_user_verification", and "has_resident_key" in that order. Bit 5 encodes
+# the transport, either "usb" (0) or "internal" (1). Bits 6 and 7 encode the
+# protocol, either "ctap1/u2f" (1), "ctap2" (2), or "ctap2_1" (3). Note that
+# the valid protocol values are non-zero---an authenticator will not be
+# configured if this pref is set to zero. Changing this pref requires
+# a restart.
+- name: fuzzing.webauthn.authenticator_config
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+  rust: true
 #endif
 
 #---------------------------------------------------------------------------
@@ -6984,12 +7013,6 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "html5."
 #---------------------------------------------------------------------------
-
-# Turn HTML:inert on or off.
-- name: html5.inert.enabled
-  type: bool
-  value: true
-  mirror: always
 
 # Time in milliseconds between the time a network buffer is seen and the timer
 # firing when the timer hasn't fired previously in this parse in the
@@ -9336,12 +9359,6 @@
   value: true
   mirror: always
 
-# Activity granted to out-of-process iframes in the foreground tab, in milliseconds.
-- name: layout.oopif_activity_grace_period_ms
-  type: uint32_t
-  value: 1000
-  mirror: always
-
 - name: layout.lower_priority_refresh_driver_during_load
   type: bool
   value: true
@@ -9911,13 +9928,13 @@
 # Does the GMPlugin process initialize minimal XPCOM
 - name: media.gmp.use-minimal-xpcom
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
-# Does the GMPlugin process initialize minimal XPCOM
+# Does the GMPlugin process use native event processing
 - name: media.gmp.use-native-event-processing
   type: RelaxedAtomicBool
-  value: true
+  value: @IS_NOT_XP_MACOSX@
   mirror: always
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
@@ -14120,9 +14137,8 @@
   mirror: always
   rust: true
 
-# Dispatch WebAuthn requests to the software CTAP1 token.
-# (mutually exclusive with webauthn_enable_android_fido2,
-# and webauthn_enable_usbtoken)
+# Dispatch WebAuthn requests to virtual authenticators. (mutually exclusive
+# with webauthn_enable_android_fido2, and webauthn_enable_usbtoken)
 - name: security.webauth.webauthn_enable_softtoken
   type: RelaxedAtomicBool
   value: false

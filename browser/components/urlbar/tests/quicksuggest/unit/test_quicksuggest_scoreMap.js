@@ -744,18 +744,24 @@ function makeExpectedAdmResult({
 }
 
 function makeExpectedAddonResult({ suggestion, source = "remote-settings" }) {
+  let url = new URL(suggestion.url);
+  url.searchParams.set("utm_medium", "firefox-desktop");
+  url.searchParams.set("utm_source", "firefox-suggest");
+
   return {
     type: UrlbarUtils.RESULT_TYPE.DYNAMIC,
     source: UrlbarUtils.RESULT_SOURCE.SEARCH,
     heuristic: false,
+    isBestMatch: true,
     payload: {
       source,
       provider: source == "remote-settings" ? "AddonSuggestions" : "amo",
       telemetryType: "amo",
       dynamicType: "addons",
       title: suggestion.title,
-      url: suggestion.url,
-      displayUrl: suggestion.url.replace(/^https:\/\//, ""),
+      url: url.href,
+      originalUrl: suggestion.url,
+      displayUrl: url.href.replace(/^https:\/\//, ""),
       icon: suggestion.icon,
       description: suggestion.description,
       rating: Number(

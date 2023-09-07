@@ -14,7 +14,6 @@
  */
 
 #include "AudioManager.h"
-#include "android_audio/AudioSystem.h"
 #include "AudioChannelService.h"
 #include "BluetoothCommon.h"
 #include "BluetoothHfpManagerBase.h"
@@ -43,6 +42,7 @@
 #include <android/log.h>
 #include <binder/IServiceManager.h>
 #include <cutils/properties.h>
+#include <media/AudioSystem.h>
 
 #ifdef MOZ_B2G_RIL
 #  include "nsIRadioInterfaceLayer.h"

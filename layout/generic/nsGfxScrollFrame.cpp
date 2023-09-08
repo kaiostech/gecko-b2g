@@ -60,6 +60,7 @@
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/HTMLMarqueeElement.h"
 #include "mozilla/dom/ScrollTimeline.h"
+#include "mozilla/dom/BrowserChild.h"
 #include <stdint.h>
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Telemetry.h"
@@ -315,9 +316,8 @@ void nsHTMLScrollFrame::ScrollbarActivityStopped() const {
   }
 }
 
-void nsHTMLScrollFrame::DestroyFrom(nsIFrame* aDestructRoot,
-                                    PostDestroyData& aPostDestroyData) {
-  DestroyAbsoluteFrames(aDestructRoot, aPostDestroyData);
+void nsHTMLScrollFrame::Destroy(DestroyContext& aContext) {
+  DestroyAbsoluteFrames(aContext);
   if (mIsRoot) {
     PresShell()->ResetVisualViewportOffset();
   }
@@ -330,10 +330,10 @@ void nsHTMLScrollFrame::DestroyFrom(nsIFrame* aDestructRoot,
   }
 
   // Unbind the content created in CreateAnonymousContent later...
-  aPostDestroyData.AddAnonymousContent(mHScrollbarContent.forget());
-  aPostDestroyData.AddAnonymousContent(mVScrollbarContent.forget());
-  aPostDestroyData.AddAnonymousContent(mScrollCornerContent.forget());
-  aPostDestroyData.AddAnonymousContent(mResizerContent.forget());
+  aContext.AddAnonymousContent(mHScrollbarContent.forget());
+  aContext.AddAnonymousContent(mVScrollbarContent.forget());
+  aContext.AddAnonymousContent(mScrollCornerContent.forget());
+  aContext.AddAnonymousContent(mResizerContent.forget());
 
   if (mPostedReflowCallback) {
     PresShell()->CancelReflowCallback(this);
@@ -362,7 +362,7 @@ void nsHTMLScrollFrame::DestroyFrom(nsIFrame* aDestructRoot,
   if (mScrollEndEvent) {
     mScrollEndEvent->Revoke();
   }
-  nsContainerFrame::DestroyFrom(aDestructRoot, aPostDestroyData);
+  nsContainerFrame::Destroy(aContext);
 }
 
 void nsHTMLScrollFrame::SetInitialChildList(ChildListID aListID,
@@ -2930,7 +2930,11 @@ bool nsHTMLScrollFrame::GetDisplayPortAtLastApproximateFrameVisibilityUpdate(
   return mHadDisplayPortAtLastFrameUpdate;
 }
 
-MatrixScales GetPaintedLayerScaleForFrame(nsIFrame* aFrame) {
+/* aIncludeCSSTransform controls if we include CSS transforms that are in this
+ * process (the BrowserChild EffectsInfo mTransformToAncestorScale will include
+ * CSS transforms in ancestor processes in all cases). */
+MatrixScales GetPaintedLayerScaleForFrame(nsIFrame* aFrame,
+                                          bool aIncludeCSSTransform) {
   MOZ_ASSERT(aFrame, "need a frame");
 
   nsPresContext* presCtx = aFrame->PresContext()->GetRootPresContext();
@@ -2940,11 +2944,22 @@ MatrixScales GetPaintedLayerScaleForFrame(nsIFrame* aFrame) {
     MOZ_ASSERT(presCtx);
   }
 
-  ParentLayerToScreenScale2D transformToAncestorScale =
+  ParentLayerToScreenScale2D transformToAncestorScale;
+  if (aIncludeCSSTransform) {
+    transformToAncestorScale =
+        nsLayoutUtils::GetTransformToAncestorScaleCrossProcessForFrameMetrics(
+            aFrame);
+  } else {
+    if (BrowserChild* browserChild =
+            BrowserChild::GetFrom(aFrame->PresShell())) {
+      transformToAncestorScale =
+          browserChild->GetEffectsInfo().mTransformToAncestorScale;
+    }
+  }
+  transformToAncestorScale =
       ParentLayerToParentLayerScale(
           presCtx->PresShell()->GetCumulativeResolution()) *
-      nsLayoutUtils::GetTransformToAncestorScaleCrossProcessForFrameMetrics(
-          aFrame);
+      transformToAncestorScale;
 
   return transformToAncestorScale.ToUnknownScale();
 }
@@ -2999,7 +3014,8 @@ void nsHTMLScrollFrame::ScrollToImpl(
   nscoord appUnitsPerDevPixel = presContext->AppUnitsPerDevPixel();
   // 'scale' is our estimate of the scale factor that will be applied
   // when rendering the scrolled content to its own PaintedLayer.
-  MatrixScales scale = GetPaintedLayerScaleForFrame(mScrolledFrame);
+  MatrixScales scale = GetPaintedLayerScaleForFrame(
+      mScrolledFrame, /* aIncludeCSSTransform = */ true);
   nsPoint curPos = GetScrollPosition();
 
   // Try to align aPt with curPos so they have an integer number of layer
@@ -6845,7 +6861,8 @@ nsRect nsHTMLScrollFrame::GetScrolledRect() const {
   // We snap to layer pixels, so we need to respect the layer's scale.
   nscoord appUnitsPerDevPixel =
       mScrolledFrame->PresContext()->AppUnitsPerDevPixel();
-  MatrixScales scale = GetPaintedLayerScaleForFrame(mScrolledFrame);
+  MatrixScales scale = GetPaintedLayerScaleForFrame(
+      mScrolledFrame, /* aIncludeCSSTransform = */ false);
   if (scale.xScale == 0 || scale.yScale == 0) {
     scale = MatrixScales();
   }

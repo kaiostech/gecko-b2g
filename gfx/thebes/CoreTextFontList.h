@@ -114,9 +114,8 @@ class CTFontEntry final : public gfxFontEntry {
 
 class CTFontFamily : public gfxFontFamily {
  public:
-  CTFontFamily(const nsACString& aName, FontVisibility aVisibility,
-               double aSizeHint = 0.0)
-      : gfxFontFamily(aName, aVisibility), mSizeHint(aSizeHint) {}
+  CTFontFamily(const nsACString& aName, FontVisibility aVisibility)
+      : gfxFontFamily(aName, aVisibility) {}
 
   virtual ~CTFontFamily() = default;
 
@@ -127,8 +126,6 @@ class CTFontFamily : public gfxFontFamily {
 
  protected:
   void AddFace(CTFontDescriptorRef aFace) MOZ_REQUIRES(mLock);
-
-  double mSizeHint = 0.0;
 };
 
 class CoreTextFontList : public gfxPlatformFontList {
@@ -168,9 +165,8 @@ class CoreTextFontList : public gfxPlatformFontList {
   // Values for the entryType field in FontFamilyListEntry records passed
   // from chrome to content process.
   enum FontFamilyEntryType {
-    kStandardFontFamily = 0,          // a standard installed font family
-    kTextSizeSystemFontFamily = 1,    // name of 'system' font at text sizes
-    kDisplaySizeSystemFontFamily = 2  // 'system' font at display sizes
+    kStandardFontFamily = 0,  // a standard installed font family
+    kSystemFontFamily = 1,    // name of 'system' font
   };
   void ReadSystemFontList(mozilla::dom::SystemFontList*);
 
@@ -253,18 +249,11 @@ class CoreTextFontList : public gfxPlatformFontList {
   void ActivateBundledFonts();
 #endif
 
-  enum { kATSGenerationInitial = -1 };
-
   // default font for use with system-wide font fallback
   CTFontRef mDefaultFont;
 
-  // font families that -apple-system maps to
-  // Pre-10.11 this was always a single font family, such as Lucida Grande
-  // or Helvetica Neue. For OSX 10.11, Apple uses pair of families
-  // for the UI, one for text sizes and another for display sizes
-  bool mUseSizeSensitiveSystemFont;
-  nsCString mSystemTextFontFamilyName;
-  nsCString mSystemDisplayFontFamilyName;  // only used on OSX 10.11
+  // Font family that -apple-system maps to
+  nsCString mSystemFontFamilyName;
 
   nsTArray<nsCString> mPreloadFonts;
 

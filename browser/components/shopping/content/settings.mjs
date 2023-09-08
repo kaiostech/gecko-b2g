@@ -12,6 +12,8 @@ import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://global/content/elements/moz-toggle.mjs";
 
+import { FAKESPOT_BASE_URL } from "chrome://global/content/shopping/ProductConfig.mjs";
+
 class ShoppingSettings extends MozLitElement {
   static properties = {
     adsEnabledByUser: { type: Boolean },
@@ -21,6 +23,7 @@ class ShoppingSettings extends MozLitElement {
     return {
       recommendationsToggleEl: "#shopping-settings-recommendations-toggle",
       optOutButtonEl: "#shopping-settings-opt-out-button",
+      shoppingCardEl: "shopping-card",
     };
   }
 
@@ -34,6 +37,7 @@ class ShoppingSettings extends MozLitElement {
 
   onDisableShopping() {
     RPMSetPref("browser.shopping.experience2023.optedIn", 2);
+    RPMSetPref("browser.shopping.experience2023.active", false);
   }
 
   render() {
@@ -50,7 +54,14 @@ class ShoppingSettings extends MozLitElement {
           data-l10n-id="shopping-settings-recommendations-toggle"
           data-l10n-attrs="label"
           @toggle=${this.onToggleRecommendations}>
-        </moz-toggle/>`
+        </moz-toggle/>
+        <span id="shopping-ads-learn-more" data-l10n-id="shopping-settings-recommendations-learn-more">
+          <a
+            is="moz-support-link"
+            support-page="todo"
+            data-l10n-name="review-quality-url"
+          ></a>
+        </span>`
       : null;
 
     return html`
@@ -72,6 +83,17 @@ class ShoppingSettings extends MozLitElement {
           ></button>
         </div>
       </shopping-card>
+      <p
+        id="powered-by-fakespot"
+        class="deemphasized"
+        data-l10n-id="powered-by-fakespot"
+      >
+        <a
+          data-l10n-name="fakespot-link"
+          target="_blank"
+          href="${FAKESPOT_BASE_URL}"
+        ></a>
+      </p>
     `;
   }
 }

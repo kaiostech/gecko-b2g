@@ -179,6 +179,10 @@ class SyncedTabsInView extends ViewPage {
       description: "firefoxview-syncedtabs-synctabs-description",
       buttonLabel: "firefoxview-tabpickup-synctabs-primarybutton",
     },
+    loading: {
+      header: "firefoxview-syncedtabs-loading-header",
+      description: "firefoxview-syncedtabs-loading-description",
+    },
   };
 
   generateMessageCard({ error = false, action, errorState }) {
@@ -438,7 +442,7 @@ class SyncedTabsInView extends ViewPage {
         if (this.errorState) {
           return this.generateMessageCard({ error: true });
         }
-        break;
+        return this.generateMessageCard({ action: "loading" });
       case 1 /* not-signed-in */:
         if (Services.prefs.prefHasUserValue("services.sync.lastversion")) {
           // If this pref is set, the user has signed out of sync.
@@ -454,6 +458,11 @@ class SyncedTabsInView extends ViewPage {
       case 3 /* disabled-tab-sync */:
         return this.generateMessageCard({ action: "sync-tabs-disabled" });
       case 4 /* synced-tabs-loaded*/:
+        // There seems to be an edge case where sync says everything worked
+        // fine but we have no devices.
+        if (!this.devices.length) {
+          return this.generateMessageCard({ action: "add-device" });
+        }
         return this.generateTabList();
     }
     return html``;

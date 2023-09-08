@@ -979,8 +979,7 @@ class nsHideViewer : public Runnable {
 
 static nsView* BeginSwapDocShellsForViews(nsView* aSibling);
 
-void nsSubDocumentFrame::DestroyFrom(nsIFrame* aDestructRoot,
-                                     PostDestroyData& aPostDestroyData) {
+void nsSubDocumentFrame::Destroy(DestroyContext& aContext) {
   PropagateIsUnderHiddenEmbedderElementToSubView(true);
   if (mPostedReflowCallback) {
     PresShell()->CancelReflowCallback(this);
@@ -1013,7 +1012,7 @@ void nsSubDocumentFrame::DestroyFrom(nsIFrame* aDestructRoot,
     }
   }
 
-  nsAtomicContainerFrame::DestroyFrom(aDestructRoot, aPostDestroyData);
+  nsAtomicContainerFrame::Destroy(aContext);
 }
 
 nsFrameLoader* nsSubDocumentFrame::FrameLoader() const {

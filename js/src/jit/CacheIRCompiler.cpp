@@ -1097,6 +1097,8 @@ template GCPtr<JSFunction*>& CacheIRStubInfo::getStubField<ICCacheIRStub>(
     ICCacheIRStub* stub, uint32_t offset) const;
 template GCPtr<JS::Symbol*>& CacheIRStubInfo::getStubField<ICCacheIRStub>(
     ICCacheIRStub* stub, uint32_t offset) const;
+template GCPtr<BaseScript*>& CacheIRStubInfo::getStubField<ICCacheIRStub>(
+    ICCacheIRStub* stub, uint32_t offset) const;
 template GCPtr<JS::Value>& CacheIRStubInfo::getStubField<ICCacheIRStub>(
     ICCacheIRStub* stub, uint32_t offset) const;
 template GCPtr<jsid>& CacheIRStubInfo::getStubField<ICCacheIRStub>(
@@ -1144,7 +1146,8 @@ void CacheIRWriter::copyStubData(uint8_t* dest) const {
         // No read barrier required to copy weak pointer.
         InitGCPtr<Shape*>(destWords, field.asWord());
         break;
-      case StubField::Type::GetterSetter:
+      case StubField::Type::WeakGetterSetter:
+        // No read barrier required to copy weak pointer.
         InitGCPtr<GetterSetter*>(destWords, field.asWord());
         break;
       case StubField::Type::JSObject:
@@ -1160,7 +1163,8 @@ void CacheIRWriter::copyStubData(uint8_t* dest) const {
       case StubField::Type::String:
         InitGCPtr<JSString*>(destWords, field.asWord());
         break;
-      case StubField::Type::BaseScript:
+      case StubField::Type::WeakBaseScript:
+        // No read barrier required to copy weak pointer.
         InitGCPtr<BaseScript*>(destWords, field.asWord());
         break;
       case StubField::Type::JitCode:
@@ -1228,9 +1232,12 @@ void jit::TraceCacheIRStub(JSTracer* trc, T* stub,
           }
         }
         break;
-      case StubField::Type::GetterSetter:
-        TraceEdge(trc, &stubInfo->getStubField<T, GetterSetter*>(stub, offset),
-                  "cacheir-getter-setter");
+      case StubField::Type::WeakGetterSetter:
+        if (ShouldTraceWeakEdgeInStub<T>(trc)) {
+          TraceNullableEdge(
+              trc, &stubInfo->getStubField<T, GetterSetter*>(stub, offset),
+              "cacheir-weak-getter-setter");
+        }
         break;
       case StubField::Type::JSObject: {
         TraceEdge(trc, &stubInfo->getStubField<T, JSObject*>(stub, offset),
@@ -1252,9 +1259,12 @@ void jit::TraceCacheIRStub(JSTracer* trc, T* stub,
         TraceEdge(trc, &stubInfo->getStubField<T, JSString*>(stub, offset),
                   "cacheir-string");
         break;
-      case StubField::Type::BaseScript:
-        TraceEdge(trc, &stubInfo->getStubField<T, BaseScript*>(stub, offset),
-                  "cacheir-script");
+      case StubField::Type::WeakBaseScript:
+        if (ShouldTraceWeakEdgeInStub<T>(trc)) {
+          TraceNullableEdge(
+              trc, &stubInfo->getStubField<T, BaseScript*>(stub, offset),
+              "cacheir-weak-script");
+        }
         break;
       case StubField::Type::JitCode:
         TraceEdge(trc, &stubInfo->getStubField<T, JitCode*>(stub, offset),
@@ -1314,9 +1324,39 @@ bool jit::TraceWeakCacheIRStub(JSTracer* trc, T* stub,
         }
         break;
       }
+      case StubField::Type::WeakBaseScript: {
+        GCPtr<BaseScript*>& scriptField =
+            stubInfo->getStubField<T, BaseScript*>(stub, offset);
+        auto r = TraceWeakEdge(trc, &scriptField, "cacheir-weak-script");
+        if (r.isDead()) {
+          return false;
+        }
+        break;
+      }
+      case StubField::Type::WeakGetterSetter: {
+        GCPtr<GetterSetter*>& getterSetterField =
+            stubInfo->getStubField<T, GetterSetter*>(stub, offset);
+        auto r = TraceWeakEdge(trc, &getterSetterField,
+                               "cacheir-weak-getter-setter");
+        if (r.isDead()) {
+          return false;
+        }
+        break;
+      }
       case StubField::Type::Limit:
         return true;  // Done.
-      default:
+      case StubField::Type::RawInt32:
+      case StubField::Type::RawPointer:
+      case StubField::Type::Shape:
+      case StubField::Type::JSObject:
+      case StubField::Type::Symbol:
+      case StubField::Type::String:
+      case StubField::Type::JitCode:
+      case StubField::Type::Id:
+      case StubField::Type::AllocSite:
+      case StubField::Type::RawInt64:
+      case StubField::Type::Value:
+      case StubField::Type::Double:
         break;  // Skip non-weak fields.
     }
     field++;
@@ -7541,8 +7581,8 @@ void CacheIRCompiler::emitLoadStubFieldConstant(StubFieldOffset val,
     case StubField::Type::Shape:
       masm.movePtr(ImmGCPtr(shapeStubField(val.getOffset())), dest);
       break;
-    case StubField::Type::GetterSetter:
-      masm.movePtr(ImmGCPtr(getterSetterStubField(val.getOffset())), dest);
+    case StubField::Type::WeakGetterSetter:
+      masm.movePtr(ImmGCPtr(weakGetterSetterStubField(val.getOffset())), dest);
       break;
     case StubField::Type::String:
       masm.movePtr(ImmGCPtr(stringStubField(val.getOffset())), dest);
@@ -7582,7 +7622,7 @@ void CacheIRCompiler::emitLoadStubField(StubFieldOffset val, Register dest) {
     switch (val.getStubFieldType()) {
       case StubField::Type::RawPointer:
       case StubField::Type::Shape:
-      case StubField::Type::GetterSetter:
+      case StubField::Type::WeakGetterSetter:
       case StubField::Type::JSObject:
       case StubField::Type::Symbol:
       case StubField::Type::String:
@@ -7784,7 +7824,7 @@ bool CacheIRCompiler::emitGuardHasGetterSetter(ObjOperandId objId,
 
   StubFieldOffset id(idOffset, StubField::Type::Id);
   StubFieldOffset getterSetter(getterSetterOffset,
-                               StubField::Type::GetterSetter);
+                               StubField::Type::WeakGetterSetter);
 
   AutoScratchRegister scratch1(allocator, masm);
   AutoScratchRegister scratch2(allocator, masm);

@@ -8,7 +8,6 @@ transforms:
     - taskgraph.transforms.from_deps
     - gecko_taskgraph.transforms.chunk_partners
     - gecko_taskgraph.transforms.name_sanity
-    - gecko_taskgraph.transforms.release_deps
     - gecko_taskgraph.transforms.task
 
 kind-dependencies:
@@ -21,6 +20,7 @@ only-for-build-platforms:
 jobs:
     release-partner-repack-chunking-dummy:
         from-deps:
+            group-by: single-with-filters
             copy-attributes: true
         shipping-phase: promote
         shipping-product: firefox

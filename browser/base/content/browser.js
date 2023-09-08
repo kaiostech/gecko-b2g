@@ -9874,6 +9874,10 @@ var FirefoxViewHandler = {
       !this._enabled
     );
     document.getElementById("menu_openFirefoxView").hidden = !this._enabled;
+    document.getElementById("firefox-view-button").style.listStyleImage =
+      NimbusFeatures.firefoxViewNext.getVariable("newIcon")
+        ? ""
+        : 'url("chrome://branding/content/about-logo.png")';
   },
   onWidgetRemoved(aWidgetId) {
     if (aWidgetId == this.BUTTON_ID && this.tab) {
@@ -10048,6 +10052,11 @@ var ShoppingSidebarManager = {
       document.querySelectorAll("shopping-sidebar").forEach(sidebar => {
         sidebar.remove();
       });
+
+      if (optedOut) {
+        let button = document.getElementById("shopping-sidebar-button");
+        button.hidden = true;
+      }
       return;
     }
 

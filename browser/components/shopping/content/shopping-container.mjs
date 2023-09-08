@@ -127,7 +127,9 @@ export class ShoppingContainer extends MozLitElement {
       <review-highlights
         .highlights=${this.data.highlights}
       ></review-highlights>
-      <analysis-explainer></analysis-explainer>
+      <analysis-explainer
+        productUrl=${ifDefined(this.productUrl)}
+      </analysis-explainer>
       ${this.recommendationTemplate()}
     `;
   }
@@ -237,7 +239,6 @@ export class ShoppingContainer extends MozLitElement {
       <div id="shopping-container">
         <div id="header-wrapper">
           <div id="shopping-header">
-            <span id="shopping-icon"></span>
             <h1 id="header" data-l10n-id="shopping-main-container-title"></h1>
           </div>
           <button

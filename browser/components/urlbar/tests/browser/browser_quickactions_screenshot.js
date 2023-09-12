@@ -7,6 +7,8 @@
 
 "use strict";
 
+requestLongerTimeout(3);
+
 const DUMMY_PAGE =
   "https://example.com/browser/browser/base/content/test/general/dummy_page.html";
 
@@ -31,6 +33,16 @@ async function clickQuickActionOneoffButton() {
     entry: "oneoff",
   });
 }
+
+add_setup(async function setup() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.urlbar.quickactions.enabled", true],
+      ["browser.urlbar.suggest.quickactions", true],
+      ["browser.urlbar.shortcuts.quickactions", true],
+    ],
+  });
+});
 
 add_task(async function test_screenshot() {
   await SpecialPowers.pushPrefEnv({

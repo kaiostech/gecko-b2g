@@ -2052,9 +2052,7 @@ var gBrowserInit = {
 
     CaptivePortalWatcher.delayedStartup();
 
-    if (AppConstants.NIGHTLY_BUILD) {
-      ShoppingSidebarManager.init();
-    }
+    ShoppingSidebarManager.init();
 
     SessionStore.promiseAllWindowsRestored.then(() => {
       this._schedulePerWindowIdleTasks();
@@ -2475,9 +2473,7 @@ var gBrowserInit = {
 
     FirefoxViewHandler.uninit();
 
-    if (AppConstants.NIGHTLY_BUILD) {
-      ShoppingSidebarManager.uninit();
-    }
+    ShoppingSidebarManager.uninit();
 
     // Now either cancel delayedStartup, or clean up the services initialized from
     // it.
@@ -4985,6 +4981,10 @@ var XULBrowserWindow = {
       return;
     }
 
+    if (!document.hasFocus()) {
+      return;
+    }
+
     let elt = document.getElementById("remoteBrowserTooltip");
     elt.label = tooltip;
     elt.style.direction = direction;
@@ -5885,9 +5885,7 @@ var TabsProgressListener = {
 
     // Some shops use pushState to move between individual products, so
     // the shopping code needs to be told about all of these.
-    if (AppConstants.NIGHTLY_BUILD) {
-      ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI, aFlags);
-    }
+    ShoppingSidebarManager.onLocationChange(aBrowser, aLocationURI, aFlags);
 
     // Filter out location changes caused by anchor navigation
     // or history.push/pop/replaceState.
@@ -10031,11 +10029,11 @@ var ShoppingSidebarManager = {
     this._updateVisibility();
 
     gBrowser.tabContainer.addEventListener("TabSelect", this);
+    window.addEventListener("visibilitychange", this);
   },
 
   uninit() {
     NimbusFeatures.shopping2023.offUpdate(this._updateVisibility);
-    gBrowser.tabContainer.removeEventListener("TabSelect", this);
   },
 
   _updateVisibility() {
@@ -10079,8 +10077,8 @@ var ShoppingSidebarManager = {
     let sidebar = browserPanel.querySelector("shopping-sidebar");
     let actor;
     if (sidebar) {
-      let global =
-        sidebar.querySelector("browser").browsingContext.currentWindowGlobal;
+      let { browsingContext } = sidebar.querySelector("browser");
+      let global = browsingContext.currentWindowGlobal;
       actor = global.getExistingActor("ShoppingSidebar");
     }
     let isProduct = isProductURL(aLocationURI);
@@ -10099,7 +10097,8 @@ var ShoppingSidebarManager = {
       sidebar.hidden = true;
     }
 
-    this.setShoppingButtonState(aBrowser);
+    this._updateBCActiveness(aBrowser);
+    this._setShoppingButtonState(aBrowser);
 
     if (isProduct) {
       // This is the auto-enable behavior that toggles the `active` pref. It
@@ -10108,7 +10107,28 @@ var ShoppingSidebarManager = {
     }
   },
 
-  setShoppingButtonState(aBrowser) {
+  _updateBCActiveness(aBrowser) {
+    let browserPanel = gBrowser.getPanel(aBrowser);
+    let sidebar = browserPanel.querySelector("shopping-sidebar");
+    if (!sidebar) {
+      return;
+    }
+    let { browsingContext } = sidebar.querySelector("browser");
+    try {
+      // Tell Gecko when the sidebar visibility changes to avoid background
+      // sidebars taking more CPU / energy than needed.
+      browsingContext.isActive =
+        !document.hidden &&
+        aBrowser == gBrowser.selectedBrowser &&
+        !sidebar.hidden;
+    } catch (ex) {
+      // The setter can throw and we do need to run the rest of this
+      // code in that case.
+      console.error(ex);
+    }
+  },
+
+  _setShoppingButtonState(aBrowser) {
     if (aBrowser !== gBrowser.selectedBrowser) {
       return;
     }
@@ -10118,6 +10138,13 @@ var ShoppingSidebarManager = {
     let isCurrentBrowserProduct = isProductURL(
       gBrowser.selectedBrowser.currentURI
     );
+
+    // Only record if the state of the icon will change from hidden to visible.
+    if (button.hidden && isCurrentBrowserProduct) {
+      console.log("visibility of shopping address bar icon changed");
+      Glean.shopping.addressBarIconDisplayed.record();
+    }
+
     button.hidden = !isCurrentBrowserProduct;
     button.setAttribute("shoppingsidebaropen", !!this.isActive);
     let l10nId = this.isActive
@@ -10133,7 +10160,16 @@ var ShoppingSidebarManager = {
           return;
         }
         this._updateVisibility();
+        if (event.detail?.previousTab.linkedBrowser) {
+          this._updateBCActiveness(event.detail.previousTab.linkedBrowser);
+        }
         break;
+      }
+      case "visibilitychange": {
+        if (!this._enabled) {
+          return;
+        }
+        this._updateBCActiveness(gBrowser.selectedBrowser);
       }
     }
   },

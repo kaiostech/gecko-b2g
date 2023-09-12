@@ -91,11 +91,16 @@
 }
 
 .icon::after {
+  display: inline-block;
   appearance: none;
   -moz-context-properties: fill, stroke;
   fill: currentColor;
   stroke: currentColor;
-  content: var(--message-bar-icon-url);
+  content: "";
+  background-image: var(--message-bar-icon-url);
+  background-size: var(--icon-size);
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 
 /* Use a spacer to position the close button at the end, but also support
@@ -140,6 +145,9 @@
   /* Colors from: https://design.firefox.com/photon/components/message-bars.html#type-specific-style */
 
   :host([type=warning]:not([message-bar-type=infobar])) {
+    /* Ensure colors within the bar are adjusted and controls are readable */
+    color-scheme: light;
+
     --message-bar-background-color: var(--yellow-50);
     --message-bar-text-color: var(--yellow-90);
 
@@ -151,6 +159,9 @@
   }
 
   :host([type=success]:not([message-bar-type=infobar])) {
+    /* Ensure colors within the bar are adjusted and controls are readable */
+    color-scheme: light;
+
     --message-bar-background-color: var(--green-50);
     --message-bar-text-color: var(--green-90);
 

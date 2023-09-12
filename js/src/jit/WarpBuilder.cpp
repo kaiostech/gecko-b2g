@@ -666,6 +666,11 @@ bool WarpBuilder::buildBody() {
 #ifdef DEBUG
     useChecker.checkAfterOp();
 #endif
+
+    bool wantPreciseLineNumbers = js::jit::PerfEnabled();
+    if (wantPreciseLineNumbers && !hasTerminatedBlock()) {
+      current->updateTrackedSite(newBytecodeSite(loc));
+    }
   }
 
   return true;
@@ -1695,7 +1700,7 @@ bool WarpBuilder::build_EndIter(BytecodeLocation loc) {
 
 bool WarpBuilder::build_CloseIter(BytecodeLocation loc) {
   MDefinition* iter = current->pop();
-  iter = unboxObjectInfallible(iter);
+  iter = unboxObjectInfallible(iter, IsMovable::Yes);
   return buildIC(loc, CacheKind::CloseIter, {iter});
 }
 
@@ -1845,6 +1850,7 @@ bool WarpBuilder::build_GetName(BytecodeLocation loc) {
   MOZ_ASSERT(usesEnvironmentChain());
 
   MDefinition* env = current->environmentChain();
+  env = unboxObjectInfallible(env, IsMovable::Yes);
   return buildIC(loc, CacheKind::GetName, {env});
 }
 
@@ -1859,6 +1865,7 @@ bool WarpBuilder::build_BindName(BytecodeLocation loc) {
   MOZ_ASSERT(usesEnvironmentChain());
 
   MDefinition* env = current->environmentChain();
+  env = unboxObjectInfallible(env, IsMovable::Yes);
   return buildIC(loc, CacheKind::BindName, {env});
 }
 
@@ -2902,9 +2909,11 @@ bool WarpBuilder::build_SpreadCall(BytecodeLocation loc) {
   CallInfo callInfo(alloc(), constructing, loc.resultIsPopped());
   callInfo.initForSpreadCall(current);
 
-  // The argument must be an array object.
+  // The argument must be an array object. Add an infallible MUnbox if needed,
+  // but ensure it's not loop hoisted before the branch in the bytecode guarding
+  // that it's not undefined.
   MOZ_ASSERT(callInfo.argc() == 1);
-  callInfo.setArg(0, unboxObjectInfallible(callInfo.getArg(0)));
+  callInfo.setArg(0, unboxObjectInfallible(callInfo.getArg(0), IsMovable::No));
 
   if (auto* cacheIRSnapshot = getOpSnapshot<WarpCacheIR>(loc)) {
     return transpileCall(loc, cacheIRSnapshot, &callInfo);
@@ -2926,9 +2935,9 @@ bool WarpBuilder::build_SpreadNew(BytecodeLocation loc) {
   CallInfo callInfo(alloc(), constructing, loc.resultIsPopped());
   callInfo.initForSpreadCall(current);
 
-  // The argument must be an array object.
+  // See build_SpreadCall.
   MOZ_ASSERT(callInfo.argc() == 1);
-  callInfo.setArg(0, unboxObjectInfallible(callInfo.getArg(0)));
+  callInfo.setArg(0, unboxObjectInfallible(callInfo.getArg(0), IsMovable::No));
 
   if (auto* cacheIRSnapshot = getOpSnapshot<WarpCacheIR>(loc)) {
     return transpileCall(loc, cacheIRSnapshot, &callInfo);

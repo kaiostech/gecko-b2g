@@ -19,6 +19,7 @@ class ShoppingMessageBar extends MozLitElement {
     ],
     ["offline", () => this.getOfflineWarningTemplate()],
     ["analysis-in-progress", () => this.getAnalysisInProgressTemplate()],
+    ["page-not-supported", () => this.pageNotSupportedTemplate()],
   ]);
 
   static properties = {
@@ -156,7 +157,6 @@ class ShoppingMessageBar extends MozLitElement {
   }
 
   getAnalysisInProgressTemplate() {
-    // TODO: Bug 1847839 - insert spinner into message-bar
     return html` <message-bar>
       <article id="message-bar-container" aria-labelledby="header">
         <strong
@@ -179,6 +179,20 @@ class ShoppingMessageBar extends MozLitElement {
         ></strong>
         <span
           data-l10n-id="shopping-message-bar-warning-offline-message"
+        ></span>
+      </article>
+    </message-bar>`;
+  }
+
+  pageNotSupportedTemplate() {
+    return html` <message-bar>
+      <article id="message-bar-container" aria-labelledby="header">
+        <strong
+          id="header"
+          data-l10n-id="shopping-message-bar-page-not-supported-title"
+        ></strong>
+        <span
+          data-l10n-id="shopping-message-bar-page-not-supported-message"
         ></span>
       </article>
     </message-bar>`;
@@ -210,7 +224,23 @@ class ShoppingMessageBar extends MozLitElement {
     messageBarContainer.style.alignItems = "start";
     messageBarContainer.style.padding = "0.5rem 0.75rem";
     messageBarContainer.style.gap = "0.75rem";
-    icon.style.paddingBlockStart = "0";
+    icon.style.padding = "0";
+
+    if (this.type === "analysis-in-progress") {
+      messageBarContainer.style.setProperty(
+        "--message-bar-icon-url",
+        `url("chrome://browser/skin/fxa/fxa-spinner.svg")`
+      );
+      icon.animate(
+        [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+        {
+          duration: 1000 /* in ms */,
+          iterations: Infinity,
+          name: "spin",
+          easing: "linear",
+        }
+      );
+    }
   }
 }
 

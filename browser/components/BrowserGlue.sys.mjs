@@ -389,9 +389,7 @@ let JSWINDOWACTORS = {
     child: {
       moduleURI: "resource:///actors/AboutWelcomeChild.jsm",
       events: {
-        // This is added so the actor instantiates immediately and makes
-        // methods available to the page js on load.
-        DOMDocElementInserted: {},
+        Update: {},
       },
     },
     matches: ["about:shoppingsidebar"],
@@ -767,6 +765,7 @@ let JSWINDOWACTORS = {
         // methods available to the page js on load.
         DOMDocElementInserted: {},
         ShoppingTelemetryEvent: { wantUntrusted: true },
+        ReportProductAvailable: { wantUntrusted: true },
       },
     },
     matches: ["about:shoppingsidebar"],
@@ -2065,11 +2064,7 @@ BrowserGlue.prototype = {
       () => lazy.NewTabUtils.uninit(),
       () => lazy.Normandy.uninit(),
       () => lazy.RFPHelper.uninit(),
-      () => {
-        if (AppConstants.NIGHTLY_BUILD) {
-          lazy.ShoppingUtils.uninit();
-        }
-      },
+      () => lazy.ShoppingUtils.uninit(),
       () => lazy.ASRouterNewTabHook.destroy(),
       () => {
         if (AppConstants.MOZ_UPDATER) {
@@ -2982,7 +2977,6 @@ BrowserGlue.prototype = {
 
       {
         name: "ShoppingUtils.init",
-        condition: AppConstants.NIGHTLY_BUILD,
         task: () => {
           lazy.ShoppingUtils.init();
         },
@@ -3636,7 +3630,7 @@ BrowserGlue.prototype = {
   _migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 139;
+    const UI_VERSION = 140;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
@@ -4215,6 +4209,11 @@ BrowserGlue.prototype = {
           );
         }
       });
+    }
+
+    if (currentUIVersion < 140) {
+      // Remove browser.fixup.alternate.enabled pref in Bug 1850902.
+      Services.prefs.clearUserPref("browser.fixup.alternate.enabled");
     }
 
     // Update the migration version.

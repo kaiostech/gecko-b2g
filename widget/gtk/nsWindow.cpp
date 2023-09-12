@@ -1675,9 +1675,7 @@ nsWindow* nsWindow::GetTopmostWindow() {
   if (nsView* view = nsView::GetViewFor(this)) {
     if (nsView* parentView = view->GetParent()) {
       if (nsIWidget* parentWidget = parentView->GetNearestWidget(nullptr)) {
-        nsWindow* parentnsWindow = static_cast<nsWindow*>(parentWidget);
-        LOG("  Topmost window: %p [nsWindow]\n", parentnsWindow);
-        return parentnsWindow;
+        return static_cast<nsWindow*>(parentWidget);
       }
     }
   }
@@ -2562,14 +2560,14 @@ bool nsWindow::WaylandPopupCheckAndGetAnchor(GdkRectangle* aPopupAnchor,
                                              GdkPoint* aOffset) {
   LOG("nsWindow::WaylandPopupCheckAndGetAnchor");
 
-  GdkWindow* gdkWindow = gtk_widget_get_window(GTK_WIDGET(mShell));
+  GdkWindow* gdkWindow = GetToplevelGdkWindow();
   nsMenuPopupFrame* popupFrame = GetMenuPopupFrame(GetFrame());
   if (!gdkWindow || !popupFrame) {
     LOG("  can't use move-to-rect due missing gdkWindow or popupFrame");
     return false;
   }
 
-  if (popupFrame->IsFlippedByLayout()) {
+  if (popupFrame->IsConstrainedByLayout()) {
     LOG("  can't use move-to-rect, flipped / constrained by layout");
     return false;
   }
@@ -2668,8 +2666,7 @@ void nsWindow::WaylandPopupMovePlain(int aX, int aY) {
   // gdk_window_move() sets position_method to POSITION_METHOD_MOVE_RESIZE
   // so we'll use plain move when popup is shown.
   if (!gtk_widget_get_mapped(mShell)) {
-    GdkWindow* window = GetToplevelGdkWindow();
-    if (window) {
+    if (GdkWindow* window = GetToplevelGdkWindow()) {
       gdk_window_move(window, aX, aY);
     }
   }
@@ -2713,7 +2710,7 @@ void nsWindow::WaylandPopupMoveImpl() {
   // anyway but we need to set it now to avoid a race condition here.
   WaylandPopupRemoveNegativePosition();
 
-  GdkWindow* gdkWindow = gtk_widget_get_window(GTK_WIDGET(mShell));
+  GdkWindow* gdkWindow = GetToplevelGdkWindow();
   if (!g_signal_handler_find(gdkWindow, G_SIGNAL_MATCH_FUNC, 0, 0, nullptr,
                              FuncToGpointer(NativeMoveResizeCallback), this)) {
     g_signal_connect(gdkWindow, "moved-to-rect",

@@ -82,8 +82,7 @@ void nsTableCellFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 }
 
 void nsTableCellFrame::Destroy(DestroyContext& aContext) {
-  nsTableFrame::MaybeUnregisterPositionedTablePart(this,
-                                                   aContext.DestructRoot());
+  nsTableFrame::MaybeUnregisterPositionedTablePart(this);
   nsContainerFrame::Destroy(aContext);
 }
 
@@ -225,7 +224,7 @@ void nsTableCellFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
   MOZ_CRASH("unsupported operation");
 }
 
-void nsTableCellFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
+void nsTableCellFrame::RemoveFrame(DestroyContext&, ChildListID, nsIFrame*) {
   MOZ_CRASH("unsupported operation");
 }
 #endif

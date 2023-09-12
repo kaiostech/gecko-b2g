@@ -9,7 +9,7 @@
     --button-primary-bgcolor: light-dark(rgb(0, 97, 224), rgb(0, 221, 255));
     --button-primary-hover-bgcolor: light-dark(rgb(2, 80, 187), rgb(128, 235, 255));
     --button-primary-active-bgcolor: light-dark(rgb(5, 62, 148), rgb(170, 242, 255));
-    --button-primary-color: rgb(251, 251, 254);
+    --button-primary-color: light-dark(rgb(251, 251, 254), rgb(43, 42, 51));
     --button-bgcolor: light-dark(rgba(207, 207, 216, .33), rgb(43, 42, 51));
     --button-hover-bgcolor: light-dark(rgba(207, 207, 216, .66), rgb(82, 82, 94));
     --button-active-bgcolor: light-dark(rgb(207, 207, 216), rgb(91, 91, 102));
@@ -40,7 +40,7 @@
       color-mix(in srgb, currentColor 14%, transparent)
     );
 
-    --panel-shortcut-color: rgb(91, 91, 102);
+    --panel-shortcut-color: light-dark(rgb(91, 91, 102), rgb(251, 251, 254));
 
     --input-color: light-dark(rgb(21, 20, 26), rgb(251, 251, 254));
     --input-bgcolor: light-dark(rgb(255, 255, 255), #42414d);
@@ -55,7 +55,7 @@
 
     --toolbarbutton-icon-fill-attention: light-dark(rgb(0, 97, 224), rgb(0, 221, 255));
 
-    --urlbar-popup-action-color: rgb(91, 91, 102);
+    --urlbar-popup-action-color: light-dark(rgb(91, 91, 102), rgb(191, 191, 201));
     --urlbar-popup-url-color: light-dark(rgb(0, 97, 224), #00ddff);
     --urlbar-icon-fill-opacity: 0.72;
     --urlbar-box-bgcolor: light-dark(white, rgb(66, 65, 77));

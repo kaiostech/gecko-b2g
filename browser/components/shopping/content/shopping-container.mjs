@@ -113,6 +113,19 @@ export class ShoppingContainer extends MozLitElement {
         break;
       case "ReportedProductAvailable":
         this.userReportedAvailable = true;
+        window.dispatchEvent(
+          new CustomEvent("ReportProductAvailable", {
+            bubbles: true,
+            composed: true,
+          })
+        );
+        window.dispatchEvent(
+          new CustomEvent("ShoppingTelemetryEvent", {
+            bubbles: true,
+            composed: true,
+            detail: "surfaceReactivatedButtonClicked",
+          })
+        );
         break;
       case "adsEnabledByUserChanged":
         this.adsEnabledByUser = event.detail?.adsEnabledByUser;
@@ -127,10 +140,6 @@ export class ShoppingContainer extends MozLitElement {
       <review-highlights
         .highlights=${this.data.highlights}
       ></review-highlights>
-      <analysis-explainer
-        productUrl=${ifDefined(this.productUrl)}
-      </analysis-explainer>
-      ${this.recommendationTemplate()}
     `;
   }
 
@@ -153,6 +162,12 @@ export class ShoppingContainer extends MozLitElement {
     if (this.data?.error) {
       return html`<shopping-message-bar
         type="generic-error"
+      ></shopping-message-bar>`;
+    }
+
+    if (this.data.page_not_supported) {
+      return html`<shopping-message-bar
+        type="page-not-supported"
       ></shopping-message-bar>`;
     }
 
@@ -227,7 +242,7 @@ export class ShoppingContainer extends MozLitElement {
     `;
   }
 
-  renderContainer(sidebarContent, hideSettings = false) {
+  renderContainer(sidebarContent, hideFooter = false) {
     return html`<link
         rel="stylesheet"
         href="chrome://browser/content/shopping/shopping-container.css"
@@ -249,33 +264,42 @@ export class ShoppingContainer extends MozLitElement {
           ></button>
         </div>
         <div id="content" aria-busy=${!this.data}>
-          ${sidebarContent}
-          ${!hideSettings
-            ? html`<shopping-settings
-                ?adsEnabledByUser=${this.adsEnabledByUser}
-              ></shopping-settings>`
-            : null}
+          <slot name="multi-stage-message-slot"></slot>
+          ${sidebarContent} ${!hideFooter ? this.getFooterTemplate() : null}
         </div>
       </div>`;
   }
 
+  getFooterTemplate() {
+    return html`
+      <analysis-explainer
+        productUrl=${ifDefined(this.productUrl)}
+      ></analysis-explainer>
+      ${this.recommendationTemplate()}
+      <shopping-settings
+        ?adsEnabledByUser=${this.adsEnabledByUser}
+      ></shopping-settings>
+    `;
+  }
+
   render() {
     let content;
-    let hideSettings;
+    let hideFooter;
     if (this.showOnboarding) {
-      content = html`<slot name="multi-stage-message-slot"></slot>`;
-      hideSettings = true;
+      content = html``;
+      hideFooter = true;
     } else if (this.isOffline) {
       content = html`<shopping-message-bar
         type="offline"
       ></shopping-message-bar>`;
+      hideFooter = true;
     } else if (!this.data) {
       content = this.getLoadingTemplate();
-      hideSettings = true;
+      hideFooter = true;
     } else {
       content = this.getContentTemplate();
     }
-    return this.renderContainer(content, hideSettings);
+    return this.renderContainer(content, hideFooter);
   }
 
   handleClick() {

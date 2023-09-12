@@ -222,7 +222,7 @@
 
 - name: accessibility.ARIAReflection.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether form controls and images should be focusable with mouse, in content
@@ -7700,6 +7700,12 @@
   value: false
   mirror: always
 
+# Support for String.prototype.{is,to}WellFormed in JavaScript.
+- name: javascript.options.well_formed_unicode_strings
+  type: bool
+  value: true
+  mirror: always
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.iterator_helpers
@@ -7709,12 +7715,6 @@
 
   # Experimental support for Array Grouping in JavaScript.
 -   name: javascript.options.experimental.array_grouping
-    type: bool
-    value: false
-    mirror: always
-
-  # Experimental support for String.prototype.{is,to}WellFormed in JavaScript.
--   name: javascript.options.experimental.well_formed_unicode_strings
     type: bool
     value: false
     mirror: always
@@ -12148,14 +12148,6 @@
   value: false
   mirror: always
 
-# When this pref is true we enforce a 253 character limit on domains we try to
-# resolve. See bug 1264117. If it doesn't cause any web-compat issues we can
-# remove it in a few releases
-- name: network.dns.limit_253_chars
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # When this pref is true, we copy the host name to a fresh string before
 # calling into getaddrinfo.
 - name: network.dns.copy_string_before_call
@@ -15704,6 +15696,12 @@
   value: true
   mirror: always
 
+# Whether we hide the pointer while typing on Linux
+- name: widget.gtk.hide-pointer-while-typing.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Whether we honor the scrollbar colors from the gtk theme.
 - name: widget.gtk.theme-scrollbar-colors.enabled
   type: bool
@@ -15716,7 +15714,7 @@
 # pref for emergency purposes.
 - name: widget.gtk.rounded-bottom-corners.enabled
   type: bool
-  value: true
+  value: false
   mirror: always
   rust: true
 

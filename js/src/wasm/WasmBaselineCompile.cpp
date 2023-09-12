@@ -4102,8 +4102,8 @@ bool BaseCompiler::emitCatch() {
 
   // Extract the arguments in the exception package and push them.
   const SharedTagType& tagType = moduleEnv_.tags[tagIndex].type;
-  const ValTypeVector& params = tagType->argTypes_;
-  const TagOffsetVector& offsets = tagType->argOffsets_;
+  const ValTypeVector& params = tagType->argTypes();
+  const TagOffsetVector& offsets = tagType->argOffsets();
 
   // The landing pad uses the block return protocol to communicate the
   // exception object pointer to the catch block.
@@ -4442,7 +4442,7 @@ bool BaseCompiler::emitThrow() {
 
   const TagDesc& tagDesc = moduleEnv_.tags[tagIndex];
   const ResultType& params = tagDesc.type->resultType();
-  const TagOffsetVector& offsets = tagDesc.type->argOffsets_;
+  const TagOffsetVector& offsets = tagDesc.type->argOffsets();
 
   // Load the tag object
 #ifdef RABALDR_PIN_INSTANCE
@@ -7534,6 +7534,10 @@ bool BaseCompiler::emitI31New() {
     return false;
   }
 
+  if (deadCode_) {
+    return true;
+  }
+
   RegI32 intValue = popI32();
   RegRef i31Value = needRef();
   masm.truncate32ToWasmI31Ref(intValue, i31Value);
@@ -7548,6 +7552,10 @@ bool BaseCompiler::emitI31Get(FieldWideningOp wideningOp) {
   Nothing value;
   if (!iter_.readConversion(ValType(RefType::i31()), ValType::I32, &value)) {
     return false;
+  }
+
+  if (deadCode_) {
+    return true;
   }
 
   RegRef i31Value = popRef();

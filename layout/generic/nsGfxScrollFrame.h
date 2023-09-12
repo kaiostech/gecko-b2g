@@ -68,7 +68,7 @@ class nsHTMLScrollFrame : public nsContainerFrame,
   using ScrollSnapTargetIds = mozilla::ScrollSnapTargetIds;
   using FrameMetrics = mozilla::layers::FrameMetrics;
   using ScrollableLayerGuid = mozilla::layers::ScrollableLayerGuid;
-  using ScrollSnapInfo = mozilla::layers::ScrollSnapInfo;
+  using ScrollSnapInfo = mozilla::ScrollSnapInfo;
   using WebRenderLayerManager = mozilla::layers::WebRenderLayerManager;
   using APZScrollAnimationType = mozilla::APZScrollAnimationType;
   using ScrollDirections = mozilla::layers::ScrollDirections;
@@ -639,11 +639,11 @@ class nsHTMLScrollFrame : public nsContainerFrame,
    * Returns true if a suitable snap point could be found and aDestination has
    * been updated to a valid snapping position.
    */
-  Maybe<mozilla::SnapTarget> GetSnapPointForDestination(
+  Maybe<mozilla::SnapDestination> GetSnapPointForDestination(
       mozilla::ScrollUnit aUnit, ScrollSnapFlags aFlags,
       const nsPoint& aStartPos, const nsPoint& aDestination);
 
-  Maybe<mozilla::SnapTarget> GetSnapPointForResnap();
+  Maybe<mozilla::SnapDestination> GetSnapPointForResnap();
   bool NeedsResnap();
 
   void SetLastSnapTargetIds(mozilla::UniquePtr<ScrollSnapTargetIds> aId);

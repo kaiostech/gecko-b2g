@@ -2478,8 +2478,6 @@ pref("devtools.inspector.imagePreviewTooltipSize", 300);
 pref("devtools.inspector.showUserAgentStyles", false);
 // Show native anonymous content and user agent shadow roots
 pref("devtools.inspector.showAllAnonymousContent", false);
-// Enable the inline CSS compatiblity warning in inspector rule view
-pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", true);
 // Enable the compatibility tool in the inspector.
 pref("devtools.inspector.compatibility.enabled", true);
 // Enable overflow debugging in the inspector.
@@ -2840,6 +2838,7 @@ pref("browser.pdfjs.feature-tour", "{\"screen\":\"\",\"complete\":false}");
 // StaticPrefList.yaml for a description of the prefs.
 #ifdef NIGHTLY_BUILD
   pref("cookiebanners.service.mode.privateBrowsing", 1);
+  pref("cookiebanners.service.enableGlobalRules", true);
 #endif
 
 #if defined(EARLY_BETA_OR_EARLIER)

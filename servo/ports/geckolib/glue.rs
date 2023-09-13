@@ -5341,7 +5341,7 @@ pub extern "C" fn Servo_DeclarationBlock_SetLengthValue(
     use style::properties::PropertyDeclaration;
     use style::values::generics::length::{LengthPercentageOrAuto, Size};
     use style::values::generics::NonNegative;
-    use style::values::specified::length::{FontRelativeLength, LengthPercentage};
+    use style::values::specified::length::{FontRelativeLength, LengthPercentage, ViewportPercentageLength};
     use style::values::specified::FontSize;
 
     let long = get_longhand_from_id!(property);
@@ -5351,6 +5351,18 @@ pub extern "C" fn Servo_DeclarationBlock_SetLengthValue(
         },
         structs::nsCSSUnit::eCSSUnit_XHeight => {
             NoCalcLength::FontRelative(FontRelativeLength::Ex(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_RootEM => {
+            NoCalcLength::FontRelative(FontRelativeLength::Rem(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_Char => {
+            NoCalcLength::FontRelative(FontRelativeLength::Ch(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_Ideographic => {
+            NoCalcLength::FontRelative(FontRelativeLength::Ic(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_CapHeight => {
+            NoCalcLength::FontRelative(FontRelativeLength::Cap(value))
         },
         structs::nsCSSUnit::eCSSUnit_Pixel => NoCalcLength::Absolute(AbsoluteLength::Px(value)),
         structs::nsCSSUnit::eCSSUnit_Inch => NoCalcLength::Absolute(AbsoluteLength::In(value)),
@@ -5363,6 +5375,18 @@ pub extern "C" fn Servo_DeclarationBlock_SetLengthValue(
         structs::nsCSSUnit::eCSSUnit_Point => NoCalcLength::Absolute(AbsoluteLength::Pt(value)),
         structs::nsCSSUnit::eCSSUnit_Pica => NoCalcLength::Absolute(AbsoluteLength::Pc(value)),
         structs::nsCSSUnit::eCSSUnit_Quarter => NoCalcLength::Absolute(AbsoluteLength::Q(value)),
+        structs::nsCSSUnit::eCSSUnit_VW => {
+            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vw(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_VH => {
+            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vh(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_VMin => {
+            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmin(value))
+        },
+        structs::nsCSSUnit::eCSSUnit_VMax => {
+            NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmax(value))
+        },
         _ => unreachable!("Unknown unit passed to SetLengthValue"),
     };
 
@@ -7790,7 +7814,7 @@ pub extern "C" fn Servo_ParseLengthWithoutStyleContext(
 #[no_mangle]
 pub extern "C" fn Servo_SlowRgbToColorName(r: u8, g: u8, b: u8, result: &mut nsACString) -> bool {
     let mut candidates = SmallVec::<[&'static str; 5]>::new();
-    for (name, color) in cssparser::all_named_colors() {
+    for (name, color) in cssparser::color::all_named_colors() {
         if color == (r, g, b) {
             candidates.push(name);
         }
@@ -7806,9 +7830,9 @@ pub extern "C" fn Servo_SlowRgbToColorName(r: u8, g: u8, b: u8, result: &mut nsA
 
 #[no_mangle]
 pub extern "C" fn Servo_ColorNameToRgb(name: &nsACString, out: &mut structs::nscolor) -> bool {
-    match cssparser::parse_named_color::<specified::Color>(unsafe { name.as_str_unchecked() }) {
-        Ok(specified::Color::Absolute(ref color)) => {
-            *out = style::gecko::values::convert_absolute_color_to_nscolor(&color.color);
+    match cssparser::color::parse_named_color(unsafe { name.as_str_unchecked() }) {
+        Ok((r, g, b)) => {
+            *out = style::gecko::values::convert_absolute_color_to_nscolor(&AbsoluteColor::new(ColorSpace::Srgb, r, g, b, 1.0));
             true
         },
         _ => false,

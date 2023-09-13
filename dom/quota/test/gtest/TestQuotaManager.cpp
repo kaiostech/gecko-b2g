@@ -4,178 +4,154 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/dom/quota/OriginScope.h"
-
 #include "gtest/gtest.h"
+#include "mozilla/SpinEventLoopUntil.h"
+#include "mozilla/dom/quota/QuotaManager.h"
+#include "mozilla/gtest/MozAssertions.h"
+#include "QuotaManagerDependencyFixture.h"
 
-#include <cstdint>
-#include <memory>
-#include "ErrorList.h"
-#include "mozilla/Result.h"
-#include "mozilla/dom/quota/QuotaCommon.h"
-#include "mozilla/fallible.h"
-#include "nsCOMPtr.h"
-#include "nsDirectoryServiceDefs.h"
-#include "nsDirectoryServiceUtils.h"
-#include "nsIFile.h"
-#include "nsLiteralString.h"
-#include "nsString.h"
-#include "nsStringFwd.h"
-#include "nsTLiteralString.h"
+namespace mozilla::dom::quota::test {
 
-using namespace mozilla;
-using namespace mozilla::dom::quota;
+class TestQuotaManager : public QuotaManagerDependencyFixture {
+ public:
+  static void SetUpTestCase() { ASSERT_NO_FATAL_FAILURE(InitializeFixture()); }
 
-namespace {
-
-struct OriginTest {
-  const char* mOrigin;
-  bool mMatch;
+  static void TearDownTestCase() { ASSERT_NO_FATAL_FAILURE(ShutdownFixture()); }
 };
 
-void CheckOriginScopeMatchesOrigin(const OriginScope& aOriginScope,
-                                   const char* aOrigin, bool aMatch) {
-  bool result = aOriginScope.Matches(
-      OriginScope::FromOrigin(nsDependentCString(aOrigin)));
+// Test simple ShutdownStorage.
+TEST_F(TestQuotaManager, ShutdownStorage_Simple) {
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
 
-  EXPECT_TRUE(result == aMatch);
+  PerformOnIOThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
+
+    ASSERT_FALSE(quotaManager->IsStorageInitializedInternal());
+
+    ASSERT_NS_SUCCEEDED(quotaManager->EnsureStorageIsInitializedInternal());
+
+    ASSERT_TRUE(quotaManager->IsStorageInitializedInternal());
+  });
+
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
+
+  PerformOnIOThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
+
+    ASSERT_FALSE(quotaManager->IsStorageInitializedInternal());
+  });
+
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
 }
 
-void CheckUnknownFileEntry(nsIFile& aBase, const nsAString& aName,
-                           const bool aWarnIfFile, const bool aWarnIfDir) {
-  nsCOMPtr<nsIFile> file;
-  nsresult rv = aBase.Clone(getter_AddRefs(file));
-  ASSERT_EQ(rv, NS_OK);
+// Test ShutdownStorage when a storage shutdown is already ongoing.
+TEST_F(TestQuotaManager, ShutdownStorage_Ongoing) {
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
 
-  rv = file->Append(aName);
-  ASSERT_EQ(rv, NS_OK);
+  PerformOnIOThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
 
-  rv = file->Create(nsIFile::NORMAL_FILE_TYPE, 0600);
-  ASSERT_EQ(rv, NS_OK);
+    ASSERT_FALSE(quotaManager->IsStorageInitializedInternal());
 
-  auto okOrErr = WARN_IF_FILE_IS_UNKNOWN(*file);
-  ASSERT_TRUE(okOrErr.isOk());
+    ASSERT_NS_SUCCEEDED(quotaManager->EnsureStorageIsInitializedInternal());
 
-#ifdef DEBUG
-  EXPECT_TRUE(okOrErr.inspect() == aWarnIfFile);
-#else
-  EXPECT_TRUE(okOrErr.inspect() == false);
-#endif
+    ASSERT_TRUE(quotaManager->IsStorageInitializedInternal());
+  });
 
-  rv = file->Remove(false);
-  ASSERT_EQ(rv, NS_OK);
+  PerformOnBackgroundThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
 
-  rv = file->Create(nsIFile::DIRECTORY_TYPE, 0700);
-  ASSERT_EQ(rv, NS_OK);
+    nsTArray<RefPtr<BoolPromise>> promises;
 
-  okOrErr = WARN_IF_FILE_IS_UNKNOWN(*file);
-  ASSERT_TRUE(okOrErr.isOk());
+    promises.AppendElement(quotaManager->ShutdownStorage());
+    promises.AppendElement(quotaManager->ShutdownStorage());
 
-#ifdef DEBUG
-  EXPECT_TRUE(okOrErr.inspect() == aWarnIfDir);
-#else
-  EXPECT_TRUE(okOrErr.inspect() == false);
-#endif
+    bool done = false;
 
-  rv = file->Remove(false);
-  ASSERT_EQ(rv, NS_OK);
+    BoolPromise::All(GetCurrentSerialEventTarget(), promises)
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [&done](const CopyableTArray<bool>& aResolveValues) {
+              done = true;
+            },
+            [&done](nsresult aRejectValue) {
+              ASSERT_TRUE(false);
+
+              done = true;
+            });
+
+    SpinEventLoopUntil("Promise is fulfilled"_ns, [&done]() { return done; });
+  });
+
+  PerformOnIOThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
+
+    ASSERT_FALSE(quotaManager->IsStorageInitializedInternal());
+  });
+
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
 }
 
-}  // namespace
+// Test ShutdownStorage when a storage shutdown is already ongoing and storage
+// initialization is scheduled after that.
+TEST_F(TestQuotaManager, ShutdownStorage_OngoingWithScheduledInitialization) {
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
 
-TEST(QuotaManager, OriginScope)
-{
-  OriginScope originScope;
+  PerformOnIOThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
 
-  // Sanity checks.
+    ASSERT_FALSE(quotaManager->IsStorageInitializedInternal());
 
-  {
-    constexpr auto origin = "http://www.mozilla.org"_ns;
-    originScope.SetFromOrigin(origin);
-    EXPECT_TRUE(originScope.IsOrigin());
-    EXPECT_TRUE(originScope.GetOrigin().Equals(origin));
-    EXPECT_TRUE(originScope.GetOriginNoSuffix().Equals(origin));
-  }
+    ASSERT_NS_SUCCEEDED(quotaManager->EnsureStorageIsInitializedInternal());
 
-  {
-    constexpr auto prefix = "http://www.mozilla.org"_ns;
-    originScope.SetFromPrefix(prefix);
-    EXPECT_TRUE(originScope.IsPrefix());
-    EXPECT_TRUE(originScope.GetOriginNoSuffix().Equals(prefix));
-  }
+    ASSERT_TRUE(quotaManager->IsStorageInitializedInternal());
+  });
 
-  {
-    originScope.SetFromNull();
-    EXPECT_TRUE(originScope.IsNull());
-  }
+  PerformOnBackgroundThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
 
-  // Test each origin scope type against particular origins.
+    nsTArray<RefPtr<BoolPromise>> promises;
 
-  {
-    originScope.SetFromOrigin("http://www.mozilla.org"_ns);
+    promises.AppendElement(quotaManager->ShutdownStorage());
+    // XXX We have to use ClearPrivateRepository for now because there's no
+    // dedicated method for initializing storage on the PBackground thread yet.
+    // ClearPrivateRepository triggers storage initialization before it clear
+    // the private repository.
+    promises.AppendElement(quotaManager->ClearPrivateRepository());
+    promises.AppendElement(quotaManager->ShutdownStorage());
 
-    static const OriginTest tests[] = {
-        {"http://www.mozilla.org", true},
-        {"http://www.example.org", false},
-    };
+    bool done = false;
 
-    for (const auto& test : tests) {
-      CheckOriginScopeMatchesOrigin(originScope, test.mOrigin, test.mMatch);
-    }
-  }
+    BoolPromise::All(GetCurrentSerialEventTarget(), promises)
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [&done](const CopyableTArray<bool>& aResolveValues) {
+              done = true;
+            },
+            [&done](nsresult aRejectValue) {
+              ASSERT_TRUE(false);
 
-  {
-    originScope.SetFromPrefix("http://www.mozilla.org"_ns);
+              done = true;
+            });
 
-    static const OriginTest tests[] = {
-        {"http://www.mozilla.org", true},
-        {"http://www.mozilla.org^userContextId=1", true},
-        {"http://www.example.org^userContextId=1", false},
-    };
+    SpinEventLoopUntil("Promise is fulfilled"_ns, [&done]() { return done; });
+  });
 
-    for (const auto& test : tests) {
-      CheckOriginScopeMatchesOrigin(originScope, test.mOrigin, test.mMatch);
-    }
-  }
+  PerformOnIOThread([]() {
+    QuotaManager* quotaManager = QuotaManager::Get();
+    ASSERT_TRUE(quotaManager);
 
-  {
-    originScope.SetFromNull();
+    ASSERT_FALSE(quotaManager->IsStorageInitializedInternal());
+  });
 
-    static const OriginTest tests[] = {
-        {"http://www.mozilla.org", true},
-        {"http://www.mozilla.org^userContextId=1", true},
-        {"http://www.example.org^userContextId=1", true},
-    };
-
-    for (const auto& test : tests) {
-      CheckOriginScopeMatchesOrigin(originScope, test.mOrigin, test.mMatch);
-    }
-  }
+  ASSERT_NO_FATAL_FAILURE(ShutdownStorage());
 }
 
-TEST(QuotaManager, WarnIfUnknownFile)
-{
-  nsCOMPtr<nsIFile> base;
-  nsresult rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(base));
-  ASSERT_EQ(rv, NS_OK);
-
-  rv = base->Append(u"mozquotatests"_ns);
-  ASSERT_EQ(rv, NS_OK);
-
-  base->Remove(true);
-
-  rv = base->Create(nsIFile::DIRECTORY_TYPE, 0700);
-  ASSERT_EQ(rv, NS_OK);
-
-  CheckUnknownFileEntry(*base, u"foo.bar"_ns, true, true);
-  CheckUnknownFileEntry(*base, u".DS_Store"_ns, false, true);
-  CheckUnknownFileEntry(*base, u".desktop"_ns, false, true);
-  CheckUnknownFileEntry(*base, u"desktop.ini"_ns, false, true);
-  CheckUnknownFileEntry(*base, u"DESKTOP.INI"_ns, false, true);
-  CheckUnknownFileEntry(*base, u"thumbs.db"_ns, false, true);
-  CheckUnknownFileEntry(*base, u"THUMBS.DB"_ns, false, true);
-  CheckUnknownFileEntry(*base, u".xyz"_ns, false, true);
-
-  rv = base->Remove(true);
-  ASSERT_EQ(rv, NS_OK);
-}
+}  // namespace mozilla::dom::quota::test

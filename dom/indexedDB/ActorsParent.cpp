@@ -12740,7 +12740,7 @@ void DeleteFilesRunnable::Open() {
   }
 
   RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
-      mFileManager->Type(), mFileManager->OriginMetadata(), quota::Client::IDB,
+      {mFileManager->OriginMetadata(), quota::Client::IDB},
       /* aExclusive */ false);
 
   mState = State_DirectoryOpenPending;
@@ -13016,7 +13016,7 @@ nsresult Maintenance::DirectoryWork() {
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitializedInternal()));
 
   // Since idle maintenance may occur before temporary storage is initialized,
   // make sure it's initialized here (all non-persistent origins need to be
@@ -14985,9 +14985,9 @@ nsresult FactoryOp::FinishOpen() {
       }()));
 
   // Open directory
-  RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
-      persistenceType, mOriginMetadata, Client::IDB,
-      /* aExclusive */ false);
+  RefPtr<DirectoryLock> directoryLock =
+      quotaManager->CreateDirectoryLock({mOriginMetadata, Client::IDB},
+                                        /* aExclusive */ false);
 
   mState = State::DirectoryOpenPending;
 
@@ -15168,7 +15168,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitializedInternal()));
 
   QM_TRY_INSPECT(
       const auto& dbDirectory,

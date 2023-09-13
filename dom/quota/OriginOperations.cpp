@@ -372,14 +372,12 @@ class GetFullOriginMetadataOp : public QuotaRequestBase {
   void GetResponse(RequestResponse& aResponse) override;
 };
 
-class ResetOrClearOp final : public QuotaRequestBase {
-  const bool mClear;
-
+class ClearStorageOp final : public ResolvableNormalOriginOp<bool> {
  public:
-  explicit ResetOrClearOp(bool aClear);
+  ClearStorageOp();
 
  private:
-  ~ResetOrClearOp() = default;
+  ~ClearStorageOp() = default;
 
   void DeleteFiles(QuotaManager& aQuotaManager);
 
@@ -387,7 +385,7 @@ class ResetOrClearOp final : public QuotaRequestBase {
 
   virtual nsresult DoDirectoryWork(QuotaManager& aQuotaManager) override;
 
-  virtual void GetResponse(RequestResponse& aResponse) override;
+  bool GetResolveValue() override;
 };
 
 class ClearRequestBase : public QuotaRequestBase {
@@ -594,8 +592,8 @@ RefPtr<QuotaRequestBase> CreateGetFullOriginMetadataOp(
   return MakeRefPtr<GetFullOriginMetadataOp>(aParams);
 }
 
-RefPtr<QuotaRequestBase> CreateResetOrClearOp(bool aClear) {
-  return MakeRefPtr<ResetOrClearOp>(aClear);
+RefPtr<ResolvableNormalOriginOp<bool>> CreateClearStorageOp() {
+  return MakeRefPtr<ClearStorageOp>();
 }
 
 RefPtr<QuotaRequestBase> CreateClearOriginOp(const RequestParams& aParams) {
@@ -704,7 +702,7 @@ nsresult ClearPrivateRepositoryOp::DoDirectoryWork(
 
   AUTO_PROFILER_LABEL("ClearPrivateRepositoryOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   QM_TRY_INSPECT(
       const auto& directory,
@@ -892,7 +890,7 @@ nsresult GetUsageOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("GetUsageOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   nsresult rv;
 
@@ -972,7 +970,7 @@ nsresult GetOriginUsageOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("GetOriginUsageOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   if (mFromMemory) {
     const PrincipalMetadata principalMetadata = {
@@ -1067,7 +1065,7 @@ nsresult StorageInitializedOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("StorageInitializedOp::DoDirectoryWork", OTHER);
 
-  mInitialized = aQuotaManager.IsStorageInitialized();
+  mInitialized = aQuotaManager.IsStorageInitializedInternal();
 
   return NS_OK;
 }
@@ -1113,7 +1111,7 @@ nsresult InitOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("InitOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   return NS_OK;
 }
@@ -1135,7 +1133,8 @@ nsresult InitTemporaryStorageOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("InitTemporaryStorageOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(OkIf(aQuotaManager.IsStorageInitialized()), NS_ERROR_NOT_INITIALIZED);
+  QM_TRY(OkIf(aQuotaManager.IsStorageInitializedInternal()),
+         NS_ERROR_NOT_INITIALIZED);
 
   QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureTemporaryStorageIsInitialized()));
 
@@ -1197,7 +1196,8 @@ nsresult InitializePersistentOriginOp::DoDirectoryWork(
 
   AUTO_PROFILER_LABEL("InitializePersistentOriginOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(OkIf(aQuotaManager.IsStorageInitialized()), NS_ERROR_NOT_INITIALIZED);
+  QM_TRY(OkIf(aQuotaManager.IsStorageInitializedInternal()),
+         NS_ERROR_NOT_INITIALIZED);
 
   QM_TRY_UNWRAP(
       mCreated,
@@ -1233,7 +1233,8 @@ nsresult InitializeTemporaryOriginOp::DoDirectoryWork(
 
   AUTO_PROFILER_LABEL("InitializeTemporaryOriginOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(OkIf(aQuotaManager.IsStorageInitialized()), NS_ERROR_NOT_INITIALIZED);
+  QM_TRY(OkIf(aQuotaManager.IsStorageInitializedInternal()),
+         NS_ERROR_NOT_INITIALIZED);
 
   QM_TRY(OkIf(aQuotaManager.IsTemporaryStorageInitialized()),
          NS_ERROR_NOT_INITIALIZED);
@@ -1288,7 +1289,7 @@ nsresult GetFullOriginMetadataOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("GetFullOriginMetadataOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   // Ensure temporary storage is initialized. If temporary storage hasn't
   // been initialized yet, the method will initialize it by traversing the
@@ -1311,13 +1312,15 @@ void GetFullOriginMetadataOp::GetResponse(RequestResponse& aResponse) {
       std::move(mMaybeFullOriginMetadata);
 }
 
-ResetOrClearOp::ResetOrClearOp(bool aClear)
-    : QuotaRequestBase("dom::quota::ResetOrClearOp", /* aExclusive */ true),
-      mClear(aClear) {
+ClearStorageOp::ClearStorageOp()
+    : ResolvableNormalOriginOp(
+          "dom::quota::ClearStorageOp", Nullable<PersistenceType>(),
+          OriginScope::FromNull(), Nullable<Client::Type>(),
+          /* aExclusive */ true) {
   AssertIsOnOwningThread();
 }
 
-void ResetOrClearOp::DeleteFiles(QuotaManager& aQuotaManager) {
+void ClearStorageOp::DeleteFiles(QuotaManager& aQuotaManager) {
   AssertIsOnIOThread();
 
   nsresult rv = aQuotaManager.AboutToClearOrigins(Nullable<PersistenceType>(),
@@ -1342,7 +1345,7 @@ void ResetOrClearOp::DeleteFiles(QuotaManager& aQuotaManager) {
   }
 }
 
-void ResetOrClearOp::DeleteStorageFile(QuotaManager& aQuotaManager) {
+void ClearStorageOp::DeleteStorageFile(QuotaManager& aQuotaManager) {
   AssertIsOnIOThread();
 
   QM_TRY_INSPECT(const auto& storageFile,
@@ -1360,33 +1363,26 @@ void ResetOrClearOp::DeleteStorageFile(QuotaManager& aQuotaManager) {
   }
 }
 
-nsresult ResetOrClearOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
+nsresult ClearStorageOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
   AssertIsOnIOThread();
 
-  AUTO_PROFILER_LABEL("ResetOrClearOp::DoDirectoryWork", OTHER);
+  AUTO_PROFILER_LABEL("ClearStorageOp::DoDirectoryWork", OTHER);
 
-  if (mClear) {
-    DeleteFiles(aQuotaManager);
+  DeleteFiles(aQuotaManager);
 
-    aQuotaManager.RemoveQuota();
-  }
+  aQuotaManager.RemoveQuota();
 
   aQuotaManager.ShutdownStorageInternal();
 
-  if (mClear) {
-    DeleteStorageFile(aQuotaManager);
-  }
+  DeleteStorageFile(aQuotaManager);
 
   return NS_OK;
 }
 
-void ResetOrClearOp::GetResponse(RequestResponse& aResponse) {
+bool ClearStorageOp::GetResolveValue() {
   AssertIsOnOwningThread();
-  if (mClear) {
-    aResponse = ClearAllResponse();
-  } else {
-    aResponse = ResetAllResponse();
-  }
+
+  return true;
 }
 
 static Result<nsCOMPtr<nsIFile>, QMResult> OpenToBeRemovedDirectory(
@@ -1611,7 +1607,7 @@ nsresult ClearRequestBase::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("ClearRequestBase::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   if (mPersistenceType.IsNull()) {
     for (const PersistenceType type : kAllPersistenceTypes) {
@@ -1752,7 +1748,7 @@ nsresult PersistedOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("PersistedOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   const OriginMetadata originMetadata = {
       mSuffix,        mGroup,     nsCString{mOriginScope.GetOrigin()},
@@ -1814,7 +1810,7 @@ nsresult PersistOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("PersistOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   // Update directory metadata on disk first. Then, create/update the originInfo
   // if needed.
@@ -1905,7 +1901,7 @@ nsresult EstimateOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("EstimateOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   // Ensure temporary storage is initialized. If temporary storage hasn't been
   // initialized yet, the method will initialize it by traversing the
@@ -1941,7 +1937,7 @@ nsresult ListOriginsOp::DoDirectoryWork(QuotaManager& aQuotaManager) {
 
   AUTO_PROFILER_LABEL("ListOriginsOp::DoDirectoryWork", OTHER);
 
-  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(aQuotaManager.EnsureStorageIsInitializedInternal()));
 
   for (const PersistenceType type : kAllPersistenceTypes) {
     QM_TRY(MOZ_TO_RESULT(TraverseRepository(aQuotaManager, type)));

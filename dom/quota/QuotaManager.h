@@ -274,8 +274,7 @@ class QuotaManager final : public BackgroundThreadObject {
   // In other words, protection which the lock represents dies with the lock
   // object itself.
   RefPtr<ClientDirectoryLock> CreateDirectoryLock(
-      PersistenceType aPersistenceType, const OriginMetadata& aOriginMetadata,
-      Client::Type aClientType, bool aExclusive);
+      const ClientMetadata& aClientMetadata, bool aExclusive);
 
   // XXX RemoveMe once bug 1170279 gets fixed.
   RefPtr<UniversalDirectoryLock> CreateDirectoryLockInternal(
@@ -301,12 +300,12 @@ class QuotaManager final : public BackgroundThreadObject {
   template <typename P>
   void CollectPendingOriginsForListing(P aPredicate);
 
-  bool IsStorageInitialized() const {
+  bool IsStorageInitializedInternal() const {
     AssertIsOnIOThread();
     return static_cast<bool>(mStorageConnection);
   }
 
-  void AssertStorageIsInitialized() const
+  void AssertStorageIsInitializedInternal() const
 #ifdef DEBUG
       ;
 #else
@@ -314,7 +313,7 @@ class QuotaManager final : public BackgroundThreadObject {
   }
 #endif
 
-  nsresult EnsureStorageIsInitialized();
+  nsresult EnsureStorageIsInitializedInternal();
 
   // Returns a pair of an nsIFile object referring to the directory, and a bool
   // indicating whether the directory was newly created.
@@ -330,6 +329,8 @@ class QuotaManager final : public BackgroundThreadObject {
   nsresult EnsureTemporaryStorageIsInitialized();
 
   RefPtr<BoolPromise> ClearPrivateRepository();
+
+  RefPtr<BoolPromise> ClearStorage();
 
   RefPtr<BoolPromise> ShutdownStorage();
 
@@ -705,14 +706,11 @@ class QuotaManager final : public BackgroundThreadObject {
   LazyInitializedOnce<const nsString> mDefaultStoragePath;
   LazyInitializedOnce<const nsString> mPrivateStoragePath;
 
-  MozPromiseHolder<BoolPromise> mShutdownStoragePromiseHolder;
-
   uint64_t mTemporaryStorageLimit;
   uint64_t mTemporaryStorageUsage;
   int64_t mNextDirectoryLockId;
   bool mTemporaryStorageInitialized;
   bool mCacheUsable;
-  bool mShuttingDownStorage;
 };
 
 }  // namespace mozilla::dom::quota

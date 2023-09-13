@@ -238,6 +238,7 @@ void nsUserIdleServiceGTK::ProbeService() {
   MOZ_LOG(sIdleLog, LogLevel::Info,
           ("nsUserIdleServiceGTK::ProbeService() mIdleServiceType %d\n",
            mIdleServiceType));
+  MOZ_ASSERT(!mIdleService);
 
   switch (mIdleServiceType) {
 #ifdef MOZ_ENABLE_DBUS

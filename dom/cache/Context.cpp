@@ -371,8 +371,7 @@ Context::QuotaInitRunnable::Run() {
 
       // Open directory
       RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
-          PERSISTENCE_TYPE_DEFAULT, *mDirectoryMetadata,
-          quota::Client::DOMCACHE,
+          {*mDirectoryMetadata, quota::Client::DOMCACHE},
           /* aExclusive */ false);
 
       // DirectoryLock::Acquire() will hold a reference to us as a listener. We
@@ -395,7 +394,8 @@ Context::QuotaInitRunnable::Run() {
         QuotaManager* quotaManager = QuotaManager::Get();
         MOZ_DIAGNOSTIC_ASSERT(quotaManager);
 
-        QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitialized()));
+        QM_TRY(
+            MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitializedInternal()));
 
         QM_TRY(
             MOZ_TO_RESULT(quotaManager->EnsureTemporaryStorageIsInitialized()));

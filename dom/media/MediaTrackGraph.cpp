@@ -149,6 +149,27 @@ class GraphKey final {
 nsTHashMap<nsGenericHashKey<GraphKey>, MediaTrackGraphImpl*> gGraphs;
 }  // anonymous namespace
 
+static void ApplyTrackDisabling(DisabledTrackMode aDisabledMode,
+                                MediaSegment* aSegment,
+                                MediaSegment* aRawSegment) {
+  if (aDisabledMode == DisabledTrackMode::ENABLED) {
+    return;
+  }
+  if (aDisabledMode == DisabledTrackMode::SILENCE_BLACK) {
+    aSegment->ReplaceWithDisabled();
+    if (aRawSegment) {
+      aRawSegment->ReplaceWithDisabled();
+    }
+  } else if (aDisabledMode == DisabledTrackMode::SILENCE_FREEZE) {
+    aSegment->ReplaceWithNull();
+    if (aRawSegment) {
+      aRawSegment->ReplaceWithNull();
+    }
+  } else {
+    MOZ_CRASH("Unsupported mode");
+  }
+}
+
 MediaTrackGraphImpl::~MediaTrackGraphImpl() {
   MOZ_ASSERT(mTracks.IsEmpty() && mSuspendedTracks.IsEmpty(),
              "All tracks should have been destroyed by messages from the main "
@@ -2471,6 +2492,7 @@ RefPtr<GenericPromise> MediaTrack::RemoveListener(
 
 void MediaTrack::AddDirectListenerImpl(
     already_AddRefed<DirectMediaTrackListener> aListener) {
+  MOZ_ASSERT(mGraph->OnGraphThread());
   // Base implementation, for tracks that don't support direct track listeners.
   RefPtr<DirectMediaTrackListener> listener = aListener;
   listener->NotifyDirectListenerInstalled(
@@ -2553,6 +2575,7 @@ void MediaTrack::RunAfterPendingUpdates(
 }
 
 void MediaTrack::SetDisabledTrackModeImpl(DisabledTrackMode aMode) {
+  MOZ_ASSERT(mGraph->OnGraphThread());
   MOZ_DIAGNOSTIC_ASSERT(
       aMode == DisabledTrackMode::ENABLED ||
           mDisabledMode == DisabledTrackMode::ENABLED,
@@ -2581,22 +2604,8 @@ void MediaTrack::SetDisabledTrackMode(DisabledTrackMode aMode) {
 
 void MediaTrack::ApplyTrackDisabling(MediaSegment* aSegment,
                                      MediaSegment* aRawSegment) {
-  if (mDisabledMode == DisabledTrackMode::ENABLED) {
-    return;
-  }
-  if (mDisabledMode == DisabledTrackMode::SILENCE_BLACK) {
-    aSegment->ReplaceWithDisabled();
-    if (aRawSegment) {
-      aRawSegment->ReplaceWithDisabled();
-    }
-  } else if (mDisabledMode == DisabledTrackMode::SILENCE_FREEZE) {
-    aSegment->ReplaceWithNull();
-    if (aRawSegment) {
-      aRawSegment->ReplaceWithNull();
-    }
-  } else {
-    MOZ_CRASH("Unsupported mode");
-  }
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  mozilla::ApplyTrackDisabling(mDisabledMode, aSegment, aRawSegment);
 }
 
 void MediaTrack::AddMainThreadListener(
@@ -2916,7 +2925,7 @@ TrackTime SourceMediaTrack::AppendData(MediaSegment* aSegment,
 
   // Apply track disabling before notifying any consumers directly
   // or inserting into the graph
-  ApplyTrackDisabling(aSegment, aRawSegment);
+  mozilla::ApplyTrackDisabling(mDirectDisabledMode, aSegment, aRawSegment);
 
   ResampleAudioToGraphSampleRate(aSegment);
 
@@ -2960,6 +2969,7 @@ void SourceMediaTrack::NotifyDirectConsumers(MediaSegment* aSegment) {
 
 void SourceMediaTrack::AddDirectListenerImpl(
     already_AddRefed<DirectMediaTrackListener> aListener) {
+  MOZ_ASSERT(mGraph->OnGraphThread());
   MutexAutoLock lock(mMutex);
 
   RefPtr<DirectMediaTrackListener> listener = aListener;
@@ -3029,6 +3039,7 @@ void SourceMediaTrack::AddDirectListenerImpl(
 
 void SourceMediaTrack::RemoveDirectListenerImpl(
     DirectMediaTrackListener* aListener) {
+  mGraph->AssertOnGraphThreadOrNotRunning();
   MutexAutoLock lock(mMutex);
   for (int32_t i = mDirectTrackListeners.Length() - 1; i >= 0; --i) {
     const RefPtr<DirectMediaTrackListener>& l = mDirectTrackListeners[i];
@@ -3058,17 +3069,20 @@ void SourceMediaTrack::End() {
 }
 
 void SourceMediaTrack::SetDisabledTrackModeImpl(DisabledTrackMode aMode) {
+  MOZ_ASSERT(mGraph->OnGraphThread());
   {
     MutexAutoLock lock(mMutex);
+    const DisabledTrackMode oldMode = mDirectDisabledMode;
+    const bool oldEnabled = oldMode == DisabledTrackMode::ENABLED;
+    const bool enabled = aMode == DisabledTrackMode::ENABLED;
+    mDirectDisabledMode = aMode;
     for (const auto& l : mDirectTrackListeners) {
-      DisabledTrackMode oldMode = mDisabledMode;
-      bool oldEnabled = oldMode == DisabledTrackMode::ENABLED;
-      if (!oldEnabled && aMode == DisabledTrackMode::ENABLED) {
+      if (!oldEnabled && enabled) {
         LOG(LogLevel::Debug, ("%p: SourceMediaTrack %p setting "
                               "direct listener enabled",
                               GraphImpl(), this));
         l->DecreaseDisabled(oldMode);
-      } else if (oldEnabled && aMode != DisabledTrackMode::ENABLED) {
+      } else if (oldEnabled && !enabled) {
         LOG(LogLevel::Debug, ("%p: SourceMediaTrack %p setting "
                               "direct listener disabled",
                               GraphImpl(), this));

@@ -1131,8 +1131,7 @@ nsresult OpenOp::FinishOpen() {
   // Open the directory
 
   RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
-      GetConnection()->GetPersistenceType(), mOriginMetadata,
-      mozilla::dom::quota::Client::SDB,
+      {mOriginMetadata, mozilla::dom::quota::Client::SDB},
       /* aExclusive */ false);
 
   mState = State::DirectoryOpenPending;
@@ -1182,7 +1181,7 @@ nsresult OpenOp::DatabaseWork() {
   QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitialized()));
+  QM_TRY(MOZ_TO_RESULT(quotaManager->EnsureStorageIsInitializedInternal()));
 
   QM_TRY_INSPECT(
       const auto& dbDirectory,

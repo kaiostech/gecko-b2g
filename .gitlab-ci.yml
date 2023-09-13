@@ -73,7 +73,7 @@ build:arm:gonk-10:
     - .rules:unskippable
   stage: build
 
-build:arm64:gonk-11:
+build:arm64:gonk-13:
   extends:
     - .build_arm64
     - .rules:unskippable

@@ -94,7 +94,7 @@ MOCHITEST_MANIFESTS += [
     "webrtc/tests/mochitests/identity/mochitest.ini",
 ]
 
-MOCHITEST_CHROME_MANIFESTS += ["test/chrome/chrome.ini"]
+MOCHITEST_CHROME_MANIFESTS += ["test/chrome/chrome.toml"]
 
 BROWSER_CHROME_MANIFESTS += [
     "mediacontrol/tests/browser/browser.ini",

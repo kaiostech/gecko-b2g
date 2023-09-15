@@ -92,7 +92,7 @@ static bool IsCodecEnabled(const nsACString& aMimeType) {
 media::DecodeSupportSet GonkDecoderModule::SupportsMimeType(
     const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const {
   if (!IsCodecEnabled(aMimeType)) {
-    return media::DecodeSupport::Unsupported;
+    return media::DecodeSupportSet{};
   }
 
   auto matches = GonkMediaUtils::FindMatchingCodecs(aMimeType.Data(), false);
@@ -107,7 +107,7 @@ media::DecodeSupportSet GonkDecoderModule::SupportsMimeType(
   }
   return foundHardware   ? media::DecodeSupport::HardwareDecode
          : foundSoftware ? media::DecodeSupport::SoftwareDecode
-                         : media::DecodeSupport::Unsupported;
+                         : media::DecodeSupportSet{};
 }
 
 }  // namespace mozilla

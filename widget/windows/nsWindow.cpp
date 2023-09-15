@@ -215,17 +215,6 @@
 #  define SM_CONVERTIBLESLATEMODE 0x2003
 #endif
 
-// Win 8.1+ (_WIN32_WINNT_WINBLUE)
-#if !defined(WM_DPICHANGED)
-#  define WM_DPICHANGED 0x02E0
-#endif
-
-// Win 8+ (_WIN32_WINNT_WIN8)
-#if !defined(EVENT_OBJECT_CLOAKED)
-#  define EVENT_OBJECT_CLOAKED 0x8017
-#  define EVENT_OBJECT_UNCLOAKED 0x8018
-#endif
-
 #include "mozilla/gfx/DeviceManagerDx.h"
 #include "mozilla/layers/APZInputBridge.h"
 #include "mozilla/layers/InputAPZContext.h"
@@ -5758,7 +5747,13 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
     } break;
 
     case WM_ACTIVATEAPP: {
-      GPUProcessManager::Get()->SetAppInForeground(wParam);
+      // Bug 1851991: Sometimes this can be called before gfxPlatform::Init
+      // when a window is created very early. In that case we just forego
+      // setting this and accept the GPU process might briefly run at a lower
+      // priority.
+      if (GPUProcessManager::Get()) {
+        GPUProcessManager::Get()->SetAppInForeground(wParam);
+      }
     } break;
 
     case WM_MOUSEACTIVATE:

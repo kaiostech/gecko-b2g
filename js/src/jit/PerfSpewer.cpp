@@ -832,11 +832,14 @@ void BaselinePerfSpewer::saveJitCodeSourceInfo(
     JitDumpDebugRecord debug_record = {};
     uint64_t n_records = 0;
 
-    for (SrcNoteIterator iter(script->notes()); !iter.atEnd(); ++iter) {
+    for (SrcNoteIterator iter(script->notes(), script->notesEnd());
+         !iter.atEnd(); ++iter) {
       const auto* const sn = *iter;
       switch (sn->type()) {
         case SrcNoteType::SetLine:
+        case SrcNoteType::SetLineColumn:
         case SrcNoteType::NewLine:
+        case SrcNoteType::NewLineColumn:
         case SrcNoteType::ColSpan:
           if (sn->delta() > 0) {
             n_records++;
@@ -868,7 +871,8 @@ void BaselinePerfSpewer::saveJitCodeSourceInfo(
   uint32_t lineno = script->lineno();
   JS::LimitedColumnNumberZeroOrigin colno = script->column();
   uint64_t offset = 0;
-  for (SrcNoteIterator iter(script->notes()); !iter.atEnd(); ++iter) {
+  for (SrcNoteIterator iter(script->notes(), script->notesEnd()); !iter.atEnd();
+       ++iter) {
     const auto* sn = *iter;
     offset += sn->delta();
 
@@ -876,9 +880,15 @@ void BaselinePerfSpewer::saveJitCodeSourceInfo(
     if (type == SrcNoteType::SetLine) {
       lineno = SrcNote::SetLine::getLine(sn, script->lineno());
       colno = JS::LimitedColumnNumberZeroOrigin::zero();
+    } else if (type == SrcNoteType::SetLineColumn) {
+      lineno = SrcNote::SetLineColumn::getLine(sn, script->lineno());
+      colno = SrcNote::SetLineColumn::getColumn(sn);
     } else if (type == SrcNoteType::NewLine) {
       lineno++;
       colno = JS::LimitedColumnNumberZeroOrigin::zero();
+    } else if (type == SrcNoteType::NewLineColumn) {
+      lineno++;
+      colno = SrcNote::NewLineColumn::getColumn(sn);
     } else if (type == SrcNoteType::ColSpan) {
       colno += SrcNote::ColSpan::getSpan(sn);
     } else {

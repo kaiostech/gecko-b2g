@@ -2623,76 +2623,10 @@ void JSScript::addSizeOfJitScript(mozilla::MallocSizeOf mallocSizeOf,
 
 js::GlobalObject& JSScript::uninlinedGlobal() const { return global(); }
 
-static const uint32_t GSN_CACHE_THRESHOLD = 100;
-
-void GSNCache::purge() {
-  code = nullptr;
-  map.clearAndCompact();
-}
-
-const js::SrcNote* js::GetSrcNote(GSNCache& cache, JSScript* script,
-                                  jsbytecode* pc) {
-  size_t target = pc - script->code();
-  if (target >= script->length()) {
-    return nullptr;
-  }
-
-  if (cache.code == script->code()) {
-    GSNCache::Map::Ptr p = cache.map.lookup(pc);
-    return p ? p->value() : nullptr;
-  }
-
-  size_t offset = 0;
-  const js::SrcNote* result;
-  for (SrcNoteIterator iter(script->notes());; ++iter) {
-    const auto* sn = *iter;
-    if (sn->isTerminator()) {
-      result = nullptr;
-      break;
-    }
-    offset += sn->delta();
-    if (offset == target && sn->isGettable()) {
-      result = sn;
-      break;
-    }
-  }
-
-  if (cache.code != script->code() && script->length() >= GSN_CACHE_THRESHOLD) {
-    unsigned nsrcnotes = 0;
-    for (SrcNoteIterator iter(script->notes()); !iter.atEnd(); ++iter) {
-      const auto* sn = *iter;
-      if (sn->isGettable()) {
-        ++nsrcnotes;
-      }
-    }
-    if (cache.code) {
-      cache.map.clear();
-      cache.code = nullptr;
-    }
-    if (cache.map.reserve(nsrcnotes)) {
-      pc = script->code();
-      for (SrcNoteIterator iter(script->notes()); !iter.atEnd(); ++iter) {
-        const auto* sn = *iter;
-        pc += sn->delta();
-        if (sn->isGettable()) {
-          cache.map.putNewInfallible(pc, sn);
-        }
-      }
-      cache.code = script->code();
-    }
-  }
-
-  return result;
-}
-
-const js::SrcNote* js::GetSrcNote(JSContext* cx, JSScript* script,
-                                  jsbytecode* pc) {
-  return GetSrcNote(cx->caches().gsnCache, script, pc);
-}
-
 unsigned js::PCToLineNumber(unsigned startLine,
                             JS::LimitedColumnNumberZeroOrigin startCol,
-                            SrcNote* notes, jsbytecode* code, jsbytecode* pc,
+                            SrcNote* notes, SrcNote* notesEnd, jsbytecode* code,
+                            jsbytecode* pc,
                             JS::LimitedColumnNumberZeroOrigin* columnp) {
   unsigned lineno = startLine;
   JS::LimitedColumnNumberZeroOrigin column = startCol;
@@ -2704,7 +2638,7 @@ unsigned js::PCToLineNumber(unsigned startLine,
    */
   ptrdiff_t offset = 0;
   ptrdiff_t target = pc - code;
-  for (SrcNoteIterator iter(notes); !iter.atEnd(); ++iter) {
+  for (SrcNoteIterator iter(notes, notesEnd); !iter.atEnd(); ++iter) {
     const auto* sn = *iter;
     offset += sn->delta();
     if (offset > target) {
@@ -2715,9 +2649,15 @@ unsigned js::PCToLineNumber(unsigned startLine,
     if (type == SrcNoteType::SetLine) {
       lineno = SrcNote::SetLine::getLine(sn, startLine);
       column = JS::LimitedColumnNumberZeroOrigin::zero();
+    } else if (type == SrcNoteType::SetLineColumn) {
+      lineno = SrcNote::SetLineColumn::getLine(sn, startLine);
+      column = SrcNote::SetLineColumn::getColumn(sn);
     } else if (type == SrcNoteType::NewLine) {
       lineno++;
       column = JS::LimitedColumnNumberZeroOrigin::zero();
+    } else if (type == SrcNoteType::NewLineColumn) {
+      lineno++;
+      column = SrcNote::NewLineColumn::getColumn(sn);
     } else if (type == SrcNoteType::ColSpan) {
       column += SrcNote::ColSpan::getSpan(sn);
     }
@@ -2738,7 +2678,7 @@ unsigned js::PCToLineNumber(JSScript* script, jsbytecode* pc,
   }
 
   return PCToLineNumber(script->lineno(), script->column(), script->notes(),
-                        script->code(), pc, columnp);
+                        script->notesEnd(), script->code(), pc, columnp);
 }
 
 jsbytecode* js::LineNumberToPC(JSScript* script, unsigned target) {
@@ -2746,7 +2686,8 @@ jsbytecode* js::LineNumberToPC(JSScript* script, unsigned target) {
   ptrdiff_t best = -1;
   unsigned lineno = script->lineno();
   unsigned bestdiff = SrcNote::MaxOperand;
-  for (SrcNoteIterator iter(script->notes()); !iter.atEnd(); ++iter) {
+  for (SrcNoteIterator iter(script->notes(), script->notesEnd()); !iter.atEnd();
+       ++iter) {
     const auto* sn = *iter;
     /*
      * Exact-match only if offset is not in the prologue; otherwise use
@@ -2766,7 +2707,10 @@ jsbytecode* js::LineNumberToPC(JSScript* script, unsigned target) {
     SrcNoteType type = sn->type();
     if (type == SrcNoteType::SetLine) {
       lineno = SrcNote::SetLine::getLine(sn, script->lineno());
-    } else if (type == SrcNoteType::NewLine) {
+    } else if (type == SrcNoteType::SetLineColumn) {
+      lineno = SrcNote::SetLineColumn::getLine(sn, script->lineno());
+    } else if (type == SrcNoteType::NewLine ||
+               type == SrcNoteType::NewLineColumn) {
       lineno++;
     }
   }
@@ -2780,12 +2724,16 @@ out:
 JS_PUBLIC_API unsigned js::GetScriptLineExtent(JSScript* script) {
   unsigned lineno = script->lineno();
   unsigned maxLineNo = lineno;
-  for (SrcNoteIterator iter(script->notes()); !iter.atEnd(); ++iter) {
+  for (SrcNoteIterator iter(script->notes(), script->notesEnd()); !iter.atEnd();
+       ++iter) {
     const auto* sn = *iter;
     SrcNoteType type = sn->type();
     if (type == SrcNoteType::SetLine) {
       lineno = SrcNote::SetLine::getLine(sn, script->lineno());
-    } else if (type == SrcNoteType::NewLine) {
+    } else if (type == SrcNoteType::SetLineColumn) {
+      lineno = SrcNote::SetLineColumn::getLine(sn, script->lineno());
+    } else if (type == SrcNoteType::NewLine ||
+               type == SrcNoteType::NewLineColumn) {
       lineno++;
     }
 
@@ -2923,11 +2871,11 @@ js::UniquePtr<ImmutableScriptData> ImmutableScriptData::new_(
   size_t noteLength = notes.Length();
   MOZ_RELEASE_ASSERT(noteLength <= frontend::MaxSrcNotesLength);
 
-  size_t nullLength = ComputeNotePadding(code.Length(), noteLength);
+  size_t notePaddingLength = ComputeNotePadding(code.Length(), noteLength);
 
   // Allocate ImmutableScriptData
   js::UniquePtr<ImmutableScriptData> data(ImmutableScriptData::new_(
-      fc, code.Length(), noteLength + nullLength, resumeOffsets.Length(),
+      fc, code.Length(), noteLength + notePaddingLength, resumeOffsets.Length(),
       scopeNotes.Length(), tryNotes.Length()));
   if (!data) {
     return data;
@@ -2948,7 +2896,8 @@ js::UniquePtr<ImmutableScriptData> ImmutableScriptData::new_(
   // Initialize trailing arrays
   CopySpan(code, data->codeSpan());
   CopySpan(notes, data->notesSpan().To(noteLength));
-  std::fill_n(data->notes() + noteLength, nullLength, SrcNote::terminator());
+  std::fill_n(data->notes() + noteLength, notePaddingLength,
+              SrcNote::padding());
   CopySpan(resumeOffsets, data->resumeOffsets());
   CopySpan(scopeNotes, data->scopeNotes());
   CopySpan(tryNotes, data->tryNotes());
@@ -3500,9 +3449,9 @@ bool JSScript::dump(JSContext* cx, JS::Handle<JSScript*> script,
 bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
                             js::Sprinter* sp) {
   if (!sp->put("\nSource notes:\n") ||
-      !sp->jsprintf("%4s %4s %6s %5s %6s %-10s %s\n", "ofs", "line", "column",
+      !sp->jsprintf("%4s %4s %6s %5s %6s %-16s %s\n", "ofs", "line", "column",
                     "pc", "delta", "desc", "args") ||
-      !sp->put("---- ---- ------ ----- ------ ---------- ------\n")) {
+      !sp->put("---- ---- ------ ----- ------ ---------------- ------\n")) {
     return false;
   }
 
@@ -3510,23 +3459,22 @@ bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
   unsigned lineno = script->lineno();
   JS::LimitedColumnNumberZeroOrigin column = script->column();
   SrcNote* notes = script->notes();
-  for (SrcNoteIterator iter(notes); !iter.atEnd(); ++iter) {
+  SrcNote* notesEnd = script->notesEnd();
+  for (SrcNoteIterator iter(notes, notesEnd); !iter.atEnd(); ++iter) {
     const auto* sn = *iter;
 
     unsigned delta = sn->delta();
     offset += delta;
     SrcNoteType type = sn->type();
     const char* name = sn->name();
-    if (!sp->jsprintf("%3u: %4u %6u %5u [%4u] %-10s", unsigned(sn - notes),
+    if (!sp->jsprintf("%3u: %4u %6u %5u [%4u] %-16s", unsigned(sn - notes),
                       lineno, column.zeroOriginValue(), offset, delta, name)) {
       return false;
     }
 
     switch (type) {
-      case SrcNoteType::Null:
-      case SrcNoteType::AssignOp:
       case SrcNoteType::Breakpoint:
-      case SrcNoteType::StepSep:
+      case SrcNoteType::BreakpointStepSep:
       case SrcNoteType::XDelta:
         break;
 
@@ -3547,9 +3495,27 @@ bool JSScript::dumpSrcNotes(JSContext* cx, JS::Handle<JSScript*> script,
         column = JS::LimitedColumnNumberZeroOrigin::zero();
         break;
 
+      case SrcNoteType::SetLineColumn:
+        lineno = SrcNote::SetLineColumn::getLine(sn, script->lineno());
+        column = SrcNote::SetLineColumn::getColumn(sn);
+        if (!sp->jsprintf(" lineno %u column %u", lineno,
+                          column.zeroOriginValue())) {
+          return false;
+        }
+        break;
+
       case SrcNoteType::NewLine:
         ++lineno;
         column = JS::LimitedColumnNumberZeroOrigin::zero();
+        break;
+
+      case SrcNoteType::NewLineColumn:
+        column = SrcNote::NewLineColumn::getColumn(sn);
+        if (!sp->jsprintf(" column %u", column.zeroOriginValue())) {
+          return false;
+        }
+
+        ++lineno;
         break;
 
       default:

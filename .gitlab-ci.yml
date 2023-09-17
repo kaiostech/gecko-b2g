@@ -19,7 +19,7 @@ include:
 default:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.53.0_6_1
   tags:
-    - hk-fantastic4
+    - sh-runners
   interruptible: true
 
 variables:

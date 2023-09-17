@@ -1,7 +1,7 @@
 include: '.gitlab/ci/rules.yml'
 
 variables:
-  SCCACHE_REDIS_BASEURL: redis://10.81.70.128
+  SCCACHE_REDIS_BASEURL: redis://172.31.29.130
 
  # note that these setups merely support pipelines triggered by merge requests
 .global_setup: &global_setup
@@ -85,7 +85,7 @@ variables:
   stage: .pre
   image: ${CI_REGISTRY}/kaios/gecko-dev/lint:da2bfc77
   tags:
-    - gecko-lint
+    - sh-runners
   variables:
     GIT_STRATEGY: none # save the time took by disk I/O since we don't need working tree in this stage
   before_script:
@@ -150,7 +150,7 @@ variables:
   # 3d9d58d5_1 add a layer of packages update base on da2bfc77.
   image: ${CI_REGISTRY}/kaios/gecko-dev/lint:da2bfc77
   tags:
-    - gecko-lint
+    - sh-runners
   variables:
     MACH_LINT_PARAMETERS: '-f unix -v'
   before_script:
@@ -167,7 +167,7 @@ variables:
 .build_desktop:
   image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_11_2
   tags:
-    - gecko-dev
+    - sh-runners
   variables:
     MOZ_OBJDIR: 'objdir-desktop-gecko'
     MOZCONFIG: 'mozconfig-b2g-desktop'
@@ -198,7 +198,7 @@ variables:
 .test_wpt:
   image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.66.0_11_2
   tags:
-    - gecko-dev
+    - sh-runners
   variables:
     MOZ_OBJDIR: 'artifacts-desktop-gecko'
     MOZCONFIG: 'mozconfig-b2g-desktop'
@@ -213,7 +213,7 @@ variables:
 .build_emulator:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_11_2
   tags:
-    - gecko-dev
+    - sh-runners
   variables:
     GONK_PRODUCT_NAME: generic_x86_64
     PLATFORM_VERSION: 29
@@ -239,7 +239,7 @@ variables:
 .build_arm:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_11_2
   tags:
-    - gecko-dev
+    - sh-runners
   variables:
     GONK_PRODUCT_NAME: msm8937_32go
     PLATFORM_VERSION: 29
@@ -268,7 +268,7 @@ variables:
 .build_arm64:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.66.0_11_2
   tags:
-    - gecko-dev
+    - sh-runners
   variables:
     PLATFORM_VERSION: 30
     TARGET_ARCH: arm64

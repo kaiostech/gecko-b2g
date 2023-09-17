@@ -7,7 +7,7 @@
     - .lint:rules:eslint
   # lock this job to specific runner in order to ultilize cache
   tags:
-    - gecko-eslint
+    - sh-runners
   variables:
     SPECIFIC_LINTERS: "eslint codespell"
     PATHSPEC: "*.{js,jsm,jsx,mjs,xul,html,xhtml} ':(glob)**/.eslintignore' ':(glob)**/*eslintrc*' 'tools/lint/eslint/eslint-plugin-mozilla/' 'tools/lint/eslint/eslint-plugin-spidermonkey-js/'"

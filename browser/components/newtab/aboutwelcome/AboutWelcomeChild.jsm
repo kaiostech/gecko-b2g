@@ -346,6 +346,7 @@ const OPTIN_DEFAULT = {
   template: "multistage",
   backdrop: "transparent",
   aria_role: "alert",
+  UTMTerm: "opt-in",
   screens: [
     {
       id: "FS_OPT_IN",
@@ -361,7 +362,7 @@ const OPTIN_DEFAULT = {
           action: {
             type: "OPEN_URL",
             data: {
-              args: "https://www.support.mozilla.org",
+              args: "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/review-checker-review-quality?utm_source=review-checker&utm_campaign=learn-more&utm_medium=in-product",
               where: "tab",
             },
           },
@@ -385,7 +386,7 @@ const OPTIN_DEFAULT = {
           action: {
             type: "OPEN_URL",
             data: {
-              args: "https://www.fakespot.com/privacy-policy",
+              args: "https://www.fakespot.com/privacy-policy?utm_source=review-checker&utm_campaign=privacy-policy&utm_medium=in-product",
               where: "tab",
             },
           },
@@ -394,7 +395,7 @@ const OPTIN_DEFAULT = {
           action: {
             type: "OPEN_URL",
             data: {
-              args: "https://www.fakespot.com/terms",
+              args: "https://www.fakespot.com/terms?utm_source=review-checker&utm_campaign=terms-of-use&utm_medium=in-product",
               where: "tab",
             },
           },
@@ -445,12 +446,15 @@ const SHOPPING_MICROSURVEY = {
       content: {
         position: "split",
         layout: "survey",
-        title: "Help improve Firefox",
-        subtitle:
-          "How satisfied are you with the review checker experience in Firefox?",
+        title: {
+          string_id: "shopping-survey-headline",
+        },
+        subtitle: {
+          string_id: "shopping-survey-question-one",
+        },
         primary_button: {
           label: {
-            raw: "Next",
+            string_id: "shopping-survey-next-button-label",
             paddingBlock: "5px",
             marginBlock: "0px 10px",
           },
@@ -481,35 +485,35 @@ const SHOPPING_MICROSURVEY = {
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "Very satisfied" },
+              label: { string_id: "shopping-survey-q1-radio-1-label" },
             },
             {
               id: "radio-2",
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "Satisfied" },
+              label: { string_id: "shopping-survey-q1-radio-2-label" },
             },
             {
               id: "radio-3",
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "Neutral" },
+              label: { string_id: "shopping-survey-q1-radio-3-label" },
             },
             {
               id: "radio-4",
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "Unsatisfied" },
+              label: { string_id: "shopping-survey-q1-radio-4-label" },
             },
             {
               id: "radio-5",
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "Very unsatisfied" },
+              label: { string_id: "shopping-survey-q1-radio-5-label" },
             },
           ],
         },
@@ -521,12 +525,15 @@ const SHOPPING_MICROSURVEY = {
       content: {
         position: "split",
         layout: "survey",
-        title: "Help improve Firefox",
-        subtitle:
-          "Does the review checker make it easier for you to make purchase decisions?",
+        title: {
+          string_id: "shopping-survey-headline",
+        },
+        subtitle: {
+          string_id: "shopping-survey-question-two",
+        },
         primary_button: {
           label: {
-            raw: "Submit",
+            string_id: "shopping-survey-submit-button-label",
             paddingBlock: "5px",
             marginBlock: "0px 10px",
           },
@@ -557,21 +564,21 @@ const SHOPPING_MICROSURVEY = {
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "Yes" },
+              label: { string_id: "shopping-survey-q2-radio-1-label" },
             },
             {
               id: "radio-2",
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "No" },
+              label: { string_id: "shopping-survey-q2-radio-2-label" },
             },
             {
               id: "radio-3",
               type: "radio",
               group: "radios",
               defaultValue: false,
-              label: { raw: "I don’t know" },
+              label: { string_id: "shopping-survey-q2-radio-3-label" },
             },
           ],
         },
@@ -605,6 +612,18 @@ class AboutWelcomeShoppingChild extends AboutWelcomeChild {
   // Static used to track PDP visits per session for showing survey
   static eligiblePDPvisits = [];
 
+  constructor() {
+    super();
+    this.surveyEnabled =
+      lazy.NimbusFeatures.shopping2023.getVariable("surveyEnabled");
+
+    // Used by tests
+    this.resetChildStates = () => {
+      AboutWelcomeShoppingChild.eligiblePDPvisits.length = 0;
+      AboutWelcomeShoppingChild.optedInSession = false;
+    };
+  }
+
   computeEligiblePDPCount(data) {
     // Increment our pref if this isn't a page we've already seen this session
     if (lazy.pdpVisits < MIN_VISITS_TO_SHOW_SURVEY) {
@@ -628,6 +647,7 @@ class AboutWelcomeShoppingChild extends AboutWelcomeChild {
     // Re-evaluate if we should show the survey
     // Render survey if user is opted-in and has met survey seen conditions
     this.showMicroSurvey =
+      this.surveyEnabled &&
       !lazy.isSurveySeen &&
       !AboutWelcomeShoppingChild.optedInSession &&
       lazy.pdpVisits >= MIN_VISITS_TO_SHOW_SURVEY;

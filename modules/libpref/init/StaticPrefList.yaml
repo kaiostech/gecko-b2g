@@ -1809,11 +1809,6 @@
   value: false
   mirror: always
 
-- name: browser.underline_anchors
-  type: bool
-  value: true
-  mirror: always
-
 - name: browser.viewport.desktopWidth
   type: RelaxedAtomicInt32
   value: 980
@@ -3082,18 +3077,6 @@
   value: @IS_ANDROID@
   mirror: always
 
-# Is support for HTMLElement.inputMode enabled?
-- name: dom.forms.inputmode
-  type: bool
-  value: true
-  mirror: always
-
-# B2G_RIL
-- name: dom.icc.enabled
-  type: bool
-  value: true
-  mirror: always
-
 - name: dom.forms.always_allow_pointer_events.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
@@ -3110,6 +3093,12 @@
 - name: dom.forms.fieldset_disable_only_descendants.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# B2G_RIL
+- name: dom.icc.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Whether to allow or disallow web apps to cancel `beforeinput` events caused
@@ -3205,12 +3194,6 @@
 # Autoplay Policy Detection https://w3c.github.io/autoplay/
 - name: dom.media.autoplay-policy-detection.enabled
   type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Media Session API
-- name: dom.media.mediasession.enabled
-  type: bool
   value: true
   mirror: always
 
@@ -3448,13 +3431,6 @@
 - name: dom.permissions.revoke.enable
   type: bool
   value: false
-  mirror: always
-
-# This enables width and height attributes and map these attributes to img
-# element's style.
-- name: dom.picture_source_dimension_attributes.enabled
-  type: bool
-  value: true
   mirror: always
 
 # Is support for Element.requestPointerLock enabled?
@@ -4809,6 +4785,12 @@
   mirror: always
   rust: true
 
+- name: dom.webgpu.swap-chain.external-texture-dx12
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for HTMLInputElement.webkitEntries enabled?
 - name: dom.webkitBlink.filesystem.enabled
   type: bool
@@ -4885,11 +4867,6 @@
 - name: dom.window.clientinformation.enabled
   type: bool
   value: true
-  mirror: always
-
-- name: dom.window.sidebar.enabled
-  type: bool
-  value: false
   mirror: always
 
 # Whether Window.sizeToContent() is enabled.
@@ -6210,12 +6187,6 @@
   value: false
   mirror: always
 
-# Whether font sanitization is performed on the main thread or not.
-- name: gfx.downloadable_fonts.sanitize_omt
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Whether to validate OpenType variation tables in fonts.
 - name: gfx.downloadable_fonts.validate_variation_tables
   type: RelaxedAtomicBool
@@ -7249,12 +7220,6 @@
   value: false
   mirror: always
 
-# Whether we attempt to decode WebP images or not.
-- name: image.webp.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Whether we attempt to decode AVIF images or not.
 - name: image.avif.enabled
   type: RelaxedAtomicBool
@@ -7710,15 +7675,15 @@
   value: true
   mirror: always
 
+# Support for Object.groupBy/Map.groupBy in JavaScript.
+-  name: javascript.options.array_grouping
+   type: bool
+   value: true
+   mirror: always
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.iterator_helpers
-    type: bool
-    value: false
-    mirror: always
-
-  # Experimental support for Array Grouping in JavaScript.
--   name: javascript.options.experimental.array_grouping
     type: bool
     value: false
     mirror: always
@@ -8788,19 +8753,6 @@
   value: false
   mirror: always
 
-# Pref to control whether line-height: -moz-block-height is exposed to content.
-- name: layout.css.line-height-moz-block-height.content.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
-# Is support for motion-path enabled?
-- name: layout.css.motion-path.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Is support for motion-path <basic-shape> other than path() enabled?
 # https://drafts.fxtf.org/motion-1/#valdef-offset-path-basic-shape
 - name: layout.css.motion-path-basic-shapes.enabled
@@ -8859,13 +8811,6 @@
 - name: layout.css.math-depth.enabled
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-  rust: true
-
-# Pref to control whether @-moz-document rules are enabled in content pages.
-- name: layout.css.moz-document.content.enabled
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
   rust: true
 
@@ -11401,6 +11346,19 @@
 #endif
 
 #---------------------------------------------------------------------------
+# Prefs starting with "memory."
+#---------------------------------------------------------------------------
+
+- name: memory.phc.enabled
+  type: bool
+#if defined(MOZ_PHC)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
+#---------------------------------------------------------------------------
 # Prefs starting with "midi."
 #---------------------------------------------------------------------------
 
@@ -12119,12 +12077,6 @@
 - name: network.dns.disabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Whether DNS resolution is limited to literals and cached entries.
-- name: network.dns.skipTRR-when-parental-control-enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 - name: network.dns.disablePrefetchFromHTTPS

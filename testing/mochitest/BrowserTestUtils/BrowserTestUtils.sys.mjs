@@ -440,6 +440,11 @@ export var BrowserTestUtils = {
       );
     }
 
+    // Consumers may pass gBrowser instead of a browser, so adjust for that.
+    if ("selectedBrowser" in browser) {
+      browser = browser.selectedBrowser;
+    }
+
     // If browser belongs to tabbrowser-tab, ensure it has been
     // inserted into the document.
     let tabbrowser = browser.ownerGlobal.gBrowser;
@@ -918,14 +923,18 @@ export var BrowserTestUtils = {
   },
 
   /**
-   * Loads a new URI in the given browser, triggered by the system principal.
+   * Starts the load of a new URI in the given browser, triggered by the system
+   * principal.
+   * Note this won't want for the load to be complete. For that you may either
+   * use BrowserTestUtils.browserLoaded(), BrowserTestUtils.waitForErrorPage(),
+   * or make your own handler.
    *
    * @param {xul:browser} browser
    *        A xul:browser.
    * @param {string} uri
    *        The URI to load.
    */
-  loadURIString(browser, uri) {
+  startLoadingURIString(browser, uri) {
     browser.fixupAndLoadURIString(uri, {
       triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
     });

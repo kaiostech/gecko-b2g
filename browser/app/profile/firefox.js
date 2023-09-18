@@ -750,6 +750,10 @@ pref("browser.shopping.experience2023.ads.enabled", false);
 // Unlike `browser.shopping.experience2023.ads.enabled`, this pref is controlled by users
 // using the visible toggle.
 pref("browser.shopping.experience2023.ads.userEnabled", false);
+
+// Saves if shopping survey is enabled.
+pref("browser.shopping.experience2023.survey.enabled", true);
+
 // Saves if shopping survey is seen.
 pref("browser.shopping.experience2023.survey.hasSeen", false);
 
@@ -1684,6 +1688,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.spocAdTypes", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocZoneIds", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesAdTypes", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesZoneIds", "");
+pref("browser.newtabpage.activity-stream.discoverystream.spocTopsitesPlacement.enabled", true);
 pref("browser.newtabpage.activity-stream.discoverystream.spocSiteId", "");
 
 pref("browser.newtabpage.activity-stream.discoverystream.sendToPocket.enabled", true);

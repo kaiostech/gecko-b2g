@@ -10046,6 +10046,12 @@ var ShoppingSidebarManager = {
     this._enabled =
       NimbusFeatures.shopping2023.getVariable("enabled") && !isPBM && !optedOut;
 
+    if (!this.isActive) {
+      document.querySelectorAll("shopping-sidebar").forEach(sidebar => {
+        sidebar.hidden = true;
+      });
+    }
+
     if (!this._enabled) {
       document.querySelectorAll("shopping-sidebar").forEach(sidebar => {
         sidebar.remove();
@@ -10130,6 +10136,14 @@ var ShoppingSidebarManager = {
       // This is the auto-enable behavior that toggles the `active` pref. It
       // must be at the end of this function, or 2 sidebars could be created.
       ShoppingUtils.handleAutoActivateOnProduct();
+
+      if (!this.isActive) {
+        ShoppingUtils.sendTrigger({
+          browser: aBrowser,
+          id: "shoppingProductPageWithSidebarClosed",
+          context: { isSidebarClosing: !!sidebar },
+        });
+      }
     }
   },
 
@@ -10167,7 +10181,6 @@ var ShoppingSidebarManager = {
 
     // Only record if the state of the icon will change from hidden to visible.
     if (button.hidden && isCurrentBrowserProduct) {
-      console.log("visibility of shopping address bar icon changed");
       Glean.shopping.addressBarIconDisplayed.record();
     }
 

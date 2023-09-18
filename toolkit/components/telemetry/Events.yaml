@@ -784,7 +784,7 @@ urlbar:
           "searchsuggestion_rich", "switchtab", "remotetab", "extension",
           "oneoff", "keywordoffer", "canonized", "tip", "tiphelp",
           "formhistory", "tabtosearch", "quicksuggest", "weather",
-          "dynamic-wikipedia", "navigational", "none"
+          "clipboard", "dynamic-wikipedia", "navigational", "none"
       provider: The name of the provider that presented the result.
   abandonment:
     objects: ["blur"]
@@ -4055,6 +4055,22 @@ firefoxview_next:
       - main
     bug_numbers:
       - 1842616
+    expiry_version: "never"
+    release_channel_collection: opt-out
+  entered:
+    objects: ["firefoxview"]
+    description: >
+      Recorded when the Firefox View tab is selected
+    extra_keys:
+      page: The short page name used as the location hash when selecting the Firefox View tab
+    notification_emails:
+      - firefoxview@mozilla.com
+    products:
+      - "firefox"
+    record_in_processes:
+      - main
+    bug_numbers:
+      - 1852036
     expiry_version: "never"
     release_channel_collection: opt-out
 

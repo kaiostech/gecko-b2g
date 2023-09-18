@@ -47,6 +47,7 @@ export class ShoppingContainer extends MozLitElement {
       unanalyzedProductEl: "unanalyzed-product-card",
       shoppingMessageBarEl: "shopping-message-bar",
       recommendedAdEl: "recommended-ad",
+      loadingEl: "#loading-wrapper",
     };
   }
 
@@ -59,7 +60,7 @@ export class ShoppingContainer extends MozLitElement {
 
     window.document.addEventListener("Update", this);
     window.document.addEventListener("NewAnalysisRequested", this);
-    window.document.addEventListener("ReAnalysisRequested", this);
+    window.document.addEventListener("ReanalysisRequested", this);
     window.document.addEventListener("ReportedProductAvailable", this);
     window.document.addEventListener("adsEnabledByUserChanged", this);
 
@@ -99,7 +100,7 @@ export class ShoppingContainer extends MozLitElement {
         this._update(event.detail);
         break;
       case "NewAnalysisRequested":
-      case "ReAnalysisRequested":
+      case "ReanalysisRequested":
         this.analysisEvent = {
           type: event.type,
           productUrl: this.productUrl,
@@ -145,18 +146,17 @@ export class ShoppingContainer extends MozLitElement {
 
   getContentTemplate() {
     // The user requested an analysis which is not done yet.
-    // We only want to show the analysis-in-progress message-bar
-    // for the product currently in view.
     if (
       this.analysisEvent?.productUrl == this.productUrl &&
       !this.isPolledRequestDone
     ) {
+      const isReanalysis = this.analysisEvent.type === "ReanalysisRequested";
       return html`<shopping-message-bar
-          type="analysis-in-progress"
+          type=${isReanalysis
+            ? "reanalysis-in-progress"
+            : "analysis-in-progress"}
         ></shopping-message-bar>
-        ${this.analysisEvent.type == "ReAnalysisRequested"
-          ? this.getAnalysisDetailsTemplate()
-          : null}`;
+        ${isReanalysis ? this.getAnalysisDetailsTemplate() : null}`;
     }
 
     if (this.data?.error) {
@@ -226,12 +226,24 @@ export class ShoppingContainer extends MozLitElement {
     return null;
   }
 
-  getLoadingTemplate() {
+  /**
+   * @param {object?} options
+   * @param {boolean?} options.animate = true
+   *        Whether to animate the loading state. Defaults to true.
+   *        There will be no animation for users who prefer reduced motion,
+   *        irrespective of the value of this option.
+   */
+  getLoadingTemplate({ animate = true } = {}) {
     /* Due to limitations with aria-busy for certain screen readers
      * (see Bug 1682063), mark loading container as a pseudo image and
      * use aria-label as a workaround. */
     return html`
-      <div id="loading-wrapper" data-l10n-id="shopping-a11y-loading" role="img">
+      <div
+        id="loading-wrapper"
+        data-l10n-id="shopping-a11y-loading"
+        role="img"
+        ${animate ? "class='animate'" : ""}
+      >
         <div class="loading-box medium"></div>
         <div class="loading-box medium"></div>
         <div class="loading-box large"></div>
@@ -253,9 +265,13 @@ export class ShoppingContainer extends MozLitElement {
       />
       <div id="shopping-container">
         <div id="header-wrapper">
-          <div id="shopping-header">
-            <h1 id="header" data-l10n-id="shopping-main-container-title"></h1>
-          </div>
+          <header id="shopping-header" data-l10n-id="shopping-a11y-header">
+            <h1
+              id="shopping-header-title"
+              data-l10n-id="shopping-main-container-title"
+            ></h1>
+            <p id="beta-marker" data-l10n-id="shopping-beta-marker"></p>
+          </header>
           <button
             id="close-button"
             class="ghost-button"
@@ -289,9 +305,7 @@ export class ShoppingContainer extends MozLitElement {
       content = html``;
       hideFooter = true;
     } else if (this.isOffline) {
-      content = html`<shopping-message-bar
-        type="offline"
-      ></shopping-message-bar>`;
+      content = this.getLoadingTemplate({ animate: false });
       hideFooter = true;
     } else if (!this.data) {
       content = this.getLoadingTemplate();

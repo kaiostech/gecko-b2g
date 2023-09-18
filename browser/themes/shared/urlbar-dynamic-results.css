@@ -101,7 +101,9 @@
   }
 }
 
-/** Quick actions **/
+/**
+ * Quick actions
+ */
 
 .urlbarView-row[dynamicType=quickactions] > .urlbarView-row-inner {
   align-items: start;
@@ -170,24 +172,16 @@
  * Site-specific search
  */
 
-.urlbarView-row[dynamicType=contextualSearch] .urlbarView-title[overflow] {
-  mask-image: linear-gradient(to left, transparent, black 2em);
+.urlbarView-title-separator.urlbarView-dynamic-contextualSearch-separator {
+  visibility: visible !important /* override .urlbarView-title-separator rules */;
 }
 
-.urlbarView-row[dynamicType=contextualSearch] .urlbarView-title[overflow]:-moz-locale-dir(rtl) {
-  mask-image: linear-gradient(to right, transparent, black 2em);
-}
+.urlbarView-dynamic-contextualSearch-description {
+  font-size: var(--urlbarView-small-font-size);
 
-.urlbarView-row[dynamicType=contextualSearch] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator.urlbarView-dynamic-contextualSearch-separator {
-  visibility: visible;
-}
-
-.urlbarView-row[dynamicType=contextualSearch] .urlbarView-dynamic-contextualSearch-description {
-  font-size: 0.85em;
-}
-
-.urlbarView-row[dynamicType=contextualSearch]:hover > .urlbarView-row-inner {
-  background-color: var(--autocomplete-popup-hover-background);
+  .urlbarView-row:not([selected]) & {
+    color: var(--urlbar-popup-action-color);
+  }
 }
 
 
@@ -424,7 +418,10 @@
   }
 }
 
-/* Add-ons */
+/**
+ * Add-ons
+ */
+
 .urlbarView-dynamic-addons-content {
   display: grid;
   grid-template-areas: "icon header"
@@ -472,10 +469,10 @@
   width: calc(16px * 5);
   height: 16px;
   margin-inline-end: 9px;
-}
 
-.urlbarView-dynamic-addons-content[treatment=b] > .urlbarView-dynamic-addons-footer > .urlbarView-dynamic-addons-ratingContainer {
-  display: none;
+  .urlbarView-dynamic-addons-content[treatment=b] > .urlbarView-dynamic-addons-footer > & {
+    display: none;
+  }
 }
 
 .urlbarView-dynamic-addons-rating {

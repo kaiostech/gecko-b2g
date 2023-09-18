@@ -10,7 +10,7 @@ const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
 var gDebug = false;
 
-export const WifiConfigStore = (function() {
+export const WifiConfigStore = (function () {
   var wifiConfigStore = {};
 
   const WIFI_CONFIG_PATH = "/data/misc/wifi/wifi_config.json";
@@ -67,14 +67,12 @@ export const WifiConfigStore = (function() {
     // Initialize the file output stream.
     let ostream = FileUtils.openSafeFileOutputStream(configFile);
 
-    // Obtain a converter to convert our data to a UTF-8 encoded input stream.
-    let converter = Cc[
-      "@mozilla.org/intl/scriptableunicodeconverter"
-    ].createInstance(Ci.nsIScriptableUnicodeConverter);
-    converter.charset = "UTF-8";
-
     // Asynchronously copy the data to the file.
-    let istream = converter.convertToInputStream(JSON.stringify(data));
+    let istream = Cc["@mozilla.org/io/string-input-stream;1"].createInstance(
+      Ci.nsIStringInputStream
+    );
+    istream.setUTF8Data(JSON.stringify(data));
+
     NetUtil.asyncCopy(istream, ostream, rc => {
       let success = Components.isSuccessCode(rc);
       if (!success) {

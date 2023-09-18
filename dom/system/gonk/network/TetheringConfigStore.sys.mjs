@@ -8,7 +8,7 @@ import { FileUtils } from "resource://gre/modules/FileUtils.sys.mjs";
 
 const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
-export const TetheringConfigStore = (function() {
+export const TetheringConfigStore = (function () {
   var tetheringConfigStore = {};
 
   // Sync from TetheringService
@@ -75,15 +75,13 @@ export const TetheringConfigStore = (function() {
     // Initialize the file output stream.
     let ostream = FileUtils.openSafeFileOutputStream(tetheringConfigFile);
 
-    // Obtain a converter to convert our data to a UTF-8 encoded input stream.
-    let converter = Cc[
-      "@mozilla.org/intl/scriptableunicodeconverter"
-    ].createInstance(Ci.nsIScriptableUnicodeConverter);
-    converter.charset = "UTF-8";
-
     // Asynchronously copy the data to the file.
-    let istream = converter.convertToInputStream(JSON.stringify(aConfig));
-    NetUtil.asyncCopy(istream, ostream, function(rc) {
+    let istream = Cc["@mozilla.org/io/string-input-stream;1"].createInstance(
+      Ci.nsIStringInputStream
+    );
+    istream.setUTF8Data(JSON.stringify(aConfig));
+
+    NetUtil.asyncCopy(istream, ostream, function (rc) {
       FileUtils.closeSafeFileOutputStream(ostream);
       if (aCallback) {
         aCallback();

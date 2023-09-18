@@ -84,18 +84,13 @@ ActivitiesDb.prototype = {
 
   // unique ids made of (uri, action)
   createId: function actdb_createId(aObject) {
-    let converter = Cc[
-      "@mozilla.org/intl/scriptableunicodeconverter"
-    ].createInstance(Ci.nsIScriptableUnicodeConverter);
-    converter.charset = "UTF-8";
-
     let hasher = Cc["@mozilla.org/security/hash;1"].createInstance(
       Ci.nsICryptoHash
     );
     hasher.init(hasher.SHA1);
 
     // add uri and action to the hash
-    ["manifest", "name", "description"].forEach(function(aProp) {
+    ["manifest", "name", "description"].forEach(function (aProp) {
       if (!aObject[aProp]) {
         return;
       }
@@ -105,7 +100,7 @@ ActivitiesDb.prototype = {
         property = JSON.stringify(aObject[aProp]);
       }
 
-      let data = converter.convertToByteArray(property, {});
+      let data = new TextEncoder().encode(property);
       hasher.update(data, data.length);
     });
 
@@ -117,9 +112,9 @@ ActivitiesDb.prototype = {
     this.newTxn(
       "readwrite",
       STORE_NAME,
-      function(txn, store) {
+      function (txn, store) {
         DEBUG && debug("Object count: " + aObjects.length);
-        aObjects.forEach(function(aObject) {
+        aObjects.forEach(function (aObject) {
           let object = {
             manifest: aObject.manifest,
             name: aObject.name,
@@ -152,18 +147,18 @@ ActivitiesDb.prototype = {
           store.delete(this.createId(object));
         });
       },
-      function() {},
-      function() {}
+      function () {},
+      function () {}
     );
   },
 
   // Remove all activities associated with the given |aManifest| URL.
   removeAll: function actdb_removeAll(aManifest) {
-    this.newTxn("readwrite", STORE_NAME, function(txn, store) {
+    this.newTxn("readwrite", STORE_NAME, function (txn, store) {
       let index = store.index("manifest");
       let request = index.mozGetAll(aManifest);
       request.onsuccess = function manifestActivities(aEvent) {
-        aEvent.target.result.forEach(function(result) {
+        aEvent.target.result.forEach(function (result) {
           DEBUG && debug("Removing activity: " + JSON.stringify(result));
           store.delete(result.id);
         });
@@ -175,7 +170,7 @@ ActivitiesDb.prototype = {
     this.newTxn(
       "readonly",
       STORE_NAME,
-      function(txn, store) {
+      function (txn, store) {
         let index = store.index("name");
         let request = index.mozGetAll(aObject.options.name);
         request.onsuccess = function findSuccess(aEvent) {
@@ -186,7 +181,7 @@ ActivitiesDb.prototype = {
             };
           }
 
-          aEvent.target.result.forEach(function(result) {
+          aEvent.target.result.forEach(function (result) {
             if (!aMatch(result)) {
               return;
             }
@@ -228,7 +223,7 @@ var Activities = {
   ],
 
   init: function activities_init() {
-    this.messages.forEach(function(msgName) {
+    this.messages.forEach(function (msgName) {
       Services.ppmm.addMessageListener(msgName, this);
     }, this);
 
@@ -247,7 +242,7 @@ var Activities = {
   observe: function activities_observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case "xpcom-shutdown":
-        this.messages.forEach(function(msgName) {
+        this.messages.forEach(function (msgName) {
           Services.ppmm.removeMessageListener(msgName, this);
         }, this);
 
@@ -282,7 +277,7 @@ var Activities = {
           }
         }
         let self = this;
-        messages.forEach(function(id) {
+        messages.forEach(function (id) {
           self.trySendAndCleanup(id, "Activity:FireError", {
             id,
             error: "ACTIVITY_HANDLER_SHUTDOWN",
@@ -293,7 +288,7 @@ var Activities = {
         Services.obs.removeObserver(this, "b2g-sw-registration-done");
         this.allRegistrationsReady = true;
         this.pendingGetRequests.forEach(
-          function(request) {
+          function (request) {
             DEBUG &&
               debug(
                 `handle pending Get request ${request.msg.name} ${request.msg.requestID}`
@@ -325,7 +320,7 @@ var Activities = {
         return;
       }
 
-      let getActivityChoice = function(aResult) {
+      let getActivityChoice = function (aResult) {
         // The user has cancelled the choice, fire an error.
         if (aResult === -1) {
           self.trySendAndCleanup(aMsg.id, "Activity:FireError", {
@@ -375,7 +370,7 @@ var Activities = {
 
       let id = "activity-choice" + self.activityChoiceID++;
       let choices = [];
-      aResults.options.forEach(function(item) {
+      aResults.options.forEach(function (item) {
         choices.push({ manifest: item.manifest, icon: item.icon });
       });
       let detail = {

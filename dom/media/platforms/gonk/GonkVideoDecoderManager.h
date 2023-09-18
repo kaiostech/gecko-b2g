@@ -52,6 +52,8 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
     return TrackType::kAudioTrack;
   }
 
+  virtual const TrackInfo& GetConfig() const override { return mConfig; }
+
   static void RecycleCallback(TextureClient* aClient, void* aClosure);
 
  private:

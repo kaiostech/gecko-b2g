@@ -112,6 +112,21 @@ int32_t GonkDecoderManager::ProcessQueuedSamples() {
   status_t rv;
   while (mQueuedSamples.Length()) {
     RefPtr<MediaRawData> data = mQueuedSamples.ElementAt(0);
+
+    // AOSP Vorbis decoder expects "valid samples" to be appended to the data.
+    if (GetConfig().mMimeType.EqualsLiteral("audio/vorbis")) {
+      auto duration = data->mDuration;
+      auto rate = GetConfig().GetAsAudioInfo()->mRate;
+      int32_t validSamples =
+          duration.IsValid() ? duration.ToTicksAtRate(rate) : -1;
+      // Caution: we are modifying the input data.
+      UniquePtr<MediaRawDataWriter> writer(data->CreateWriter());
+      if (!writer->Append(reinterpret_cast<uint8_t*>(&validSamples),
+                          sizeof(int32_t))) {
+        return NO_MEMORY;
+      }
+    }
+
     sp<GonkCryptoInfo> cryptoInfo;
 #ifdef B2G_MEDIADRM
     cryptoInfo = GonkMediaUtils::GetCryptoInfo(data);
@@ -429,8 +444,6 @@ void GonkMediaDataDecoder::ResolveDrainPromise() {
   }
 }
 
-nsCString GonkMediaDataDecoder::GetCodecName() const {
-  return "unknown"_ns;
-}
+nsCString GonkMediaDataDecoder::GetCodecName() const { return "unknown"_ns; }
 
 }  // namespace mozilla

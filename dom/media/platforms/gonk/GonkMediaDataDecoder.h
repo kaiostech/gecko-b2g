@@ -50,6 +50,7 @@ class GonkDecoderManager : public android::AHandler {
   virtual RefPtr<InitPromise> Init() = 0;
   virtual const char* GetDescriptionName() const = 0;
   virtual TrackType GetTrackType() const = 0;
+  virtual const TrackInfo& GetConfig() const = 0;
 
   // Asynchronously send sample into mDecoder. If out of input buffer, aSample
   // will be queued for later re-send.

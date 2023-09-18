@@ -30,6 +30,23 @@ static mozilla::LazyLogModule sCodecLog("GonkMediaUtils");
 #define LOGD(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #define LOGV(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
 
+GonkBufferWriter::GonkBufferWriter(const sp<MediaCodecBuffer>& aBuffer)
+    : mBuffer(aBuffer) {}
+
+void GonkBufferWriter::Clear() {
+  mBuffer->setRange(0, 0);
+}
+
+bool GonkBufferWriter::Append(const uint8_t* aData, size_t aSize) {
+  if (mBuffer->offset() + mBuffer->size() + aSize > mBuffer->capacity()) {
+    return false;
+  }
+
+  memcpy(mBuffer->data() + mBuffer->size(), aData, aSize);
+  mBuffer->setRange(mBuffer->offset(), mBuffer->size() + aSize);
+  return true;
+}
+
 /* static */
 AudioEncoding GonkMediaUtils::PreferredPcmEncoding() {
 #ifdef MOZ_SAMPLE_TYPE_S16

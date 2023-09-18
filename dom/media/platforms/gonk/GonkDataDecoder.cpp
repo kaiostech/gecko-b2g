@@ -20,6 +20,7 @@
 using android::ABuffer;
 using android::AMessage;
 using android::AString;
+using android::GonkBufferWriter;
 using android::GonkCryptoInfo;
 using android::GonkMediaCodec;
 using android::GonkMediaUtils;
@@ -354,12 +355,26 @@ bool GonkDataDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
   }
 
   RefPtr<MediaRawData> sample = mInputQueue.PopFront();
-  if (sample->Size() > aBuffer->capacity()) {
+  GonkBufferWriter writer(aBuffer);
+  writer.Clear();
+  if (!writer.Append(sample->Data(), sample->Size())) {
     LOGE("%p input sample too large", this);
     return false;
   }
-  aBuffer->setRange(0, sample->Size());
-  memcpy(aBuffer->data(), sample->Data(), sample->Size());
+
+  // AOSP Vorbis decoder expects "valid samples" to be appended to the data.
+  if (mConfig->mMimeType.EqualsLiteral("audio/vorbis")) {
+    auto duration = sample->mDuration;
+    auto rate = mConfig->GetAsAudioInfo()->mRate;
+    int32_t validSamples =
+        duration.IsValid() ? duration.ToTicksAtRate(rate) : -1;
+    if (!writer.Append(reinterpret_cast<uint8_t*>(&validSamples),
+                       sizeof(int32_t))) {
+      LOGE("%p unable to append valid-samples", this);
+      return false;
+    }
+  }
+
   *aInputInfo = new SampleInfo(sample);
   *aTimeUs = sample->mTime.ToMicroseconds();
 

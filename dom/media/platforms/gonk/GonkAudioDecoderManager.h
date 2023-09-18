@@ -44,6 +44,8 @@ class GonkAudioDecoderManager : public GonkDecoderManager {
     return TrackType::kAudioTrack;
   }
 
+  virtual const TrackInfo& GetConfig() const override { return mConfig; }
+
  private:
   bool InitMediaCodecProxy();
 

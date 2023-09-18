@@ -6,6 +6,7 @@
 #define GONK_MEDIA_UTILS_H
 
 #include <media/hardware/CryptoAPI.h>
+#include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/AString.h>
 #include <media/stagefright/foundation/MediaDefs.h>
@@ -29,6 +30,18 @@ class GonkCryptoInfo : public RefBase {
   std::vector<CryptoPlugin::SubSample> mSubSamples;
   std::vector<uint8_t> mKey;
   std::vector<uint8_t> mIV;
+};
+
+class GonkBufferWriter {
+ public:
+  GonkBufferWriter(const sp<MediaCodecBuffer>& aBuffer);
+
+  void Clear();
+
+  bool Append(const uint8_t* aData, size_t aSize);
+
+ private:
+  sp<MediaCodecBuffer> mBuffer;
 };
 
 class GonkMediaUtils {

@@ -17,8 +17,7 @@
   --tab-border-radius: 4px;
   --tab-shadow-max-size: 6px;
   --tab-block-margin: 4px;
-  --tab-attention-icon-color: rgb(42,195,162);
-
+  --tab-attention-icon-color: AccentColor;
   /* --tabpanel-background-color matches $in-content-page-background in newtab
      (browser/components/newtab/content-src/styles/_variables.scss) */
   --tabpanel-background-color: #F9F9FB;
@@ -32,10 +31,6 @@
        ntp_background. */
     --tabpanel-background-color: #25003e !important;
   }
-}
-
-toolbar[brighttext] {
-  --tab-attention-icon-color: rgb(84,255,189);
 }
 
 #tabbrowser-tabpanels {
@@ -767,23 +762,23 @@ toolbar:not(#TabsToolbar) #firefox-view-button {
 
   @media (prefers-reduced-motion: no-preference) {
     &[busy] {
-      list-style-image: url("chrome://browser/skin/tabbrowser/tab-connecting.png");
-      @media (min-resolution: 1.1dppx) {
-        list-style-image: url("chrome://browser/skin/tabbrowser/tab-connecting@2x.png");
-      }
+      list-style-image: image-set(
+        url("chrome://browser/skin/tabbrowser/tab-connecting.png"),
+        url("chrome://browser/skin/tabbrowser/tab-connecting@2x.png") 2x
+      );
     }
 
     &[progress] {
-      list-style-image: url("chrome://browser/skin/tabbrowser/tab-loading.png");
-      @media (min-resolution: 1.1dppx) {
-        list-style-image: url("chrome://browser/skin/tabbrowser/tab-loading@2x.png");
-      }
+      list-style-image: image-set(
+        url("chrome://browser/skin/tabbrowser/tab-loading.png"),
+        url("chrome://browser/skin/tabbrowser/tab-loading@2x.png") 2x
+      );
 
       :root[lwt-popup-brighttext] &[progress]:not([selected]) {
-        list-style-image: url("chrome://browser/skin/tabbrowser/tab-loading-inverted.png");
-        @media (min-resolution: 1.1dppx) {
-          list-style-image: url("chrome://browser/skin/tabbrowser/tab-loading-inverted@2x.png");
-        }
+        list-style-image: image-set(
+          url("chrome://browser/skin/tabbrowser/tab-loading-inverted.png"),
+          url("chrome://browser/skin/tabbrowser/tab-loading-inverted@2x.png") 2x
+        );
       }
     }
   }

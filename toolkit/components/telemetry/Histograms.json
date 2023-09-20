@@ -455,8 +455,8 @@
     "record_in_processes": ["content"],
     "products": ["firefox"],
     "alert_emails": ["pbz@mozilla.com", "tihuang@mozilla.com"],
-    "expires_in_version": "120",
-    "bug_numbers": [1797078, 1804259, 1827765],
+    "expires_in_version": "122",
+    "bug_numbers": [1797078, 1804259, 1827765, 1850874],
     "kind": "exponential",
     "high": 600000,
     "n_buckets": 100,
@@ -17283,7 +17283,7 @@
     "n_buckets": 60,
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["ttung@mozilla.com", "storage-telemetry@mozilla.com"],
-    "description": "Time (ms) for the QuotaManager to load quota information. Keyed by conditions during quota info loading, see RecordQuotaInfoLoadTimeHelper::Run in https://searchfox.org/mozilla-central/source/dom/quota/ActorsParent.cpp"
+    "description": "Time (ms) for the QuotaManager to load quota information. Keyed by conditions during quota info loading, see RecordTimeDeltaHelper::Run in https://searchfox.org/mozilla-central/source/dom/quota/ActorsParent.cpp"
   },
   "QM_FIRST_INITIALIZATION_ATTEMPT": {
     "record_in_processes": ["main"],
@@ -17295,6 +17295,19 @@
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["ttung@mozilla.com", "storage-telemetry@mozilla.com"],
     "description": "True if the first initialization attempt succeeded, keyed by the initialization type."
+  },
+  "QM_SHUTDOWN_TIME_V0": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "fennec"],
+    "expires_in_version": "never",
+    "bug_numbers": [1824075],
+    "kind": "exponential",
+    "keyed": true,
+    "high": 60000,
+    "n_buckets": 60,
+    "releaseChannelCollection": "opt-out",
+    "alert_emails": ["jvarga@mozilla.com", "storage-telemetry@mozilla.com"],
+    "description": "Time (ms) for the QuotaManager to shutdown. Keyed by conditions during shutdown, see RecordTimeDeltaHelper::Run in https://searchfox.org/mozilla-central/source/dom/quota/ActorsParent.cpp"
   },
   "GV_CONTENT_PROCESS_LIFETIME_MS": {
     "record_in_processes": ["main"],
@@ -17781,25 +17794,6 @@
     "description": "TLS handshake with and without EchConfig success rate.",
     "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
     "bug_numbers": [1682555]
-  },
-  "L10N_DOCUMENT_INITIAL_TRANSLATION_TIME_US": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "expires_in_version": "120",
-    "kind": "exponential",
-    "high": 1000000,
-    "n_buckets": 100,
-    "description": "Time it took to perform initial translation of the document (in microseconds)",
-    "alert_emails": ["nordzilla@mozilla.com"],
-    "bug_numbers": [1692064, 1754653],
-    "keyed": true,
-    "keys": [
-      "browser_first_window",
-      "browser_new_window",
-      "about:newtab",
-      "about:home",
-      "about:preferences"
-    ]
   },
   "HTTPS_RR_PRESENTED": {
     "record_in_processes": ["main"],

@@ -785,7 +785,9 @@ class StoragePressureRunnable final : public Runnable {
   NS_DECL_NSIRUNNABLE
 };
 
-class RecordQuotaInfoLoadTimeHelper final : public Runnable {
+class RecordTimeDeltaHelper final : public Runnable {
+  const Telemetry::HistogramID mHistogram;
+
   // TimeStamps that are set on the IO thread.
   LazyInitializedOnceNotNull<const TimeStamp> mStartTime;
   LazyInitializedOnceNotNull<const TimeStamp> mEndTime;
@@ -794,15 +796,15 @@ class RecordQuotaInfoLoadTimeHelper final : public Runnable {
   LazyInitializedOnceNotNull<const TimeStamp> mInitializedTime;
 
  public:
-  RecordQuotaInfoLoadTimeHelper()
-      : Runnable("dom::quota::RecordQuotaInfoLoadTimeHelper") {}
+  explicit RecordTimeDeltaHelper(const Telemetry::HistogramID aHistogram)
+      : Runnable("dom::quota::RecordTimeDeltaHelper"), mHistogram(aHistogram) {}
 
   TimeStamp Start();
 
   TimeStamp End();
 
  private:
-  ~RecordQuotaInfoLoadTimeHelper() = default;
+  ~RecordTimeDeltaHelper() = default;
 
   NS_DECL_NSIRUNNABLE
 };
@@ -1742,7 +1744,14 @@ void QuotaManager::ShutdownInstance() {
   AssertIsOnBackgroundThread();
 
   if (gInstance) {
+    auto recordTimeDeltaHelper =
+        MakeRefPtr<RecordTimeDeltaHelper>(Telemetry::QM_SHUTDOWN_TIME_V0);
+
+    recordTimeDeltaHelper->Start();
+
     gInstance->Shutdown();
+
+    recordTimeDeltaHelper->End();
 
     gInstance = nullptr;
   } else {
@@ -2355,6 +2364,7 @@ void QuotaManager::Shutdown() {
   };
 
   // Body of the function
+
   ScopedLogExtraInfo scope{ScopedLogExtraInfo::kTagContext,
                            "dom::quota::QuotaManager::Shutdown"_ns};
 
@@ -2641,10 +2651,10 @@ nsresult QuotaManager::LoadQuota() {
         }
       };
 
-  auto recordQuotaInfoLoadTimeHelper =
-      MakeRefPtr<RecordQuotaInfoLoadTimeHelper>();
+  auto recordTimeDeltaHelper =
+      MakeRefPtr<RecordTimeDeltaHelper>(Telemetry::QM_QUOTA_INFO_LOAD_TIME_V0);
 
-  const auto startTime = recordQuotaInfoLoadTimeHelper->Start();
+  const auto startTime = recordTimeDeltaHelper->Start();
 
   auto LoadQuotaFromCache = [&]() -> nsresult {
     QM_TRY_INSPECT(
@@ -2875,7 +2885,7 @@ nsresult QuotaManager::LoadQuota() {
 
   autoRemoveQuota.release();
 
-  const auto endTime = recordQuotaInfoLoadTimeHelper->End();
+  const auto endTime = recordTimeDeltaHelper->End();
 
   if (StaticPrefs::dom_quotaManager_checkQuotaInfoLoadTime() &&
       static_cast<uint32_t>((endTime - startTime).ToMilliseconds()) >=
@@ -6533,8 +6543,8 @@ StoragePressureRunnable::Run() {
   return NS_OK;
 }
 
-TimeStamp RecordQuotaInfoLoadTimeHelper::Start() {
-  AssertIsOnIOThread();
+TimeStamp RecordTimeDeltaHelper::Start() {
+  MOZ_ASSERT(IsOnIOThread() || IsOnBackgroundThread());
 
   // XXX: If a OS sleep/wake occur after mStartTime is initialized but before
   // gLastOSWake is set, then this time duration would still be recorded with
@@ -6545,8 +6555,8 @@ TimeStamp RecordQuotaInfoLoadTimeHelper::Start() {
   return *mStartTime;
 }
 
-TimeStamp RecordQuotaInfoLoadTimeHelper::End() {
-  AssertIsOnIOThread();
+TimeStamp RecordTimeDeltaHelper::End() {
+  MOZ_ASSERT(IsOnIOThread() || IsOnBackgroundThread());
 
   mEndTime.init(TimeStamp::Now());
   MOZ_ALWAYS_SUCCEEDS(NS_DispatchToMainThread(this));
@@ -6555,11 +6565,11 @@ TimeStamp RecordQuotaInfoLoadTimeHelper::End() {
 }
 
 NS_IMETHODIMP
-RecordQuotaInfoLoadTimeHelper::Run() {
+RecordTimeDeltaHelper::Run() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (mInitializedTime.isSome()) {
-    // Keys for QM_QUOTA_INFO_LOAD_TIME_V0:
+    // Keys for QM_QUOTA_INFO_LOAD_TIME_V0 and QM_SHUTDOWN_TIME_V0:
     // Normal: Normal conditions.
     // WasSuspended: There was a OS sleep so that it was suspended.
     // TimeStampErr1: The recorded start time is unexpectedly greater than the
@@ -6587,8 +6597,7 @@ RecordQuotaInfoLoadTimeHelper::Run() {
       return "Normal"_ns;
     }();
 
-    Telemetry::AccumulateTimeDelta(Telemetry::QM_QUOTA_INFO_LOAD_TIME_V0, key,
-                                   *mStartTime, *mEndTime);
+    Telemetry::AccumulateTimeDelta(mHistogram, key, *mStartTime, *mEndTime);
 
     return NS_OK;
   }

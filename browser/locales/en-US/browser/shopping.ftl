@@ -7,11 +7,9 @@ shopping-page-title = { -brand-product-name } Shopping
 # Title for page showing where a user can check the
 # review quality of online shopping product reviews
 shopping-main-container-title = Review checker
-# The term "Beta" should not be localized.
 shopping-beta-marker = Beta
 # This string is for ensuring that screen reader technology
 # can read out the "Beta" part of the shopping sidebar header.
-# Like shopping-beta-marker, the term "Beta" should not be localized.
 # Any changes to shopping-main-container-title and
 # shopping-beta-marker should also be reflected here.
 shopping-a11y-header =
@@ -42,8 +40,8 @@ shopping-letter-grade-tooltip =
 
 ## Strings for the shopping message-bar
 
-shopping-message-bar-warning-stale-analysis-title = Updates available
-shopping-message-bar-warning-stale-analysis-message = Launch the { -fakespot-brand-full-name } analyzer to get updated info in about 60 seconds.
+shopping-message-bar-warning-stale-analysis-message-2 = New info to check
+shopping-message-bar-warning-stale-analysis-button = Check now
 
 shopping-message-bar-generic-error-title2 = No info available right now
 shopping-message-bar-generic-error-message = We’re working to resolve the issue. Please check back soon.
@@ -66,14 +64,6 @@ shopping-message-bar-analysis-in-progress-message2 = This could take about 60 se
 
 shopping-message-bar-page-not-supported-title = We can’t check these reviews
 shopping-message-bar-page-not-supported-message = Unfortunately, we can’t check the review quality for certain types of products. For example, gift cards and streaming video, music, and games.
-
-## The word 'analyzer' when used here reflects what this tool is called on
-## fakespot.com. If possible, a different word should be used for the Fakespot
-## tool (the Fakespot by Mozilla 'analyzer') other than 'checker', which is
-## used in the name of the Firefox feature ('Review checker'). If that is not
-## possible - if these terms are not meaningfully different - that is OK.
-
-shopping-message-bar-warning-stale-analysis-link = Launch analyzer on { -fakespot-website-name }
 
 ## Strings for the product review snippets card
 
@@ -152,9 +142,9 @@ shopping-sidebar-close-button =
 ## used in the name of the Firefox feature ('Review checker'). If that is not
 ## possible - if these terms are not meaningfully different - that is OK.
 
-shopping-unanalyzed-product-header = No analysis for these reviews yet
-shopping-unanalyzed-product-message = Launch the { -fakespot-brand-full-name } analyzer and you’ll know in about 60 seconds whether this product’s reviews are reliable.
-shopping-unanalyzed-product-analyze-link = Launch analyzer on { -fakespot-website-name }
+shopping-unanalyzed-product-header-2 = No info about these reviews yet
+shopping-unanalyzed-product-message-2 = To know whether this product’s reviews are reliable, check the review quality. It only takes about 60 seconds.
+shopping-unanalyzed-product-analyze-button = Check review quality
 
 ## Strings for the advertisement
 
@@ -183,3 +173,15 @@ shopping-survey-next-button-label = Next
 shopping-survey-submit-button-label = Submit
 shopping-survey-terms-link = Terms of use
 shopping-survey-thanks-message = Thanks for your feedback!
+
+## Shopping Feature Callout strings.
+## "price tag" refers to the price tag icon displayed in the address bar to
+## access the feature.
+
+shopping-callout-closed-opted-in-subtitle = Get back to <strong>review checker</strong> whenever you see the price tag.
+
+shopping-callout-pdp-opted-in-title = Are these reviews reliable? Find out fast.
+shopping-callout-pdp-opted-in-subtitle = Open review checker to see an adjusted rating with unreliable reviews removed. Plus, see highlights from recent authentic reviews.
+
+shopping-callout-closed-not-opted-in-title = One click to reliable reviews
+shopping-callout-closed-not-opted-in-subtitle = Give review checker a try whenever you see the price tag. Get insights from real shoppers quickly — before you buy.

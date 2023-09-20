@@ -31,34 +31,24 @@
   --urlbarView-result-button-selected-background-color: color-mix(in srgb, var(--toolbar-field-focus-background-color) var(--urlbarView-result-button-background-opacity), transparent);
   --urlbarView-result-button-hover-color: var(--toolbar-field-focus-background-color);
   --urlbarView-result-button-hover-background-color: color-mix(in srgb, var(--toolbar-field-focus-color) var(--urlbarView-result-button-background-opacity), transparent);
-}
 
-:root:-moz-lwtheme {
-  --urlbar-popup-action-color: rgb(91,91,102);
-  --urlbar-popup-url-color: rgb(0,97,224);
-  /* Fallback colours for when theme authors don't define lwtheme variables. */
-  --autocomplete-popup-highlight-background: rgb(0, 99, 255);
-  --autocomplete-popup-highlight-color: white;
-}
+  --urlbar-popup-url-color: var(--link-color);
 
-:root[lwt-toolbar-field-focus-brighttext] {
-  --urlbar-popup-url-color: var(--lwt-brighttext-url-color);
-  --urlbar-popup-action-color: rgb(191,191,201);
-}
+  &:-moz-locale-dir(rtl) {
+    --urlbarView-action-slide-in-distance: -200px;
+  }
 
-:root[lwt-toolbar-field-brighttext] {
-  --autocomplete-popup-highlight-background: rgb(0, 99, 225);
-}
+  &:-moz-lwtheme {
+    --urlbar-popup-action-color: light-dark(rgb(91, 91, 102), rgb(191, 191, 201));
+    /* Fallback colors for when themes don't specify popup_highlight / popup_highlight_text. */
+    --autocomplete-popup-highlight-background: light-dark(rgb(0, 99, 255), rgb(0, 99, 225));
+    --autocomplete-popup-highlight-color: white;
+  }
 
-@media (prefers-contrast) {
-  :root {
+  @media (prefers-contrast) {
     --urlbarView-result-button-background-opacity: 100%;
     --urlbarView-secondary-text-color: currentColor;
   }
-}
-
-:root:-moz-locale-dir(rtl) {
-  --urlbarView-action-slide-in-distance: -200px;
 }
 
 /* Align the favicons and titles of rows with standard 16px icons with those
@@ -655,34 +645,38 @@
 }
 
 /* Switch-to-tab action text is styled as a chiclet. */
-.urlbarView-row:is([type=switchtab], [type=remotetab]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
-  color: var(--urlbar-box-text-color);
-  background-color: var(--urlbar-box-focus-bgcolor);
-  border-radius: var(--toolbarbutton-border-radius);
-  padding: 6px 8px;
-  margin-block: -6px;
-  margin-inline-start: 8px;
+.urlbarView-row:is([type=switchtab], [type=remotetab]) {
+  > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
+    color: var(--urlbar-box-text-color);
+    background-color: var(--urlbar-box-focus-bgcolor);
+    border-radius: var(--toolbarbutton-border-radius);
+    padding: 6px 8px;
+    margin-block: -6px;
+    margin-inline-start: 8px;
+
+    :root[uidensity=compact] & {
+      padding: 3px 6px;
+      margin-block: -3px;
+    }
+  }
+
+  &:is([selected], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
+    color: var(--urlbarView-result-button-selected-color);
+    background-color: var(--urlbarView-result-button-selected-background-color);
+  }
 }
 
-:root[uidensity=compact] .urlbarView-row:is([type=switchtab], [type=remotetab]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
-  padding: 3px 6px;
-  margin-block: -3px;
-}
-
-.urlbarView-row:is([type=switchtab], [type=remotetab]):is([selected], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
-  color: var(--urlbarView-result-button-selected-color);
-  background-color: var(--urlbarView-result-button-selected-background-color);
-}
-
-.urlbarView-row[type=remotetab]:not([selected], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before,
-.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before {
-  /* We make the title separator transparent so it stays in the accessibility
-     tree. We want screen readers to pause between the result title and the
-     switch-to-tab action text. */
-  opacity: 0;
-  /* -1em for the width of the \2014 character. -.4em to offset the
-     margin-inline-start already set on this element. */
-  margin-inline-end: -1.4em;
+.urlbarView-row[type=remotetab]:not([selected], :hover),
+.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] {
+  > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before {
+    /* We make the title separator transparent so it stays in the accessibility
+       tree. We want screen readers to pause between the result title and the
+       switch-to-tab action text. */
+    opacity: 0;
+    /* -1em for the width of the \2014 character. -.4em to offset the
+       margin-inline-start already set on this element. */
+    margin-inline-end: -1.4em;
+  }
 }
 
 /* Tags */

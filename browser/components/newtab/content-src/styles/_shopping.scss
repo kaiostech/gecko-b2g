@@ -43,7 +43,7 @@
 
       .welcome-text {
         text-align: start;
-        margin-block: 10px;
+        margin-block: 10px 20px;
 
         h1 {
           font-size: 1.37em;
@@ -52,8 +52,7 @@
           line-height: 1.5;
         }
 
-        h2,
-        .cta-paragraph {
+        h2 {
           font-size: 0.8em;
         }
       }
@@ -87,13 +86,18 @@
         }
       }
     }
+
+    .dismiss-button {
+      top: 0;
+      margin: 14px 10px;
+    }
   }
 
   .section-secondary {
     display: none;
   }
 
-  .info-text {
+  .info-text, .link-paragraph {
     color: #5B5B66;
     font-size: 0.69em;
     margin: 10px auto;
@@ -101,6 +105,17 @@
 
     @media (prefers-contrast: no-preference) and (prefers-color-scheme: dark) {
       color: #CFCFD8;
+    }
+  }
+
+  .link-paragraph {
+    font-size: 0.8em;
+    margin-block: 0 10px;
+    padding-inline: 30px;
+    text-align: start;
+
+    a {
+      text-decoration: underline;
     }
   }
 }
@@ -132,6 +147,7 @@
         padding: 0;
         margin-block: 12px;
         align-items: center;
+        overflow: visible;
 
         label {
           font-size: 0.9em;

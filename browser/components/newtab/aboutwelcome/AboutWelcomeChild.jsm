@@ -354,24 +354,21 @@ const OPTIN_DEFAULT = {
         position: "split",
         title: { string_id: "shopping-onboarding-headline" },
         subtitle: { string_id: "shopping-onboarding-dynamic-subtitle" },
-        cta_paragraph: {
-          text: {
-            string_id: "shopping-onboarding-body",
-            string_name: "learn-more-link",
-          },
-          action: {
-            type: "OPEN_URL",
-            data: {
-              args: "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/review-checker-review-quality?utm_source=review-checker&utm_campaign=learn-more&utm_medium=in-product",
-              where: "tab",
-            },
-          },
-        },
         above_button_content: [
           {
+            type: "text",
+            text: {
+              string_id: "shopping-onboarding-body",
+            },
+            link_keys: ["learn_more"],
+          },
+          {
             type: "image",
-            url: "chrome://browser/content/shopping/assets/temp-fakespot-rating.svg",
-            height: "auto",
+            url: "chrome://browser/content/shopping/assets/optInLight.avif",
+            darkModeImageURL:
+              "chrome://browser/content/shopping/assets/optInDark.avif",
+            height: "172px",
+            marginInline: "24px",
           },
           {
             type: "text",
@@ -380,8 +377,18 @@ const OPTIN_DEFAULT = {
                 "shopping-onboarding-opt-in-privacy-policy-and-terms-of-use",
             },
             link_keys: ["privacy_policy", "terms_of_use"],
+            font_styles: "legal",
           },
         ],
+        learn_more: {
+          action: {
+            type: "OPEN_URL",
+            data: {
+              args: "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/review-checker-review-quality?utm_source=review-checker&utm_campaign=learn-more&utm_medium=in-product",
+              where: "tab",
+            },
+          },
+        },
         privacy_policy: {
           action: {
             type: "OPEN_URL",
@@ -472,6 +479,9 @@ const SHOPPING_MICROSURVEY = {
           action: {
             dismiss: true,
           },
+          label: {
+            string_id: "shopping-onboarding-dialog-close-button",
+          },
         },
         tiles: {
           type: "multiselect",
@@ -550,6 +560,9 @@ const SHOPPING_MICROSURVEY = {
         dismiss_button: {
           action: {
             dismiss: true,
+          },
+          label: {
+            string_id: "shopping-onboarding-dialog-close-button",
           },
         },
         tiles: {

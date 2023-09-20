@@ -36,12 +36,15 @@
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/Variant.h"
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "nsContentUtils.h"
 #include "nsDocShell.h"
 #include "nsDocShellLoadState.h"
 #include "nsError.h"
 #include "nsFrameLoader.h"
 #include "nsFrameLoaderOwner.h"
+#include "nsICookieManager.h"
+#include "nsICookieService.h"
 #include "nsQueryObject.h"
 #include "nsNetUtil.h"
 #include "nsSandboxFlags.h"
@@ -63,9 +66,14 @@
 #include "mozilla/dom/JSWindowActorBinding.h"
 #include "mozilla/dom/JSWindowActorParent.h"
 
+#include "mozilla/net/NeckoParent.h"
+#include "mozilla/net/PCookieServiceParent.h"
+#include "mozilla/net/CookieServiceParent.h"
+
 #include "SessionStoreFunctions.h"
 #include "nsIXPConnect.h"
 #include "nsImportModule.h"
+#include "nsIXULRuntime.h"
 
 #include "mozilla/dom/PBackgroundSessionStorageCache.h"
 
@@ -599,6 +607,11 @@ already_AddRefed<JSActor> WindowGlobalParent::InitJSActor(
 }
 
 bool WindowGlobalParent::IsCurrentGlobal() {
+  if (mozilla::SessionHistoryInParent() && BrowsingContext() &&
+      BrowsingContext()->IsInBFCache()) {
+    return false;
+  }
+
   return CanSend() && BrowsingContext()->GetCurrentWindowGlobal() == this;
 }
 
@@ -1610,6 +1623,56 @@ void WindowGlobalParent::SetShouldReportHasBlockedOpaqueResponse(
       mShouldReportHasBlockedOpaqueResponse = true;
     }
   }
+}
+
+IPCResult WindowGlobalParent::RecvSetCookies(
+    const nsCString& aBaseDomain, const OriginAttributes& aOriginAttributes,
+    nsIURI* aHost, bool aFromHttp, const nsTArray<CookieStruct>& aCookies) {
+  // Get CookieServiceParent via
+  // ContentParent->NeckoParent->CookieServiceParent.
+  ContentParent* contentParent = GetContentParent();
+  NS_ENSURE_TRUE(contentParent, IPC_OK());
+
+  net::PNeckoParent* neckoParent =
+      LoneManagedOrNullAsserts(contentParent->ManagedPNeckoParent());
+  NS_ENSURE_TRUE(neckoParent, IPC_OK());
+  net::PCookieServiceParent* csParent =
+      LoneManagedOrNullAsserts(neckoParent->ManagedPCookieServiceParent());
+  NS_ENSURE_TRUE(csParent, IPC_OK());
+  auto* cs = static_cast<net::CookieServiceParent*>(csParent);
+
+  dom::BrowsingContext* browsingContext = GetBrowsingContext();
+
+  bool isThirdPartyCookie = false;
+  uint64_t browsingContextId = 0;
+
+  if (browsingContext && !browsingContext->IsDiscarded()) {
+    browsingContextId = browsingContext->Id();
+
+    // Check if the cookies being set are third-party to the top level. We do
+    // this by comparing the top level principals base domain with aBaseDomain.
+    if (!browsingContext->IsTop()) {
+      dom::BrowsingContext* topBC = browsingContext->Top();
+      MOZ_ASSERT(topBC);
+
+      RefPtr<WindowGlobalParent> topWGP =
+          topBC->Canonical()->GetEmbedderWindowGlobal();
+
+      if (!NS_WARN_IF(!topWGP)) {
+        nsCOMPtr<nsIPrincipal> topPrincipal = topWGP->DocumentPrincipal();
+        MOZ_ASSERT(topPrincipal);
+        nsAutoCString topBaseDomain;
+        nsresult rv = topPrincipal->GetBaseDomain(topBaseDomain);
+
+        if (!NS_WARN_IF(NS_FAILED(rv))) {
+          isThirdPartyCookie = aBaseDomain.Equals(topBaseDomain);
+        }
+      }
+    }
+  }
+
+  return cs->SetCookies(aBaseDomain, aOriginAttributes, aHost, aFromHttp,
+                        aCookies, browsingContextId, isThirdPartyCookie);
 }
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(WindowGlobalParent, WindowContext,

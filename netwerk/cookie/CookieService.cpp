@@ -581,9 +581,9 @@ CookieService::SetCookieStringFromDocument(Document* aDocument,
       do_QueryInterface(aDocument->GetChannel());
 
   // add the cookie to the list. AddCookie() takes care of logging.
-  PickStorage(attrs)->AddCookie(crc, baseDomain, attrs, cookie,
-                                currentTimeInUsec, documentURI, aCookieString,
-                                false);
+  PickStorage(attrs)->AddCookie(
+      crc, baseDomain, attrs, cookie, currentTimeInUsec, documentURI,
+      aCookieString, false, aDocument->GetBrowsingContext(), thirdParty);
   return NS_OK;
 }
 
@@ -729,9 +729,12 @@ CookieService::SetCookieStringFromHttp(nsIURI* aHostURI,
     cookie->SetCreationTime(
         Cookie::GenerateUniqueCreationTime(currentTimeInUsec));
 
+    RefPtr<BrowsingContext> bc = loadInfo->GetBrowsingContext();
+
     // add the cookie to the list. AddCookie() takes care of logging.
     storage->AddCookie(crc, baseDomain, attrs, cookie, currentTimeInUsec,
-                       aHostURI, aCookieHeader, true);
+                       aHostURI, aCookieHeader, true, bc,
+                       loadInfo->GetIsThirdPartyContextToTopWindow());
   }
 
   return NS_OK;
@@ -859,7 +862,8 @@ CookieService::AddNative(const nsACString& aHost, const nsACString& aPath,
 
   CookieStorage* storage = PickStorage(*aOriginAttributes);
   storage->AddCookie(nullptr, baseDomain, *aOriginAttributes, cookie,
-                     currentTimeInUsec, nullptr, VoidCString(), true);
+                     currentTimeInUsec, nullptr, VoidCString(), true, nullptr,
+                     false);
   return NS_OK;
 }
 
@@ -2477,7 +2481,9 @@ CookieStorage* CookieService::PickStorage(
 bool CookieService::SetCookiesFromIPC(const nsACString& aBaseDomain,
                                       const OriginAttributes& aAttrs,
                                       nsIURI* aHostURI, bool aFromHttp,
-                                      const nsTArray<CookieStruct>& aCookies) {
+                                      const nsTArray<CookieStruct>& aCookies,
+                                      uint64_t aBrowsingContextId,
+                                      bool aIsThirdPartyCookie) {
   if (!IsInitialized()) {
     // If we are probably shutting down, we can ignore this cookie.
     return true;
@@ -2516,8 +2522,11 @@ bool CookieService::SetCookiesFromIPC(const nsACString& aBaseDomain,
     cookie->SetCreationTime(
         Cookie::GenerateUniqueCreationTime(currentTimeInUsec));
 
+    RefPtr<dom::BrowsingContext> browsingContext =
+        BrowsingContext::Get(aBrowsingContextId);
     storage->AddCookie(nullptr, aBaseDomain, aAttrs, cookie, currentTimeInUsec,
-                       aHostURI, ""_ns, aFromHttp);
+                       aHostURI, ""_ns, aFromHttp, browsingContext,
+                       aIsThirdPartyCookie);
   }
 
   return true;

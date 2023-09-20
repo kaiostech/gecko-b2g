@@ -21,7 +21,7 @@ import { OnboardingVideo } from "./OnboardingVideo";
 import { AdditionalCTA } from "./AdditionalCTA";
 import { EmbeddedMigrationWizard } from "./EmbeddedMigrationWizard";
 import { AddonsPicker } from "./AddonsPicker";
-import { LegalParagraph } from "./LegalParagraph";
+import { LinkParagraph } from "./LinkParagraph";
 
 export const MultiStageProtonScreen = props => {
   const { autoAdvance, handleAction, order } = props;
@@ -201,7 +201,10 @@ export class ProtonScreen extends React.PureComponent {
     reducedMotionImageURL,
     darkModeReducedMotionImageURL,
     alt = "",
+    width,
     height,
+    marginBlock,
+    marginInline,
     className = "logo-container",
   }) {
     function getLoadingStrategy() {
@@ -219,7 +222,7 @@ export class ProtonScreen extends React.PureComponent {
     }
 
     return (
-      <picture className={className}>
+      <picture className={className} style={{ marginInline, marginBlock }}>
         {darkModeReducedMotionImageURL ? (
           <source
             srcSet={darkModeReducedMotionImageURL}
@@ -243,7 +246,7 @@ export class ProtonScreen extends React.PureComponent {
         </Localized>
         <img
           className="brand-logo"
-          style={{ height }}
+          style={{ height, width }}
           src={imageURL}
           alt=""
           loading={getLoadingStrategy()}
@@ -334,12 +337,16 @@ export class ProtonScreen extends React.PureComponent {
   }
 
   renderDismissButton() {
+    const { size, marginBlock, marginInline, label } =
+      this.props.content.dismiss_button;
     return (
       <button
         className="dismiss-button"
         onClick={this.props.handleAction}
         value="dismiss_button"
-        data-l10n-id={"spotlight-dialog-close-button"}
+        data-l10n-id={label?.string_id || "spotlight-dialog-close-button"}
+        button-size={size}
+        style={{ marginBlock, marginInline }}
       ></button>
     );
   }
@@ -421,7 +428,7 @@ export class ProtonScreen extends React.PureComponent {
       switch (item.type) {
         case "text":
           elements.push(
-            <LegalParagraph
+            <LinkParagraph
               text_content={item}
               handleAction={this.props.handleAction}
             />
@@ -433,7 +440,9 @@ export class ProtonScreen extends React.PureComponent {
               imageURL: item.url,
               darkModeImageURL: item.darkModeImageURL,
               height: item.height,
+              width: item.width,
               alt: item.alt_text,
+              marginInline: item.marginInline,
               className: "inline-image",
             })
           );
@@ -514,11 +523,16 @@ export class ProtonScreen extends React.PureComponent {
           {includeNoodles ? this.renderNoodles() : null}
           <div
             className={`main-content ${hideStepsIndicator ? "no-steps" : ""}`}
-            style={
-              content.background && isCenterPosition
-                ? { background: content.background }
-                : {}
-            }
+            style={{
+              background:
+                content.background && isCenterPosition
+                  ? content.background
+                  : null,
+              width:
+                content.width && content.position !== "split"
+                  ? content.width
+                  : null,
+            }}
           >
             {content.logo ? this.renderPicture(content.logo) : null}
 

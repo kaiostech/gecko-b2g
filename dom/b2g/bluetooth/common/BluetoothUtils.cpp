@@ -459,19 +459,20 @@ nsresult AdvertisingDataToGattAdvertisingData(
 
   if (!aAdvData.mManufacturerData.IsNull()) {
     const ArrayBuffer& manufacturerData = aAdvData.mManufacturerData.Value();
-    manufacturerData.ComputeState();
+
+    auto length = manufacturerData.ProcessFixedData(
+        [](const Span<uint8_t>& aData) { return aData.Length(); });
 
     // Manufacturer Specific Data, 0xff
     aGattAdvData.mManufacturerData.SetLength(4);
-    aGattAdvData.mServiceData[0] = 3 + manufacturerData.Length();
+    aGattAdvData.mServiceData[0] = 3 + length;
     aGattAdvData.mServiceData[1] = 0xff;
     // 3rd and 4th bytes are manufacturer ID in little-endian.
     LittleEndian::writeUint16(aGattAdvData.mManufacturerData.Elements(),
                               aAdvData.mManufacturerId);
 
     // Concatenate custom manufacturer data.
-    aGattAdvData.mManufacturerData.AppendElements(manufacturerData.Data(),
-                                                  manufacturerData.Length());
+    manufacturerData.AppendDataTo(aGattAdvData.mManufacturerData);
   }
 
   if (!aAdvData.mServiceData.IsNull()) {
@@ -481,14 +482,15 @@ nsresult AdvertisingDataToGattAdvertisingData(
     }
 
     const ArrayBuffer& serviceData = aAdvData.mServiceData.Value();
-    serviceData.ComputeState();
+    auto length = serviceData.ProcessFixedData(
+        [](const Span<uint8_t>& aData) { return aData.Length(); });
 
     // Convert 128-bit UUID into 16-bit/32-bit if it's posible.
     if (uuid.IsUuid16Convertible()) {
       BT_LOGR("Sending serviceData with 16-bit UUID");
       // Service Data - 16-bit UUID,  0x16
       aGattAdvData.mServiceData.SetLength(4);
-      aGattAdvData.mServiceData[0] = 3 + serviceData.Length();
+      aGattAdvData.mServiceData[0] = 3 + length;
       aGattAdvData.mServiceData[1] = 0x16;
 
       // 3rd and 4th bytes are 16-bit service UUID in little-endian.
@@ -502,7 +504,7 @@ nsresult AdvertisingDataToGattAdvertisingData(
       BT_LOGR("Sending serviceData with 32-bit UUID");
       // Service Data - 32-bit UUID,  0x20
       aGattAdvData.mServiceData.SetLength(6);
-      aGattAdvData.mServiceData[0] = 5 + serviceData.Length();
+      aGattAdvData.mServiceData[0] = 5 + length;
       aGattAdvData.mServiceData[1] = 0x16;
 
       // 3rd - 6th bytes are 32-bit service UUID in little-endian.
@@ -518,7 +520,7 @@ nsresult AdvertisingDataToGattAdvertisingData(
       BT_LOGR("Sending serviceData with 128-bit UUID");
       // Service Data - 128-bit UUID, 0x21
       aGattAdvData.mServiceData.SetLength(18);
-      aGattAdvData.mServiceData[0] = 17 + serviceData.Length();
+      aGattAdvData.mServiceData[0] = 17 + length;
       aGattAdvData.mServiceData[1] = 0x21;
       // 2nd - 18th bytes are service UUID in little-endian.
       for (size_t i = 0; i < sizeof(uuid.mUuid); i++) {
@@ -528,8 +530,7 @@ nsresult AdvertisingDataToGattAdvertisingData(
     }
 
     // Concatenate custom service data.
-    aGattAdvData.mServiceData.AppendElements(serviceData.Data(),
-                                             serviceData.Length());
+    serviceData.AppendDataTo(aGattAdvData.mServiceData);
   }
 
   return NS_OK;

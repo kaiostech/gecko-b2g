@@ -118,8 +118,7 @@ BluetoothGattCharacteristic::BluetoothGattCharacteristic(
   GattPropertiesToBits(aProperties, mProperties);
 
   // value
-  aValue.ComputeState();
-  mValue.AppendElements(aValue.Data(), aValue.Length());
+  aValue.AppendDataTo(mValue);
 }
 
 BluetoothGattCharacteristic::~BluetoothGattCharacteristic() {
@@ -353,11 +352,9 @@ already_AddRefed<Promise> BluetoothGattCharacteristic::WriteValue(
   RefPtr<Promise> promise = Promise::Create(global, aRv);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
-  aValue.ComputeState();
-
   if (mAttRole == ATT_SERVER_ROLE) {
     mValue.Clear();
-    mValue.AppendElements(aValue.Data(), aValue.Length());
+    aValue.AppendDataTo(mValue);
 
     promise->MaybeResolve(JS::UndefinedHandleValue);
     return promise.forget();
@@ -369,7 +366,7 @@ already_AddRefed<Promise> BluetoothGattCharacteristic::WriteValue(
                         promise, NS_ERROR_NOT_AVAILABLE);
 
   nsTArray<uint8_t> value;
-  value.AppendElements(aValue.Data(), aValue.Length());
+  aValue.AppendDataTo(value);
 
   BluetoothService* bs = BluetoothService::Get();
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);

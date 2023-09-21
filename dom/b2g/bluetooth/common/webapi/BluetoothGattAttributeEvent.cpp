@@ -99,9 +99,11 @@ BluetoothGattAttributeEvent::Constructor(
 
   if (!aEventInitDict.mValue.IsNull()) {
     const auto& value = aEventInitDict.mValue.Value();
-    value.ComputeState();
-    e->mValue =
-        ArrayBuffer::Create(aGlobal.Context(), value.Length(), value.Data());
+    auto ctxt = aGlobal.Context();
+    e->mValue = value.ProcessFixedData([ctxt](const Span<uint8_t>& aData) {
+      return ArrayBuffer::Create(ctxt, aData);
+    });
+
     if (!e->mValue) {
       return nullptr;
     }

@@ -84,9 +84,12 @@ already_AddRefed<BluetoothLeDeviceEvent> BluetoothLeDeviceEvent::Constructor(
 
   if (!aEventInitDict.mScanRecord.IsNull()) {
     const auto& scanRecord = aEventInitDict.mScanRecord.Value();
-    scanRecord.ComputeState();
-    e->mScanRecord = ArrayBuffer::Create(aGlobal.Context(), scanRecord.Length(),
-                                         scanRecord.Data());
+    auto ctxt = aGlobal.Context();
+    e->mScanRecord =
+        scanRecord.ProcessFixedData([ctxt](const Span<uint8_t>& aData) {
+          return ArrayBuffer::Create(ctxt, aData);
+        });
+
     if (!e->mScanRecord) {
       return nullptr;
     }

@@ -168,12 +168,10 @@ already_AddRefed<Promise> Directory::CreateFile(
                                str.Length());
     } else if (data.IsArrayBuffer()) {
       const ArrayBuffer& buffer = data.GetAsArrayBuffer();
-      buffer.ComputeState();
-      arrayData.AppendElements(buffer.Data(), buffer.Length());
+      buffer.AppendDataTo(arrayData);
     } else if (data.IsArrayBufferView()) {
       const ArrayBufferView& view = data.GetAsArrayBufferView();
-      view.ComputeState();
-      arrayData.AppendElements(view.Data(), view.Length());
+      view.AppendDataTo(arrayData);
     } else {
       blobData = data.GetAsBlob();
     }

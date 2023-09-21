@@ -97,8 +97,7 @@ BluetoothGattDescriptor::BluetoothGattDescriptor(
   GattPermissionsToBits(aPermissions, mPermissions);
 
   // value
-  aValue.ComputeState();
-  mValue.AppendElements(aValue.Data(), aValue.Length());
+  aValue.AppendDataTo(mValue);
 }
 
 BluetoothGattDescriptor::~BluetoothGattDescriptor() {
@@ -241,18 +240,16 @@ already_AddRefed<Promise> BluetoothGattDescriptor::WriteValue(
                             mCharacteristic->Service()->GetAppUuid(), appUuid)),
                         promise, NS_ERROR_DOM_OPERATION_ERR);
 
-  aValue.ComputeState();
-
   if (mAttRole == ATT_SERVER_ROLE) {
     mValue.Clear();
-    mValue.AppendElements(aValue.Data(), aValue.Length());
+    aValue.AppendDataTo(mValue);
 
     promise->MaybeResolve(JS::UndefinedHandleValue);
     return promise.forget();
   }
 
   nsTArray<uint8_t> value;
-  value.AppendElements(aValue.Data(), aValue.Length());
+  aValue.AppendDataTo(value);
 
   BluetoothService* bs = BluetoothService::Get();
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);

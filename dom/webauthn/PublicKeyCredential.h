@@ -49,6 +49,9 @@ class PublicKeyCredential final : public Credential {
   IsUserVerifyingPlatformAuthenticatorAvailable(GlobalObject& aGlobal,
                                                 ErrorResult& aError);
 
+  static already_AddRefed<Promise> IsConditionalMediationAvailable(
+      GlobalObject& aGlobal, ErrorResult& aError);
+
   static already_AddRefed<Promise> IsExternalCTAP2SecurityKeySupported(
       GlobalObject& aGlobal, ErrorResult& aError);
 
@@ -59,6 +62,8 @@ class PublicKeyCredential final : public Credential {
               ErrorResult& aError);
 
   void SetClientExtensionResultAppId(bool aResult);
+
+  void SetClientExtensionResultCredPropsRk(bool aResult);
 
   void SetClientExtensionResultHmacSecret(bool aHmacCreateSecret);
 

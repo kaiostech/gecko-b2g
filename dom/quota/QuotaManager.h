@@ -78,9 +78,12 @@ class UniversalDirectoryLock;
 
 class QuotaManager final : public BackgroundThreadObject {
   friend class CanonicalQuotaObject;
+  friend class ClearStorageOp;
   friend class DirectoryLockImpl;
   friend class GroupInfo;
+  friend class InitOp;
   friend class OriginInfo;
+  friend class ShutdownStorageOp;
 
   using PrincipalInfo = mozilla::ipc::PrincipalInfo;
   using DirectoryLockTable =
@@ -335,8 +338,10 @@ class QuotaManager final : public BackgroundThreadObject {
   }
 #endif
 
+ private:
   nsresult EnsureStorageIsInitializedInternal();
 
+ public:
   // Returns a pair of an nsIFile object referring to the directory, and a bool
   // indicating whether the directory was newly created.
   Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult>
@@ -614,6 +619,8 @@ class QuotaManager final : public BackgroundThreadObject {
   }
 
   DirectoryLockTable& GetDirectoryLockTable(PersistenceType aPersistenceType);
+
+  void ClearDirectoryLockTables();
 
   bool IsSanitizedOriginValid(const nsACString& aSanitizedOrigin);
 

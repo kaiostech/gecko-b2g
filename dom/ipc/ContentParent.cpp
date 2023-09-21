@@ -378,6 +378,7 @@ using namespace mozilla::system;
 // For VP9Benchmark::sBenchmarkFpsPref
 #include "Benchmark.h"
 
+#include "mozilla/RemoteDecodeUtils.h"
 #include "nsIToolkitProfileService.h"
 #include "nsIToolkitProfile.h"
 
@@ -420,6 +421,9 @@ using mozilla::Telemetry::ProcessID;
 extern mozilla::LazyLogModule gFocusLog;
 
 #define LOGFOCUS(args) MOZ_LOG(gFocusLog, mozilla::LogLevel::Debug, args)
+
+extern mozilla::LazyLogModule sPDMLog;
+#define LOGPDM(...) MOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 namespace CubebUtils {
@@ -1843,6 +1847,9 @@ void ContentParent::BroadcastMediaCodecsSupportedUpdate(
   nsCString supportString;
   media::MCSInfo::GetMediaCodecsSupportedString(supportString, support);
   gfx::gfxVars::SetCodecSupportInfo(supportString);
+  supportString.ReplaceSubstring("\n"_ns, ", "_ns);
+  LOGPDM("Broadcast support from '%s', support=%s",
+         RemoteDecodeInToStr(aLocation), supportString.get());
 }
 
 const nsACString& ContentParent::GetRemoteType() const { return mRemoteType; }
@@ -7142,6 +7149,16 @@ nsresult ContentParent::TransmitPermissionsForPrincipal(
     EnsurePermissionsByKey(pair.first, pair.second);
   }
 
+  // We need to add the Site to the secondary keys of interest here.
+  // This allows site-scoped permission updates to propogate when the
+  // port is non-standard.
+  nsAutoCString siteKey;
+  nsresult rv =
+      PermissionManager::GetKeyForPrincipal(aPrincipal, false, true, siteKey);
+  if (NS_SUCCEEDED(rv) && !siteKey.IsEmpty()) {
+    mActiveSecondaryPermissionKeys.EnsureInserted(siteKey);
+  }
+
   return NS_OK;
 }
 
@@ -7234,6 +7251,11 @@ void ContentParent::EnsurePermissionsByKey(const nsACString& aKey,
 bool ContentParent::NeedsPermissionsUpdate(
     const nsACString& aPermissionKey) const {
   return mActivePermissionKeys.Contains(aPermissionKey);
+}
+
+bool ContentParent::NeedsSecondaryKeyPermissionsUpdate(
+    const nsACString& aPermissionKey) const {
+  return mActiveSecondaryPermissionKeys.Contains(aPermissionKey);
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAccumulateChildHistograms(
@@ -8945,3 +8967,5 @@ ParentIdleListener::Observe(nsISupports*, const char* aTopic,
       mObserver, nsDependentCString(aTopic), nsDependentString(aData));
   return NS_OK;
 }
+
+#undef LOGPDM

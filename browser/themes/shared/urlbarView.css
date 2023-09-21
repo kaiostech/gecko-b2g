@@ -32,8 +32,6 @@
   --urlbarView-result-button-hover-color: var(--toolbar-field-focus-background-color);
   --urlbarView-result-button-hover-background-color: color-mix(in srgb, var(--toolbar-field-focus-color) var(--urlbarView-result-button-background-opacity), transparent);
 
-  --urlbar-popup-url-color: var(--link-color);
-
   &:-moz-locale-dir(rtl) {
     --urlbarView-action-slide-in-distance: -200px;
   }
@@ -148,7 +146,7 @@
   flex-grow: 0;
   flex-shrink: 0;
 
-  .urlbarView[actionoverride] .urlbarView-row[has-url] > .urlbarView-row-inner > &,
+  .urlbarView[action-override] .urlbarView-row[has-url] > .urlbarView-row-inner > &,
   .urlbarView-row[has-url]:not([type$=tab]) > .urlbarView-row-inner > &,
   .urlbarView-row[has-url]:is([type=remotetab], [sponsored]):is(:hover, [selected]) > .urlbarView-row-inner > & {
     /* We prioritize icons + title + action over the url, so they can grow freely,
@@ -190,7 +188,7 @@
 
     /* Note: switchtab entries show the url only in override mode,
        remotetab and sponsored ones only when selected or :hover. */
-    .urlbarView[actionoverride] &[has-url],
+    .urlbarView[action-override] &[has-url],
     &[has-url]:not([type$=tab], [sponsored]),
     &[has-url]:is([type=remotetab], [sponsored]):is(:hover, [selected]),
     &[type=tabtosearch] {
@@ -271,7 +269,7 @@
     /* We use the URL color for this icon to inherit its accessibility
        properties, like adapting to high contrast modes. We also want to ensure
        contrast from the result highlight. */
-    color: var(--urlbar-popup-url-color);
+    color: var(--link-color);
     -moz-context-properties: fill;
   }
 }
@@ -473,56 +471,57 @@
 
 /* Row label (a.k.a. group label) */
 
-.urlbarView-row[label]::before {
-  content: attr(label);
-  display: block;
-  /* Remove the label from the document flow so it doesn't affect the row
-     selection and hover states. */
-  position: absolute;
-  /* `top` controls how far the label is from the main part of the row. */
-  top: calc(-1.27em - 2px);
-  margin-inline-start: var(--urlbarView-item-inline-padding);
-  font-size: 0.8em;
-  /* The color and opacity of labels is the same as the "This time, search with"
-     text in the search shortcuts. See `.search-panel-header > label` in
-     searchbar.css. */
-  color: var(--toolbar-field-focus-color);
-  opacity: 0.6;
-  pointer-events: none;
-}
-:root[lwt-toolbar-field-focus-brighttext] .urlbarView-row[label]::before {
-  /* Same as `.search-panel-header > label` in searchbar.css */
-  opacity: 1;
-}
-
 .urlbarView-row[label] {
   position: relative;
   /* `margin-block-start` controls how far the main part of the row is from the
      main part of the previous row. */
   margin-block-start: calc(1.46em + 4px);
+
+  &::before {
+    content: attr(label);
+    display: block;
+    /* Remove the label from the document flow so it doesn't affect the row
+       selection and hover states. */
+    position: absolute;
+    /* `top` controls how far the label is from the main part of the row. */
+    top: calc(-1.27em - 2px);
+    margin-inline-start: var(--urlbarView-item-inline-padding);
+    font-size: 0.8em;
+    /* The color and opacity of labels is the same as the "This time, search with"
+       text in the search shortcuts. See `.search-panel-header > label` in
+       searchbar.css. */
+    color: var(--toolbar-field-focus-color);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  :root[lwt-toolbar-field-focus-brighttext] &::before {
+    /* Same as `.search-panel-header > label` in searchbar.css */
+    opacity: 1;
+  }
 }
 
 /* Feedback acknowledgment */
 
-.urlbarView-row[feedback-acknowledgment]::after {
-  content: attr(feedback-acknowledgment);
-  display: flex;
-  align-items: center;
-  position: absolute;
-  bottom: 0.72em;
-  font-size: var(--urlbarView-small-font-size);
-  margin-inline-start: calc(var(--urlbarView-item-inline-padding) + var(--urlbarView-icon-margin-start));
-  padding-inline-start: calc(var(--urlbarView-favicon-width) + var(--urlbarView-icon-margin-end));
-  background-image: url("chrome://branding/content/icon32.png");
-  background-repeat: no-repeat;
-  background-position: 0 center;
-  background-size: var(--urlbarView-favicon-width);
-  min-height: var(--urlbarView-favicon-width);
-}
-
 .urlbarView-row[feedback-acknowledgment] {
   position: relative;
   padding-bottom: 1.94em;
+
+  &::after {
+    content: attr(feedback-acknowledgment);
+    display: flex;
+    align-items: center;
+    position: absolute;
+    bottom: 0.72em;
+    font-size: var(--urlbarView-small-font-size);
+    margin-inline-start: calc(var(--urlbarView-item-inline-padding) + var(--urlbarView-icon-margin-start));
+    padding-inline-start: calc(var(--urlbarView-favicon-width) + var(--urlbarView-icon-margin-end));
+    background-image: url("chrome://branding/content/icon32.png");
+    background-repeat: no-repeat;
+    background-position: 0 center;
+    background-size: var(--urlbarView-favicon-width);
+    min-height: var(--urlbarView-favicon-width);
+  }
 }
 
 /* Title */
@@ -535,22 +534,23 @@
 }
 
 /* Tail suggestions */
+
 .urlbarView-tail-prefix {
   display: none;
   justify-content: flex-end;
   white-space: pre;
-}
 
-.urlbarView-row[tail-suggestion] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-tail-prefix {
-  display: inline-flex;
-}
+  .urlbarView-row[tail-suggestion] > .urlbarView-row-inner > .urlbarView-no-wrap > & {
+    display: inline-flex;
+  }
 
-.urlbarView-tail-prefix > .urlbarView-tail-prefix-string {
-  visibility: hidden;
-}
+  > .urlbarView-tail-prefix-string {
+    visibility: hidden;
+  }
 
-.urlbarView-tail-prefix > .urlbarView-tail-prefix-char {
-  position: absolute;
+  > .urlbarView-tail-prefix-char {
+    position: absolute;
+  }
 }
 
 /* Title separator */
@@ -609,7 +609,7 @@
 }
 
 .urlbarView-url {
-  color: var(--urlbar-popup-url-color);
+  color: var(--link-color);
   /* Increase line-height to avoid cutting overhanging glyphs due to masking on
      the element */
   line-height: 1.4;
@@ -629,7 +629,7 @@
 .urlbarView-row:is([type=search], [restyled-search]):not([selected], [show-action-text], :hover) > .urlbarView-row-inner > .urlbarView-row-body > .urlbarView-row-body-top > .urlbarView-row-body-top-no-wrap > .urlbarView-title-separator,
 .urlbarView-row:not([has-action], [has-url], [restyled-search]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator,
 .urlbarView-row:not([has-action], [has-url], [restyled-search]) > .urlbarView-row-inner > .urlbarView-row-body > .urlbarView-row-body-top > .urlbarView-row-body-top-no-wrap > .urlbarView-title-separator,
-.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-url {
+.urlbarView:not([action-override]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-url {
   /* Use visibility:collapse instead of display:none since the latter can
      confuse the overflow state of title and url elements when their content
      changes while they're hidden. */
@@ -640,7 +640,7 @@
 .urlbarView-row:is([type=search], [restyled-search]):not([selected], [show-action-text], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action,
 .urlbarView-row:is([type=search], [restyled-search]):not([selected], [show-action-text], :hover) > .urlbarView-row-inner > .urlbarView-row-body > .urlbarView-row-body-top > .urlbarView-row-body-top-no-wrap > .urlbarView-action,
 .urlbarView-row:not([has-action], [has-url], [restyled-search]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action,
-.urlbarView[actionoverride] .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
+.urlbarView[action-override] .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
   display: none;
 }
 
@@ -667,7 +667,7 @@
 }
 
 .urlbarView-row[type=remotetab]:not([selected], :hover),
-.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] {
+.urlbarView:not([action-override]) .urlbarView-row[type=switchtab] {
   > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before {
     /* We make the title separator transparent so it stays in the accessibility
        tree. We want screen readers to pause between the result title and the

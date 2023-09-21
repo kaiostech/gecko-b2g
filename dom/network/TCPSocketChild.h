@@ -51,11 +51,8 @@ class TCPSocketChild : public mozilla::net::PTCPSocketChild,
 
   void SendOpen(nsITCPSocketCallback* aSocket, bool aUseSSL,
                 bool aUseArrayBuffers);
-
   void SendSend(const nsACString& aData, uint32_t aTrackingNumber);
-  nsresult SendSend(const ArrayBuffer& aData, uint32_t aByteOffset,
-                    uint32_t aByteLength, uint32_t aTrackingNumber);
-
+  void SendSend(nsTArray<uint8_t>&& aData, uint32_t aTrackingNumber);
   void SetSocket(TCPSocket* aSocket);
 
   void GetHost(nsAString& aHost);

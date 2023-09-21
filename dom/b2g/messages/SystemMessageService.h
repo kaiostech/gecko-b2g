@@ -13,6 +13,7 @@
 
 class nsISystemMessageListener;
 class nsITimer;
+class nsIURI;
 
 namespace mozilla {
 namespace dom {
@@ -45,13 +46,20 @@ class SystemMessageService final : public nsISystemMessageService {
   void DebugPrintSubscribersTable();
 
   struct SubscriberInfo {
-    SubscriberInfo(const nsACString& aScope, const nsACString& aOriginSuffix)
-        : mScope(aScope), mOriginSuffix(aOriginSuffix) {}
+    SubscriberInfo(const nsACString& aScope, const nsACString& aOriginSuffix,
+                   nsIURI* aURI)
+        : mScope(aScope), mOriginSuffix(aOriginSuffix), mURI(aURI) {}
     nsCString mScope;
     nsCString mOriginSuffix;
+    nsCOMPtr<nsIURI> mURI;
   };
-  typedef nsClassHashtable<nsCStringHashKey, SubscriberInfo> SubscriberTable;
+  // key: origin, value: [{scope, originSuffix, mURI}]
+  typedef nsClassHashtable<nsCStringHashKey,
+                           nsTArray<UniquePtr<SubscriberInfo>>>
+      SubscriberTable;
 
+  // key: message_name, value: {key: origin, value: [{scope, originSuffix,
+  // mURI}]}
   nsClassHashtable<nsStringHashKey, SubscriberTable> mSubscribers;
   RefPtr<WakeLock> mMessageWakeLock;
   nsCOMPtr<nsITimer> mWakeLockTimer;

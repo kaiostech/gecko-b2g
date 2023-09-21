@@ -84,14 +84,10 @@ export const ServiceWorkerAssistant = {
 
   /**
    * Register service worker, system messages, activities for a givien app.
-   * Format of serviceworker in b2g_features, "options" is optional.
+   * Format of serviceworker in b2g_features.
    * {
    *   "serviceworker": {
-   *     "script_url": "script_url",
-   *     "options": {
-   *       "scope": "scope_of_sw",
-   *       "update_via_cache": "value_of_update_via_cache"
-   *     }
+   *     "script_url": "script_url"
    *   },
    * }
    *
@@ -138,8 +134,9 @@ export const ServiceWorkerAssistant = {
     let scope;
     let updateViaCache;
     if (serviceworker.options) {
-      scope = serviceworker.options.scope;
-      updateViaCache = serviceworker.options.update_via_cache;
+      debug(
+        `WARNING: options has removed, scope is default to the root, updateViaCache is detault to "imports".`
+      );
     }
     scope = fullpath(scope);
     updateViaCache = getUpdateViaCache(updateViaCache);

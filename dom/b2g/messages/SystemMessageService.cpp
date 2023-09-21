@@ -202,20 +202,6 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
     DebugPrintSubscribersTable();
     return NS_OK;
   }
-  SubscriberInfo* info = table->Get(aOrigin);
-  if (!info) {
-    LOG(" %s did not subscribe %s.", (nsCString(aOrigin)).get(),
-        NS_LossyConvertUTF16toASCII(aMessageName).get());
-    DebugPrintSubscribersTable();
-    return NS_OK;
-  }
-
-  ErrorResult rv;
-  RefPtr<ServiceWorkerCloneData> messageData = new ServiceWorkerCloneData();
-  messageData->Write(aCx, aMessageData, rv);
-  if (NS_WARN_IF(rv.Failed())) {
-    return NS_OK;
-  }
 
   // ServiceWorkerParentInterceptEnabled() is default to true in 73.0b2., which
   // whether the ServiceWorker is registered on parent processes or content
@@ -239,10 +225,29 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
                               nsITimer::TYPE_ONE_SHOT,
                               "SystemMessageService::SendMessage");
 
-  LOG("Sending message %s to %s",
-      NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
-  return swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
-                                     aMessageName, std::move(messageData));
+  ErrorResult rv;
+  RefPtr<ServiceWorkerCloneData> messageData = new ServiceWorkerCloneData();
+  messageData->Write(aCx, aMessageData, rv);
+  if (NS_WARN_IF(rv.Failed())) {
+    return NS_OK;
+  }
+
+  auto* infos = table->Get(aOrigin);
+  if (!infos) {
+    LOG(" %s did not subscribe %s.", (nsCString(aOrigin)).get(),
+        NS_LossyConvertUTF16toASCII(aMessageName).get());
+    DebugPrintSubscribersTable();
+    return NS_OK;
+  }
+
+  for (auto& info : *infos) {
+    LOG("Sending message %s to %s",
+        NS_LossyConvertUTF16toASCII(aMessageName).get(), info->mScope.get());
+    Unused << swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
+                                          aMessageName, std::move(messageData));
+  }
+
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -259,13 +264,6 @@ SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
     return NS_OK;
   }
 
-  ErrorResult rv;
-  RefPtr<ServiceWorkerCloneData> messageData = new ServiceWorkerCloneData();
-  messageData->Write(aCx, aMessageData, rv);
-  if (NS_WARN_IF(rv.Failed())) {
-    return NS_OK;
-  }
-
   RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
   if (NS_WARN_IF(!swm)) {
     return NS_ERROR_FAILURE;
@@ -277,14 +275,23 @@ SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
                               nsITimer::TYPE_ONE_SHOT,
                               "SystemMessageService::BroadcastMessage");
 
+  ErrorResult rv;
+  RefPtr<ServiceWorkerCloneData> messageData = new ServiceWorkerCloneData();
+  messageData->Write(aCx, aMessageData, rv);
+  if (NS_WARN_IF(rv.Failed())) {
+    return NS_OK;
+  }
+
   for (auto iter = table->Iter(); !iter.Done(); iter.Next()) {
-    auto& info = iter.Data();
+    auto& infos = iter.Data();
+    for (auto& info : *infos) {
+      LOG("Sending message %s to %s",
+          NS_LossyConvertUTF16toASCII(aMessageName).get(), info->mScope.get());
 
-    LOG("Sending message %s to %s",
-        NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
-
-    Unused << swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
-                                          aMessageName, std::move(messageData));
+      Unused << swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
+                                            aMessageName,
+                                            std::move(messageData));
+    }
   }
 
   return NS_OK;
@@ -304,8 +311,39 @@ void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
   }
 
   SubscriberTable* table = mSubscribers.GetOrInsertNew(aMessageName);
-  UniquePtr<SubscriberInfo> info(new SubscriberInfo(aScope, aOriginSuffix));
-  table->InsertOrUpdate(aOrigin, std::move(info));
+  nsTArray<UniquePtr<SubscriberInfo>>* infos = table->GetOrInsertNew(aOrigin);
+
+  nsCOMPtr<nsIURI> origin_uri;
+  Unused << NS_NewURI(getter_AddRefs(origin_uri), aOrigin);
+
+  nsCOMPtr<nsIURI> scope_uri;
+  Unused << NS_NewURI(getter_AddRefs(scope_uri), aScope);
+  UniquePtr<SubscriberInfo> info(
+      new SubscriberInfo(aScope, aOriginSuffix, scope_uri));
+
+  bool scope_equals_origin = false;
+  scope_uri->Equals(origin_uri, &scope_equals_origin);
+  if (scope_equals_origin) {
+    // Keep only the one which its scope is origin.
+    infos->Clear();
+    infos->AppendElement(std::move(info));
+  } else {
+    struct OriginEquals {
+      bool Equals(const UniquePtr<SubscriberInfo>& aInfo, nsIURI* aURI) const {
+        bool eq = false;
+        aURI->Equals(aInfo->mURI, &eq);
+        return eq;
+      }
+    };
+    if (infos->Contains(origin_uri, OriginEquals())) {
+      if (aListener) {
+        aListener->OnSubscribe(NS_ERROR_DOM_NOT_ALLOWED_ERR);
+      }
+      LOG("Already exists a subscriptioin which its scope is origin.");
+      return;
+    }
+    infos->AppendElement(std::move(info));
+  }
 
   if (aListener) {
     aListener->OnSubscribe(NS_OK);
@@ -313,16 +351,14 @@ void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
 
   LOG("DoSubscribe: message name=%s",
       NS_LossyConvertUTF16toASCII(aMessageName).get());
-  LOG("             subscriber origin=%s", nsCString(aOrigin).get());
-
-  return;
+  LOG("  subscriber scope=%s", nsCString(aScope).get());
 }
 
 bool SystemMessageService::HasPermission(const nsAString& aMessageName,
                                          const nsACString& aOrigin) {
   LOG("Checking permission: message name=%s",
       NS_LossyConvertUTF16toASCII(aMessageName).get());
-  LOG("             subscriber origin=%s", nsCString(aOrigin).get());
+  LOG("  subscriber origin=%s", nsCString(aOrigin).get());
 
   nsAutoCString permNames;
   if (!sSystemMessagePermissionsTable.Get(aMessageName, &permNames)) {
@@ -392,9 +428,11 @@ void SystemMessageService::DebugPrintSubscribersTable() {
     for (auto iter2 = table->Iter(); !iter2.Done(); iter2.Next()) {
       nsCString key = nsCString(iter2.Key());
       LOG(" subscriber table key(origin): %s\n", key.get());
-      auto& entry = iter2.Data();
-      LOG("                  scope: %s\n", (entry->mScope).get());
-      LOG("                  originSuffix: %s\n", (entry->mOriginSuffix).get());
+      auto& entries = iter2.Data();
+      for (auto& entry : *entries) {
+        LOG("  scope: %s\n", (entry->mScope).get());
+        LOG("  originSuffix: %s\n", (entry->mOriginSuffix).get());
+      }
     }
   }
 }

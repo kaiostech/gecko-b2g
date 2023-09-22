@@ -480,11 +480,7 @@ def check_compiler(configure_cache, compiler, language, target, android_version)
         elif target.os in OS_preprocessor_checks and (
             not info.os or info.os != target.os
         ):
-            if target.os == "Android":
-                # TODO: Don't hardcode the API level.
-                flags.append("--target=%s33" % target.toolchain)
-            else:
-                flags.append("--target=%s" % target.toolchain)
+            flags.append("--target=%s" % toolchain)
             has_target = True
 
     if not has_target and (not info.cpu or info.cpu != target.cpu):

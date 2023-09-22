@@ -20,7 +20,13 @@ from tqdm import tqdm
 # variable.
 from mozboot.bootstrap import MOZCONFIG_SUGGESTION_TEMPLATE
 
-NDK_VERSION = "r25b"
+NDK_VERSION = "r21d"
+
+# Need to use ndk r25b for aosp 13 build.
+PLATFORM_VERSION = os.environ.get("PLATFORM_VERSION");
+if PLATFORM_VERSION == "33":
+    NDK_VERSION = "r25b"
+
 CMDLINE_TOOLS_VERSION_STRING = "11.0"
 CMDLINE_TOOLS_VERSION = "9644228"
 

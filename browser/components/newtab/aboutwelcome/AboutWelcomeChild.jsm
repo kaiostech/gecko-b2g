@@ -454,6 +454,9 @@ const SHOPPING_MICROSURVEY = {
       content: {
         position: "split",
         layout: "survey",
+        steps_indicator: {
+          string_id: "shopping-onboarding-welcome-steps-indicator-label",
+        },
         title: {
           string_id: "shopping-survey-headline",
         },
@@ -550,6 +553,9 @@ const SHOPPING_MICROSURVEY = {
       content: {
         position: "split",
         layout: "survey",
+        steps_indicator: {
+          string_id: "shopping-onboarding-welcome-steps-indicator-label",
+        },
         title: {
           string_id: "shopping-survey-headline",
         },
@@ -751,7 +757,8 @@ class AboutWelcomeShoppingChild extends AboutWelcomeChild {
       this.setOptInTime();
     }
     // Hide the container until the user is eligible to see the survey
-    if (!lazy.isSurveySeen) {
+    // or user has just completed opt-in
+    if (!lazy.isSurveySeen || AboutWelcomeShoppingChild.optedInSession) {
       this.document.getElementById("multi-stage-message-root").hidden = true;
     }
 

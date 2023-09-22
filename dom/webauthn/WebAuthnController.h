@@ -74,7 +74,7 @@ class WebAuthnController final : public nsIWebAuthnController {
   void RunFinishRegister(uint64_t aTransactionId,
                          const RefPtr<nsICtapRegisterResult>& aResult);
   void RunFinishSign(uint64_t aTransactionId,
-                     const nsTArray<RefPtr<nsICtapSignResult>>& aResult);
+                     const RefPtr<nsICtapSignResult>& aResult);
 
   // The main thread runnable function for "nsIU2FTokenManager.ResumeRegister".
   void RunResumeRegister(uint64_t aTransactionId, bool aForceNoneAttestation);
@@ -98,25 +98,11 @@ class WebAuthnController final : public nsIWebAuthnController {
   // Pending registration info while we wait for user input.
   Maybe<WebAuthnGetAssertionInfo> mPendingSignInfo;
 
-  nsTArray<RefPtr<nsICtapSignResult>> mPendingSignResults;
-
   class Transaction {
    public:
-    Transaction(uint64_t aTransactionId, const nsTArray<uint8_t>& aRpIdHash,
-                const Maybe<nsTArray<uint8_t>>& aAppIdHash,
-                const nsCString& aClientDataJSON)
-        : mTransactionId(aTransactionId),
-          mRpIdHash(aRpIdHash.Clone()),
-          mClientDataJSON(aClientDataJSON) {
-      if (aAppIdHash.isSome()) {
-        mAppIdHash = Some(aAppIdHash.ref().Clone());
-      } else {
-        mAppIdHash = Nothing();
-      }
-    }
+    Transaction(uint64_t aTransactionId, const nsCString& aClientDataJSON)
+        : mTransactionId(aTransactionId), mClientDataJSON(aClientDataJSON) {}
     uint64_t mTransactionId;
-    nsTArray<uint8_t> mRpIdHash;
-    Maybe<nsTArray<uint8_t>> mAppIdHash;
     nsCString mClientDataJSON;
     bool mCredProps;
   };

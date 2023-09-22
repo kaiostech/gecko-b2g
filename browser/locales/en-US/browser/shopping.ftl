@@ -130,10 +130,10 @@ shopping-analysis-explainer-review-grading-scale-unreliable = Unreliable reviews
 
 ## Strings for UrlBar button
 
-shopping-sidebar-open-button =
-  .tooltiptext = Open shopping sidebar
-shopping-sidebar-close-button =
-  .tooltiptext = Close shopping sidebar
+shopping-sidebar-open-button2 =
+  .tooltiptext = Open review checker
+shopping-sidebar-close-button2 =
+  .tooltiptext = Close review checker
 
 ## Strings for the unanalyzed product card.
 ## The word 'analyzer' when used here reflects what this tool is called on
@@ -204,3 +204,10 @@ shopping-onboarding-not-now-button = Not now
 shopping-onboarding-dialog-close-button =
     .title = Close
     .aria-label = Close
+
+# Aria-label to make the "steps" of the shopping onboarding container visible to screen readers.
+# Variables:
+#   $current (Int) - Number of the current page
+#   $total (Int) - Total number of pages
+shopping-onboarding-welcome-steps-indicator-label =
+    .aria-label = Progress: step { $current } of { $total }

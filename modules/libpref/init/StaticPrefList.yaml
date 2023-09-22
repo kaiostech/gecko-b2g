@@ -2417,11 +2417,6 @@
   value: true
   mirror: always
 
-- name: dom.enable_window_print
-  type: bool
-  value: true
-  mirror: always
-
 # Only intended for fuzzing purposes, this will break mozPrintCallback, etc.
 - name: dom.window_print.fuzzing.block_while_printing
   type: bool
@@ -13581,7 +13576,7 @@
 
 - name: privacy.partition.bloburl_per_partition_key
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: privacy.window.name.update.enabled

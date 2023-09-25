@@ -181,9 +181,7 @@ def Libxul(name, output_category=None):
             "binder_b2g_stub",
             "dnsresolver_aidl_interface-V2-cpp",
             "netd_aidl_interface-V2-cpp",
-            "netd_aidl_interface-V10-cpp",
             "netd_event_listener_interface-V1-cpp",
-            "oemnetd_aidl_interface-cpp",
         )
         if CONFIG["ANDROID_VERSION"] <= "30":
             OS_LIBS += [
@@ -245,6 +243,8 @@ def Libxul(name, output_category=None):
                 "audiopolicy-aidl-cpp",
                 "libsensor",
                 "libsensorservicehidl",
+                "netd_aidl_interface-V10-cpp",
+                "oemnetd_aidl_interface-cpp",
             )
 
         if CONFIG["B2G_OEMHOOK"]:

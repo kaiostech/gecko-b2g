@@ -21,7 +21,11 @@
 #include "InputDevice.h"
 #include <utils/Errors.h>
 #include <utils/String8.h>
+#if ANDROID_VERSION < 33
+#include <utils/PropertyMap.h>
+#else
 #include <input/PropertyMap.h>
+#endif
 
 namespace android {
 

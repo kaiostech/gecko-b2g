@@ -503,6 +503,18 @@ extern "C" {
  * Event log entry types.  These must match up with the declarations in
  * java/android/android/util/EventLog.java.
  */
+#if ANDROID_VERSION < 33
+#  ifndef __AndroidEventLogType_defined
+#    define __AndroidEventLogType_defined
+typedef enum {
+  EVENT_TYPE_INT = 0,
+  EVENT_TYPE_LONG = 1,
+  EVENT_TYPE_STRING = 2,
+  EVENT_TYPE_LIST = 3,
+} AndroidEventLogType;
+
+#  endif
+#endif
 
 #  ifndef LOG_EVENT_INT
 #    define LOG_EVENT_INT(_tag, _value)                         \

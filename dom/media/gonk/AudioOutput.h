@@ -70,6 +70,8 @@ class AudioOutput : public GonkAudioSink {
 
  private:
   static void CallbackWrapper(int aEvent, void* aMe, void* aInfo);
+  friend android::AudioTrack;
+  friend android::AudioTrack::Buffer;
 
   android::sp<AudioTrack> mTrack;
   void* mCallbackCookie;

@@ -314,9 +314,11 @@ class IGonkGraphicBufferConsumer : public IInterface {
   // Return of a value other than NO_ERROR means an unknown error has occurred.
   virtual status_t setTransformHint(uint32_t hint) = 0;
 
-// FIXME
-#if 1
+#if ANDROID_VERSION < 33
   // Retrieve the sideband buffer stream, if any.
+  virtual sp<NativeHandle> getSidebandStream() const = 0;
+
+#else
   virtual status_t getSidebandStream(sp<NativeHandle>* outStream) const = 0;
 
     // Retrieves any stored segments of the occupancy history of this BufferQueue and clears them.
@@ -361,13 +363,18 @@ class IGonkGraphicBufferConsumer : public IInterface {
 // ----------------------------------------------------------------------------
 
 class BnGonkGraphicBufferConsumer
+#if ANDROID_VERSION < 33
+    : public BnInterface<IGonkGraphicBufferConsumer> {
+#else
     : public SafeBnInterface<IGonkGraphicBufferConsumer> {
+#endif
  public:
-    BnGonkGraphicBufferConsumer()
-          : SafeBnInterface<IGonkGraphicBufferConsumer>("BnGonkGraphicBufferConsumer") {}
-
   virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                               uint32_t flags = 0);
+#if ANDROID_VERSION >= 33
+    BnGonkGraphicBufferConsumer()
+          : SafeBnInterface<IGonkGraphicBufferConsumer>("BnGonkGraphicBufferConsumer") {}
+#endif
 };
 
 // ----------------------------------------------------------------------------

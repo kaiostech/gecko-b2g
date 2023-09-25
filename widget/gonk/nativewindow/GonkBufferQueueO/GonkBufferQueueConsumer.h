@@ -132,8 +132,11 @@ class GonkBufferQueueConsumer : public BnGonkGraphicBufferConsumer {
   // NATIVE_WINDOW_TRANSFORM_ROT_90.  The default is 0 (no transform).
   virtual status_t setTransformHint(uint32_t hint);
 
-#if 1
+#if ANDROID_VERSION < 33
   // Retrieve the sideband buffer stream, if any.
+  virtual sp<NativeHandle> getSidebandStream() const;
+
+#else
   virtual status_t getSidebandStream(sp<NativeHandle>* outStream) const;
 
   virtual status_t getOccupancyHistory(bool forceFlush,
@@ -148,16 +151,10 @@ class GonkBufferQueueConsumer : public BnGonkGraphicBufferConsumer {
 
   // dump state into a string
   virtual status_t dumpState(const String8& prefix, String8* outResult) const;
+#endif
 
-  // // Provide backwards source compatibility
-  // void dumpState(String8& result, const char* prefix) {
-  //     String8 returned;
-  //     dumpState(String8(prefix), &returned);
-  //     result.append(returned);
-  // }
   // dump our state in a String
   virtual void dumpToString(String8& result, const char* prefix) const;
-#endif
 
   // Added by mozilla
   virtual already_AddRefed<GonkBufferSlot::TextureClient>

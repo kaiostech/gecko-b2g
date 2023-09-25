@@ -165,7 +165,11 @@ EventHub::Device::Device(int fd, int32_t id, const String8& path,
       path(path),
       identifier(identifier),
       classes(0),
+#if ANDROID_VERSION < 33
+      configuration(NULL),
+#else
       configuration(nullptr),
+#endif
       virtualKeyMap(NULL),
       ffEffectPlaying(false),
       ffEffectId(-1),
@@ -182,6 +186,9 @@ EventHub::Device::Device(int fd, int32_t id, const String8& path,
 
 EventHub::Device::~Device() {
   close();
+#if ANDROID_VERSION < 33
+  delete configuration;
+#endif
   delete virtualKeyMap;
 }
 
@@ -1251,7 +1258,11 @@ status_t EventHub::openDeviceLocked(const char* devicePath) {
   if (device->classes & INPUT_DEVICE_CLASS_KEYBOARD) {
     // Register the keyboard as a built-in keyboard if it is eligible.
     if (!keyMapStatus && mBuiltInKeyboardId == NO_BUILT_IN_KEYBOARD &&
+#if ANDROID_VERSION < 33
+        isEligibleBuiltInKeyboard(device->identifier, device->configuration,
+#else
         isEligibleBuiltInKeyboard(device->identifier, device->configuration.get(),
+#endif
                                   &device->keyMap)) {
       mBuiltInKeyboardId = device->id;
     }
@@ -1380,6 +1391,16 @@ void EventHub::loadConfigurationLocked(Device* device) {
     ALOGD("No input device configuration file found for device '%s'.",
           device->identifier.name.string());
   } else {
+#if ANDROID_VERSION < 33
+    status_t status =
+        PropertyMap::load(device->configurationFile, &device->configuration);
+    if (status) {
+      ALOGE(
+          "Error loading input device configuration file for device '%s'.  "
+          "Using default configuration.",
+          device->identifier.name.string());
+    }
+#else
     android::base::Result<std::unique_ptr<PropertyMap>> propertyMap =
       PropertyMap::load(device->configurationFile);
     if (propertyMap.ok()) {
@@ -1391,6 +1412,7 @@ void EventHub::loadConfigurationLocked(Device* device) {
           device->identifier.name.string(),
           propertyMap.error().code());
     }
+#endif
   }
 }
 
@@ -1407,7 +1429,11 @@ status_t EventHub::loadVirtualKeyMapLocked(Device* device) {
 }
 
 status_t EventHub::loadKeyMapLocked(Device* device) {
+#if ANDROID_VERSION < 33
+  return device->keyMap.load(device->identifier, device->configuration);
+#else
   return device->keyMap.load(device->identifier, device->configuration.get());
+#endif
 }
 
 bool EventHub::isExternalDeviceLocked(Device* device) {

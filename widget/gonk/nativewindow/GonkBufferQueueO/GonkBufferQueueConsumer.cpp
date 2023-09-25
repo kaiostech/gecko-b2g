@@ -529,8 +529,12 @@ status_t GonkBufferQueueConsumer::setTransformHint(uint32_t hint) {
   return NO_ERROR;
 }
 
-// FIXME
-#if 1
+#if ANDROID_VERSION < 33
+sp<NativeHandle> GonkBufferQueueConsumer::getSidebandStream() const {
+  return mCore->mSidebandStream;
+}
+
+#else
 status_t GonkBufferQueueConsumer::getSidebandStream(sp<NativeHandle>* outStream) const {
   // FIXME
   return NO_ERROR;
@@ -552,12 +556,12 @@ status_t GonkBufferQueueConsumer::dumpState(const String8& prefix, String8* outR
   // FIXME
   return NO_ERROR;
 }
+#endif
 
 void GonkBufferQueueConsumer::dumpToString(String8& result,
                                            const char* prefix) const {
   mCore->dump(result, prefix);
 }
-#endif
 
 already_AddRefed<GonkBufferSlot::TextureClient>
 GonkBufferQueueConsumer::getTextureClientFromBuffer(

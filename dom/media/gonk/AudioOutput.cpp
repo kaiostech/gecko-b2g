@@ -99,25 +99,21 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
   sp<AudioTrack> t;
   CallbackData* newcbd = new CallbackData(this);
 
-
+#if ANDROID_VERSION >= 33
   t = new AudioTrack(
-      mStreamType, 
+      mStreamType,
       aSampleRate,
       aFormat,
       aChannelMask,
       nullptr);
-/*
+#else
+  t = new AudioTrack(
+      mStreamType, aSampleRate, aFormat, aChannelMask,
       0,  // Offloaded tracks will get frame count from AudioFlinger
-      aFlags,
-      CallbackWrapper,
-      newcbd,
-      NULL,
+      aFlags, CallbackWrapper, newcbd,
       0,  // notification frames
-      mSessionId,
-      AudioTrack::TRANSFER_CALLBACK,
-      aOffloadInfo,
-      mUid);
-*/
+      mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo, mUid);
+#endif
 
   if ((!t.get()) || (t->initCheck() != NO_ERROR)) {
     AUDIO_OFFLOAD_LOG(LogLevel::Error, ("Unable to create audio track"));
@@ -168,6 +164,14 @@ void AudioOutput::Close() {
   mCallbackData = nullptr;
 }
 
+#if ANDROID_VERSION >= 33
+#define BUFFER_DATA buffer->data()
+#define BUFFER_SIZE buffer->size()
+#else
+#define BUFFER_DATA buffer->raw
+#define BUFFER_SIZE buffer->size
+#endif
+
 // static
 void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
   CallbackData* data = (CallbackData*)aCookie;
@@ -179,20 +183,21 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
     // by another player, but the format turned out to be incompatible.
     data->Unlock();
     if (buffer) {
-      // FIXME: mSize is private.
-      // buffer->size = 0;
+#if ANDROID_VERSION < 33
+      // FIXME: mSize is private in 33.
+      buffer->size = 0;
+#endif
     }
     return;
   }
 
   switch (aEvent) {
     case AudioTrack::EVENT_MORE_DATA: {
-      // FIXME: raw is private.
       size_t actualSize =
-          (*me->mCallback)(me, buffer->data(), buffer->size(), me->mCallbackCookie,
+          (*me->mCallback)(me, BUFFER_DATA, BUFFER_SIZE, me->mCallbackCookie,
                            CB_EVENT_FILL_BUFFER);
 
-      if (actualSize == 0 && buffer->size() > 0) {
+      if (actualSize == 0 && BUFFER_SIZE > 0) {
         // Log when no data is returned from the callback.
         // (1) We may have no data (especially with network streaming sources).
         // (2) We may have reached the EOS and the audio track is not stopped
@@ -208,8 +213,10 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
                           ("Callback wrapper: empty buffer returned"));
       }
 
-      // FIXME: mSize is private.
-      // buffer->size = actualSize;
+#if ANDROID_VERSION < 33
+      // FIXME: mSize is private in 33.
+      buffer->size = actualSize;
+#endif
     } break;
 
     case AudioTrack::EVENT_STREAM_END:

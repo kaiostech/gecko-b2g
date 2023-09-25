@@ -219,10 +219,12 @@ status_t KeyLayoutMap::Parser::parse() {
         mTokenizer->skipDelimiters(WHITESPACE);
         status_t status = parseLed();
         if (status) return status;
+#if ANDROID_VERSION >= 33
       } else if (keywordToken == "sensor") {
         mTokenizer->skipDelimiters(WHITESPACE);
         status_t status = parseSensor();
         if (status) return status;
+#endif
       } else {
         ALOGE("%s: Expected keyword, got '%s'.",
               mTokenizer->getLocation().string(), keywordToken.string());
@@ -456,6 +458,7 @@ status_t KeyLayoutMap::Parser::parseLed() {
   return NO_ERROR;
 }
 
+#if ANDROID_VERSION >= 33
 // Parse sensor type and data index mapping, as below format
 // sensor <raw abs> <sensor type> <sensor data index>
 // raw abs : the linux abs code of the axis
@@ -482,4 +485,5 @@ status_t KeyLayoutMap::Parser::parseSensor() {
 
     return NO_ERROR;
 }
+#endif
 };  // namespace android

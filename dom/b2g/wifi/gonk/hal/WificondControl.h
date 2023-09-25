@@ -29,10 +29,10 @@ namespace Wificond = ::android::net::wifi::nl80211;
 #  include <android/net/wifi/IWificond.h>
 #  include <android/net/wifi/IWifiScannerImpl.h>
 
-using ::android::net::wifi::nl80211::IApInterface;
-using ::android::net::wifi::nl80211::IClientInterface;
-using ::android::net::wifi::nl80211::IWificond;
-using ::android::net::wifi::nl80211::IWifiScannerImpl;
+using ::android::net::wifi::IApInterface;
+using ::android::net::wifi::IClientInterface;
+using ::android::net::wifi::IWificond;
+using ::android::net::wifi::IWifiScannerImpl;
 
 namespace Wificond = ::com::android::server::wifi::wificond;
 #endif

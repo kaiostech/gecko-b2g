@@ -214,7 +214,7 @@ class VolumeCurves {
 
   float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
     float decibel = AudioSystem::getStreamVolumeDB(
-        static_cast<audio_stream_type_t>(mStreamType), aIndex, aDevice);
+        static_cast<audio_stream_type_t>(mStreamType), aIndex, static_cast<audio_devices_t>(aDevice));
     // decibel to amplitude
     return exp(decibel * 0.115129f);
   }
@@ -307,8 +307,9 @@ void AudioManager::HandleAudioFlingerDied() {
   mIsVolumeInited = true;
   MaybeWriteVolumeSettings(true);
 
-// FIXME
-//  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+#if ANDROID_VERSION < 33 // FIXME
+  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+#endif
 
   AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
                            AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
@@ -503,8 +504,7 @@ static void SetDeviceConnectionStateInternal(bool aIsConnected,
   auto device = static_cast<audio_devices_t>(aDevice);
   auto state = aIsConnected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
                             : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
-// FIXME
-#if 0
+#if ANDROID_VERSION < 33 // FIXME
   AudioSystem::setDeviceConnectionState(device, state, aDeviceAddress.get(), "",
                                         AUDIO_FORMAT_DEFAULT);
 #endif
@@ -795,9 +795,10 @@ void AudioManager::Init() {
 #else
   AudioSystem::setErrorCallback(BinderDeadCallback);
 #endif
-  // FIXME: Android 13 port: workaround crash
-  // AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
+#if ANDROID_VERSION < 33 // FIXME: Android 13 port: workaround crash
+  AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
+#endif
   // Gecko only control stream volume not master so set to default value
   // directly.
   AudioSystem::setMasterVolume(1.0);
@@ -806,8 +807,9 @@ void AudioManager::Init() {
   // prevent AudioPolicyService from treating us as assistant app and
   // incorrectly muting our audio input because we don't meet some criteria of
   // assistant app.
-// FIXME
-//  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+#if ANDROID_VERSION < 33 // FIXME: Android 13 port
+  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+#endif
 
   // If this is not set, AUDIO_STREAM_ENFORCED_AUDIBLE will be mapped to
   // AUDIO_STREAM_MUSIC inside AudioPolicyManager.
@@ -1468,8 +1470,7 @@ nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
 }
 
 uint32_t AudioManager::GetDevicesForStream(int32_t aStream) {
-// FIXME
-#if 0
+#if ANDROID_VERSION < 33 // FIXME
   audio_devices_t devices = AudioSystem::getDevicesForStream(
       static_cast<audio_stream_type_t>(aStream));
 
@@ -1602,8 +1603,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToActiveDevices(
     return NS_OK;
   }
 
-// FIXME
-#if 0
+#if ANDROID_VERSION < 33 // FIXME
   // AudioPolicyManager::setStreamVolumeIndex() set volumes of all active
   // devices for stream.
   nsresult rv;
@@ -1680,8 +1680,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
     mDevicesWithVolumeChange |= aDevice;
   }
 
-// FIXME
-#if 0
+#if ANDROID_VERSION < 33 // FIXME
   rv = AudioSystem::setStreamVolumeIndex(
       static_cast<audio_stream_type_t>(mStreamType), aIndex, aDevice);
 #endif

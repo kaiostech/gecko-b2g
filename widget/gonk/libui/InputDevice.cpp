@@ -87,7 +87,23 @@ String8 getInputDeviceConfigurationFilePathByName(
     const String8& name, InputDeviceConfigurationFileType type) {
   // Search system repository.
   String8 path;
+#if ANDROID_VERSION < 33
+  path.setTo(getenv("ANDROID_ROOT"));
+  path.append("/usr/");
+  appendInputDeviceConfigurationFileRelativePath(path, name, type);
+#if DEBUG_PROBE
+  ALOGD(
+      "Probing for system provided input device configuration file: path='%s'",
+      path.string());
+#endif
+  if (!access(path.string(), R_OK)) {
+#if DEBUG_PROBE
+    ALOGD("Found");
+#endif
+    return path;
+  }
 
+#else
   // Treblized input device config files will be located /product/usr, /system_ext/usr,
   // /odm/usr or /vendor/usr.
   // These files may also be in the com.android.input.config APEX.
@@ -117,7 +133,7 @@ String8 getInputDeviceConfigurationFilePathByName(
       return path;
     }
   }
-
+#endif
   // Search user repository.
   // TODO Should only look here if not in safe mode.
   path.setTo(getenv("ANDROID_DATA"));

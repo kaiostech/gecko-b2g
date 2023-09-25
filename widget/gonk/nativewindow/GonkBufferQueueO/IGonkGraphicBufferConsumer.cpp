@@ -207,12 +207,20 @@ enum {
 };
 
 class BpGonkGraphicBufferConsumer
+#if ANDROID_VERSION < 33
+    : public BpInterface<IGonkGraphicBufferConsumer> {
+#else
     : public SafeBpInterface<IGonkGraphicBufferConsumer> {
+#endif
  public:
   explicit BpGonkGraphicBufferConsumer(const sp<IBinder>& impl)
+#if ANDROID_VERSION < 33
+      : BpInterface<IGonkGraphicBufferConsumer>(impl) {}
+#else
       : SafeBpInterface<IGonkGraphicBufferConsumer>(impl, "BpGonkGraphicBufferConsumer") {}
 
   ~BpGonkGraphicBufferConsumer() {}
+#endif
 
   virtual status_t acquireBuffer(BufferItem* buffer, nsecs_t presentWhen) {
     Parcel data, reply;
@@ -408,7 +416,11 @@ class BpGonkGraphicBufferConsumer
     return reply.readInt32();
   }
 
+#if ANDROID_VERSION < 33
+  virtual sp<NativeHandle> getSidebandStream() const {
+#else
   virtual status_t getSidebandStream(sp<NativeHandle>* outStream) const {
+#endif
     Parcel data, reply;
     status_t err;
     data.writeInterfaceToken(
@@ -417,28 +429,39 @@ class BpGonkGraphicBufferConsumer
         NO_ERROR) {
       return NULL;
     }
+
+#if ANDROID_VERSION < 33
+    sp<NativeHandle> stream;
+    if (reply.readInt32()) {
+      stream = NativeHandle::create(reply.readNativeHandle(), true);
+    }
+    return stream;
+#else
     if (reply.readInt32()) {
       *outStream = NativeHandle::create(reply.readNativeHandle(), true);
     }
     return reply.readInt32();;
+#endif
   }
 
-    virtual status_t getOccupancyHistory(bool forceFlush,
-                                         std::vector<OccupancyTracker::Segment>* outHistory) {
-        // FIXME
-        return NO_ERROR;
-    }
-
-    virtual status_t discardFreeBuffers() {
-        // FIXME
-        return NO_ERROR;
-    }
-
-    // dump state into a string
-    virtual status_t dumpState(const String8& prefix, String8* outResult) const {
-        // FIXME
-        return NO_ERROR;
+#if ANDROID_VERSION >= 33
+  virtual status_t getOccupancyHistory(bool forceFlush,
+                                       std::vector<OccupancyTracker::Segment>* outHistory) {
+    // FIXME
+    return NO_ERROR;
   }
+
+  virtual status_t discardFreeBuffers() {
+    // FIXME
+    return NO_ERROR;
+  }
+
+  // dump state into a string
+  virtual status_t dumpState(const String8& prefix, String8* outResult) const {
+    // FIXME
+    return NO_ERROR;
+  }
+#endif
 
   virtual void dumpToString(String8& result, const char* prefix) const {
     Parcel data, reply;
@@ -466,7 +489,7 @@ class BpGonkGraphicBufferConsumer
   }
 };
 
-// FIXME: "b/64223827: Manually written binder interfaces are considered error prone and frequently have bugs. The preferred way to add interfaces is to define an .aidl file to auto-generate the interface. If an interface must be manually written, add its name to the whitelist."
+// FIXME: "b/64223827: Manually written binder interfaces are considered error prone and frequently have bugs. The preferred way to add interfaces is to define an .aidl file to auto-generate the interface. If an interface must be manually written, add its name to the allow list."
 IMPLEMENT_META_INTERFACE(GonkGraphicBufferConsumer,
                          "android.gui.IGonkGraphicBufferConsumer");
 

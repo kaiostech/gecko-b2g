@@ -461,24 +461,30 @@ Result_t WificondControl::GetChannelsForBand(uint32_t aBandMask,
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
+#if ANDROID_VERSION >= 33
   std::optional<std::vector<int32_t>> channels;
+  #define CHANNEL_HAS_VALUE channels.has_value()
+#else
+  std::unique_ptr<std::vector<int32_t>> channels;
+  #define CHANNEL_HAS_VALUE channels != nullptr
+#endif
   if (aBandMask & nsIScanSettings::BAND_2_4_GHZ) {
     mWificond->getAvailable2gChannels(&channels);
-    if (channels.has_value()) {
+    if (CHANNEL_HAS_VALUE) {
       aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
     }
   }
 
   if (aBandMask & nsIScanSettings::BAND_5_GHZ) {
     mWificond->getAvailable5gNonDFSChannels(&channels);
-    if (channels.has_value()) {
+    if (CHANNEL_HAS_VALUE) {
       aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
     }
   }
 
   if (aBandMask & nsIScanSettings::BAND_5_GHZ_DFS) {
     mWificond->getAvailableDFSChannels(&channels);
-    if (channels.has_value()) {
+    if (CHANNEL_HAS_VALUE) {
       aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
     }
   }

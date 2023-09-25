@@ -11,6 +11,12 @@
 #include "WifiHalManager.h"
 #include <mozilla/ClearOnShutdown.h>
 
+#if ANDROID_VERSION >= 33
+#define REGISTER_CALLBACK registerEventCallback_1_5
+#else
+#define REGISTER_CALLBACK registerEventCallback
+#endif
+
 using ChipCapabilityMask =
     ::android::hardware::wifi::V1_0::IWifiChip::ChipCapabilityMask;
 using StaIfaceCapabilityMask =
@@ -190,10 +196,10 @@ Result_t WifiHal::InitWifiInterface() {
 
     WIFI_LOGE(LOG_TAG, "About to register event callback");
     WifiStatus response;
-    mWifi->registerEventCallback_1_5(
+    mWifi->REGISTER_CALLBACK(
         this, [&](const WifiStatus& status) { response = status; });
     if (response.code != WifiStatusCode::SUCCESS) {
-      WIFI_LOGE(LOG_TAG, "registerEventCallback_1_5 failed: code=%d, reason='%s'",
+      WIFI_LOGE(LOG_TAG, "registerEventCallback failed: code=%d, reason='%s'",
                 response.code, response.description.c_str());
       mWifi = nullptr;
       return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -616,10 +622,12 @@ Return<void> WifiHal::onFailure(const WifiStatus& status) {
   return android::hardware::Void();
 }
 
+#if ANDROID_VERSION >= 33
 Return<void> WifiHal::onSubsystemRestart(const WifiStatus& status) {
   WIFI_LOGD(LOG_TAG, "WifiEventCallback.onSubsystemRestart(): %d", status.code);
   return android::hardware::Void();
 }
+#endif
 
 /**
  * IWifiChipEventCallback implementation

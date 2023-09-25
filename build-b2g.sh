@@ -51,6 +51,7 @@ export MOZCONFIG=`pwd`/mozconfig-b2g
 
 ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r25b}
 export ANDROID_NDK="${ANDROID_NDK/#\~/$HOME}"
+export ANDROID_NDK_HOME="${ANDROID_NDK}"
 
 TARGET_GCC_VERSION=${TARGET_GCC_VERSION:-4.9}
 

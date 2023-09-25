@@ -103,12 +103,4 @@ android::binder::Status SoftapEventService::onSoftApChannelSwitched(
   return android::binder::Status::ok();
 }
 
-// TODO: FIXME
-android::binder::Status SoftapEventService::onConnectedClientsChanged(
-    const ::android::net::wifi::nl80211::NativeWifiClient& client,
-	  bool isConnected) {
-  WIFI_LOGI(LOG_TAG, "onConnectedClientsChanged isConnected=%s",
-    isConnected ? "yes" : "no");
-  return android::binder::Status::ok();
-}
 #endif

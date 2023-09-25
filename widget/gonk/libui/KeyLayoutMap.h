@@ -116,7 +116,9 @@ class KeyLayoutMap : public RefBase {
     status_t parseKey();
     status_t parseAxis();
     status_t parseLed();
+#if ANDROID_VERSION >= 33
     status_t parseSensor();
+#endif
   };
 };
 

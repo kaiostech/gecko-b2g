@@ -16,11 +16,16 @@
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceNotification.h>
+#if ANDROID_VERSION >= 33
 #include <android/hardware/wifi/1.5/IWifi.h>
+#include <android/hardware/wifi/1.5/IWifiEventCallback.h>
+#else
+#include <android/hardware/wifi/1.0/IWifi.h>
+#include <android/hardware/wifi/1.0/IWifiEventCallback.h>
+#endif
 #include <android/hardware/wifi/1.0/IWifiChip.h>
 #include <android/hardware/wifi/1.0/IWifiStaIface.h>
 #include <android/hardware/wifi/1.3/IWifiStaIface.h>
-#include <android/hardware/wifi/1.5/IWifiEventCallback.h>
 #include <android/hardware/wifi/1.2/IWifiChipEventCallback.h>
 #if ANDROID_VERSION >= 30
 #  include <android/hardware/wifi/1.4/types.h>
@@ -39,7 +44,6 @@ using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::wifi::V1_0::ChipId;
-using ::android::hardware::wifi::V1_5::IWifi;
 using ::android::hardware::wifi::V1_0::IWifiApIface;
 using ::android::hardware::wifi::V1_0::IWifiChip;
 using ::android::hardware::wifi::V1_0::IWifiIface;
@@ -58,15 +62,21 @@ using ::android::hidl::base::V1_0::IBase;
 
 namespace wifiNameSpaceV1_0 = ::android::hardware::wifi::V1_0;
 namespace wifiNameSpaceV1_3 = ::android::hardware::wifi::V1_3;
-#if ANDROID_VERSION >= 30
-namespace wifiNameSpaceV1_4 = ::android::hardware::wifi::V1_4;
+
+#if ANDROID_VERSION >= 33
+#define android_hardware_wifi_V1_X android::hardware::wifi::V1_5
+#define V1_X V1_5
+#else
+#define V1_X V1_0
 #endif
+
+using ::android::hardware::wifi::V1_X::IWifi;
 
 BEGIN_WIFI_NAMESPACE
 
 class WifiHal
     : virtual public android::hidl::manager::V1_0::IServiceNotification,
-      virtual public android::hardware::wifi::V1_5::IWifiEventCallback,
+      virtual public android::hardware::wifi::V1_X::IWifiEventCallback,
       virtual public android::hardware::wifi::V1_0::IWifiStaIfaceEventCallback,
       virtual public android::hardware::wifi::V1_2::IWifiChipEventCallback {
  public:
@@ -124,11 +134,13 @@ class WifiHal
    */
   Return<void> onFailure(const WifiStatus& status) override;
 
+#if ANDROID_VERSION >= 33
   /**
    * Must be called when the Wi-Fi subsystem restart completes.
    * Once this event is received, framework must fully reset the Wi-Fi stack state.
    */
   Return<void> onSubsystemRestart(const WifiStatus& status) override;
+#endif
 
   //..................... IWifiChipEventCallback ......................./
   /**

@@ -19,6 +19,9 @@
 
 #include "SpriteController.h"
 
+#if ANDROID_VERSION < 33
+#include <ui/DisplayInfo.h>
+#endif
 #include "Input.h"
 #include <utils/BitSet.h>
 #include <utils/RefBase.h>

@@ -7,8 +7,10 @@
 #ifndef mozilla_dom_BrowserParent_h
 #define mozilla_dom_BrowserParent_h
 
+#ifdef MOZ_WIDGET_GONK
 #include <android/binder_parcel.h>
 #include <android/binder_status.h>
+#endif
 
 #include <utility>
 

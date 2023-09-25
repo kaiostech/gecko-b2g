@@ -543,7 +543,11 @@ int GonkNativeWindowClient::dispatchSetSidebandStream(va_list args) {
 int GonkNativeWindowClient::connect(int api) {
   ATRACE_CALL();
   ALOGV("GonkNativeWindowClient::connect");
+#if ANDROID_VERSION < 33
+  static sp<IProducerListener> listener = new DummyProducerListener();
+#else
   static sp<IProducerListener> listener = new StubProducerListener();
+#endif
   Mutex::Autolock lock(mMutex);
   IGraphicBufferProducer::QueueBufferOutput output;
   int err = mGraphicBufferProducer->connect(listener, api, true, &output);

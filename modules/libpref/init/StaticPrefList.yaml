@@ -2238,6 +2238,11 @@
   value: false
   mirror: always
 
+- name: dom.audiochannel.release_delay_ms
+  type: uint32_t
+  value: 500
+  mirror: always
+
 # Is support for Navigator.getBattery enabled?
 - name: dom.battery.enabled
   type: bool

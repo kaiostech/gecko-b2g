@@ -53,6 +53,10 @@ static double sDefStepOffset[] = {CURSOR_MOVE_PHASES};
 #define K_VIRTUALBOUNDARY_FACTOR 3.0
 #define K_VIRTUALBOUNDARY_PIXEL 20
 #define K_MOVE_STEP_OFFSET_DEFAULT 5.0
+// If moving the cursor to (-1, -1), there is still a chance to see the
+// cursor at that position, since the size of cursor image is 26px, moves
+// the cursor to (-30, -30) to avoid seeing it.
+#define K_INITIAL_POSITION -30
 
 NS_IMPL_ISUPPORTS(CursorSimulator, nsIDOMEventListener, nsITimerCallback,
                   nsINamed)
@@ -61,7 +65,7 @@ CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
                                  nsIVirtualCursor* aDelegate)
     : mOuterWindow(aWindow),
       mDelegate(aDelegate),
-      mDevCursorPos(LayoutDeviceIntPoint(-1, -1)),
+      mDevCursorPos(LayoutDeviceIntPoint(K_INITIAL_POSITION, K_INITIAL_POSITION)),
       mDirection(CursorDirection::NONE),
       mKeyPressedTime(0),
       mIsKeyPressed(false),
@@ -461,6 +465,10 @@ void CursorSimulator::CenterizeCursorIfNecessary() {
   LayoutDeviceIntPoint devSize;
   CSSPoint cssSize(windowSize.width, windowSize.height);
   CSSToDevPixel(cssSize, devSize);
+
+  if (devSize.x <= 0 || devSize.y <= 0) {
+    return;
+  }
 
   if (mDevCursorPos.x >= 0 && mDevCursorPos.x < devSize.x &&
       mDevCursorPos.y >= 0 && mDevCursorPos.y < devSize.y) {
@@ -1020,10 +1028,10 @@ void CursorSimulator::CursorMove() {
 
 void CursorSimulator::CursorOut(bool aCheckActive) {
   if (!aCheckActive || IsActive()) {
-    // Move the cursor position to -1,-1 so that it wonldn't hover on something
+    // Move the cursor position to K_INITIAL_POSITION so that it wonldn't hover on something
     LayoutDeviceIntPoint point;
-    point.x = -1;
-    point.y = -1;
+    point.x = K_INITIAL_POSITION;
+    point.y = K_INITIAL_POSITION;
     mDelegate->UpdatePos(point);
     mDelegate->CursorOut();
   }

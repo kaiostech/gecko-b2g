@@ -158,6 +158,9 @@ void VirtualCursorService::UpdatePos(const LayoutDeviceIntPoint& aPoint) {
       presContext->DevPixelsToFloatCSSPixels(aPoint.x) / resolution;
   mCSSCursorPoint.y =
       presContext->DevPixelsToFloatCSSPixels(aPoint.y) / resolution;
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::UpdatePos (%.2f,%.2f), resolution: %.2f",
+           mCSSCursorPoint.x, mCSSCursorPoint.y, resolution));
   CursorMove();
 }
 

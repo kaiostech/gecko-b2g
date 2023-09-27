@@ -61,8 +61,6 @@ class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
 
   virtual bool IsExtFBDeviceEnabled();
 
-  virtual void setDisplayBrightness(uint32_t display, float brightness);
-
   virtual bool SwapBuffers(DisplayType aDisplayType);
 
   virtual ANativeWindowBuffer* DequeueBuffer(DisplayType aDisplayType);

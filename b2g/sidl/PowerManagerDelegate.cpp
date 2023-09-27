@@ -5,9 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PowerManagerDelegate.h"
-#if defined(MOZ_WIDGET_GONK)
-# include "libdisplay/GonkDisplay.h"
-#endif
 #include "nsServiceManagerUtils.h"
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -55,16 +52,6 @@ PowerManagerDelegateService::SetScreenEnabled(bool enabled,
   } else {
     hal::SetScreenEnabled(enabled);
   }
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-PowerManagerDelegateService::SetDisplayBrightness(uint32_t displayId,
-                                                  float brightness) {
-#if defined(MOZ_WIDGET_GONK)
-  printf_stderr("SetDisplayBrightness %f", brightness);
-  GetGonkDisplay()->setDisplayBrightness(displayId, brightness);
-#endif
   return NS_OK;
 }
 

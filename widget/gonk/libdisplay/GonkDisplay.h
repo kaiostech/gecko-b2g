@@ -72,8 +72,6 @@ class MOZ_EXPORT GonkDisplay {
 
   virtual bool IsExtFBDeviceEnabled() = 0;
 
-  virtual void setDisplayBrightness(uint32_t display, float brightness) = 0;
-
   /**
    * Only GonkDisplayICS uses arguments.
    */

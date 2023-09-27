@@ -14,7 +14,6 @@
 #include "GPUProcessManager.h"
 #include "gfxGradientCache.h"
 #include "GfxInfoBase.h"
-#include "CanvasManagerParent.h"
 #include "VRGPUChild.h"
 #include "VRManager.h"
 #include "VRManagerParent.h"
@@ -254,6 +253,17 @@ void GPUParent::NotifySwapChainInfo(layers::SwapChainInfo aInfo) {
   Unused << SendNotifySwapChainInfo(aInfo);
 }
 
+void GPUParent::NotifyDisableRemoteCanvas() {
+  if (!NS_IsMainThread()) {
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        "gfx::GPUParent::NotifyDisableRemoteCanvas", []() -> void {
+          GPUParent::GetSingleton()->NotifyDisableRemoteCanvas();
+        }));
+    return;
+  }
+  Unused << SendNotifyDisableRemoteCanvas();
+}
+
 mozilla::ipc::IPCResult GPUParent::RecvInit(
     nsTArray<GfxVarUpdate>&& vars, const DevicePrefs& devicePrefs,
     nsTArray<LayerTreeIdMapping>&& aMappings,
@@ -371,10 +381,8 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
 #endif
 
   // Make sure to do this *after* we update gfxVars above.
-  if (gfxVars::UseCanvasRenderThread()) {
-    gfx::CanvasRenderThread::Start();
-  }
   wr::RenderThread::Start(aWrNamespace);
+  gfx::CanvasRenderThread::Start();
   image::ImageMemoryReporter::InitForWebRender();
 
   VRManager::ManagerInit();
@@ -693,9 +701,10 @@ void GPUParent::ActorDestroy(ActorDestroyReason aWhy) {
           self->mVsyncBridge = nullptr;
         }
         VideoBridgeParent::Shutdown();
-        // This could be running on either the Compositor or the Renderer
-        // thread.
-        CanvasManagerParent::Shutdown();
+        // This could be running on either the Compositor thread, the Renderer
+        // thread, or the dedicated CanvasRender thread, so we need to shutdown
+        // before the former two.
+        CanvasRenderThread::Shutdown();
         CompositorThreadHolder::Shutdown();
         RemoteTextureMap::Shutdown();
         // There is a case that RenderThread exists when gfxVars::UseWebRender()
@@ -703,9 +712,6 @@ void GPUParent::ActorDestroy(ActorDestroyReason aWhy) {
         // compositor.
         if (wr::RenderThread::Get()) {
           wr::RenderThread::ShutDown();
-        }
-        if (gfx::CanvasRenderThread::Get()) {
-          gfx::CanvasRenderThread::ShutDown();
         }
 #ifdef XP_WIN
         if (widget::WinCompositorWindowThread::Get()) {

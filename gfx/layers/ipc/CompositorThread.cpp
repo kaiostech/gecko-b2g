@@ -12,7 +12,6 @@
 #include "mozilla/BackgroundHangMonitor.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/gfx/gfxVars.h"
-#include "mozilla/layers/CanvasTranslator.h"
 #include "mozilla/layers/CompositorManagerParent.h"
 #include "mozilla/layers/ImageBridgeParent.h"
 #include "mozilla/layers/VideoBridgeParent.h"
@@ -32,7 +31,7 @@ static Atomic<bool> sFinishedCompositorShutDown(false);
 static mozilla::BackgroundHangMonitor* sBackgroundHangMonitor;
 static ProfilerThreadId sProfilerThreadId;
 
-nsISerialEventTarget* CompositorThread() {
+nsIThread* CompositorThread() {
   return sCompositorThreadHolder
              ? sCompositorThreadHolder->GetCompositorThread()
              : nullptr;
@@ -144,7 +143,6 @@ void CompositorThreadHolder::Shutdown() {
   gfx::VRManagerParent::Shutdown();
   MediaSystemResourceService::Shutdown();
   CompositorManagerParent::Shutdown();
-  CanvasTranslator::Shutdown();
   gfx::gfxGradientCache::Shutdown();
 
   // Ensure there are no pending tasks that would cause an access to the

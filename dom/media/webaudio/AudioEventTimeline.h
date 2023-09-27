@@ -110,6 +110,13 @@ struct AudioTimelineEvent final {
   TimeType Time() const {
     return mTime.Get<TimeType>();
   }
+  // If this event is a curve event, this returns the end time of the curve.
+  // Otherwise, this returns the time of the event.
+  template <class TimeType>
+  double EndTime() const;
+  // Value for an event, or for a ValueCurve event, this is the value of the
+  // last element of the curve.
+  float EndValue() const;
 
   void SetTimeInTicks(int64_t aTimeInTicks) { mTime = aTimeInTicks; }
 
@@ -163,7 +170,9 @@ inline int64_t AudioTimelineEvent::TimeUnion::Get<int64_t>() const {
 class AudioEventTimeline {
  public:
   explicit AudioEventTimeline(float aDefaultValue)
-      : mValue(aDefaultValue), mSetTargetStartValue(aDefaultValue) {}
+      : mDefaultValue(aDefaultValue),
+        mSetTargetStartValue(aDefaultValue),
+        mSimpleValue(Some(aDefaultValue)) {}
 
   bool ValidateEvent(const AudioTimelineEvent& aEvent, ErrorResult& aRv) const {
     MOZ_ASSERT(NS_IsMainThread());
@@ -240,7 +249,7 @@ class AudioEventTimeline {
           return false;
         }
       } else {
-        if (mValue <= 0.f) {
+        if (mDefaultValue <= 0.f) {
           // XXXbz I see no mention of SyntaxError in the Web Audio API spec
           aRv.ThrowSyntaxError("Our value must be positive");
           return false;
@@ -252,6 +261,7 @@ class AudioEventTimeline {
 
   template <typename TimeType>
   void InsertEvent(const AudioTimelineEvent& aEvent) {
+    mSimpleValue.reset();
     for (unsigned i = 0; i < mEvents.Length(); ++i) {
       if (aEvent.Time<TimeType>() == mEvents[i].Time<TimeType>()) {
         // If two events happen at the same time, have them in chronological
@@ -274,18 +284,22 @@ class AudioEventTimeline {
     mEvents.AppendElement(aEvent);
   }
 
-  bool HasSimpleValue() const { return mEvents.IsEmpty(); }
+  bool HasSimpleValue() const { return mSimpleValue.isSome(); }
 
   float GetValue() const {
     // This method should only be called if HasSimpleValue() returns true
     MOZ_ASSERT(HasSimpleValue());
-    return mValue;
+    return mSimpleValue.value();
   }
 
   void SetValue(float aValue) {
+    // FIXME: bug 1308435
+    // A spec change means this should instead behave like setValueAtTime().
+
     // Silently don't change anything if there are any events
     if (mEvents.IsEmpty()) {
-      mSetTargetStartValue = mValue = aValue;
+      mSetTargetStartValue = mDefaultValue = aValue;
+      mSimpleValue = Some(aValue);
     }
   }
 
@@ -352,6 +366,9 @@ class AudioEventTimeline {
         break;
       }
     }
+    if (mEvents.IsEmpty()) {
+      mSimpleValue = Some(mDefaultValue);
+    }
   }
 
   void CancelAllEvents() { mEvents.Clear(); }
@@ -413,11 +430,12 @@ class AudioEventTimeline {
   // structure. We can optimize this in the future if the performance of the
   // array ends up being a bottleneck.
   nsTArray<AudioTimelineEvent> mEvents;
-  float mValue;
+  float mDefaultValue;
   // This is the value of this AudioParam at the end of the previous
   // event for SetTarget curves.
   float mSetTargetStartValue;
   AudioTimelineEvent::TimeUnion mSetTargetStartTime;
+  Maybe<float> mSimpleValue;
 };
 
 }  // namespace dom

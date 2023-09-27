@@ -297,6 +297,7 @@ renaming_overrides_prefixing = true
 "nsSimpleContentList" = "nsSimpleContentList"
 "nsACString" = "nsACString"
 "nsAString" = "nsAString"
+"nsCString" = "nsCString"
 "nsString" = "nsString"
 "CopyableTArray" = "CopyableTArray"
 "nsTArray" = "nsTArray"
@@ -896,13 +897,6 @@ renaming_overrides_prefixing = true
   // Returns true if the item is definitely opaque --- i.e., paints every
   // pixel within its bounds opaquely, and the bounds contains at least a pixel.
   bool IsOpaque() const;
-
-  struct ActualCropRect {
-    nsIntRect mRect; // in image pixels
-    bool mIsEntireImage;
-  };
-
-  Maybe<ActualCropRect> ComputeActualCropRect() const;
 
   // Resolves the underlying image request if any.
   void ResolveImage(dom::Document&, const StyleGenericImage* aOld);

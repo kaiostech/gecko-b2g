@@ -32,8 +32,8 @@ MOCHITEST_CHROME_MANIFESTS += [
 ]
 
 BROWSER_CHROME_MANIFESTS += [
-    "test/browser/browser.toml",
-    "test/navigation/browser.toml",
+    "test/browser/browser.ini",
+    "test/navigation/browser.ini",
 ]
 
 TEST_HARNESS_FILES.testing.mochitest.tests.docshell.test.chrome += [

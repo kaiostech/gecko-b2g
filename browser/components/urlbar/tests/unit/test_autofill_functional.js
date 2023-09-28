@@ -4,7 +4,7 @@
 
 // Functional tests for inline autocomplete
 
-add_setup(async function () {
+add_task(async function setup() {
   registerCleanupFunction(async () => {
     Services.prefs.clearUserPref("browser.urlbar.suggest.searches");
     Services.prefs.clearUserPref("browser.urlbar.suggest.quickactions");

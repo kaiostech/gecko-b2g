@@ -29,7 +29,7 @@ add_task(async function test_tab_is_removed() {
   });
 
   const realmCreatedEvent = await onRealmCreated;
-  const createdRealmId = realmCreatedEvent.realmInfo.realm;
+  const createdRealmId = realmCreatedEvent.realmId;
 
   is(rootMessageHandler.realms.size, 1, "Realm is added in the internal map");
 
@@ -71,7 +71,7 @@ add_task(async function test_same_origin_navigation() {
   });
 
   const realmCreatedEvent = await onRealmCreated;
-  const createdRealmId = realmCreatedEvent.realmInfo.realm;
+  const createdRealmId = realmCreatedEvent.realmId;
 
   is(rootMessageHandler.realms.size, 1, "Realm is added in the internal map");
 
@@ -122,7 +122,7 @@ add_task(async function test_cross_origin_navigation() {
   });
 
   const realmCreatedEvent = await onRealmCreated;
-  const createdRealmId = realmCreatedEvent.realmInfo.realm;
+  const createdRealmId = realmCreatedEvent.realmId;
 
   is(rootMessageHandler.realms.size, 1, "Realm is added in the internal map");
 

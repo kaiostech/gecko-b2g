@@ -15,6 +15,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   MerinoClient: "resource:///modules/MerinoClient.sys.mjs",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.sys.mjs",
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
+  QuickSuggestRemoteSettings:
+    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarResult: "resource:///modules/UrlbarResult.sys.mjs",
 });
@@ -29,9 +31,6 @@ ChromeUtils.defineLazyGetter(lazy, "contextId", () => {
   }
   return _contextId;
 });
-
-// Used for suggestions that don't otherwise have a score.
-const DEFAULT_SUGGESTION_SCORE = 0.2;
 
 const TELEMETRY_PREFIX = "contextual.services.quicksuggest";
 
@@ -86,16 +85,6 @@ class ProviderQuickSuggest extends UrlbarProvider {
    */
   get type() {
     return UrlbarUtils.PROVIDER_TYPE.NETWORK;
-  }
-
-  /**
-   * @returns {number}
-   *   The default score for suggestions that don't otherwise have one. All
-   *   suggestions require scores so they can be ranked. Scores are numeric
-   *   values in the range [0, 1].
-   */
-  get DEFAULT_SUGGESTION_SCORE() {
-    return DEFAULT_SUGGESTION_SCORE;
   }
 
   /**
@@ -161,10 +150,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
     // There are two sources for quick suggest: remote settings and Merino.
     let promises = [];
     if (lazy.UrlbarPrefs.get("quickSuggestRemoteSettingsEnabled")) {
-      let { backend } = lazy.QuickSuggest;
-      if (backend?.isEnabled) {
-        promises.push(backend.query(searchString));
-      }
+      promises.push(lazy.QuickSuggestRemoteSettings.query(searchString));
     }
     if (
       lazy.UrlbarPrefs.get("merinoEnabled") &&
@@ -182,20 +168,18 @@ class ProviderQuickSuggest extends UrlbarProvider {
 
     let suggestions = values.flat();
 
-    // Ensure all suggestions have a `score` by falling back to the default
-    // score as necessary. If `quickSuggestScoreMap` is defined, override scores
-    // with the values it defines. It maps telemetry types to scores.
+    // Override suggestion scores with the ones defined in the Nimbus variable
+    // `quickSuggestScoreMap`. It maps telemetry types to scores.
     let scoreMap = lazy.UrlbarPrefs.get("quickSuggestScoreMap");
-    for (let suggestion of suggestions) {
-      if (isNaN(suggestion.score)) {
-        suggestion.score = DEFAULT_SUGGESTION_SCORE;
-      }
-      if (scoreMap) {
-        let telemetryType = this.#getSuggestionTelemetryType(suggestion);
+    if (scoreMap) {
+      for (let i = 0; i < suggestions.length; i++) {
+        let telemetryType = this.#getSuggestionTelemetryType(suggestions[i]);
         if (scoreMap.hasOwnProperty(telemetryType)) {
           let score = parseFloat(scoreMap[telemetryType]);
           if (!isNaN(score)) {
-            suggestion.score = score;
+            // Don't modify the original suggestion object in case the feature
+            // that provided it returns the same object to all callers.
+            suggestions[i] = { ...suggestions[i], score };
           }
         }
       }
@@ -203,22 +187,8 @@ class ProviderQuickSuggest extends UrlbarProvider {
 
     suggestions.sort((a, b) => b.score - a.score);
 
-    // All suggestions should have the following keys at this point. They are
-    // required for looking up the features that manage them.
-    let requiredKeys = ["source", "provider"];
-
     // Add a result for the first suggestion that can be shown.
     for (let suggestion of suggestions) {
-      for (let key of requiredKeys) {
-        if (!suggestion[key]) {
-          this.logger.error(
-            `Suggestion is missing required key '${key}': ` +
-              JSON.stringify(suggestion)
-          );
-          continue;
-        }
-      }
-
       let canAdd = await this._canAddSuggestion(suggestion);
       if (instance != this.queryInstance) {
         return;
@@ -305,27 +275,19 @@ class ProviderQuickSuggest extends UrlbarProvider {
    * @param {object} options
    *   Options object.
    * @param {string} options.source
-   *   The suggestion source, one of: "remote-settings", "merino", "rust"
+   *   The suggestion source, one of: "remote-settings", "merino"
    * @param {string} options.provider
-   *   This value depends on the value of `source`:
-   *   - remote-settings: The name of the `BaseFeature` instance
-   *     (`feature.name`) that manages the suggestion type.
-   *   - merino: The name of the Merino provider that serves the suggestion
-   *     type.
-   *   - rust: The name of the suggestion type as defined in `suggest.udl`.
+   *   If the suggestion source is remote settings, this should be the name of
+   *   the `BaseFeature` instance (`feature.name`) that manages the suggestion
+   *   type. If the suggestion source is Merino, this should be the name of the
+   *   Merino provider that serves the suggestion type.
    * @returns {BaseFeature}
    *   The feature instance or null if no feature was found.
    */
   #getFeature({ source, provider }) {
-    switch (source) {
-      case "remote-settings":
-        return lazy.QuickSuggest.getFeature(provider);
-      case "merino":
-        return lazy.QuickSuggest.getFeatureByMerinoProvider(provider);
-      case "rust":
-        return lazy.QuickSuggest.getFeatureByRustSuggestionType(provider);
-    }
-    return null;
+    return source == "remote-settings"
+      ? lazy.QuickSuggest.getFeature(provider)
+      : lazy.QuickSuggest.getFeatureByMerinoProvider(provider);
   }
 
   #getFeatureByResult(result) {
@@ -743,7 +705,6 @@ class ProviderQuickSuggest extends UrlbarProvider {
       return;
     }
 
-    // Contextual services ping paylod
     let payload = {
       match_type: result.isBestMatch ? "best-match" : "firefox-suggest",
       // Always use lowercase to make the reporting consistent
@@ -754,36 +715,8 @@ class ProviderQuickSuggest extends UrlbarProvider {
       ),
       // Quick suggest telemetry indexes are 1-based but `rowIndex` is 0-based
       position: result.rowIndex + 1,
-      suggested_index: result.suggestedIndex,
-      suggested_index_relative_to_group:
-        !!result.isSuggestedIndexRelativeToGroup,
       request_id: result.payload.requestId,
       source: result.payload.source,
-    };
-
-    // Glean ping key -> value
-    let defaultValuesByGleanKey = {
-      matchType: payload.match_type,
-      advertiser: payload.advertiser,
-      blockId: payload.block_id,
-      improveSuggestExperience: payload.improve_suggest_experience_checked,
-      position: payload.position,
-      suggestedIndex: payload.suggested_index.toString(),
-      suggestedIndexRelativeToGroup: payload.suggested_index_relative_to_group,
-      requestId: payload.request_id,
-      source: payload.source,
-      contextId: lazy.contextId,
-    };
-
-    let sendGleanPing = valuesByGleanKey => {
-      valuesByGleanKey = { ...defaultValuesByGleanKey, ...valuesByGleanKey };
-      for (let [gleanKey, value] of Object.entries(valuesByGleanKey)) {
-        let glean = Glean.quickSuggest[gleanKey];
-        if (value !== undefined) {
-          glean.set(value);
-        }
-      }
-      GleanPings.quickSuggest.submit();
     };
 
     // impression
@@ -795,11 +728,26 @@ class ProviderQuickSuggest extends UrlbarProvider {
       },
       lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_IMPRESSION
     );
-    sendGleanPing({
-      pingType: lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_IMPRESSION,
-      isClicked: resultClicked,
-      reportingUrl: result.payload.sponsoredImpressionUrl,
-    });
+    Glean.quickSuggest.pingType.set(
+      lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_IMPRESSION
+    );
+    Glean.quickSuggest.matchType.set(payload.match_type);
+    Glean.quickSuggest.advertiser.set(payload.advertiser);
+    Glean.quickSuggest.blockId.set(payload.block_id);
+    Glean.quickSuggest.improveSuggestExperience.set(
+      payload.improve_suggest_experience_checked
+    );
+    Glean.quickSuggest.position.set(payload.position);
+    Glean.quickSuggest.requestId.set(payload.request_id);
+    Glean.quickSuggest.source.set(payload.source);
+    Glean.quickSuggest.isClicked.set(resultClicked);
+    if (result.payload.sponsoredImpressionUrl) {
+      Glean.quickSuggest.reportingUrl.set(
+        result.payload.sponsoredImpressionUrl
+      );
+    }
+    Glean.quickSuggest.contextId.set(lazy.contextId);
+    GleanPings.quickSuggest.submit();
 
     // click
     if (resultClicked) {
@@ -810,10 +758,23 @@ class ProviderQuickSuggest extends UrlbarProvider {
         },
         lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_SELECTION
       );
-      sendGleanPing({
-        pingType: lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_SELECTION,
-        reportingUrl: result.payload.sponsoredClickUrl,
-      });
+      Glean.quickSuggest.pingType.set(
+        lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_SELECTION
+      );
+      Glean.quickSuggest.matchType.set(payload.match_type);
+      Glean.quickSuggest.advertiser.set(payload.advertiser);
+      Glean.quickSuggest.blockId.set(payload.block_id);
+      Glean.quickSuggest.improveSuggestExperience.set(
+        payload.improve_suggest_experience_checked
+      );
+      Glean.quickSuggest.position.set(payload.position);
+      Glean.quickSuggest.requestId.set(payload.request_id);
+      Glean.quickSuggest.source.set(payload.source);
+      if (result.payload.sponsoredClickUrl) {
+        Glean.quickSuggest.reportingUrl.set(result.payload.sponsoredClickUrl);
+      }
+      Glean.quickSuggest.contextId.set(lazy.contextId);
+      GleanPings.quickSuggest.submit();
     }
 
     // dismiss
@@ -825,10 +786,21 @@ class ProviderQuickSuggest extends UrlbarProvider {
         },
         lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_BLOCK
       );
-      sendGleanPing({
-        pingType: lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_BLOCK,
-        iabCategory: result.payload.sponsoredIabCategory,
-      });
+      Glean.quickSuggest.pingType.set(
+        lazy.CONTEXTUAL_SERVICES_PING_TYPES.QS_BLOCK
+      );
+      Glean.quickSuggest.matchType.set(payload.match_type);
+      Glean.quickSuggest.advertiser.set(payload.advertiser);
+      Glean.quickSuggest.blockId.set(payload.block_id);
+      Glean.quickSuggest.improveSuggestExperience.set(
+        payload.improve_suggest_experience_checked
+      );
+      Glean.quickSuggest.position.set(payload.position);
+      Glean.quickSuggest.requestId.set(payload.request_id);
+      Glean.quickSuggest.source.set(payload.source);
+      Glean.quickSuggest.iabCategory.set(result.payload.sponsoredIabCategory);
+      Glean.quickSuggest.contextId.set(lazy.contextId);
+      GleanPings.quickSuggest.submit();
     }
   }
 
@@ -904,12 +876,6 @@ class ProviderQuickSuggest extends UrlbarProvider {
    *   The query context.
    */
   cancelQuery(queryContext) {
-    // Cancel the Rust query.
-    let backend = lazy.QuickSuggest.getFeature("SuggestBackendRust");
-    if (backend?.isEnabled) {
-      backend.cancelQuery();
-    }
-
     // Cancel the Merino timeout timer so it doesn't fire and record a timeout.
     // If it's already canceled or has fired, this is a no-op.
     this.#merino?.cancelTimeoutTimer();

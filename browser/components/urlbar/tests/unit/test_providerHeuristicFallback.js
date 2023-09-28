@@ -18,7 +18,7 @@ const TEST_SPACES = [" ", "\u3000", " \u3000", "\u3000 "];
 
 testEngine_setup();
 
-add_setup(async function () {
+add_task(async function setup() {
   registerCleanupFunction(async () => {
     Services.prefs.clearUserPref(QUICKACTIONS_PREF);
     Services.prefs.clearUserPref(SUGGEST_ENABLED_PREF);

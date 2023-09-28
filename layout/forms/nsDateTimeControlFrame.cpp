@@ -135,8 +135,9 @@ void nsDateTimeControlFrame::Reflow(nsPresContext* aPresContext,
     LogicalMargin childMargin = childReflowInput.ComputedLogicalMargin(myWM);
 
     // offsets of input area frame within this frame:
-    LogicalPoint childOffset =
-        borderPadding.StartOffset(myWM) + childMargin.StartOffset(myWM);
+    LogicalPoint childOffset(
+        myWM, borderPadding.IStart(myWM) + childMargin.IStart(myWM),
+        borderPadding.BStart(myWM) + childMargin.BStart(myWM));
 
     nsReflowStatus childStatus;
     // We initially reflow the child with a dummy containerSize; positioning

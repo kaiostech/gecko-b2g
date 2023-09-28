@@ -102,11 +102,8 @@ class DocumentOrShadowRoot : public RadioGroupManager {
    *
    * This is useful for stuff like QuerySelector optimization and such.
    */
-  const nsTArray<Element*>* GetAllElementsForId(
-      const IdentifierMapEntry::DependentAtomOrString& aElementId) const {
-    IdentifierMapEntry* entry = mIdentifierMap.GetEntry(aElementId);
-    return entry ? &entry->GetIdElements() : nullptr;
-  }
+  inline const nsTArray<Element*>* GetAllElementsForId(
+      const nsAString& aElementId) const;
 
   already_AddRefed<nsContentList> GetElementsByTagName(
       const nsAString& aTagName) {
@@ -286,6 +283,16 @@ class DocumentOrShadowRoot : public RadioGroupManager {
   nsINode* mAsNode;
   const Kind mKind;
 };
+
+inline const nsTArray<Element*>* DocumentOrShadowRoot::GetAllElementsForId(
+    const nsAString& aElementId) const {
+  if (aElementId.IsEmpty()) {
+    return nullptr;
+  }
+
+  IdentifierMapEntry* entry = mIdentifierMap.GetEntry(aElementId);
+  return entry ? &entry->GetIdElements() : nullptr;
+}
 
 }  // namespace dom
 

@@ -11,7 +11,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 let sandbox;
 
-add_setup(async function () {
+add_task(async function setup() {
   sandbox = lazy.sinon.createSandbox();
   registerCleanupFunction(() => {
     sandbox.restore();

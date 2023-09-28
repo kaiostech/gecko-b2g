@@ -44,7 +44,7 @@ export class ConsoleAPIListener {
   #listening;
 
   /**
-   * Create a new ConsoleAPIListener instance.
+   * Create a new ConsolerListener instance.
    *
    * @param {number} innerWindowId
    *     The inner window id to filter the messages for.

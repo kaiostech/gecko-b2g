@@ -946,7 +946,7 @@ function getDocument(src) {
   }
   const fetchDocParams = {
     docId,
-    apiVersion: '3.11.153',
+    apiVersion: '3.11.131',
     data,
     password,
     disableAutoFetch,
@@ -2574,9 +2574,9 @@ class InternalRenderTask {
     }
   }
 }
-const version = '3.11.153';
+const version = '3.11.131';
 exports.version = version;
-const build = '85568bd6c';
+const build = 'a7894a4d7';
 exports.build = build;
 
 /***/ }),
@@ -3303,15 +3303,16 @@ class AnnotationEditor {
     this.setDims(parentWidth * newWidth, parentHeight * newHeight);
     this.fixAndSetPosition();
   }
-  async addAltTextButton() {
+  addAltTextButton() {
     if (this.#altTextButton) {
       return;
     }
     const altText = this.#altTextButton = document.createElement("button");
     altText.className = "altText";
-    const msg = await AnnotationEditor._l10nPromise.get("editor_alt_text_button_label");
-    altText.textContent = msg;
-    altText.setAttribute("aria-label", msg);
+    AnnotationEditor._l10nPromise.get("editor_alt_text_button_label").then(msg => {
+      altText.textContent = msg;
+      altText.setAttribute("aria-label", msg);
+    });
     altText.tabIndex = "0";
     altText.addEventListener("click", event => {
       event.preventDefault();
@@ -3334,12 +3335,7 @@ class AnnotationEditor {
   }
   async #setAltTextButtonState() {
     const button = this.#altTextButton;
-    if (!button) {
-      return;
-    }
-    if (!this.#altText && !this.#altTextDecorative) {
-      button.classList.remove("done");
-      this.#altTextTooltip?.remove();
+    if (!button || !this.#altTextDecorative && !this.#altText) {
       return;
     }
     AnnotationEditor._l10nPromise.get("editor_alt_text_edit_button_label").then(msg => {
@@ -3351,6 +3347,7 @@ class AnnotationEditor {
       tooltip.className = "tooltip";
       tooltip.setAttribute("role", "tooltip");
       const id = tooltip.id = `alt-text-tooltip-${this.id}`;
+      button.append(tooltip);
       button.setAttribute("aria-describedby", id);
       const DELAY_TO_SHOW_TOOLTIP = 100;
       button.addEventListener("mouseenter", () => {
@@ -3377,9 +3374,6 @@ class AnnotationEditor {
     }
     button.classList.add("done");
     tooltip.innerText = this.#altTextDecorative ? await AnnotationEditor._l10nPromise.get("editor_alt_text_decorative_tooltip") : this.#altText;
-    if (!tooltip.parentNode) {
-      button.append(tooltip);
-    }
   }
   getClientDimensions() {
     return this.div.getBoundingClientRect();
@@ -3394,9 +3388,6 @@ class AnnotationEditor {
     altText,
     decorative
   }) {
-    if (this.#altText === altText && this.#altTextDecorative === decorative) {
-      return;
-    }
     this.#altText = altText;
     this.#altTextDecorative = decorative;
     this.#setAltTextButtonState();
@@ -3571,9 +3562,6 @@ class AnnotationEditor {
     } else {
       this._uiManager.removeEditor(this);
     }
-    this.#altTextButton?.remove();
-    this.#altTextButton = null;
-    this.#altTextTooltip = null;
   }
   get isResizable() {
     return false;
@@ -15035,12 +15023,6 @@ Object.defineProperty(exports, "CMapCompressionType", ({
     return _util.CMapCompressionType;
   }
 }));
-Object.defineProperty(exports, "DOMSVGFactory", ({
-  enumerable: true,
-  get: function () {
-    return _display_utils.DOMSVGFactory;
-  }
-}));
 Object.defineProperty(exports, "FeatureTest", ({
   enumerable: true,
   get: function () {
@@ -15254,8 +15236,8 @@ var _tools = __w_pdfjs_require__(5);
 var _annotation_layer = __w_pdfjs_require__(23);
 var _worker_options = __w_pdfjs_require__(14);
 var _xfa_layer = __w_pdfjs_require__(25);
-const pdfjsVersion = '3.11.153';
-const pdfjsBuild = '85568bd6c';
+const pdfjsVersion = '3.11.131';
+const pdfjsBuild = 'a7894a4d7';
 })();
 
 /******/ 	return __webpack_exports__;

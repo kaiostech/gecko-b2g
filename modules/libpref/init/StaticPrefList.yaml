@@ -2441,6 +2441,14 @@
   mirror: always
   rust: true
 
+# Controls whether the "focus fixup rule" is enabled. Subject to minor changes
+# based on https://github.com/whatwg/html/pull/8392 and
+# https://github.com/whatwg/html/issues/8225
+- name: dom.focus.fixup
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.mouse_capture.enabled
   type: bool
   value: true
@@ -4731,13 +4739,6 @@
   mirror: always
   rust: true
 
-# For testing purposes, crash if we don't get a hardware adapter.
-- name: dom.webgpu.testing.assert-hardware-adapter
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
 # Is support for HTMLInputElement.webkitEntries enabled?
 - name: dom.webkitBlink.filesystem.enabled
   type: bool
@@ -5885,37 +5886,13 @@
   mirror: always
 
 - name: gfx.canvas.remote
-  type: bool
+  type: RelaxedAtomicBool
 #if defined(XP_WIN)
   value: true
 #else
   value: false
 #endif
-  mirror: once
-
-- name: gfx.canvas.remote.allow-in-parent
-  type: bool
-  value: false
-  mirror: once
-
-# How long to wait in milliseconds for a texture to be resolved
-- name: gfx.canvas.remote.texture-timeout-ms
-  type: RelaxedAtomicUint32
-  value: 10000
   mirror: always
-
-# How many worker threads spawned for remote canvas
-#  -1 - Calculate based on processor cores
-#   0 - No worker threads spawned, will do work on CanvasRenderThread
-#  >0 - Create worker thread pool with given size
-- name: gfx.canvas.remote.worker-threads
-  type: int32_t
-#if defined(XP_WIN)
-  value: -1
-#else
-  value: 0
-#endif
-  mirror: once
 
 - name: gfx.canvas.willreadfrequently.enabled
   type: bool
@@ -6511,6 +6488,11 @@
   value: true
   mirror: once
 #endif
+
+- name: gfx.webrender.blob-images
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 - name: gfx.webrender.svg-images
   type: RelaxedAtomicBool
@@ -11486,12 +11468,6 @@
   value: true
   mirror: always
 
-# whether to redirect the channel for auth redirects. See Bug 1820807
-- name: network.auth.use_redirect_for_retries
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Whether to allow truncated brotli with empty output. This also fixes
 # throwing an erroring when receiving highly compressed brotli files when
 # no content type is specified (Bug 1715401). This pref can be removed after
@@ -14210,7 +14186,7 @@
 # Whether or not to import and trust third party root certificates from the OS.
 - name: security.enterprise_roots.enabled
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 - name: security.intermediate_preloading_healer.enabled

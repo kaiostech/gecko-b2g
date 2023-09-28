@@ -7439,25 +7439,16 @@ SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
       res.ApplyXTo(imgWidth);
     } else if (aResizeWidth.isSome()) {
       imgWidth = *aResizeWidth;
-    } else {
-      // As stated in css-sizing-3 Intrinsic Sizes, the fallback size of
-      // 300 x 150 for the width and height as needed.
-      //
-      // See https://drafts.csswg.org/css-sizing-3/#intrinsic-sizes
-      imgWidth = kFallbackIntrinsicWidthInPixels;
+      rv = NS_OK;
     }
-    rv = imgContainer->GetHeight(&imgHeight);
-    if (NS_SUCCEEDED(rv)) {
+    nsresult rv2 = imgContainer->GetHeight(&imgHeight);
+    if (NS_SUCCEEDED(rv2)) {
       res.ApplyYTo(imgHeight);
     } else if (aResizeHeight.isSome()) {
       imgHeight = *aResizeHeight;
-    } else {
-      // As stated in css-sizing-3 Intrinsic Sizes, the fallback size of
-      // 300 x 150 for the width and height as needed.
-      //
-      // See https://drafts.csswg.org/css-sizing-3/#intrinsic-sizes
-      imgHeight = kFallbackIntrinsicHeightInPixels;
+      rv2 = NS_OK;
     }
+    if (NS_FAILED(rv) || NS_FAILED(rv2)) return result;
   }
   result.mSize = result.mIntrinsicSize = IntSize(imgWidth, imgHeight);
 

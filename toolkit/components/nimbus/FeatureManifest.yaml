@@ -307,12 +307,6 @@ urlbar:
       type: boolean
       fallbackPref: browser.urlbar.quicksuggest.remoteSettings.enabled
       description: Whether Remote Settings is enabled as a quick suggest source
-    quickSuggestRustEnabled:
-      type: boolean
-      fallbackPref: browser.urlbar.quicksuggest.rustEnabled
-      description: >-
-        Whether Firefox Suggest will use the new Rust backend instead of the
-        original JS backend.
     quickSuggestScenario:
       # IMPORTANT: This should not have a fallbackPref. See UrlbarPrefs.jsm.
       type: string
@@ -1804,13 +1798,13 @@ backgroundUpdate:
     the feature can impact Firefox behaviour and the user experience.
   isEarlyStartup: false
   variables:
-    enableUpdatesForUnelevatedInstallations:
+    allowUpdatesForUnelevatedInstallations:
       description: >-
         Allow the background update process to download and apply updates when
         the Mozilla Maintenance Service is unavailable but the installation
         directory can be written.
       type: boolean
-      setPref: app.update.background.allowUpdatesForUnelevatedInstallations
+      fallbackPref: app.update.background.allowUpdatesForUnelevatedInstallations
 
 bookmarks:
   description: Prefs to control aspects of the bookmarks system.

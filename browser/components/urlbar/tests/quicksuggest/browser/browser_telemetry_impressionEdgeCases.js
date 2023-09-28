@@ -360,8 +360,6 @@ add_task(async function previousResultStillVisible() {
           is_clicked: false,
           match_type: "firefox-suggest",
           position: index + 1,
-          suggested_index: -1,
-          suggested_index_relative_to_group: true,
         },
       },
     ]);

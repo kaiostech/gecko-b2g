@@ -234,6 +234,9 @@ include image/reftest.list
 # image-element/
 include image-element/reftest.list
 
+# image-rect/
+include image-rect/reftest.list
+
 # indic shaping with harfbuzz
 include indic-shaping/reftest.list
 

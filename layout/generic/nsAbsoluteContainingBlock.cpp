@@ -840,10 +840,11 @@ void nsAbsoluteContainingBlock::ReflowAbsoluteFrame(
     }
 
     LogicalRect rect(outerWM,
-                     border.StartOffset(outerWM) +
-                         offsets.StartOffset(outerWM) +
-                         margin.StartOffset(outerWM),
-                     kidSize);
+                     border.IStart(outerWM) + offsets.IStart(outerWM) +
+                         margin.IStart(outerWM),
+                     border.BStart(outerWM) + offsets.BStart(outerWM) +
+                         margin.BStart(outerWM),
+                     kidSize.ISize(outerWM), kidSize.BSize(outerWM));
     nsRect r = rect.GetPhysicalRect(
         outerWM, logicalCBSize.GetPhysicalSize(wm) +
                      border.Size(outerWM).GetPhysicalSize(outerWM));

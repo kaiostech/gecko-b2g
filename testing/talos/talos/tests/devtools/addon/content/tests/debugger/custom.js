@@ -142,6 +142,8 @@ async function stepDebuggerAndLog(dbg, tab, testFunction) {
 }
 
 async function testProjectSearch(dbg, tab) {
+  const cx = dbg.selectors.getContext(dbg.getState());
+
   dump("Executing project search\n");
   const test = runTest(`custom.jsdebugger.project-search.DAMP`);
   const firstSearchResultTest = runTest(
@@ -149,52 +151,15 @@ async function testProjectSearch(dbg, tab) {
   );
   await dbg.actions.setPrimaryPaneTab("project");
   await dbg.actions.setActiveSearch("project");
-  const searchInput = await waitForDOMElement(
-    dbg.win.document.querySelector("body"),
-    ".project-text-search .search-field input"
-  );
-  searchInput.focus();
-  searchInput.value = "retur";
-  // Only dispatch a true key event for the last character in order to trigger only one search
-  const key = "n";
-  searchInput.dispatchEvent(
-    new dbg.win.KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      view: dbg.win,
-      charCode: key.charCodeAt(0),
-    })
-  );
-  searchInput.dispatchEvent(
-    new dbg.win.KeyboardEvent("keyup", {
-      bubbles: true,
-      cancelable: true,
-      view: dbg.win,
-      charCode: key.charCodeAt(0),
-    })
-  );
-  searchInput.dispatchEvent(
-    new dbg.win.KeyboardEvent("keypress", {
-      bubbles: true,
-      cancelable: true,
-      view: dbg.win,
-      charCode: key.charCodeAt(0),
-    })
-  );
-
+  const complete = dbg.actions.searchSources(cx, "return");
   // Wait till the first search result match is rendered
   await waitForDOMElement(
-    dbg.win.document.querySelector("body"),
-    ".project-text-search .tree-node .result"
+    dbg.win.document.querySelector(".project-text-search"),
+    ".tree-node .result"
   );
   firstSearchResultTest.done();
-  // Then wait for all results to be fetched and the loader spin to hide
-  await waitUntil(() => {
-    return !dbg.win.document.querySelector(
-      ".project-text-search .search-field .loader.spin"
-    );
-  });
-  await dbg.actions.closeActiveSearch();
+  await complete;
+  await dbg.actions.closeProjectSearch(cx);
   test.done();
   await garbageCollect();
 }

@@ -226,12 +226,12 @@ export class RootMessageHandler extends MessageHandler {
   }
 
   #onRealmCreated = data => {
-    const { innerWindowId, realmInfo } = data;
+    const { innerWindowId, realmId } = data;
 
     if (!this.#realms.has(innerWindowId)) {
       this.#realms.set(innerWindowId, new Set());
     }
 
-    this.#realms.get(innerWindowId).add(realmInfo.realm);
+    this.#realms.get(innerWindowId).add(realmId);
   };
 }

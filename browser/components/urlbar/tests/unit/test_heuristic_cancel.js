@@ -52,7 +52,7 @@ class FastHeuristicProvider extends TestProvider {
   }
 }
 
-add_setup(async function () {
+add_task(async function setup() {
   registerCleanupFunction(async () => {
     Services.prefs.clearUserPref("browser.urlbar.suggest.searches");
   });

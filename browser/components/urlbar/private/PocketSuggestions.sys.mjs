@@ -8,7 +8,10 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
-  SuggestionsMap: "resource:///modules/urlbar/private/SuggestBackendJs.sys.mjs",
+  QuickSuggestRemoteSettings:
+    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
+  SuggestionsMap:
+    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarResult: "resource:///modules/UrlbarResult.sys.mjs",
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
@@ -56,16 +59,16 @@ export class PocketSuggestions extends BaseFeature {
   get canShowLessFrequently() {
     let cap =
       lazy.UrlbarPrefs.get("pocketShowLessFrequentlyCap") ||
-      lazy.QuickSuggest.jsBackend.config.show_less_frequently_cap ||
+      lazy.QuickSuggestRemoteSettings.config.show_less_frequently_cap ||
       0;
     return !cap || this.showLessFrequentlyCount < cap;
   }
 
   enable(enabled) {
     if (enabled) {
-      lazy.QuickSuggest.jsBackend.register(this);
+      lazy.QuickSuggestRemoteSettings.register(this);
     } else {
-      lazy.QuickSuggest.jsBackend.unregister(this);
+      lazy.QuickSuggestRemoteSettings.unregister(this);
       this.#lowConfidenceSuggestionsMap.clear();
       this.#highConfidenceSuggestionsMap.clear();
     }

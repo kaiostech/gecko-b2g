@@ -9,7 +9,10 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
-  SuggestionsMap: "resource:///modules/urlbar/private/SuggestBackendJs.sys.mjs",
+  QuickSuggestRemoteSettings:
+    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
+  SuggestionsMap:
+    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarResult: "resource:///modules/UrlbarResult.sys.mjs",
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
@@ -141,9 +144,9 @@ export class AddonSuggestions extends BaseFeature {
 
   enable(enabled) {
     if (enabled) {
-      lazy.QuickSuggest.jsBackend.register(this);
+      lazy.QuickSuggestRemoteSettings.register(this);
     } else {
-      lazy.QuickSuggest.jsBackend.unregister(this);
+      lazy.QuickSuggestRemoteSettings.unregister(this);
     }
   }
 
@@ -442,7 +445,7 @@ export class AddonSuggestions extends BaseFeature {
   get canShowLessFrequently() {
     const cap =
       lazy.UrlbarPrefs.get("addonsShowLessFrequentlyCap") ||
-      lazy.QuickSuggest.jsBackend.config.show_less_frequently_cap ||
+      lazy.QuickSuggestRemoteSettings.config.show_less_frequently_cap ||
       0;
     return !cap || this.showLessFrequentlyCount < cap;
   }

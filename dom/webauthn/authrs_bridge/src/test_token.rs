@@ -365,15 +365,8 @@ impl VirtualFidoDevice for TestToken {
         // (not applicable, we use pinUvAuthParam)
 
         // 9. User presence test
-        if effective_up_opt {
-            if self.is_user_consenting {
-                flags |= AuthenticatorDataFlags::USER_PRESENT;
-            } else {
-                return Err(HIDError::Command(CommandError::StatusCode(
-                    StatusCode::UpRequired,
-                    None,
-                )));
-            }
+        if self.is_user_consenting && effective_up_opt {
+            flags |= AuthenticatorDataFlags::USER_PRESENT;
         }
 
         // 10. Extensions
@@ -513,11 +506,6 @@ impl VirtualFidoDevice for TestToken {
         // 14. User presence test
         if self.is_user_consenting {
             flags |= AuthenticatorDataFlags::USER_PRESENT;
-        } else {
-            return Err(HIDError::Command(CommandError::StatusCode(
-                StatusCode::UpRequired,
-                None,
-            )));
         }
 
         // 15. process extensions

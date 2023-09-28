@@ -15,7 +15,6 @@ from copy import deepcopy
 import mozprocess
 import six
 from benchmark import Benchmark
-from cmdline import CHROME_ANDROID_APPS
 from logger.logger import RaptorLogger
 from manifestparser.util import evaluate_list_from_string
 from perftest import GECKO_PROFILER_APPS, TRACE_APPS, Perftest
@@ -56,16 +55,8 @@ class Browsertime(Perftest):
             )
             return BrowsertimeResultsHandler(config, root_results_dir=root_results_dir)
 
-        profile_class = "firefox"
-        if app in CHROME_ANDROID_APPS:
-            profile_class = "chrome-m"
-
         super(Browsertime, self).__init__(
-            app,
-            binary,
-            profile_class=profile_class,
-            results_handler_class=klass,
-            **kwargs,
+            app, binary, results_handler_class=klass, **kwargs
         )
         LOG.info("cwd: '{}'".format(os.getcwd()))
         self.config["browsertime"] = True
@@ -163,12 +154,7 @@ class Browsertime(Perftest):
                     "windows": str(
                         pathlib.Path("{}chromedriver-win32", "chromedriver.exe")
                     ),
-                    "mac-x86_64": str(
-                        pathlib.Path("{}chromedriver-mac-x64", "chromedriver")
-                    ),
-                    "mac-arm": str(
-                        pathlib.Path("{}chromedriver-mac-arm64", "chromedriver")
-                    ),
+                    "mac": str(pathlib.Path("{}chromedriver-mac-x64", "chromedriver")),
                     "default": str(
                         pathlib.Path("{}chromedriver-linux64", "chromedriver")
                     ),
@@ -178,10 +164,7 @@ class Browsertime(Perftest):
                     if "mac" in self.config["platform"]:
                         self.browsertime_chromedriver = (
                             self.browsertime_chromedriver.replace(
-                                "{}chromedriver",
-                                cd_extracted_names_115[
-                                    f"mac-{self.config['processor']}"
-                                ],
+                                "{}chromedriver", cd_extracted_names_115["mac"]
                             )
                         )
                     elif "win" in self.config["platform"]:

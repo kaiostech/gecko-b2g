@@ -342,7 +342,6 @@ module.exports = {
     },
     {
       files: ["layout/**"],
-      excludedFiles: ["layout/tools/reftest/**"],
       rules: {
         "object-shorthand": "off",
         "mozilla/avoid-removeChild": "off",

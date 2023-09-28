@@ -264,14 +264,14 @@ add_task(async function test_sameDocumentNavigation() {
   is(events.length, 0, "No event recorded");
 
   info("Perform a same-document navigation");
-  let onLocationChanged = navigationManager.once("location-changed");
+  let onNavigationStopped = navigationManager.once("navigation-stopped");
   BrowserTestUtils.startLoadingURIString(browser, url + "#hash");
-  await onLocationChanged;
+  await onNavigationStopped;
 
   const hashNavigation = navigationManager.getNavigationForBrowsingContext(
     browser.browsingContext
   );
-  is(events.length, 1, "Recorded 1 navigation event");
+  is(events.length, 3, "Recorded 3 navigation events");
   assertNavigationEvents(
     events,
     url + "#hash",
@@ -280,16 +280,13 @@ add_task(async function test_sameDocumentNavigation() {
     true
   );
 
-  // Navigate from `url + "#hash"` to `url`, this will trigger a regular
-  // navigation and we can use `loadURL` to properly wait for the navigation to
-  // complete.
   info("Perform a regular navigation");
   await loadURL(browser, url);
 
   const regularNavigation = navigationManager.getNavigationForBrowsingContext(
     browser.browsingContext
   );
-  is(events.length, 3, "Recorded 2 additional navigation events");
+  is(events.length, 5, "Recorded 2 additional navigation events");
   assertNavigationEvents(
     events,
     url,
@@ -298,26 +295,26 @@ add_task(async function test_sameDocumentNavigation() {
   );
 
   info("Perform another same-document navigation");
-  onLocationChanged = navigationManager.once("location-changed");
+  onNavigationStopped = navigationManager.once("navigation-stopped");
   BrowserTestUtils.startLoadingURIString(browser, url + "#foo");
-  await onLocationChanged;
+  await onNavigationStopped;
 
   const otherHashNavigation = navigationManager.getNavigationForBrowsingContext(
     browser.browsingContext
   );
 
-  is(events.length, 4, "Recorded 1 additional navigation event");
+  is(events.length, 8, "Recorded 3 additional navigation events");
 
   info("Perform a same-hash navigation");
-  onLocationChanged = navigationManager.once("location-changed");
+  onNavigationStopped = navigationManager.once("navigation-stopped");
   BrowserTestUtils.startLoadingURIString(browser, url + "#foo");
-  await onLocationChanged;
+  await onNavigationStopped;
 
   const sameHashNavigation = navigationManager.getNavigationForBrowsingContext(
     browser.browsingContext
   );
 
-  is(events.length, 5, "Recorded 1 additional navigation event");
+  is(events.length, 11, "Recorded 3 additional navigation events");
   assertNavigationEvents(
     events,
     url + "#foo",

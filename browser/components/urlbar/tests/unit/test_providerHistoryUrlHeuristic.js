@@ -5,7 +5,7 @@
 
 // Test for the behavior of UrlbarProviderHistoryUrlHeuristic.
 
-add_setup(async function () {
+add_task(async function setup() {
   Services.prefs.setBoolPref("browser.urlbar.autoFill", false);
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref("browser.urlbar.autoFill");

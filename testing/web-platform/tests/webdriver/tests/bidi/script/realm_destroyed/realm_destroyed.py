@@ -1,13 +1,24 @@
 import pytest
 from tests.support.sync import AsyncPoll
-from webdriver.error import TimeoutException
 
-from .. import create_sandbox
+from webdriver.bidi.modules.script import ContextTarget
+from webdriver.error import TimeoutException
 
 
 pytestmark = pytest.mark.asyncio
 
 REALM_DESTROYED_EVENT = "script.realmDestroyed"
+
+
+async def create_sandbox(bidi_session, context):
+    result = await bidi_session.script.evaluate(
+        raw_result=True,
+        expression="1 + 2",
+        await_promise=False,
+        target=ContextTarget(context, sandbox="test"),
+    )
+
+    return result["realm"]
 
 
 async def test_unsubscribe(bidi_session):
@@ -79,8 +90,7 @@ async def test_reload_context(
     assert event == {"realm": result[0]["realm"]}
 
 
-@pytest.mark.parametrize("method", ["evaluate", "call_function"])
-async def test_sandbox(bidi_session, subscribe_events, new_tab, method):
+async def test_sandbox(bidi_session, subscribe_events, new_tab):
     await subscribe_events(events=[REALM_DESTROYED_EVENT])
 
     # Track all received script.realmDestroyed events in the destroyed_realm_ids array
@@ -91,9 +101,7 @@ async def test_sandbox(bidi_session, subscribe_events, new_tab, method):
 
     remove_listener = bidi_session.add_event_listener(REALM_DESTROYED_EVENT, on_event)
 
-    sandbox_realm = await create_sandbox(
-        bidi_session, new_tab["context"], "test", method
-    )
+    sandbox_realm = await create_sandbox(bidi_session, new_tab["context"])
 
     await bidi_session.browsing_context.close(context=new_tab["context"])
 

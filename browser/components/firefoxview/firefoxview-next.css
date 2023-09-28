@@ -89,6 +89,7 @@ body {
 
 .page-header {
   margin: 0;
+  font-weight: 400;
 }
 
 fxview-category-button[name="recentbrowsing"]::part(icon) {

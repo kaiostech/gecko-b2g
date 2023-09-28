@@ -18,12 +18,26 @@
   &:-moz-lwtheme {
     --chrome-content-separator-color: rgba(0,0,0,.3);
   }
+
+  &[tabsintitlebar]:not(:-moz-lwtheme) {
+    background-color: ActiveCaption;
+    color: CaptionText;
+
+    &:-moz-window-inactive {
+      background-color: InactiveCaption;
+      color: InactiveCaptionText;
+    }
+  }
 }
 
-#browser,
-#navigator-toolbox {
+#browser {
   /* #browser and #navigator-toolbox must have relative positions so that the
      latter can slide over the former in fullscreen mode. */
+  position: relative;
+}
+
+#navigator-toolbox {
+  appearance: none;
   position: relative;
 }
 

@@ -6,7 +6,7 @@
 
 TEST_DIRS += ["gtest"]
 
-BROWSER_CHROME_MANIFESTS += ["browser/browser.toml"]
+BROWSER_CHROME_MANIFESTS += ["browser/browser.ini"]
 
 MOCHITEST_MANIFESTS += ["mochitest/mochitest.ini"]
 

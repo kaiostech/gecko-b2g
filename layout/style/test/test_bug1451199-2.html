@@ -13,14 +13,13 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=1451199
   /** Test for Bug 1451199 **/
   SimpleTest.waitForExplicitFinish();
 
-  addLoadEvent(async function() {
+  addLoadEvent(function() {
     // We have to be careful to not check l.matches until the very end
     // of the test.
-    const l = frames[0].matchMedia("(orientation: portrait)");
-    const iframe = document.querySelector("iframe");
+    var l = frames[0].matchMedia("(orientation: portrait)");
+    var iframe = document.querySelector("iframe");
     iframe.width = "50";
-
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    iframe.contentDocument.documentElement.offsetWidth; // Flush layout
 
     l.addEventListener("change", function() {
       is(l.matches, false,

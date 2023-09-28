@@ -5,7 +5,7 @@
 testEngine_setup();
 
 const engineDomain = "s.example.com";
-add_setup(async function () {
+add_task(async function setup() {
   Services.prefs.setBoolPref("browser.urlbar.restyleSearches", true);
   await SearchTestUtils.installSearchExtension({
     name: "MozSearch",

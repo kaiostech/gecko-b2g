@@ -109,7 +109,9 @@ function originQuery(where) {
       ),
       host,
       fixup_url(host),
-      IFNULL(total(${ORIGIN_FRECENCY_FIELD}) OVER (PARTITION BY fixup_url(host)), 0.0),
+      IFNULL(${
+        ORIGIN_USE_ALT_FRECENCY ? "avg(alt_frecency)" : "total(frecency)"
+      } OVER (PARTITION BY fixup_url(host)), 0.0),
       ${ORIGIN_FRECENCY_FIELD},
       MAX(EXISTS(
         SELECT 1 FROM moz_places WHERE origin_id = o.id AND foreign_count > 0
@@ -490,7 +492,9 @@ class ProviderAutofill extends UrlbarProvider {
           ),
           host,
           fixup_url(host),
-          IFNULL(total(${ORIGIN_FRECENCY_FIELD}) OVER (PARTITION BY fixup_url(host)), 0.0),
+          IFNULL(${
+            ORIGIN_USE_ALT_FRECENCY ? "avg(alt_frecency)" : "total(frecency)"
+          } OVER (PARTITION BY fixup_url(host)), 0.0),
           ${ORIGIN_FRECENCY_FIELD},
           MAX(EXISTS(
             SELECT 1 FROM moz_places WHERE origin_id = o.id AND foreign_count > 0

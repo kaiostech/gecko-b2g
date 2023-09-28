@@ -416,7 +416,6 @@ export var SiteDataManager = {
     }
   },
 
-  // XXX This method seems to be unused, consider removing it. See bug 1854894.
   _removeQuotaUsage(site) {
     let promises = [];
     let removals = new Set();
@@ -438,7 +437,12 @@ export var SiteDataManager = {
             Services.scriptSecurityManager.createContentPrincipalFromOrigin(
               originNoSuffix
             );
-          let request = this._qms.clearStoragesForOriginPrefix(principal);
+          let request = this._qms.clearStoragesForPrincipal(
+            principal,
+            null,
+            null,
+            true
+          );
           request.callback = resolve;
         })
       );

@@ -124,7 +124,6 @@
           "type": {
             "enum": [
               "ad_carousel",
-              "ad_image_row",
               "ad_link",
               "ad_sitelink",
               "ad_sidebar",
@@ -164,7 +163,6 @@
                     "type": {
                       "enum": [
                         "ad_carousel",
-                        "ad_image_row",
                         "ad_link",
                         "ad_sitelink",
                         "ad_sidebar",

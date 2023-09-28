@@ -151,13 +151,8 @@ function checkBookmarksItemsChevronContextMenu() {
  */
 function overflowEverything() {
   info("Waiting for overflow");
-  let waitOverflowing = BrowserTestUtils.waitForMutationCondition(
-    gNavBar,
-    { attributes: true, attributeFilter: ["overflowing"] },
-    () => gNavBar.hasAttribute("overflowing")
-  );
   window.resizeTo(kForceOverflowWidthPx, window.outerHeight);
-  return waitOverflowing;
+  return TestUtils.waitForCondition(() => gNavBar.hasAttribute("overflowing"));
 }
 
 /**
@@ -167,32 +162,8 @@ function overflowEverything() {
  */
 function stopOverflowing() {
   info("Waiting until we stop overflowing");
-  let waitOverflowing = BrowserTestUtils.waitForMutationCondition(
-    gNavBar,
-    { attributes: true, attributeFilter: ["overflowing"] },
-    () => !gNavBar.hasAttribute("overflowing")
-  );
   window.resizeTo(kOriginalWindowWidth, window.outerHeight);
-  return waitOverflowing;
-}
-
-/**
- * Ensure bookmarks are visible on the toolbar.
- * @param {DOMWindow} win the browser window
- */
-async function waitBookmarksToolbarIsUpdated(win = window) {
-  await TestUtils.waitForCondition(
-    async () => (await win.PlacesToolbarHelper.getIsEmpty()) === false,
-    "Waiting for the Bookmarks toolbar to have been rebuilt and not be empty"
-  );
-  if (
-    win.PlacesToolbarHelper._viewElt._placesView._updateNodesVisibilityTimer
-  ) {
-    await BrowserTestUtils.waitForEvent(
-      win,
-      "BookmarksToolbarVisibilityUpdated"
-    );
-  }
+  return TestUtils.waitForCondition(() => !gNavBar.hasAttribute("overflowing"));
 }
 
 /**
@@ -274,7 +245,9 @@ add_task(async function testOverflowingBookmarksItemsContextMenu() {
 
   let bookmarksToolbarItems = document.getElementById(kBookmarksItems);
   await gCustomizeMode.addToToolbar(bookmarksToolbarItems);
-  await waitBookmarksToolbarIsUpdated();
+  await TestUtils.waitForCondition(
+    () => document.getElementById("PlacesToolbar")._placesView
+  );
   await checkPlacesContextMenu(bookmarksToolbarItems);
 
   await overflowEverything();
@@ -285,7 +258,9 @@ add_task(async function testOverflowingBookmarksItemsContextMenu() {
   await stopOverflowing();
 
   await gCustomizeMode.addToToolbar(bookmarksToolbarItems);
-  await waitBookmarksToolbarIsUpdated();
+  await TestUtils.waitForCondition(
+    () => document.getElementById("PlacesToolbar")._placesView
+  );
   await checkPlacesContextMenu(bookmarksToolbarItems);
 });
 
@@ -316,7 +291,6 @@ add_task(async function testOverflowingBookmarksItemsChevronContextMenu() {
   await stopOverflowing();
   checkNotOverflowing(kBookmarksItems);
 
-  await waitBookmarksToolbarIsUpdated();
   await checkBookmarksItemsChevronContextMenu();
 
   placesToolbarItems.style.removeProperty("max-width");

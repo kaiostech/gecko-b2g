@@ -21,7 +21,7 @@ MOCHITEST_CHROME_MANIFESTS += [
     "test/forms/chrome.toml",
 ]
 
-BROWSER_CHROME_MANIFESTS += ["test/browser.toml"]
+BROWSER_CHROME_MANIFESTS += ["test/browser.ini"]
 
 EXPORTS += [
     "nsGenericHTMLElement.h",

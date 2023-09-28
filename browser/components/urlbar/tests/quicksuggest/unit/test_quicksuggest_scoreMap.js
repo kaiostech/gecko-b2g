@@ -9,7 +9,7 @@
 
 "use strict";
 
-const { DEFAULT_SUGGESTION_SCORE } = UrlbarProviderQuickSuggest;
+const { DEFAULT_SUGGESTION_SCORE } = QuickSuggestRemoteSettings;
 
 const REMOTE_SETTINGS_RECORDS = [
   {

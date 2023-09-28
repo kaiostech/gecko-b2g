@@ -48,7 +48,7 @@ function configureEngine(clients) {
 
 testEngine_setup();
 
-add_setup(async function () {
+add_task(async function setup() {
   // Tell Sync about the mocks.
   Weave.Service.engineManager.register(MockTabsEngine);
 

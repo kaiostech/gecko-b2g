@@ -1525,6 +1525,9 @@ void PresShell::AddAuthorSheet(StyleSheet* aSheet) {
 }
 
 bool PresShell::FixUpFocus() {
+  if (!StaticPrefs::dom_focus_fixup()) {
+    return false;
+  }
   if (NS_WARN_IF(!mDocument)) {
     return false;
   }
@@ -7437,32 +7440,6 @@ bool PresShell::EventHandler::DispatchPrecedingPointerEvent(
   return !!aEventTargetData->mPresShell;
 }
 
-/**
- * Event retargetting may retarget a mouse event and change the reference point.
- * If event retargetting changes the reference point of a event that accessible
- * caret will not handle, restore the original reference point.
- */
-class AutoEventTargetPointResetter {
- public:
-  explicit AutoEventTargetPointResetter(WidgetGUIEvent* aGUIEvent)
-      : mGUIEvent(aGUIEvent),
-        mRefPoint(aGUIEvent->mRefPoint),
-        mHandledByAccessibleCaret(false) {}
-
-  void SetHandledByAccessibleCaret() { mHandledByAccessibleCaret = true; }
-
-  ~AutoEventTargetPointResetter() {
-    if (!mHandledByAccessibleCaret) {
-      mGUIEvent->mRefPoint = mRefPoint;
-    }
-  }
-
- private:
-  WidgetGUIEvent* mGUIEvent;
-  LayoutDeviceIntPoint mRefPoint;
-  bool mHandledByAccessibleCaret;
-};
-
 bool PresShell::EventHandler::MaybeHandleEventWithAccessibleCaret(
     nsIFrame* aFrameForPresShell, WidgetGUIEvent* aGUIEvent,
     nsEventStatus* aEventStatus) {
@@ -7488,7 +7465,6 @@ bool PresShell::EventHandler::MaybeHandleEventWithAccessibleCaret(
     return false;
   }
 
-  AutoEventTargetPointResetter autoEventTargetPointResetter(aGUIEvent);
   // First, try the event hub at the event point to handle a long press to
   // select a word in an unfocused window.
   do {
@@ -7516,7 +7492,6 @@ bool PresShell::EventHandler::MaybeHandleEventWithAccessibleCaret(
     // If the event is consumed, cancel APZC panning by setting
     // mMultipleActionsPrevented.
     aGUIEvent->mFlags.mMultipleActionsPrevented = true;
-    autoEventTargetPointResetter.SetHandledByAccessibleCaret();
     return true;
   } while (false);
 
@@ -7546,7 +7521,6 @@ bool PresShell::EventHandler::MaybeHandleEventWithAccessibleCaret(
   // If the event is consumed, cancel APZC panning by setting
   // mMultipleActionsPrevented.
   aGUIEvent->mFlags.mMultipleActionsPrevented = true;
-  autoEventTargetPointResetter.SetHandledByAccessibleCaret();
   return true;
 }
 

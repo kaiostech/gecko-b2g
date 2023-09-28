@@ -3291,14 +3291,12 @@ static void OnChildProcessDumpRequested(
 
 #if XP_WIN
   nsTArray<CAnnotation>* child_annotations = mozannotation_retrieve(
-      reinterpret_cast<uintptr_t>(aClientInfo.process_handle()),
-      static_cast<size_t>(Annotation::Count));
+      reinterpret_cast<uintptr_t>(aClientInfo.process_handle()));
 #elif defined(XP_MACOSX)
-  nsTArray<CAnnotation>* child_annotations = mozannotation_retrieve(
-      aClientInfo.task(), static_cast<size_t>(Annotation::Count));
-#else
   nsTArray<CAnnotation>* child_annotations =
-      mozannotation_retrieve(pid, static_cast<size_t>(Annotation::Count));
+      mozannotation_retrieve(aClientInfo.task());
+#else
+  nsTArray<CAnnotation>* child_annotations = mozannotation_retrieve(pid);
 #endif
 
   // TODO: Write a minimal set of annotations if we fail to read them, and
@@ -3897,11 +3895,10 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetHandle,
   AddSharedAnnotations(aTargetAnnotations);
 #if XP_WIN
   nsTArray<CAnnotation>* child_annotations =
-      mozannotation_retrieve(reinterpret_cast<uintptr_t>(aTargetHandle),
-                             static_cast<size_t>(Annotation::Count));
+      mozannotation_retrieve(reinterpret_cast<uintptr_t>(aTargetHandle));
 #else
-  nsTArray<CAnnotation>* child_annotations = mozannotation_retrieve(
-      aTargetHandle, static_cast<size_t>(Annotation::Count));
+  nsTArray<CAnnotation>* child_annotations =
+      mozannotation_retrieve(aTargetHandle);
 #endif
   AddChildProcessAnnotations(aTargetAnnotations, child_annotations);
   if (child_annotations) {

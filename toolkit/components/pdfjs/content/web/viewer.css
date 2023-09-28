@@ -773,7 +773,6 @@
   }
 }
 
-/* Ignored in GECKOVIEW builds: */
 
 :root {
   --outline-width: 2px;
@@ -1444,7 +1443,7 @@
 
   &::backdrop {
     /* This is needed to avoid to darken the image the user want to describe. */
-    mask: url(#alttext-manager-mask);
+    display: none;
   }
 
   &.positioned {

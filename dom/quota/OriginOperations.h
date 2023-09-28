@@ -9,8 +9,6 @@
 
 #include <cstdint>
 
-#include "mozilla/dom/quota/Client.h"
-#include "mozilla/dom/quota/PersistenceType.h"
 #include "nsTArrayForwardDeclare.h"
 
 template <class T>
@@ -18,11 +16,8 @@ class RefPtr;
 
 namespace mozilla {
 
-template <class T>
-class Maybe;
 template <typename T>
 class MovingNotNull;
-class OriginAttributesPattern;
 
 namespace dom::quota {
 
@@ -94,20 +89,13 @@ RefPtr<QuotaRequestBase> CreateGetFullOriginMetadataOp(
 RefPtr<ResolvableNormalOriginOp<bool>> CreateClearStorageOp(
     MovingNotNull<RefPtr<QuotaManager>> aQuotaManager);
 
-RefPtr<ResolvableNormalOriginOp<bool>> CreateClearOriginOp(
+RefPtr<QuotaRequestBase> CreateClearOriginOp(
     MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
-    const Maybe<PersistenceType>& aPersistenceType,
-    const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
-    const Maybe<Client::Type>& aClientType);
+    const RequestParams& aParams);
 
-RefPtr<ResolvableNormalOriginOp<bool>> CreateClearStoragesForOriginPrefixOp(
+RefPtr<QuotaRequestBase> CreateClearDataOp(
     MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
-    const Maybe<PersistenceType>& aPersistenceType,
-    const mozilla::ipc::PrincipalInfo& aPrincipalInfo);
-
-RefPtr<ResolvableNormalOriginOp<bool>> CreateClearDataOp(
-    MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
-    const OriginAttributesPattern& aPattern);
+    const RequestParams& aParams);
 
 RefPtr<QuotaRequestBase> CreateResetOriginOp(
     MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,

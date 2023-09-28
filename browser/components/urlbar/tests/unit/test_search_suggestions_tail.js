@@ -41,7 +41,7 @@ async function cleanUpSuggestions() {
   }
 }
 
-add_setup(async function () {
+add_task(async function setup() {
   let engine = await addTestTailSuggestionsEngine(searchStr => {
     return suggestionsFn(searchStr);
   });

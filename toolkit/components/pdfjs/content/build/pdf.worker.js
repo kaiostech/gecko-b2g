@@ -102,7 +102,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = '3.11.153';
+    const workerVersion = '3.11.131';
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -4320,9 +4320,9 @@ class AnnotationFactory {
   }
   static async create(xref, ref, annotationGlobals, idFactory, collectFields, pageRef) {
     const pageIndex = collectFields ? await this._getPageIndex(xref, ref, annotationGlobals.pdfManager) : null;
-    return annotationGlobals.pdfManager.ensure(this, "_create", [xref, ref, annotationGlobals, idFactory, collectFields, pageIndex, pageRef]);
+    return annotationGlobals.pdfManager.ensure(this, "_create", [xref, ref, annotationGlobals, idFactory, pageIndex, pageRef]);
   }
-  static _create(xref, ref, annotationGlobals, idFactory, collectFields = false, pageIndex = null, pageRef = null) {
+  static _create(xref, ref, annotationGlobals, idFactory, pageIndex = null, pageRef = null) {
     const dict = xref.fetchIfRef(ref);
     if (!(dict instanceof _primitives.Dict)) {
       return undefined;
@@ -4341,8 +4341,7 @@ class AnnotationFactory {
       subtype,
       id,
       annotationGlobals,
-      collectFields,
-      needAppearances: !collectFields && acroForm.get("NeedAppearances") === true,
+      needAppearances: pageIndex === null && acroForm.get("NeedAppearances") === true,
       pageIndex,
       evaluatorOptions: pdfManager.evaluatorOptions,
       pageRef
@@ -4401,7 +4400,7 @@ class AnnotationFactory {
       case "FileAttachment":
         return new FileAttachmentAnnotation(parameters);
       default:
-        if (!collectFields) {
+        if (pageIndex === null) {
           if (!subtype) {
             (0, _util.warn)("Annotation is missing the required /Subtype.");
           } else {
@@ -4711,7 +4710,7 @@ class Annotation {
       noRotate: !!(this.flags & _util.AnnotationFlag.NOROTATE),
       noHTML: isLocked && isContentLocked
     };
-    if (params.collectFields) {
+    if (params.pageIndex !== null) {
       const kids = dict.get("Kids");
       if (Array.isArray(kids)) {
         const kidIds = [];
@@ -58289,8 +58288,8 @@ Object.defineProperty(exports, "WorkerMessageHandler", ({
   }
 }));
 var _worker = __w_pdfjs_require__(1);
-const pdfjsVersion = '3.11.153';
-const pdfjsBuild = '85568bd6c';
+const pdfjsVersion = '3.11.131';
+const pdfjsBuild = 'a7894a4d7';
 })();
 
 /******/ 	return __webpack_exports__;

@@ -418,7 +418,7 @@ const TEST_CASES = [
   },
 ];
 
-add_setup(async function () {
+add_task(async function setup() {
   UrlbarPrefs.set("quicksuggest.enabled", true);
   UrlbarPrefs.set("suggest.quicksuggest.sponsored", true);
   UrlbarPrefs.set("suggest.quicksuggest.nonsponsored", true);

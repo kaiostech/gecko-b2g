@@ -52,7 +52,6 @@ class nsPIDOMWindowOuter;
 namespace mozilla {
 
 class OriginAttributes;
-class OriginAttributesPattern;
 
 namespace ipc {
 
@@ -262,8 +261,6 @@ class QuotaManager final : public BackgroundThreadObject {
 
   Result<OriginMetadata, nsresult> GetOriginMetadata(nsIFile* aDirectory);
 
-  Result<Ok, nsresult> RemoveOriginDirectory(nsIFile& aDirectory);
-
   RefPtr<UniversalDirectoryLockPromise> OpenStorageDirectory(
       const Nullable<PersistenceType>& aPersistenceType,
       const OriginScope& aOriginScope,
@@ -357,18 +354,6 @@ class QuotaManager final : public BackgroundThreadObject {
                                      const OriginMetadata& aOriginMetadata);
 
   nsresult EnsureTemporaryStorageIsInitialized();
-
-  RefPtr<BoolPromise> ClearStoragesForOrigin(
-      const Maybe<PersistenceType>& aPersistenceType,
-      const PrincipalInfo& aPrincipalInfo,
-      const Maybe<Client::Type>& aClientType);
-
-  RefPtr<BoolPromise> ClearStoragesForOriginPrefix(
-      const Maybe<PersistenceType>& aPersistenceType,
-      const PrincipalInfo& aPrincipalInfo);
-
-  RefPtr<BoolPromise> ClearStoragesForOriginAttributesPattern(
-      const OriginAttributesPattern& aPattern);
 
   RefPtr<BoolPromise> ClearPrivateRepository();
 
@@ -749,7 +734,6 @@ class QuotaManager final : public BackgroundThreadObject {
   LazyInitializedOnce<const nsString> mTemporaryStoragePath;
   LazyInitializedOnce<const nsString> mDefaultStoragePath;
   LazyInitializedOnce<const nsString> mPrivateStoragePath;
-  LazyInitializedOnce<const nsString> mToBeRemovedStoragePath;
 
   uint64_t mTemporaryStorageLimit;
   uint64_t mTemporaryStorageUsage;

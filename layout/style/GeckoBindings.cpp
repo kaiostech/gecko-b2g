@@ -1626,14 +1626,16 @@ const nsTArray<Element*>* Gecko_Document_GetElementsWithId(const Document* aDoc,
                                                            nsAtom* aId) {
   MOZ_ASSERT(aDoc);
   MOZ_ASSERT(aId);
-  return aDoc->GetAllElementsForId(aId);
+
+  return aDoc->GetAllElementsForId(nsDependentAtomString(aId));
 }
 
 const nsTArray<Element*>* Gecko_ShadowRoot_GetElementsWithId(
     const ShadowRoot* aShadowRoot, nsAtom* aId) {
   MOZ_ASSERT(aShadowRoot);
   MOZ_ASSERT(aId);
-  return aShadowRoot->GetAllElementsForId(aId);
+
+  return aShadowRoot->GetAllElementsForId(nsDependentAtomString(aId));
 }
 
 bool Gecko_GetBoolPrefValue(const char* aPrefName) {

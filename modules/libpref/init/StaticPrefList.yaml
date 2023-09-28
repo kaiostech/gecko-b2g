@@ -2441,14 +2441,6 @@
   mirror: always
   rust: true
 
-# Controls whether the "focus fixup rule" is enabled. Subject to minor changes
-# based on https://github.com/whatwg/html/pull/8392 and
-# https://github.com/whatwg/html/issues/8225
-- name: dom.focus.fixup
-  type: bool
-  value: true
-  mirror: always
-
 - name: dom.mouse_capture.enabled
   type: bool
   value: true
@@ -4739,6 +4731,13 @@
   mirror: always
   rust: true
 
+# For testing purposes, crash if we don't get a hardware adapter.
+- name: dom.webgpu.testing.assert-hardware-adapter
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for HTMLInputElement.webkitEntries enabled?
 - name: dom.webkitBlink.filesystem.enabled
   type: bool
@@ -4990,6 +4989,13 @@
   type: String
   value: "#FFFFFF"
   mirror: never
+
+# Whether HTMLEditor consides block or inline element with computed style or
+# only with the default style of HTML definition.
+- name: editor.block_inline_check.use_computed_style
+  type: bool
+  value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
 
 # Use compatible range computation when applying inline style.  This is used
 # for making it possible to backout with Normandy Pref Rollout.
@@ -5886,13 +5892,37 @@
   mirror: always
 
 - name: gfx.canvas.remote
-  type: RelaxedAtomicBool
+  type: bool
 #if defined(XP_WIN)
   value: true
 #else
   value: false
 #endif
+  mirror: once
+
+- name: gfx.canvas.remote.allow-in-parent
+  type: bool
+  value: false
+  mirror: once
+
+# How long to wait in milliseconds for a texture to be resolved
+- name: gfx.canvas.remote.texture-timeout-ms
+  type: RelaxedAtomicUint32
+  value: 10000
   mirror: always
+
+# How many worker threads spawned for remote canvas
+#  -1 - Calculate based on processor cores
+#   0 - No worker threads spawned, will do work on CanvasRenderThread
+#  >0 - Create worker thread pool with given size
+- name: gfx.canvas.remote.worker-threads
+  type: int32_t
+#if defined(XP_WIN)
+  value: -1
+#else
+  value: 0
+#endif
+  mirror: once
 
 - name: gfx.canvas.willreadfrequently.enabled
   type: bool
@@ -6488,11 +6518,6 @@
   value: true
   mirror: once
 #endif
-
-- name: gfx.webrender.blob-images
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
 
 - name: gfx.webrender.svg-images
   type: RelaxedAtomicBool
@@ -7891,7 +7916,7 @@
 # anyway.
 - name: javascript.options.use_fdlibm_for_sin_cos_tan
   type: bool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether to support parsing '//(#@) source(Mapping)?URL=' pragmas.
@@ -10371,6 +10396,12 @@
 #endif
     mirror: always
 
+# Enable HEVC support via the windows media foundation
+-   name: media.wmf.hevc.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
 #endif  # MOZ_WMF
 
 - name: media.decoder-doctor.testing
@@ -11466,6 +11497,12 @@
 - name: network.auth.choose_most_secure_challenge
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# whether to redirect the channel for auth redirects. See Bug 1820807
+- name: network.auth.use_redirect_for_retries
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Whether to allow truncated brotli with empty output. This also fixes
@@ -13574,11 +13611,6 @@
   value: false
   mirror: always
 
-- name: privacy.partition.bloburl_per_agent_cluster
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: privacy.partition.bloburl_per_partition_key
   type: bool
   value: true
@@ -14061,6 +14093,7 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+  rust: true
 
 # Block Worker/SharedWorker scripts with wrong MIME type.
 - name: security.block_Worker_with_wrong_mime
@@ -14186,7 +14219,7 @@
 # Whether or not to import and trust third party root certificates from the OS.
 - name: security.enterprise_roots.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: security.intermediate_preloading_healer.enabled

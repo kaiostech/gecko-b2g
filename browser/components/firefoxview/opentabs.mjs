@@ -149,6 +149,14 @@ class OpenTabsInView extends ViewPage {
       "height-limited": this.windows.size > 3,
       "width-limited": this.windows.size > 1,
     });
+    let cardCount;
+    if (this.windows.size <= 1) {
+      cardCount = "one";
+    } else if (this.windows.size === 2) {
+      cardCount = "two";
+    } else {
+      cardCount = "three-or-more";
+    }
     return html`
       <link
         rel="stylesheet"
@@ -159,15 +167,14 @@ class OpenTabsInView extends ViewPage {
         href="chrome://browser/content/firefoxview/firefoxview-next.css"
       />
       <div class="sticky-container bottom-fade">
-        <h2 class="page-header" data-l10n-id="firefoxview-opentabs-header"></h2>
+        <h2
+          class="page-header heading-large"
+          data-l10n-id="firefoxview-opentabs-header"
+        ></h2>
       </div>
       <div
-        class="${classMap({
-          "view-opentabs-card-container": true,
-          "one-column": this.windows.size <= 1,
-          "two-columns": this.windows.size === 2,
-          "three-columns": this.windows.size >= 3,
-        })} cards-container"
+        card-count=${cardCount}
+        class="view-opentabs-card-container cards-container"
       >
         ${when(
           currentWindowIndex && currentWindowTabs,
@@ -326,19 +333,22 @@ class OpenTabsInViewCard extends ViewPage {
     this.recordContextMenuTelemetry("close-tab", e);
   }
 
-  moveTabsToStart() {
+  moveTabsToStart(e) {
     const tab = this.triggerNode.tabElement;
     tab?.ownerGlobal.gBrowser.moveTabsToStart(tab);
+    this.recordContextMenuTelemetry("move-tab-start", e);
   }
 
-  moveTabsToEnd() {
+  moveTabsToEnd(e) {
     const tab = this.triggerNode.tabElement;
     tab?.ownerGlobal.gBrowser.moveTabsToEnd(tab);
+    this.recordContextMenuTelemetry("move-tab-end", e);
   }
 
-  moveTabsToWindow() {
+  moveTabsToWindow(e) {
     const tab = this.triggerNode.tabElement;
     tab?.ownerGlobal.gBrowser.replaceTabsWithWindow(tab);
+    this.recordContextMenuTelemetry("move-tab-window", e);
   }
 
   moveMenuTemplate() {
@@ -375,6 +385,8 @@ class OpenTabsInViewCard extends ViewPage {
   async sendTabToDevice(e) {
     let deviceId = e.target.getAttribute("device-id");
     let device = this.devices.find(dev => dev.id == deviceId);
+
+    this.recordContextMenuTelemetry("send-tab-device", e);
 
     if (device && this.triggerNode) {
       await this.getWindow().gSync.sendTabToDevice(
@@ -455,6 +467,24 @@ class OpenTabsInViewCard extends ViewPage {
     }
   }
 
+  onTabListRowClick(event) {
+    const tab = event.originalTarget.tabElement;
+    const browserWindow = tab.ownerGlobal;
+    browserWindow.focus();
+    browserWindow.gBrowser.selectedTab = tab;
+
+    Services.telemetry.recordEvent(
+      "firefoxview_next",
+      "open_tab",
+      "tabs",
+      null,
+      {
+        page: this.recentBrowsing ? "recentbrowsing" : "opentabs",
+        window: this.title || "Window 1 (Current)",
+      }
+    );
+  }
+
   render() {
     return html`
       <link
@@ -477,7 +507,7 @@ class OpenTabsInViewCard extends ViewPage {
             class="with-context-menu"
             .hasPopup=${"menu"}
             ?compactRows=${this.classList.contains("width-limited")}
-            @fxview-tab-list-primary-action=${onTabListRowClick}
+            @fxview-tab-list-primary-action=${this.onTabListRowClick}
             @fxview-tab-list-secondary-action=${this.openContextMenu}
             .maxTabsLength=${this.getMaxTabsLength()}
             .tabItems=${getTabListItems(this.tabs)}
@@ -529,11 +559,4 @@ function getTabListItems(tabs) {
       title: tab.label,
       url: tab.linkedBrowser?.currentURI?.spec,
     }));
-}
-
-function onTabListRowClick(event) {
-  const tab = event.originalTarget.tabElement;
-  const browserWindow = tab.ownerGlobal;
-  browserWindow.focus();
-  browserWindow.gBrowser.selectedTab = tab;
 }

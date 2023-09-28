@@ -9,6 +9,7 @@
 #include "AnnexB.h"
 #include "B2GH265.h"
 #include "H264.h"
+#include "H265.h"
 #include "GeckoProfiler.h"
 #include "ImageContainer.h"
 #include "MP4Decoder.h"
@@ -121,7 +122,7 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
     aSample->mTrackInfo = mTrackInfo;
 
     if (aConversion == MediaDataDecoder::ConversionRequired::kNeedAnnexB) {
-      auto res = AnnexB::ConvertSampleToAnnexB(aSample, aNeedKeyFrame);
+      auto res = AnnexB::ConvertAVCCSampleToAnnexB(aSample, aNeedKeyFrame);
       if (res.isErr()) {
         return MediaResult(res.unwrapErr(),
                            RESULT_DETAIL("ConvertSampleToAnnexB"));
@@ -169,6 +170,7 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   RefPtr<MediaByteBuffer> mPreviousExtraData;
 };
 
+<<<<<<< HEAD
 class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
  public:
   explicit H265ChangeMonitor(const VideoInfo& aInfo, bool aFullParsing)
@@ -194,6 +196,28 @@ class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
     }
 
     // TODO: check in-band extra data
+=======
+class HEVCChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
+ public:
+  explicit HEVCChangeMonitor(const VideoInfo& aInfo) : mCurrentConfig(aInfo) {
+    const bool canBeInstantiated = CanBeInstantiated();
+    if (canBeInstantiated) {
+      UpdateConfigFromExtraData(aInfo.mExtraData);
+    }
+    LOG("created HEVCChangeMonitor, CanBeInstantiated=%d", canBeInstantiated);
+  }
+
+  bool CanBeInstantiated() const override {
+    auto rv = HVCCConfig::Parse(mCurrentConfig.mExtraData);
+    if (rv.isErr()) {
+      return false;
+    }
+    return rv.unwrap().HasSPS();
+  }
+
+  MediaResult CheckForChange(MediaRawData* aSample) override {
+    // TODO : detect config change in bug 1852333.
+>>>>>>> upstream/master
     return NS_OK;
   }
 
@@ -202,27 +226,41 @@ class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   MediaResult PrepareSample(MediaDataDecoder::ConversionRequired aConversion,
                             MediaRawData* aSample,
                             bool aNeedKeyFrame) override {
+<<<<<<< HEAD
     MOZ_DIAGNOSTIC_ASSERT(
         aConversion == MediaDataDecoder::ConversionRequired::kNeedAnnexB ||
             aConversion == MediaDataDecoder::ConversionRequired::kNeedHVCC,
         "Conversion must be either HVCC or AnnexB");
+=======
+    MOZ_DIAGNOSTIC_ASSERT(aConversion ==
+                          MediaDataDecoder::ConversionRequired::kNeedAnnexB);
+>>>>>>> upstream/master
 
     aSample->mExtraData = mCurrentConfig.mExtraData;
     aSample->mTrackInfo = mTrackInfo;
 
+<<<<<<< HEAD
     if (aConversion == MediaDataDecoder::ConversionRequired::kNeedAnnexB) {
       auto res = H265AnnexB::ConvertSampleToAnnexB(aSample, aNeedKeyFrame);
+=======
+    if (AnnexB::IsHVCC(aSample)) {
+      auto res = AnnexB::ConvertHVCCSampleToAnnexB(aSample, aNeedKeyFrame);
+>>>>>>> upstream/master
       if (res.isErr()) {
         return MediaResult(res.unwrapErr(),
                            RESULT_DETAIL("ConvertSampleToAnnexB"));
       }
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/master
     return NS_OK;
   }
 
  private:
   void UpdateConfigFromExtraData(MediaByteBuffer* aExtraData) {
+<<<<<<< HEAD
     B2GH265::SPSData spsdata;
     if (B2GH265::DecodeSPSFromExtraData(aExtraData, spsdata)) {
       mCurrentConfig.mImage.width = spsdata.pic_width_in_luma_samples;
@@ -239,6 +277,23 @@ class H265ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
           static_cast<gfx::CICP::TransferCharacteristics>(
               spsdata.vui.transfer_characteristics));
       mCurrentConfig.mColorRange = spsdata.vui.video_full_range_flag
+=======
+    if (auto rv = H265::DecodeSPSFromHVCCExtraData(aExtraData); rv.isOk()) {
+      const auto sps = rv.unwrap();
+      mCurrentConfig.mImage.width = sps.GetImageSize().Width();
+      mCurrentConfig.mImage.height = sps.GetImageSize().Height();
+      mCurrentConfig.mDisplay.width = sps.GetDisplaySize().Width();
+      mCurrentConfig.mDisplay.height = sps.GetDisplaySize().Height();
+      mCurrentConfig.mColorDepth = sps.ColorDepth();
+      mCurrentConfig.mColorSpace = Some(sps.ColorSpace());
+      mCurrentConfig.mColorPrimaries = gfxUtils::CicpToColorPrimaries(
+          static_cast<gfx::CICP::ColourPrimaries>(sps.ColorPrimaries()),
+          gMediaDecoderLog);
+      mCurrentConfig.mTransferFunction = gfxUtils::CicpToTransferFunction(
+          static_cast<gfx::CICP::TransferCharacteristics>(
+              sps.TransferFunction()));
+      mCurrentConfig.mColorRange = sps.IsFullColorRange()
+>>>>>>> upstream/master
                                        ? gfx::ColorRange::FULL
                                        : gfx::ColorRange::LIMITED;
     }
@@ -552,10 +607,15 @@ RefPtr<PlatformDecoderModule::CreateDecoderPromise> MediaChangeMonitor::Create(
   } else if (AOMDecoder::IsAV1(currentConfig.mMimeType)) {
     changeMonitor = MakeUnique<AV1ChangeMonitor>(currentConfig);
 #endif
+<<<<<<< HEAD
   } else if (MP4Decoder::IsH265(currentConfig.mMimeType)) {
     changeMonitor = MakeUnique<H265ChangeMonitor>(
         currentConfig, aParams.mOptions.contains(
                            CreateDecoderParams::Option::FullH264Parsing));
+=======
+  } else if (MP4Decoder::IsHEVC(currentConfig.mMimeType)) {
+    changeMonitor = MakeUnique<HEVCChangeMonitor>(currentConfig);
+>>>>>>> upstream/master
   } else {
     MOZ_ASSERT(MP4Decoder::IsH264(currentConfig.mMimeType));
     changeMonitor = MakeUnique<H264ChangeMonitor>(

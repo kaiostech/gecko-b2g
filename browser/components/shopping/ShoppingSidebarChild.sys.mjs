@@ -256,6 +256,9 @@ export class ShoppingSidebarChild extends RemotePageChild {
           isAnalysisInProgress = false;
         }
         data = await this.#product.requestAnalysis();
+        if (!data) {
+          throw new Error("request failed");
+        }
       } catch (err) {
         console.error("Failed to fetch product analysis data", err);
         data = { error: err };
@@ -312,6 +315,10 @@ export class ShoppingSidebarChild extends RemotePageChild {
         });
       });
     } else {
+      // Don't bother continuing if the user has opted out.
+      if (lazy.optedIn == 2) {
+        return;
+      }
       let url = await this.sendQuery("GetProductURL");
 
       // Similar to canContinue() above, check to see if things

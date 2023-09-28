@@ -143,8 +143,8 @@ async function simulateRestart(
 
   info("Waiting for AboutHomeStartupCacheChild to uninit");
   await SpecialPowers.spawn(browser, [], async () => {
-    let { AboutHomeStartupCacheChild } = ChromeUtils.import(
-      "resource:///modules/AboutNewTabService.jsm"
+    let { AboutHomeStartupCacheChild } = ChromeUtils.importESModule(
+      "resource:///modules/AboutNewTabService.sys.mjs"
     );
     AboutHomeStartupCacheChild.uninit();
   });
@@ -165,8 +165,8 @@ async function simulateRestart(
     if (ensureCacheWinsRace) {
       info("Ensuring cache bytes are available");
       await SpecialPowers.spawn(browser, [], async () => {
-        let { AboutHomeStartupCacheChild } = ChromeUtils.import(
-          "resource:///modules/AboutNewTabService.jsm"
+        let { AboutHomeStartupCacheChild } = ChromeUtils.importESModule(
+          "resource:///modules/AboutNewTabService.sys.mjs"
         );
         let pageStream = AboutHomeStartupCacheChild._pageInputStream;
         let scriptStream = AboutHomeStartupCacheChild._scriptInputStream;
@@ -279,11 +279,13 @@ function assertCacheResultScalar(cacheResultScalar) {
  */
 async function ensureCachedAboutHome(browser) {
   await SpecialPowers.spawn(browser, [], async () => {
-    let scripts = Array.from(content.document.querySelectorAll("script"));
-    Assert.ok(!!scripts.length, "There should be page scripts.");
-    let [lastScript] = scripts.reverse();
+    let syncScripts = Array.from(
+      content.document.querySelectorAll("script:not([type='module'])")
+    );
+    Assert.ok(!!syncScripts.length, "There should be page scripts.");
+    let [lastSyncScript] = syncScripts.reverse();
     Assert.equal(
-      lastScript.src,
+      lastSyncScript.src,
       "about:home?jscache",
       "Found about:home?jscache script tag, indicating the cached doc"
     );
@@ -331,8 +333,10 @@ async function ensureCachedAboutHome(browser) {
  */
 async function ensureDynamicAboutHome(browser, expectedResultScalar) {
   await SpecialPowers.spawn(browser, [], async () => {
-    let scripts = Array.from(content.document.querySelectorAll("script"));
-    Assert.equal(scripts.length, 0, "There should be no page scripts.");
+    let syncScripts = Array.from(
+      content.document.querySelectorAll("script:not([type='module'])")
+    );
+    Assert.equal(syncScripts.length, 0, "There should be no page scripts.");
 
     Assert.equal(
       Cu.waiveXrays(content).__FROM_STARTUP_CACHE__,

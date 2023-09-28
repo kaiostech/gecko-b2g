@@ -135,6 +135,15 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
       continue;
     }
 #endif
+#ifdef MOZ_WMF
+    if (StaticPrefs::media_wmf_hevc_enabled() && IsH265CodecString(codec)) {
+      auto trackInfo =
+          CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
+              "video/hevc"_ns, aType);
+      tracks.AppendElement(std::move(trackInfo));
+      continue;
+    }
+#endif
     if (isVideo && IsWhitelistedH264Codec(codec)) {
       auto trackInfo =
           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
@@ -199,6 +208,13 @@ bool MP4Decoder::IsSupportedType(const MediaContainerType& aType,
           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
               "video/av1"_ns, aType));
     }
+#ifdef MOZ_WMF
+    if (StaticPrefs::media_wmf_hevc_enabled()) {
+      tracks.AppendElement(
+          CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
+              "video/hevc"_ns, aType));
+    }
+#endif
   }
 
   // Check that something is supported at least.
@@ -239,9 +255,14 @@ bool MP4Decoder::IsAAC(const nsACString& aMimeType) {
 }
 
 /* static */
+<<<<<<< HEAD
 bool MP4Decoder::IsAMR(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("audio/3gpp") ||
          aMimeType.EqualsLiteral("audio/amr-wb");
+=======
+bool MP4Decoder::IsHEVC(const nsACString& aMimeType) {
+  return aMimeType.EqualsLiteral("video/hevc");
+>>>>>>> upstream/master
 }
 
 /* static */

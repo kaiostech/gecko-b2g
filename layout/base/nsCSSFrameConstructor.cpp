@@ -1350,16 +1350,6 @@ static void MoveChildrenTo(nsIFrame* aOldParent, nsContainerFrame* aNewParent,
   }
 }
 
-static bool MaybeApplyPageName(nsFrameConstructorState& aState,
-                               const StylePageName& aPageName) {
-  if (aPageName.IsPageName()) {
-    aState.mAutoPageNameValue = aPageName.AsPageName().AsAtom();
-    return true;
-  }
-  MOZ_ASSERT(aPageName.IsAuto(), "Impossible page name");
-  return false;
-}
-
 static void EnsureAutoPageName(nsFrameConstructorState& aState,
                                const nsContainerFrame* const aFrame) {
   // Check if we need to figure out our used page name.
@@ -1372,8 +1362,8 @@ static void EnsureAutoPageName(nsFrameConstructorState& aState,
 
   for (const nsContainerFrame* frame = aFrame; frame;
        frame = frame->GetParent()) {
-    const StylePageName& pageName = frame->StylePage()->mPage;
-    if (MaybeApplyPageName(aState, pageName)) {
+    if (const nsAtom* maybePageName = frame->GetStylePageName()) {
+      aState.mAutoPageNameValue = maybePageName;
       return;
     }
   }
@@ -1402,7 +1392,9 @@ nsCSSFrameConstructor::AutoFrameConstructionPageName::
 
   MOZ_ASSERT(mNameToRestore,
              "Page name should have been found by EnsureAutoPageName");
-  MaybeApplyPageName(aState, aFrame->StylePage()->mPage);
+  if (const nsAtom* maybePageName = aFrame->GetStylePageName()) {
+    aState.mAutoPageNameValue = maybePageName;
+  }
   aFrame->SetAutoPageValue(aState.mAutoPageNameValue);
 }
 
@@ -2607,8 +2599,8 @@ nsIFrame* nsCSSFrameConstructor::ConstructDocElementFrame(
 }
 
 nsIFrame* nsCSSFrameConstructor::ConstructRootFrame() {
-  AUTO_PROFILER_LABEL("nsCSSFrameConstructor::ConstructRootFrame",
-                      LAYOUT_FrameConstruction);
+  AUTO_PROFILER_LABEL_HOT("nsCSSFrameConstructor::ConstructRootFrame",
+                          LAYOUT_FrameConstruction);
   AUTO_LAYOUT_PHASE_ENTRY_POINT(mPresShell->GetPresContext(), FrameC);
 
   ServoStyleSet* styleSet = mPresShell->StyleSet();
@@ -6492,8 +6484,8 @@ void nsCSSFrameConstructor::ContentAppended(nsIContent* aFirstNewContent,
   MOZ_ASSERT(aInsertionKind == InsertionKind::Sync ||
              !RestyleManager()->IsInStyleRefresh());
 
-  AUTO_PROFILER_LABEL("nsCSSFrameConstructor::ContentAppended",
-                      LAYOUT_FrameConstruction);
+  AUTO_PROFILER_LABEL_HOT("nsCSSFrameConstructor::ContentAppended",
+                          LAYOUT_FrameConstruction);
   AUTO_LAYOUT_PHASE_ENTRY_POINT(mPresShell->GetPresContext(), FrameC);
 
 #ifdef DEBUG
@@ -6804,8 +6796,8 @@ void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
   MOZ_ASSERT(aInsertionKind == InsertionKind::Sync ||
              !RestyleManager()->IsInStyleRefresh());
 
-  AUTO_PROFILER_LABEL("nsCSSFrameConstructor::ContentRangeInserted",
-                      LAYOUT_FrameConstruction);
+  AUTO_PROFILER_LABEL_HOT("nsCSSFrameConstructor::ContentRangeInserted",
+                          LAYOUT_FrameConstruction);
   AUTO_LAYOUT_PHASE_ENTRY_POINT(mPresShell->GetPresContext(), FrameC);
 
   MOZ_ASSERT(aStartChild, "must always pass a child");
@@ -7302,8 +7294,8 @@ bool nsCSSFrameConstructor::ContentRemoved(nsIContent* aChild,
   MOZ_ASSERT(aChild);
   MOZ_ASSERT(!aChild->IsRootOfNativeAnonymousSubtree() || !aOldNextSibling,
              "Anonymous roots don't have siblings");
-  AUTO_PROFILER_LABEL("nsCSSFrameConstructor::ContentRemoved",
-                      LAYOUT_FrameConstruction);
+  AUTO_PROFILER_LABEL_HOT("nsCSSFrameConstructor::ContentRemoved",
+                          LAYOUT_FrameConstruction);
   AUTO_LAYOUT_PHASE_ENTRY_POINT(mPresShell->GetPresContext(), FrameC);
   nsPresContext* presContext = mPresShell->GetPresContext();
   MOZ_ASSERT(presContext, "Our presShell should have a valid presContext");
@@ -7680,8 +7672,8 @@ bool nsCSSFrameConstructor::EnsureFrameForTextNodeIsCreatedAfterFlush(
 
 void nsCSSFrameConstructor::CharacterDataChanged(
     nsIContent* aContent, const CharacterDataChangeInfo& aInfo) {
-  AUTO_PROFILER_LABEL("nsCSSFrameConstructor::CharacterDataChanged",
-                      LAYOUT_FrameConstruction);
+  AUTO_PROFILER_LABEL_HOT("nsCSSFrameConstructor::CharacterDataChanged",
+                          LAYOUT_FrameConstruction);
   AUTO_LAYOUT_PHASE_ENTRY_POINT(mPresShell->GetPresContext(), FrameC);
 
   if ((aContent->HasFlag(NS_CREATE_FRAME_IF_NON_WHITESPACE) &&

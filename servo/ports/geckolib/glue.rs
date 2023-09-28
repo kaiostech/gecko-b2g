@@ -26,6 +26,7 @@ use style::color::{AbsoluteColor, ColorSpace};
 use style::context::ThreadLocalStyleContext;
 use style::context::{CascadeInputs, QuirksMode, SharedStyleContext, StyleContext};
 use style::counter_style;
+use style::custom_properties::ComputedCustomProperties;
 use style::data::{self, ElementStyles};
 use style::dom::{ShowSubtreeData, TDocument, TElement, TNode};
 use style::driver;
@@ -111,6 +112,7 @@ use style::properties::{ComputedValues, CountedUnknownProperty, Importance, NonC
 use style::properties::{LonghandId, LonghandIdSet, PropertyDeclarationBlock, PropertyId};
 use style::properties::{PropertyDeclarationId, ShorthandId};
 use style::properties::{SourcePropertyDeclaration, StyleBuilder};
+use style::properties_and_values::registry::PropertyRegistration;
 use style::properties_and_values::rule::Inherits as PropertyInherits;
 use style::rule_cache::RuleCacheConditions;
 use style::rule_tree::StrongRuleNode;
@@ -6068,7 +6070,7 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
 
     let mut raw_custom_properties_block; // To make the raw block alive in the scope.
     for (index, keyframe) in keyframes.iter().enumerate() {
-        let mut custom_properties = None;
+        let mut custom_properties = ComputedCustomProperties::default();
         for property in keyframe.mPropertyValues.iter() {
             // Find the block for custom properties first.
             if property.mProperty == nsCSSPropertyID::eCSSPropertyExtra_variable {
@@ -6141,7 +6143,11 @@ pub extern "C" fn Servo_GetComputedKeyframeValues(
             let iter = guard.to_animation_value_iter(
                 &mut context,
                 &default_values,
-                custom_properties.as_ref(),
+                if custom_properties.is_empty() {
+                    None
+                } else {
+                    Some(&custom_properties)
+                }
             );
 
             for value in iter {
@@ -7392,13 +7398,14 @@ pub unsafe extern "C" fn Servo_GetCustomPropertyValue(
     name: &nsACString,
     value: &mut nsACString,
 ) -> bool {
-    let custom_properties = match computed_values.custom_properties() {
+    // TODO(bug 1840478): Handle non-inherited properties.
+    let inherited = match &computed_values.custom_properties.inherited {
         Some(p) => p,
         None => return false,
     };
 
     let name = Atom::from(name.as_str_unchecked());
-    let computed_value = match custom_properties.get(&name) {
+    let computed_value = match inherited.get(&name) {
         Some(v) => v,
         None => return false,
     };
@@ -7409,8 +7416,9 @@ pub unsafe extern "C" fn Servo_GetCustomPropertyValue(
 
 #[no_mangle]
 pub extern "C" fn Servo_GetCustomPropertiesCount(computed_values: &ComputedValues) -> u32 {
-    match computed_values.custom_properties() {
-        Some(p) => p.len() as u32,
+    // TODO(bug 1840478): Handle non-inherited properties.
+    match &computed_values.custom_properties().inherited {
+        Some(m) => m.len() as u32,
         None => 0,
     }
 }
@@ -7420,12 +7428,13 @@ pub extern "C" fn Servo_GetCustomPropertyNameAt(
     computed_values: &ComputedValues,
     index: u32,
 ) -> *mut nsAtom {
-    let custom_properties = match computed_values.custom_properties() {
+    // TODO(bug 1840478): Handle non-inherited properties.
+    let inherited = match &computed_values.custom_properties.inherited {
         Some(p) => p,
         None => return ptr::null_mut(),
     };
 
-    let property_name = match custom_properties.get_index(index as usize) {
+    let property_name = match inherited.get_index(index as usize) {
         Some((key, _value)) => key,
         None => return ptr::null_mut(),
     };
@@ -8522,7 +8531,6 @@ pub extern "C" fn Servo_RegisterCustomProperty(
 ) -> RegisterCustomPropertyResult {
     use self::RegisterCustomPropertyResult::*;
     use style::custom_properties::SpecifiedValue;
-    use style::properties_and_values::registry::PropertyRegistration;
     use style::properties_and_values::rule::{PropertyRuleData, ToRegistrationError};
     use style::properties_and_values::syntax::Descriptor;
 
@@ -8588,4 +8596,81 @@ pub extern "C" fn Servo_RegisterCustomProperty(
         );
 
     SuccessfullyRegistered
+}
+
+#[repr(C)]
+pub struct PropDef {
+    // The name of the property.
+    pub name: Atom,
+    // The syntax of the property.
+    pub syntax: nsCString,
+    // Whether the property inherits.
+    pub inherits: bool,
+    pub has_initial_value: bool,
+    pub initial_value: nsCString,
+    // True if the property was set with CSS.registerProperty
+    pub from_js: bool,
+}
+
+
+impl PropDef {
+    /// Creates a PropDef from a name and a PropertyRegistration.
+    pub fn new(
+        name: Atom,
+        property_registration: PropertyRegistration,
+        from_js: bool
+    ) -> Self {
+        let syntax = property_registration.syntax.to_css_nscstring();
+        let initial_value = property_registration.initial_value.to_css_nscstring();
+
+        PropDef {
+            name,
+            syntax,
+            inherits: property_registration.inherits,
+            has_initial_value: property_registration.initial_value.is_some(),
+            initial_value,
+            from_js
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn Servo_GetRegisteredCustomProperties(
+    per_doc_data: &PerDocumentStyleData,
+    custom_properties: &mut ThinVec<PropDef>,
+) {
+    let stylist = &per_doc_data.borrow().stylist;
+
+    custom_properties.extend(
+        stylist
+            .custom_property_script_registry()
+            .get_all()
+            .iter()
+            .map(|(name, property_registration)|
+                PropDef::new(
+                    name.clone(),
+                    property_registration.clone(),
+                    /* from_js */
+                    true
+                )
+            )
+    );
+
+    for (cascade_data, _origin) in stylist.iter_origins() {
+        custom_properties.extend(
+            cascade_data
+                .custom_property_registrations()
+                .iter()
+                .map(|(name, value)| {
+                    let property_registration = &value.last().unwrap().0;
+
+                    PropDef::new(
+                        name.clone(),
+                        property_registration.clone(),
+                        /* from_js */
+                        false
+                    )
+                })
+        )
+    }
 }

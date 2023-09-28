@@ -23,6 +23,9 @@ const LAST_AUTO_ACTIVATE_PREF =
 const AUTO_ACTIVATE_COUNT_PREF =
   "browser.shopping.experience2023.autoActivateCount";
 
+const CFR_FEATURES_PREF =
+  "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features";
+
 export const ShoppingUtils = {
   initialized: false,
   registered: false,
@@ -58,9 +61,12 @@ export const ShoppingUtils = {
     this.onNimbusUpdate = this.onNimbusUpdate.bind(this);
 
     if (!this.registered) {
+      // Note (bug 1855545): we must set `this.registered` before calling
+      // `onUpdate`, as it will immediately invoke `this.onNimbusUpdate`,
+      // which in turn calls `ShoppingUtils.init`, creating an infinite loop.
+      this.registered = true;
       lazy.NimbusFeatures.shopping2023.onUpdate(this.onNimbusUpdate);
       this._updateNimbusVariables();
-      this.registered = true;
     }
 
     if (!this.nimbusEnabled) {
@@ -155,7 +161,7 @@ export const ShoppingUtils = {
    * 3. This method has not already been called (handledAutoActivate is false)
    */
   handleAutoActivateOnProduct() {
-    if (!this.handledAutoActivate && !this.optedIn) {
+    if (!this.handledAutoActivate && !this.optedIn && this.cfrFeatures) {
       let autoActivateCount = Services.prefs.getIntPref(
         AUTO_ACTIVATE_COUNT_PREF,
         0
@@ -209,4 +215,11 @@ XPCOMUtils.defineLazyPreferenceGetter(
   OPTED_IN_PREF,
   0,
   ShoppingUtils.setOnUpdate
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  ShoppingUtils,
+  "cfrFeatures",
+  CFR_FEATURES_PREF,
+  true
 );

@@ -8,10 +8,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
-  QuickSuggestRemoteSettings:
-    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
-  SuggestionsMap:
-    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
+  SuggestionsMap: "resource:///modules/urlbar/private/SuggestBackendJs.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   UrlbarResult: "resource:///modules/UrlbarResult.sys.mjs",
   UrlbarUtils: "resource:///modules/UrlbarUtils.sys.mjs",
@@ -48,15 +45,19 @@ export class AdmWikipedia extends BaseFeature {
     return "adm";
   }
 
+  get rustSuggestionTypes() {
+    return ["Amp", "Wikipedia"];
+  }
+
   getSuggestionTelemetryType(suggestion) {
     return suggestion.is_sponsored ? "adm_sponsored" : "adm_nonsponsored";
   }
 
   enable(enabled) {
     if (enabled) {
-      lazy.QuickSuggestRemoteSettings.register(this);
+      lazy.QuickSuggest.jsBackend.register(this);
     } else {
-      lazy.QuickSuggestRemoteSettings.unregister(this);
+      lazy.QuickSuggest.jsBackend.unregister(this);
     }
   }
 
@@ -124,6 +125,21 @@ export class AdmWikipedia extends BaseFeature {
   }
 
   makeResult(queryContext, suggestion, searchString) {
+    if (suggestion.source == "rust") {
+      suggestion = {
+        title: suggestion.title,
+        url: suggestion.url,
+        icon: suggestion.icon,
+        is_sponsored: suggestion.is_sponsored,
+        full_keyword: suggestion.fullKeyword,
+        impression_url: suggestion.impressionUrl,
+        click_url: suggestion.clickUrl,
+        block_id: suggestion.blockId,
+        advertiser: suggestion.advertiser,
+        iab_category: suggestion.iabCategory,
+      };
+    }
+
     // Replace the suggestion's template substrings, but first save the original
     // URL before its timestamp template is replaced.
     let originalUrl = suggestion.url;
@@ -152,8 +168,8 @@ export class AdmWikipedia extends BaseFeature {
 
     // Determine if the suggestion itself is a best match.
     let isSuggestionBestMatch = false;
-    if (lazy.QuickSuggestRemoteSettings.config.best_match) {
-      let { best_match } = lazy.QuickSuggestRemoteSettings.config;
+    if (lazy.QuickSuggest.jsBackend.config.best_match) {
+      let { best_match } = lazy.QuickSuggest.jsBackend.config;
       isSuggestionBestMatch =
         best_match.min_search_string_length <= searchString.length &&
         !best_match.blocked_suggestion_ids.includes(suggestion.block_id);
@@ -276,7 +292,7 @@ export class AdmWikipedia extends BaseFeature {
       return null;
     }
 
-    let { rs } = lazy.QuickSuggestRemoteSettings;
+    let { rs } = lazy.QuickSuggest.jsBackend;
     if (!rs) {
       return null;
     }

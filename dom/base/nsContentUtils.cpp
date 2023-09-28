@@ -424,7 +424,6 @@ nsIXPConnect* nsContentUtils::sXPConnect;
 nsIScriptSecurityManager* nsContentUtils::sSecurityManager;
 nsIPrincipal* nsContentUtils::sSystemPrincipal;
 nsIPrincipal* nsContentUtils::sNullSubjectPrincipal;
-nsIIOService* nsContentUtils::sIOService;
 nsIConsoleService* nsContentUtils::sConsoleService;
 
 static nsTHashMap<RefPtr<nsAtom>, EventNameMapping>* sAtomEventTable;
@@ -804,13 +803,6 @@ nsresult nsContentUtils::Init() {
 
   nullPrincipal.forget(&sNullSubjectPrincipal);
 
-  nsresult rv = CallGetService(NS_IOSERVICE_CONTRACTID, &sIOService);
-  if (NS_FAILED(rv)) {
-    // This makes life easier, but we can live without it.
-
-    sIOService = nullptr;
-  }
-
   if (!InitializeEventTable()) return NS_ERROR_FAILURE;
 
   if (!sEventListenerManagersHash) {
@@ -833,7 +825,8 @@ nsresult nsContentUtils::Init() {
 
   Element::InitCCCallbacks();
 
-  Unused << nsRFPService::GetOrCreate();
+  RefPtr<nsRFPService> rfpService = nsRFPService::GetOrCreate();
+  MOZ_ASSERT(rfpService);
 
   if (XRE_IsParentProcess()) {
     AsyncPrecreateStringBundles();
@@ -1908,7 +1901,6 @@ void nsContentUtils::Shutdown() {
   NS_IF_RELEASE(sSecurityManager);
   NS_IF_RELEASE(sSystemPrincipal);
   NS_IF_RELEASE(sNullSubjectPrincipal);
-  NS_IF_RELEASE(sIOService);
 
   sBidiKeyboard = nullptr;
 
@@ -2112,8 +2104,15 @@ bool nsContentUtils::IsAbsoluteURL(const nsACString& aURL) {
     return true;
   }
 
+  nsresult rv = NS_OK;
+  nsCOMPtr<nsIIOService> io = mozilla::components::IO::Service(&rv);
+  MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+
   uint32_t flags;
-  if (NS_SUCCEEDED(sIOService->GetProtocolFlags(scheme.get(), &flags))) {
+  if (NS_SUCCEEDED(io->GetProtocolFlags(scheme.get(), &flags))) {
     return flags & nsIProtocolHandler::URI_NORELATIVE;
   }
 
@@ -6290,7 +6289,7 @@ bool nsContentUtils::CheckForSubFrameDrop(nsIDragSession* aDragSession,
 /* static */
 bool nsContentUtils::URIIsLocalFile(nsIURI* aURI) {
   bool isFile;
-  nsCOMPtr<nsINetUtil> util = do_QueryInterface(sIOService);
+  nsCOMPtr<nsINetUtil> util = mozilla::components::IO::Service();
 
   // Important: we do NOT test the entire URI chain here!
   return util &&
@@ -6543,12 +6542,13 @@ SameOriginCheckerImpl::GetInterface(const nsIID& aIID, void** aResult) {
 /* static */
 nsresult nsContentUtils::GetWebExposedOriginSerialization(nsIURI* aURI,
                                                           nsACString& aOrigin) {
+  nsresult rv;
   MOZ_ASSERT(aURI, "missing uri");
 
   // For Blob URI, the path is the URL of the owning page.
   if (aURI->SchemeIs(BLOBURI_SCHEME)) {
     nsAutoCString path;
-    nsresult rv = aURI->GetPathQueryRef(path);
+    rv = aURI->GetPathQueryRef(path);
     NS_ENSURE_SUCCESS(rv, rv);
 
     nsCOMPtr<nsIURI> uri;
@@ -6561,13 +6561,30 @@ nsresult nsContentUtils::GetWebExposedOriginSerialization(nsIURI* aURI,
     return GetWebExposedOriginSerialization(uri, aOrigin);
   }
 
+  nsAutoCString scheme;
+  aURI->GetScheme(scheme);
+
+  // If the protocol doesn't have URI_HAS_WEB_EXPOSED_ORIGIN, then
+  // return "null" as the origin serialization.
+  // We make an exception for "ftp" since we don't have a protocol handler
+  // for this scheme
+  uint32_t flags = 0;
+  nsCOMPtr<nsIIOService> io = mozilla::components::IO::Service(&rv);
+  if (!scheme.Equals("ftp") && NS_SUCCEEDED(rv) &&
+      NS_SUCCEEDED(io->GetProtocolFlags(scheme.get(), &flags))) {
+    if (!(flags & nsIProtocolHandler::URI_HAS_WEB_EXPOSED_ORIGIN)) {
+      aOrigin.AssignLiteral("null");
+      return NS_OK;
+    }
+  }
+
   aOrigin.Truncate();
 
   nsCOMPtr<nsIURI> uri = NS_GetInnermostURI(aURI);
   NS_ENSURE_TRUE(uri, NS_ERROR_UNEXPECTED);
 
   nsAutoCString host;
-  nsresult rv = uri->GetAsciiHost(host);
+  rv = uri->GetAsciiHost(host);
 
   if (NS_SUCCEEDED(rv) && !host.IsEmpty()) {
     nsAutoCString userPass;

@@ -13,21 +13,16 @@ exclude: true
 
 ⚠️  breaking change and deprecation notices
 
+## v120
+- Added [`disableExtensionProcessSpawning`][120.1] for disabling the extension process spawning. ([bug 1855405]({{bugzilla}}1855405))
+
+[120.1]: {{javadoc_uri}}/WebExtensionController.html#disableExtensionProcessSpawning
+
 ## v119
 - Added `remoteType` to GeckoView child crash intent. ([bug 1851518]({{bugzilla}}1851518))
-- Added [`GeckoRuntimeSettings#setTrustedRecursiveResolverMode`][119.1] to enable DNS-over-HTTPS using different resolver modes ([bug 1591533]({{bugzilla}}1591533)).
-- Added [`GeckoRuntimeSettings#setTrustedRecursiveResolverUri`][119.2] to specify the DNS-over-HTTPS server to be used if DoH is enabled ([bug 1591533]({{bugzilla}}1591533)).
-- Added [`GeckoRuntimeSettings#setLargeKeepaliveFactor`][119.3] to increase the keepalive timeout used for a connection ([bug 1591533]({{bugzilla}}1591533)).
-- Added [`GeckoSession.requestCreateAnalysis`][119.4] for creating product review analysis.
-- Added [`GeckoSession.requestAnalysisCreationStatus`][119.5] to request the status for the current product review analysis.
-- Added [`GeckoSession.pollForAnalysisCompleted`][119.6] to poll for the current product review analysis status until finished.
-
-[119.1]: {{javadoc_uri}}/GeckoRuntimeSettings.html#setTrustedRecursiveResolverMode-int-
-[119.2]: {{javadoc_uri}}/GeckoRuntimeSettings.html#setTrustedRecursiveResolverUri-java.lang.String-
-[119.3]: {{javadoc_uri}}/GeckoRuntimeSettings.html#setLargeKeepaliveFactor-int-
-[119.4]: {{javadoc_uri}}/GeckoSession.html#requestCreateAnalysis(String)
-[119.5]: {{javadoc_uri}}/GeckoSession.html#requestAnalysisCreationStatus(String)
-[119.5]: {{javadoc_uri}}/GeckoSession.html#pollForAnalysisCompleted(String)
+[119.1]: {{javadoc_uri}}/GeckoSession.html#requestCreateAnalysis(String)
+[119.2]: {{javadoc_uri}}/GeckoSession.html#requestAnalysisCreationStatus(String)
+[119.3]: {{javadoc_uri}}/GeckoSession.html#pollForAnalysisCompleted(String)
 
 ## v118
 - Added [`ExperimentDelegate`][118.1] to allow GeckoView to send and retrieve experiment information from an embedder.
@@ -1441,4 +1436,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 76f7e766a5c156f5a296f19fadc8e66388433d92
+[api-version]: afb898d7ececc5cf154df9530c5fc6cf7125fe9e

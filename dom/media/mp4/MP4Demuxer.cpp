@@ -13,6 +13,7 @@
 #include "AnnexB.h"
 #include "BufferStream.h"
 #include "H264.h"
+#include "H265.h"
 #include "MP4Decoder.h"
 #include "MP4Metadata.h"
 #include "MoofParser.h"
@@ -77,6 +78,7 @@ class MP4TrackDemuxer : public MediaTrackDemuxer,
   // Queued samples extracted by the demuxer, but not yet returned.
   RefPtr<MediaRawData> mQueuedSample;
   bool mNeedReIndex;
+<<<<<<< HEAD
   enum CodecType {
     kH264,
     kH265,
@@ -86,6 +88,9 @@ class MP4TrackDemuxer : public MediaTrackDemuxer,
     kMPEG4,
     kOther
   } mType = kOther;
+=======
+  enum CodecType { kH264, kVP9, kAAC, kHEVC, kOther } mType = kOther;
+>>>>>>> upstream/master
 };
 
 MP4Demuxer::MP4Demuxer(MediaResource* aResource)
@@ -345,6 +350,7 @@ MP4TrackDemuxer::MP4TrackDemuxer(MediaResource* aResource,
       videoInfo->mDisplay.width = spsdata.display_width;
       videoInfo->mDisplay.height = spsdata.display_height;
     }
+<<<<<<< HEAD
 #ifdef MOZ_WIDGET_GONK
   } else if (videoInfo && MP4Decoder::IsH265(mInfo->mMimeType)) {
     mType = kH265;
@@ -358,6 +364,21 @@ MP4TrackDemuxer::MP4TrackDemuxer(MediaResource* aResource,
       mType = kVP9;
     } else if (audioInfo && MP4Decoder::IsAAC(mInfo->mMimeType)) {
       mType = kAAC;
+=======
+  } else if (videoInfo && VPXDecoder::IsVP9(mInfo->mMimeType)) {
+    mType = kVP9;
+  } else if (audioInfo && MP4Decoder::IsAAC(mInfo->mMimeType)) {
+    mType = kAAC;
+  } else if (videoInfo && MP4Decoder::IsHEVC(mInfo->mMimeType)) {
+    mType = kHEVC;
+    if (auto rv = H265::DecodeSPSFromHVCCExtraData(videoInfo->mExtraData);
+        rv.isOk()) {
+      const auto sps = rv.unwrap();
+      videoInfo->mImage.width = sps.GetImageSize().Width();
+      videoInfo->mImage.height = sps.GetImageSize().Height();
+      videoInfo->mDisplay.width = sps.GetDisplaySize().Width();
+      videoInfo->mDisplay.height = sps.GetDisplaySize().Height();
+>>>>>>> upstream/master
     }
   }
 }

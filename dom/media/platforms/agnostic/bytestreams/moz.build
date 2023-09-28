@@ -14,7 +14,11 @@ TEST_DIRS += [
 EXPORTS += [
     "Adts.h",
     "AnnexB.h",
+<<<<<<< HEAD
     "B2GH265.h",
+=======
+    "ByteStreamsUtils.h",
+>>>>>>> upstream/master
     "H264.h",
     "H265.h",
 ]

@@ -506,8 +506,9 @@ NS_IMPL_CYCLE_COLLECTION_WEAK(EventStateManager, mCurrentTargetContent,
                               mLastMiddleMouseDownInfo.mLastMouseDownContent,
                               mLastRightMouseDownInfo.mLastMouseDownContent,
                               mActiveContent, mHoverContent, mURLTargetContent,
-                              mMouseEnterLeaveHelper, mPointersEnterLeaveHelper,
-                              mDocument, mIMEContentObserver, mAccessKeys)
+                              mPopoverPointerDownTarget, mMouseEnterLeaveHelper,
+                              mPointersEnterLeaveHelper, mDocument,
+                              mIMEContentObserver, mAccessKeys)
 
 void EventStateManager::ReleaseCurrentIMEContentObserver() {
   if (mIMEContentObserver) {
@@ -864,6 +865,8 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
         if (mouseEvent->mInputSource != MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
           NotifyTargetUserActivation(aEvent, aTargetContent);
         }
+
+        LightDismissOpenPopovers(aEvent, aTargetContent);
       }
       [[fallthrough]];
     case ePointerMove: {
@@ -891,6 +894,9 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
       FlushLayout(aPresContext);
       break;
     }
+    case ePointerUp:
+      LightDismissOpenPopovers(aEvent, aTargetContent);
+      break;
     case ePointerGotCapture:
       GenerateMouseEnterExit(mouseEvent);
       break;
@@ -1142,6 +1148,44 @@ void EventStateManager::NotifyTargetUserActivation(WidgetEvent* aEvent,
   MOZ_ASSERT(aEvent->mMessage == eKeyDown || aEvent->mMessage == eMouseDown ||
              aEvent->mMessage == ePointerDown || aEvent->mMessage == eTouchEnd);
   doc->NotifyUserGestureActivation();
+}
+
+// https://html.spec.whatwg.org/multipage/popover.html#popover-light-dismiss
+void EventStateManager::LightDismissOpenPopovers(WidgetEvent* aEvent,
+                                                 nsIContent* aTargetContent) {
+  MOZ_ASSERT(aEvent->mMessage == ePointerDown || aEvent->mMessage == ePointerUp,
+             "Light dismiss must be called for pointer up/down only");
+
+  if (!StaticPrefs::dom_element_popover_enabled() || !aEvent->IsTrusted() ||
+      !aTargetContent) {
+    return;
+  }
+
+  Element* topmostPopover = aTargetContent->OwnerDoc()->GetTopmostAutoPopover();
+  if (!topmostPopover) {
+    return;
+  }
+
+  // Pointerdown: set document's popover pointerdown target to the result of
+  // running topmost clicked popover given target.
+  if (aEvent->mMessage == ePointerDown) {
+    mPopoverPointerDownTarget = aTargetContent->GetTopmostClickedPopover();
+    return;
+  }
+
+  // Pointerup: hide open popovers.
+  RefPtr<nsINode> ancestor = aTargetContent->GetTopmostClickedPopover();
+  bool sameTarget = mPopoverPointerDownTarget == ancestor;
+  mPopoverPointerDownTarget = nullptr;
+  if (!sameTarget) {
+    return;
+  }
+
+  if (!ancestor) {
+    ancestor = aTargetContent->OwnerDoc();
+  }
+  RefPtr<Document> doc(ancestor->OwnerDoc());
+  doc->HideAllPopoversUntil(*ancestor, false, true);
 }
 
 already_AddRefed<EventStateManager> EventStateManager::ESMFromContentOrThis(
@@ -3696,8 +3740,13 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
       // we should never be capturing when the mouse button is up
       PresShell::ReleaseCapturingContent();
 
-      ClearGlobalActiveContent(this);
       WidgetMouseEvent* mouseUpEvent = aEvent->AsMouseEvent();
+      // If the mouseup event is a synthesized mouse event due to a touch, do
+      // not clear the activation state. Element activation is handled by APZ.
+      if (!mouseUpEvent || mouseUpEvent->mInputSource !=
+                               dom::MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
+        ClearGlobalActiveContent(this);
+      }
       if (mouseUpEvent && EventCausesClickEvents(*mouseUpEvent)) {
         // Make sure to dispatch the click even if there is no frame for
         // the current target element. This is required for Web compatibility.

@@ -15,10 +15,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ExperimentFakes: "resource://testing-common/NimbusTestUtils.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   QuickSuggest: "resource:///modules/QuickSuggest.sys.mjs",
-  QuickSuggestRemoteSettings:
-    "resource:///modules/urlbar/private/QuickSuggestRemoteSettings.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
   SearchUtils: "resource://gre/modules/SearchUtils.sys.mjs",
+  Suggestion: "resource://gre/modules/RustSuggest.sys.mjs",
+  SuggestStore: "resource://gre/modules/RustSuggest.sys.mjs",
   TelemetryTestUtils: "resource://testing-common/TelemetryTestUtils.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
@@ -167,18 +167,18 @@ class MockRemoteSettings {
   }
 
   async sync() {
-    if (!lazy.QuickSuggestRemoteSettings.rs) {
+    if (!lazy.QuickSuggest.jsBackend.rs) {
       // There are no registered features that use remote settings.
       return;
     }
 
     // Observe config-set event to recognize that the config is synced.
     const onConfigSync = new Promise(resolve => {
-      lazy.QuickSuggestRemoteSettings.emitter.once("config-set", resolve);
+      lazy.QuickSuggest.jsBackend.emitter.once("config-set", resolve);
     });
 
     // Make a stub for each feature to recognize that the features are synced.
-    const features = lazy.QuickSuggestRemoteSettings.features;
+    const features = lazy.QuickSuggest.jsBackend.features;
     const onFeatureSyncs = features.map(feature => {
       return new Promise(resolve => {
         const stub = this.#sandbox
@@ -223,6 +223,93 @@ class MockRemoteSettings {
   }
 
   #config = null;
+  #data = null;
+  #sandbox = null;
+}
+
+/**
+ * Mock `RustSuggest` implementation.
+ *
+ * @param {object} options
+ *   Options object
+ * @param {Array} options.data
+ *   Mock remote settings records.
+ */
+class MockRustSuggest {
+  constructor({ data = [] }) {
+    this.#data = data;
+
+    this.#sandbox = lazy.sinon.createSandbox();
+    this.#sandbox.stub(lazy.SuggestStore, "init").returns(this);
+  }
+
+  /**
+   * Updates the mock data.
+   *
+   * @param {object} options
+   *   Options object
+   * @param {Array} options.data
+   *   Mock remote settings records.
+   */
+  async update({ data }) {
+    this.#data = data;
+  }
+
+  cleanup() {
+    this.#sandbox.restore();
+  }
+
+  // `RustSuggest` methods below.
+
+  ingest() {
+    return Promise.resolve();
+  }
+
+  interrupt() {}
+
+  clear() {}
+
+  async query(query) {
+    let records = this.#data.filter(record => record.type == "data");
+    let suggestions = records
+      .map(record => record.attachment)
+      .flat()
+      .filter(suggestion => suggestion.keywords.includes(query.keyword));
+
+    let matchedSuggestions = [];
+    for (let suggestion of suggestions) {
+      let isSponsored = suggestion.hasOwnProperty("is_sponsored")
+        ? suggestion.is_sponsored
+        : suggestion.iab_category == "22 - Shopping";
+      if (
+        (isSponsored && query.includeSponsored) ||
+        (!isSponsored && query.includeNonSponsored)
+      ) {
+        matchedSuggestions.push(
+          isSponsored
+            ? new lazy.Suggestion.Amp(
+                suggestion.title,
+                suggestion.url,
+                null, // icon
+                query.keyword, // fullKeyword
+                suggestion.id, // blockId
+                suggestion.advertiser,
+                suggestion.iab_category,
+                suggestion.impression_url,
+                suggestion.click_url
+              )
+            : new lazy.Suggestion.Wikipedia(
+                suggestion.title,
+                suggestion.url,
+                null, // icon
+                query.keyword // fullKeyword
+              )
+        );
+      }
+    }
+    return matchedSuggestions;
+  }
+
   #data = null;
   #sandbox = null;
 }
@@ -309,6 +396,9 @@ class _QuickSuggestTestUtils {
       config,
       data: remoteSettingsResults,
     });
+    this.#mockRustSuggest = new MockRustSuggest({
+      data: remoteSettingsResults,
+    });
 
     this.info?.("ensureQuickSuggestInit calling QuickSuggest.init()");
     lazy.QuickSuggest.init();
@@ -328,6 +418,7 @@ class _QuickSuggestTestUtils {
     let cleanup = async () => {
       this.info?.("ensureQuickSuggestInit starting cleanup");
       this.#mockRemoteSettings.cleanup();
+      this.#mockRustSuggest.cleanup();
       if (merinoSuggestions) {
         lazy.UrlbarPrefs.clear("quicksuggest.dataCollection.enabled");
       }
@@ -348,6 +439,7 @@ class _QuickSuggestTestUtils {
    */
   async setRemoteSettingsResults(data) {
     await this.#mockRemoteSettings.update({ data });
+    this.#mockRustSuggest.update({ data });
   }
 
   /**
@@ -375,7 +467,7 @@ class _QuickSuggestTestUtils {
    * @see {@link setConfig}
    */
   async withConfig({ config, callback }) {
-    let original = lazy.QuickSuggestRemoteSettings.config;
+    let original = lazy.QuickSuggest.jsBackend.config;
     await this.setConfig(config);
     await callback();
     await this.setConfig(original);
@@ -1020,6 +1112,7 @@ class _QuickSuggestTestUtils {
   }
 
   #mockRemoteSettings = null;
+  #mockRustSuggest = null;
 }
 
 export var QuickSuggestTestUtils = new _QuickSuggestTestUtils();

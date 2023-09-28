@@ -148,7 +148,6 @@ EXPORTS.mozilla.layers += [
     "ipc/APZInputBridgeChild.h",
     "ipc/APZInputBridgeParent.h",
     "ipc/CanvasChild.h",
-    "ipc/CanvasThread.h",
     "ipc/CanvasTranslator.h",
     "ipc/CompositableForwarder.h",
     "ipc/CompositableTransactionParent.h",
@@ -402,7 +401,6 @@ UNIFIED_SOURCES += [
     "ipc/APZInputBridgeChild.cpp",
     "ipc/APZInputBridgeParent.cpp",
     "ipc/CanvasChild.cpp",
-    "ipc/CanvasThread.cpp",
     "ipc/CanvasTranslator.cpp",
     "ipc/CompositableForwarder.cpp",
     "ipc/CompositableTransactionParent.cpp",
@@ -552,7 +550,7 @@ if CONFIG["ENABLE_TESTS"]:
     DIRS += ["apz/test/gtest/mvm"]
 
 MOCHITEST_MANIFESTS += ["apz/test/mochitest/mochitest.ini"]
-BROWSER_CHROME_MANIFESTS += ["apz/test/mochitest/browser.ini"]
+BROWSER_CHROME_MANIFESTS += ["apz/test/mochitest/browser.toml"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
     CXXFLAGS += CONFIG["MOZ_GTK3_CFLAGS"]

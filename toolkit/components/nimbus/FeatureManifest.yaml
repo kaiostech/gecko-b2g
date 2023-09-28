@@ -307,6 +307,12 @@ urlbar:
       type: boolean
       fallbackPref: browser.urlbar.quicksuggest.remoteSettings.enabled
       description: Whether Remote Settings is enabled as a quick suggest source
+    quickSuggestRustEnabled:
+      type: boolean
+      fallbackPref: browser.urlbar.quicksuggest.rustEnabled
+      description: >-
+        Whether Firefox Suggest will use the new Rust backend instead of the
+        original JS backend.
     quickSuggestScenario:
       # IMPORTANT: This should not have a fallbackPref. See UrlbarPrefs.jsm.
       type: string
@@ -1798,13 +1804,13 @@ backgroundUpdate:
     the feature can impact Firefox behaviour and the user experience.
   isEarlyStartup: false
   variables:
-    allowUpdatesForUnelevatedInstallations:
+    enableUpdatesForUnelevatedInstallations:
       description: >-
         Allow the background update process to download and apply updates when
         the Mozilla Maintenance Service is unavailable but the installation
         directory can be written.
       type: boolean
-      fallbackPref: app.update.background.allowUpdatesForUnelevatedInstallations
+      setPref: app.update.background.allowUpdatesForUnelevatedInstallations
 
 bookmarks:
   description: Prefs to control aspects of the bookmarks system.
@@ -1882,3 +1888,8 @@ feltPrivacy:
       description: >-
         When true, new styles and copy enabled on about:privatebrowsing. When true, 
         a toggle for showing or hiding quick suggestions appears in about:preferences.
+    resetPBMAction:
+      type: boolean
+      setPref: browser.privatebrowsing.resetPBM.enabled
+      description: >-
+        Enables the reset PBM feature button and confirmation panel.

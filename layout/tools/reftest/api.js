@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// These globals are available to extensions using privileged APIs.
+/* globals XPCOMUtils, ExtensionAPI */
+
 const Cm = Components.manager;
 
 var OnRefTestLoad, OnRefTestUnload;
@@ -33,7 +36,7 @@ function processTerminated() {
 
 function startAndroid(win) {
   // Add setTimeout here because windows.innerWidth/Height are not set yet.
-  win.setTimeout(function() {
+  win.setTimeout(function () {
     OnRefTestLoad(win);
   }, 0);
 }
@@ -125,7 +128,7 @@ this.reftest = class extends ExtensionAPI {
       "chrome,dialog=no,left=800,height=200,width=200,all",
       null
     );
-    dummy.onload = async function() {
+    dummy.onload = async function () {
       // Close pre-existing window
       win.close();
 

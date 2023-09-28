@@ -467,7 +467,7 @@ const SHOPPING_MICROSURVEY = {
           label: {
             string_id: "shopping-survey-next-button-label",
             paddingBlock: "5px",
-            marginBlock: "0px 10px",
+            marginBlock: "0 12px",
           },
           action: {
             type: "MULTI_ACTION",
@@ -566,7 +566,7 @@ const SHOPPING_MICROSURVEY = {
           label: {
             string_id: "shopping-survey-submit-button-label",
             paddingBlock: "5px",
-            marginBlock: "0px 10px",
+            marginBlock: "0 12px",
           },
           action: {
             type: "MULTI_ACTION",
@@ -762,15 +762,16 @@ class AboutWelcomeShoppingChild extends AboutWelcomeChild {
       this.document.getElementById("multi-stage-message-root").hidden = true;
     }
 
-    // Early exit if user has seen survey, if we have no data,
-    // or if pdp is ineligible or not unique
+    // Early exit if user has seen survey, if we have no data, encountered
+    // an error, or if pdp is ineligible or not unique
     if (
       lazy.isSurveySeen ||
       !data ||
+      data.error ||
       !productUrl ||
-      (data?.needs_analysis &&
-        (!data?.product_id || !data?.grade || !data?.adjusted_rating)) ||
-      AboutWelcomeShoppingChild.eligiblePDPvisits.includes(data?.product_id)
+      (data.needs_analysis &&
+        (!data.product_id || !data.grade || !data.adjusted_rating)) ||
+      AboutWelcomeShoppingChild.eligiblePDPvisits.includes(data.product_id)
     ) {
       return;
     }
@@ -816,15 +817,15 @@ class AboutWelcomeShoppingChild extends AboutWelcomeChild {
     if (this._destroyed) {
       return;
     }
-    let root = this.document.getElementById("multi-stage-message-root");
+    const root = this.document.getElementById("multi-stage-message-root");
     if (root) {
-      let { parentElement } = root;
-      let newRoot = this.document.createElement("div");
-      newRoot.id = "multi-stage-message-root";
-      newRoot.className = "onboardingContainer shopping";
-      newRoot.slot = "multi-stage-message-slot";
-      root.remove();
-      parentElement.appendChild(newRoot);
+      root.innerHTML = "";
+      root
+        .appendChild(this.document.createElement("shopping-message-bar"))
+        .setAttribute("type", "thank-you-for-feedback");
+      this.contentWindow.setTimeout(() => {
+        root.hidden = true;
+      }, 5000);
     }
   }
 

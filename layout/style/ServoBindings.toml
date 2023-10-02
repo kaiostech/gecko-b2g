@@ -175,6 +175,7 @@ rusty-enums = [
     "mozilla::StyleBlend",
     "mozilla::StyleMaskComposite",
     "mozilla::StyleWritingModeProperty",
+    "mozilla::StyleTextWrap",
     "StyleFontVariantEmoji",
 ]
 allowlist-vars = [
@@ -523,7 +524,7 @@ cbindgen-types = [
     { gecko = "StyleTransformStyle", servo = "crate::values::computed::TransformStyle" },
     { gecko = "StyleGenericBorderRadius", servo = "crate::values::generics::border::BorderRadius" },
     { gecko = "StyleLetterSpacing", servo = "crate::values::computed::text::LetterSpacing" },
-    { gecko = "StyleGenericLineHeight", servo = "crate::values::generics::text::LineHeight" },
+    { gecko = "StyleGenericLineHeight", servo = "crate::values::generics::font::LineHeight" },
     { gecko = "StyleCaretColor", servo = "crate::values::computed::color::CaretColor" },
     { gecko = "StyleContain", servo = "crate::values::computed::Contain" },
     { gecko = "StyleContainerType", servo = "crate::values::computed::ContainerType" },
@@ -649,6 +650,7 @@ cbindgen-types = [
     { gecko = "StyleBoolInteger", servo = "crate::values::computed::BoolInteger" },
     { gecko = "StyleTime", servo = "crate::values::computed::Time" },
     { gecko = "StyleXTextScale", servo = "crate::values::computed::XTextScale" },
+    { gecko = "StyleZoom", servo = "crate::values::computed::Zoom" },
     { gecko = "StyleAnimationValueMap", servo = "crate::properties::animated_properties::AnimationValueMap" },
     { gecko = "StyleAuthorStyles", servo = "crate::gecko::data::AuthorStyles" },
     { gecko = "StyleUseCounters", servo = "crate::use_counters::UseCounters" },

@@ -17,7 +17,8 @@ def RLBoxLibrary(name):
     # Configuration for the wasm2c runtime used by RLBox
 
     # Enable SIMD autovectorization
-    WASM_CXXFLAGS += ["-msimd128"]
+    if CONFIG["WASM_CC_VERSION"] and int(CONFIG["WASM_CC_VERSION"].split(".")[0]) >= 11:
+        WASM_CXXFLAGS += ["-msimd128"]
 
     # Use a mmap style allocation
     DEFINES["WASM_RT_USE_MMAP"] = 1
@@ -39,7 +40,6 @@ def RLBoxLibrary(name):
         "-Wno-unused",
     ]
 
-    WASM_DEFINES["_WASI_EMULATED_PROCESS_CLOCKS"] = True
     WASM_DEFINES["MOZ_IN_WASM_SANDBOX"] = True
     if CONFIG["ENABLE_CLANG_PLUGIN"]:
         WASM_DEFINES["MOZ_CLANG_PLUGIN"] = True

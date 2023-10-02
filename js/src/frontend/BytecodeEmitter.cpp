@@ -1989,8 +1989,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitSwitch(SwitchStatement* switchStmt) {
     }
 
     // A switch statement may contain hoisted functions inside its
-    // cases. The PNX_FUNCDEFS flag is propagated from the STATEMENTLIST
-    // bodies of the cases to the case list.
+    // cases. The hasTopLevelFunctionDeclarations flag is propagated from the
+    // StatementList bodies of the cases to the case list.
     if (cases->hasTopLevelFunctionDeclarations()) {
       for (ParseNode* item : cases->contents()) {
         CaseClause* caseClause = &item->as<CaseClause>();
@@ -4047,8 +4047,9 @@ bool BytecodeEmitter::emitAssignmentRhs(
 
 // The RHS value to assign is already on the stack, i.e., the next enumeration
 // value in a for-in or for-of loop. Offset is the location in the stack of the
-// already-emitted rhs. If we emitted a BIND[G]NAME, then the scope is on the
-// top of the stack and we need to dig one deeper to get the right RHS value.
+// already-emitted rhs. If we emitted a JSOp::BindName or JSOp::BindGName, then
+// the scope is on the top of the stack and we need to dig one deeper to get
+// the right RHS value.
 bool BytecodeEmitter::emitAssignmentRhs(uint8_t offset) {
   if (offset != 1) {
     return emitPickN(offset - 1);
@@ -5013,8 +5014,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitLexicalScope(
   }
 
   if (body->isKind(ParseNodeKind::ForStmt)) {
-    // for loops need to emit {FRESHEN,RECREATE}LEXICALENV if there are
-    // lexical declarations in the head. Signal this by passing a
+    // for loops need to emit JSOp::FreshenLexicalEnv/JSOp::RecreateLexicalEnv
+    // if there are lexical declarations in the head. Signal this by passing a
     // non-nullptr lexical scope.
     if (!emitFor(&body->as<ForNode>(), &lse.emitterScope())) {
       return false;
@@ -6915,7 +6916,7 @@ bool BytecodeEmitter::emitExpressionStatement(UnaryNode* exprStmt) {
    * expression statement as the script's result, despite the fact
    * that it appears useless to the compiler.
    *
-   * API users may also set the JSOPTION_NO_SCRIPT_RVAL option when
+   * API users may also set the ReadOnlyCompileOptions::noScriptRval option when
    * calling JS_Compile* to suppress JSOp::SetRval.
    */
   bool wantval = false;
@@ -10736,9 +10737,9 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitObject(ListNode* objNode) {
   // Note: this method uses the ObjLiteralWriter and emits ObjLiteralStencil
   // objects into the GCThingList, which will evaluate them into real GC objects
   // or shapes during JSScript::fullyInitFromEmitter. Eventually we want
-  // OBJLITERAL to be a real opcode, but for now, performance constraints limit
-  // us to evaluating object literals at the end of parse, when we're allowed to
-  // allocate GC things.
+  // JSOp::Object to be a real opcode, but for now, performance constraints
+  // limit us to evaluating object literals at the end of parse, when we're
+  // allowed to allocate GC things.
   //
   // There are four cases here, in descending order of preference:
   //
@@ -11397,7 +11398,7 @@ bool BytecodeEmitter::emitLexicalInitialization(TaggedParserAtomIndex name) {
 
   // The caller has pushed the RHS to the top of the stack. Assert that the
   // binding can be initialized without a binding object on the stack, and that
-  // no BIND[G]NAME ops were emitted.
+  // no JSOp::BindName or JSOp::BindGName ops were emitted.
   MOZ_ASSERT(noe.loc().isLexical() || noe.loc().isSynthetic() ||
              noe.loc().isPrivateMethod());
   MOZ_ASSERT(!noe.emittedBindOp());

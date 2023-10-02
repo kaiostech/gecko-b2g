@@ -11,12 +11,12 @@ use crate::values::computed::Percentage as ComputedPercentage;
 use crate::values::computed::{font as computed, Length, NonNegativeLength};
 use crate::values::computed::{CSSPixelLength, Context, ToComputedValue};
 use crate::values::generics::font::{
-    self as generics, FeatureTagValue, FontSettings, FontTag, VariationValue,
+    self as generics, FeatureTagValue, FontSettings, FontTag, GenericLineHeight, VariationValue,
 };
 use crate::values::generics::NonNegative;
 use crate::values::specified::length::{FontBaseSize, PX_PER_PT};
 use crate::values::specified::{AllowQuirks, Angle, Integer, LengthPercentage};
-use crate::values::specified::{NoCalcLength, NonNegativeNumber, NonNegativePercentage, Number};
+use crate::values::specified::{FontRelativeLength, NoCalcLength, NonNegativeNumber, NonNegativePercentage, NonNegativeLengthPercentage, Number};
 use crate::values::{serialize_atom_identifier, CustomIdent, SelectorParseErrorKind};
 use crate::Atom;
 use cssparser::{Parser, Token};
@@ -878,8 +878,6 @@ impl FontSize {
         context: &Context,
         base_size: FontBaseSize,
     ) -> computed::FontSize {
-        use crate::values::specified::length::FontRelativeLength;
-
         let compose_keyword = |factor| {
             context
                 .style()
@@ -1020,6 +1018,7 @@ impl Parse for FontSize {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     /// Flags of variant alternates in bit
     struct VariantAlternatesParsingFlags: u8 {
         /// None of variant alternates enabled
@@ -1245,10 +1244,11 @@ macro_rules! impl_variant_east_asian {
             $ident:ident / $css:expr => $gecko:ident = $value:expr,
         )+
     } => {
+        #[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
+        /// Variants for east asian variant
+        pub struct FontVariantEastAsian(u16);
         bitflags! {
-            #[derive(MallocSizeOf, ToComputedValue, ToResolvedValue, ToShmem)]
-            /// Variants for east asian variant
-            pub struct FontVariantEastAsian: u16 {
+            impl FontVariantEastAsian: u16 {
                 /// None of the features
                 const NORMAL = 0;
                 $(
@@ -1416,10 +1416,11 @@ macro_rules! impl_variant_ligatures {
             $ident:ident / $css:expr => $gecko:ident = $value:expr,
         )+
     } => {
+        #[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
+        /// Variants of ligatures
+        pub struct FontVariantLigatures(u16);
         bitflags! {
-            #[derive(MallocSizeOf, ToComputedValue, ToResolvedValue, ToShmem)]
-            /// Variants of ligatures
-            pub struct FontVariantLigatures: u16 {
+            impl FontVariantLigatures: u16 {
                 /// Specifies that common default features are enabled
                 const NORMAL = 0;
                 $(
@@ -1594,10 +1595,11 @@ macro_rules! impl_variant_numeric {
             $ident:ident / $css:expr => $gecko:ident = $value:expr,
         )+
     } => {
+        #[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
+        /// Variants of numeric values
+        pub struct FontVariantNumeric(u8);
         bitflags! {
-            #[derive(MallocSizeOf, ToComputedValue, ToResolvedValue, ToShmem)]
-            /// Vairants of numeric values
-            pub struct FontVariantNumeric: u8 {
+            impl FontVariantNumeric: u8 {
                 /// None of other variants are enabled.
                 const NORMAL = 0;
                 $(
@@ -2126,5 +2128,56 @@ impl From<f32> for MozScriptSizeMultiplier {
 impl From<MozScriptSizeMultiplier> for f32 {
     fn from(v: MozScriptSizeMultiplier) -> f32 {
         v.0
+    }
+}
+
+/// A specified value for the `line-height` property.
+pub type LineHeight = GenericLineHeight<NonNegativeNumber, NonNegativeLengthPercentage>;
+
+impl ToComputedValue for LineHeight {
+    type ComputedValue = computed::LineHeight;
+
+    #[inline]
+    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+        match *self {
+            GenericLineHeight::Normal => GenericLineHeight::Normal,
+            #[cfg(feature = "gecko")]
+            GenericLineHeight::MozBlockHeight => GenericLineHeight::MozBlockHeight,
+            GenericLineHeight::Number(number) => {
+                GenericLineHeight::Number(number.to_computed_value(context))
+            },
+            GenericLineHeight::Length(ref non_negative_lp) => {
+                let result = match non_negative_lp.0 {
+                    LengthPercentage::Length(NoCalcLength::Absolute(ref abs)) => {
+                        context.maybe_zoom_text(abs.to_computed_value(context))
+                    },
+                    LengthPercentage::Length(ref length) => length.to_computed_value(context),
+                    LengthPercentage::Percentage(ref p) => FontRelativeLength::Em(p.0)
+                        .to_computed_value(context, FontBaseSize::CurrentStyle),
+                    LengthPercentage::Calc(ref calc) => {
+                        let computed_calc =
+                            calc.to_computed_value_zoomed(context, FontBaseSize::CurrentStyle);
+                        let base = context.style().get_font().clone_font_size().computed_size();
+                        computed_calc.resolve(base)
+                    },
+                };
+                GenericLineHeight::Length(result.into())
+            },
+        }
+    }
+
+    #[inline]
+    fn from_computed_value(computed: &Self::ComputedValue) -> Self {
+        match *computed {
+            GenericLineHeight::Normal => GenericLineHeight::Normal,
+            #[cfg(feature = "gecko")]
+            GenericLineHeight::MozBlockHeight => GenericLineHeight::MozBlockHeight,
+            GenericLineHeight::Number(ref number) => {
+                GenericLineHeight::Number(NonNegativeNumber::from_computed_value(number))
+            },
+            GenericLineHeight::Length(ref length) => {
+                GenericLineHeight::Length(NoCalcLength::from_computed_value(&length.0).into())
+            },
+        }
     }
 }

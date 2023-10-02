@@ -56,7 +56,7 @@ pub use self::box_::{
     ContainerName, ContainerType, ContentVisibility, Display, Float, LineClamp, Overflow,
     OverflowAnchor, OverflowClipBox, OverscrollBehavior, Perspective, Resize, ScrollSnapAlign,
     ScrollSnapAxis, ScrollSnapStop, ScrollSnapStrictness, ScrollSnapType, ScrollbarGutter,
-    TouchAction, VerticalAlign, WillChange,
+    TouchAction, VerticalAlign, WillChange, Zoom,
 };
 pub use self::color::{
     Color, ColorOrAuto, ColorPropertyValue, ColorScheme, ForcedColorAdjust, PrintColorAdjust,
@@ -68,7 +68,7 @@ pub use self::effects::{BoxShadow, Filter, SimpleShadow};
 pub use self::flex::FlexBasis;
 pub use self::font::{FontFamily, FontLanguageOverride, FontPalette, FontStyle};
 pub use self::font::{FontFeatureSettings, FontVariantLigatures, FontVariantNumeric};
-pub use self::font::{FontSize, FontSizeAdjust, FontStretch, FontSynthesis};
+pub use self::font::{FontSize, FontSizeAdjust, FontStretch, FontSynthesis, LineHeight};
 pub use self::font::{FontVariantAlternates, FontWeight};
 pub use self::font::{FontVariantEastAsian, FontVariationSettings};
 pub use self::font::{MathDepth, MozScriptMinSize, MozScriptSizeMultiplier, XLang, XTextScale};
@@ -96,7 +96,7 @@ pub use self::svg::{SVGLength, SVGOpacity, SVGPaint, SVGPaintKind};
 pub use self::svg::{SVGPaintOrder, SVGStrokeDashArray, SVGWidth};
 pub use self::text::HyphenateCharacter;
 pub use self::text::TextUnderlinePosition;
-pub use self::text::{InitialLetter, LetterSpacing, LineBreak, LineHeight};
+pub use self::text::{InitialLetter, LetterSpacing, LineBreak};
 pub use self::text::{OverflowWrap, RubyPosition, TextOverflow, WordBreak, WordSpacing};
 pub use self::text::{TextAlign, TextAlignLast, TextEmphasisPosition, TextEmphasisStyle};
 pub use self::text::{TextDecorationLength, TextDecorationSkipInk, TextJustify};

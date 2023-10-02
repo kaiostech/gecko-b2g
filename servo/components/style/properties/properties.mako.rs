@@ -38,7 +38,7 @@ use style_traits::{SpecifiedValueInfo, StyleParseErrorKind, ToCss};
 use to_shmem::impl_trivial_to_shmem;
 use crate::stylesheets::{CssRuleType, CssRuleTypes, Origin, UrlExtraData};
 use crate::use_counters::UseCounters;
-use crate::values::generics::text::LineHeight;
+use crate::values::generics::font::LineHeight;
 use crate::values::{computed, resolved, serialize_atom_name};
 use crate::values::specified::font::SystemFont;
 use crate::rule_tree::StrongRuleNode;
@@ -895,6 +895,8 @@ PRIORITARY_PROPERTIES = set([
     "color-scheme",
     # forced-color-adjust affects whether colors are adjusted.
     "forced-color-adjust",
+    # Zoom affects all absolute lengths.
+    "zoom",
 ])
 
 def is_visited_dependent(p):
@@ -1193,6 +1195,7 @@ impl CSSWideKeyword {
 
 bitflags! {
     /// A set of flags for properties.
+    #[derive(Clone, Copy)]
     pub struct PropertyFlags: u16 {
         /// This longhand property applies to ::first-letter.
         const APPLIES_TO_FIRST_LETTER = 1 << 1;
@@ -1429,7 +1432,7 @@ impl LonghandId {
                 0,
             % endfor
         ];
-        PropertyFlags::from_bits_truncate(FLAGS[self as usize])
+        PropertyFlags::from_bits_retain(FLAGS[self as usize])
     }
 
     /// Returns true if the property is one that is ignored when document
@@ -1604,7 +1607,7 @@ impl ShorthandId {
                 0,
             % endfor
         ];
-        PropertyFlags::from_bits_truncate(FLAGS[self as usize])
+        PropertyFlags::from_bits_retain(FLAGS[self as usize])
     }
 
     /// Returns whether this property is a legacy shorthand.
@@ -3003,6 +3006,9 @@ pub struct ComputedValuesInner {
     /// The writing mode of this computed values struct.
     pub writing_mode: WritingMode,
 
+    /// The effective zoom value.
+    pub effective_zoom: Zoom,
+
     /// A set of flags we use to store misc information regarding this style.
     pub flags: ComputedValueFlags,
 
@@ -3213,6 +3219,7 @@ impl ComputedValues {
         pseudo: Option<<&PseudoElement>,
         custom_properties: crate::custom_properties::ComputedCustomProperties,
         writing_mode: WritingMode,
+        effective_zoom: computed::Zoom,
         flags: ComputedValueFlags,
         rules: Option<StrongRuleNode>,
         visited_style: Option<Arc<ComputedValues>>,
@@ -3226,6 +3233,7 @@ impl ComputedValues {
                 writing_mode,
                 rules,
                 visited_style,
+                effective_zoom,
                 flags,
             % for style_struct in data.active_style_structs():
                 ${style_struct.ident},
@@ -3250,11 +3258,18 @@ impl ComputedValues {
                 s
             }
             PropertyDeclarationId::Custom(name) => {
-              // TODO(bug 1840478): Handle non-inherited properties.
-              self.custom_properties
-                    .as_ref().inherited.unwrap()
+                // FIXME(bug 1273706): This should use a stylist to determine
+                // whether the name corresponds to an inherited custom property
+                // and then choose the inherited/non_inherited map accordingly.
+                // It should also fallback to registered initial values for
+                // non-inherited properties. See Servo_GetCustomPropertyValue.
+                let p = &self.custom_properties;
+                let value = p
+                    .inherited
+                    .as_ref()
                     .and_then(|map| map.get(name))
-                    .map_or(String::new(), |value| value.to_css_string())
+                    .or_else(|| p.non_inherited.as_ref().and_then(|map| map.get(name)));
+                value.map_or(String::new(), |value| value.to_css_string())
             }
         }
     }
@@ -3640,6 +3655,9 @@ pub struct StyleBuilder<'a> {
     /// TODO(emilio): Make private.
     pub writing_mode: WritingMode,
 
+    /// The effective zoom.
+    pub effective_zoom: computed::Zoom,
+
     /// Flags for the computed value.
     pub flags: Cell<ComputedValueFlags>,
 
@@ -3666,7 +3684,6 @@ impl<'a> StyleBuilder<'a> {
         let inherited_style = parent_style.unwrap_or(reset_style);
 
         let flags = inherited_style.flags.inherited();
-
         StyleBuilder {
             device,
             stylist,
@@ -3678,6 +3695,7 @@ impl<'a> StyleBuilder<'a> {
             is_root_element,
             custom_properties: crate::custom_properties::ComputedCustomProperties::default(),
             writing_mode: inherited_style.writing_mode,
+            effective_zoom: inherited_style.effective_zoom,
             flags: Cell::new(flags),
             visited_style: None,
             % for style_struct in data.active_style_structs():
@@ -3715,6 +3733,7 @@ impl<'a> StyleBuilder<'a> {
             rules: None,
             custom_properties: style_to_derive_from.custom_properties().clone(),
             writing_mode: style_to_derive_from.writing_mode,
+            effective_zoom: style_to_derive_from.effective_zoom,
             flags: Cell::new(style_to_derive_from.flags),
             visited_style: None,
             % for style_struct in data.active_style_structs():
@@ -3966,6 +3985,7 @@ impl<'a> StyleBuilder<'a> {
             self.pseudo,
             self.custom_properties,
             self.writing_mode,
+            self.effective_zoom,
             self.flags.get(),
             self.rules,
             self.visited_style,
@@ -3988,6 +4008,21 @@ impl<'a> StyleBuilder<'a> {
     /// Inherited writing-mode.
     pub fn inherited_writing_mode(&self) -> &WritingMode {
         &self.inherited_style.writing_mode
+    }
+
+    /// The effective zoom value that we should multiply absolute lengths by.
+    pub fn effective_zoom(&self) -> computed::Zoom {
+        self.effective_zoom
+    }
+
+    /// The zoom specified on this element.
+    pub fn specified_zoom(&self) -> computed::Zoom {
+        self.get_box().clone_zoom()
+    }
+
+    /// Inherited zoom.
+    pub fn inherited_effective_zoom(&self) -> computed::Zoom {
+        self.inherited_style.effective_zoom
     }
 
     /// The computed value flags of our parent.

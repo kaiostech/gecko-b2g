@@ -34,7 +34,7 @@ const {
 const IFRAME_BASE_URL =
   "http://damp.top.com/tests/devtools/addon/content/pages/";
 const EXPECTED = {
-  sources: 107,
+  sources: 1134,
   file: "App.js",
   sourceURL: `${IFRAME_BASE_URL}custom/debugger/app-build/static/js/App.js`,
   text: "import React, { Component } from 'react';",
@@ -44,6 +44,7 @@ const EXPECTED = {
 const EXPECTED_FUNCTION = "window.hitBreakpoint()";
 
 const TEST_URL = PAGES_BASE_URL + "custom/debugger/app-build/index.html";
+const MINIFIED_URL = `${IFRAME_BASE_URL}custom/debugger/app-build/static/js/minified.js`;
 
 module.exports = async function () {
   const tab = await testSetup(TEST_URL, { disableCache: true });
@@ -72,7 +73,7 @@ module.exports = async function () {
   await testProjectSearch(dbg, tab);
   await testPreview(dbg, tab, EXPECTED_FUNCTION);
   await testOpeningLargeMinifiedFile(dbg, tab);
-  await testPrettyPrint(dbg);
+  await testPrettyPrint(dbg, toolbox);
 
   await closeToolboxAndLog("custom.jsdebugger", toolbox);
 
@@ -213,60 +214,33 @@ async function testPreview(dbg, tab, testFunction) {
 }
 
 async function testOpeningLargeMinifiedFile(dbg, tab) {
-  dump("Add minified.js (large minified file)\n");
-  const file = `${IFRAME_BASE_URL}custom/debugger/app-build/static/js/minified.js`;
-
-  const messageManager = tab.linkedBrowser.messageManager;
-
-  // We don't want to impact the other tests from this file, so we add a new big minified
-  // file from the content process instead of having it directly in iframe.html.
-  messageManager.loadFrameScript(
-    `data:application/javascript,(${encodeURIComponent(
-      `function () {
-        const scriptEl = content.document.createElement("script");
-        scriptEl.setAttribute("type", "text/javascript");
-        scriptEl.setAttribute("src", "${file}");
-        content.document.body.append(scriptEl);
-      }`
-    )})()`,
-    true
-  );
-
-  dump("Wait until source is available\n");
-  await waitUntil(() => findSource(dbg, file));
-
-  const fileFirstChars = `(()=>{var e,t,n,r,o={82603`;
+  const fileFirstMinifiedChars = `(()=>{var e,t,n,r,o={82603`;
 
   dump("Open minified.js (large minified file)\n");
   const fullTest = runTest(
     "custom.jsdebugger.open-large-minified-file.full-selection.DAMP"
   );
   const test = runTest("custom.jsdebugger.open-large-minified-file.DAMP");
-  const onSelected = selectSource(dbg, file);
-  await waitForText(dbg, fileFirstChars);
+  const onSelected = selectSource(dbg, MINIFIED_URL);
+  await waitForText(dbg, fileFirstMinifiedChars);
   test.done();
   await onSelected;
   fullTest.done();
 
-  dbg.actions.closeTabs([file]);
+  await dbg.actions.closeTabs([findSource(dbg, MINIFIED_URL)]);
+
+  // Also clear to prevent reselecting this source
+  await dbg.actions.clearSelectedLocation();
 
   await garbageCollect();
 }
 
-async function testPrettyPrint(dbg) {
-  // Close all existing tabs to have a clean state
-  const state = dbg.getState();
-  const tabURLs = dbg.selectors.getSourcesForTabs(state).map(t => t.url);
-  await dbg.actions.closeTabs(tabURLs);
-
-  // Disable source map so we can prettyprint main.js
-  await dbg.actions.toggleSourceMapsEnabled(false);
-
-  const fileUrl = `${IFRAME_BASE_URL}custom/debugger/app-build/static/js/main.js`;
-  const formattedFileUrl = `${fileUrl}:formatted`;
+async function testPrettyPrint(dbg, toolbox) {
+  const formattedFileUrl = `${MINIFIED_URL}:formatted`;
+  const filePrettyChars = "82603: (e, t, n) => {\n";
 
   dump("Select minified file\n");
-  await selectSource(dbg, fileUrl);
+  await selectSource(dbg, MINIFIED_URL);
 
   dump("Wait until CodeMirror highlighting is done\n");
   const cm = getCM(dbg);
@@ -284,11 +258,26 @@ async function testPrettyPrint(dbg) {
   const test = runTest("custom.jsdebugger.pretty-print.DAMP");
   prettyPrintButton.click();
   await waitForSource(dbg, formattedFileUrl);
-  await waitForText(dbg, "!function (n) {\n");
+  await waitForText(dbg, filePrettyChars);
   test.done();
 
-  await dbg.actions.toggleSourceMapsEnabled(true);
-  dbg.actions.closeTabs([fileUrl, formattedFileUrl]);
+  await reloadDebuggerAndLog("custom.pretty-print", toolbox, {
+    sources: 1105,
+    sourceURL: formattedFileUrl,
+    text: filePrettyChars,
+    threadsCount: EXPECTED.threadsCount,
+  });
+
+  // Clear the selection to avoid the source to be re-pretty printed on next load
+  // Clear the selection before closing the tabs, otherwise closeTabs will reselect a random source.
+  await dbg.actions.clearSelectedLocation();
+
+  // Close tabs and especially the pretty printed one to stop pretty printing it.
+  // Given that it is hard to find the non-pretty printed source via `findSource`
+  // (because bundle and pretty print sources use almost the same URL except ':formatted' for the pretty printed one)
+  // let's close all the tabs.
+  const sources = dbg.selectors.getSourceList(dbg.getState());
+  await dbg.actions.closeTabs(sources);
 
   await garbageCollect();
 }

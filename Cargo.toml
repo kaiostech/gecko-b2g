@@ -132,8 +132,9 @@ base64 = { path = "build/rust/base64" }
 # Patch wasi 0.10 to 0.11
 wasi = { path = "build/rust/wasi" }
 
-# Patch bindgen 0.63 and 0.64 to 0.66
+# Patch bindgen 0.63, 0.64 and 0.66 to 0.68
 bindgen_0_63 = { package = "bindgen", path = "build/rust/bindgen-0.63" }
+bindgen_0_64 = { package = "bindgen", path = "build/rust/bindgen-0.64" }
 bindgen = { path = "build/rust/bindgen" }
 
 # Patch nix 0.24 to 0.26
@@ -163,9 +164,6 @@ web-sys = { path = "build/rust/dummy-web/web-sys" }
 
 # Overrides to allow easier use of common internal crates.
 moz_asserts = { path = "mozglue/static/rust/moz_asserts" }
-
-# Patch rayon core to import https://github.com/rayon-rs/rayon/pull/1063
-rayon-core = { path = "third_party/rust/rayon-core" }
 
 # Patch `rure` to disable building the cdylib and staticlib targets
 # Cargo has no way to disable building targets your dependencies provide which

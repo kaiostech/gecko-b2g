@@ -2034,6 +2034,14 @@
   value: false
   mirror: always
 
+# Whether global rules are allowed to run in sub-frames. Running query selectors
+# in every sub-frame may negatively impact performance, but is required for some
+# CMPs.
+- name: cookiebanners.service.enableGlobalRules.subFrames
+  type: bool
+  value: true
+  mirror: always
+
 # Enables the cookie banner cookie injector. The cookie banner cookie injector
 # depends on the `cookiebanners.service.mode` pref above.
 - name: cookiebanners.cookieInjector.enabled
@@ -4813,7 +4821,7 @@
 # Whether Window.sizeToContent() is enabled.
 - name: dom.window.sizeToContent.enabled
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -7793,14 +7801,14 @@
 #if defined(ENABLE_WASM_FUNCTION_REFERENCES)
 -   name: javascript.options.wasm_function_references
     type: bool
-    value: false
+    value: true
     mirror: always
 #endif // defined(ENABLE_WASM_FUNCTION_REFERENCES)
 
 #if defined(ENABLE_WASM_GC)
 -   name: javascript.options.wasm_gc
     type: bool
-    value: false
+    value: true
     mirror: always
 #endif // defined(ENABLE_WASM_GC)
 
@@ -9034,6 +9042,29 @@
   type: bool
   value: false
   mirror: always
+
+- name: layout.css.text-wrap-balance.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Maximum number of lines to try balancing.
+- name: layout.css.text-wrap-balance.limit
+  type: int32_t
+  value: 10
+  mirror: always
+
+- name: layout.css.text-wrap-balance-after-clamp.enabled
+  type: bool
+  value: true
+  mirror: always
+
+# Support for the css Zoom property.
+- name: layout.css.zoom.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # Whether to block large cursors intersecting UI.
 - name: layout.cursor.block.enabled
@@ -10397,9 +10428,11 @@
     mirror: always
 
 # Enable HEVC support via the windows media foundation
+# 0 : disable, 1 : enable for media engine and MFT,
+# 2 : enable for media engine only
 -   name: media.wmf.hevc.enabled
-    type: RelaxedAtomicBool
-    value: false
+    type: RelaxedAtomicUint32
+    value: 2
     mirror: always
 
 #endif  # MOZ_WMF

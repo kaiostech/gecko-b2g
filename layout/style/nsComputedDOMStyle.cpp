@@ -466,7 +466,8 @@ void nsComputedDOMStyle::GetPropertyValue(
     MOZ_ASSERT(nsCSSProps::IsCustomPropertyName(aMaybeCustomPropertyName));
     const nsACString& name =
         Substring(aMaybeCustomPropertyName, CSS_CUSTOM_NAME_PREFIX_LENGTH);
-    Servo_GetCustomPropertyValue(mComputedStyle, &name, &aReturn);
+    Servo_GetCustomPropertyValue(
+        mComputedStyle, mPresShell->StyleSet()->RawData(), &name, &aReturn);
     return;
   }
 
@@ -936,7 +937,7 @@ bool nsComputedDOMStyle::NeedsToFlushLayout(nsCSSPropertyID aPropID) const {
     case eCSSProperty_height:
       return !IsNonReplacedInline(frame);
     case eCSSProperty_line_height:
-      return frame->StyleText()->mLineHeight.IsMozBlockHeight();
+      return frame->StyleFont()->mLineHeight.IsMozBlockHeight();
     case eCSSProperty_grid_template_rows:
     case eCSSProperty_grid_template_columns:
       return !!nsGridContainerFrame::GetGridContainerFrame(frame);

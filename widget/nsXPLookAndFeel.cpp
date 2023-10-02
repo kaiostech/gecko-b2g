@@ -39,6 +39,7 @@
 #include "mozilla/RelativeLuminanceUtils.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/TelemetryScalarEnums.h"
+#include "mozilla/Try.h"
 
 #include "gfxPlatform.h"
 #include "gfxFont.h"
@@ -1379,7 +1380,7 @@ ColorScheme LookAndFeel::ColorSchemeForStyle(
 
   StyleColorSchemeFlags style(aFlags);
   if (!style) {
-    style.bits = aDoc.GetColorSchemeBits();
+    style._0 = aDoc.GetColorSchemeBits();
   }
   const bool supportsDark = bool(style & StyleColorSchemeFlags::DARK);
   const bool supportsLight = bool(style & StyleColorSchemeFlags::LIGHT);

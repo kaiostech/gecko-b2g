@@ -43,7 +43,7 @@ pub use self::box_::{
     Clear, ContainIntrinsicSize, ContentVisibility, Display, Float, LineClamp, Overflow,
     OverflowAnchor, OverflowClipBox, OverscrollBehavior, Perspective, Resize, ScrollbarGutter,
     ScrollSnapAlign, ScrollSnapAxis, ScrollSnapStop, ScrollSnapStrictness, ScrollSnapType,
-    TouchAction, VerticalAlign, WillChange,
+    TouchAction, VerticalAlign, WillChange, Zoom
 };
 pub use self::color::{
     Color, ColorOrAuto, ColorPropertyValue, ColorScheme, ForcedColorAdjust, PrintColorAdjust,
@@ -57,7 +57,7 @@ pub use self::font::{FontFamily, FontLanguageOverride, FontPalette, FontStyle};
 pub use self::font::{FontFeatureSettings, FontVariantLigatures, FontVariantNumeric};
 pub use self::font::{FontSize, FontSizeAdjust, FontSizeAdjustFactor, FontSizeKeyword, FontStretch, FontSynthesis};
 pub use self::font::{FontVariantAlternates, FontWeight};
-pub use self::font::{FontVariantEastAsian, FontVariationSettings};
+pub use self::font::{FontVariantEastAsian, FontVariationSettings, LineHeight};
 pub use self::font::{MathDepth, MozScriptMinSize, MozScriptSizeMultiplier, XLang, XTextScale};
 pub use self::image::{EndingShape as GradientEndingShape, Gradient, Image, ImageRendering};
 pub use self::length::{AbsoluteLength, CalcLengthPercentage, CharacterWidth};
@@ -90,7 +90,7 @@ pub use self::text::HyphenateCharacter;
 pub use self::text::RubyPosition;
 pub use self::text::TextAlignLast;
 pub use self::text::TextUnderlinePosition;
-pub use self::text::{InitialLetter, LetterSpacing, LineBreak, LineHeight, TextAlign};
+pub use self::text::{InitialLetter, LetterSpacing, LineBreak, TextAlign};
 pub use self::text::{OverflowWrap, TextEmphasisPosition, TextEmphasisStyle, WordBreak};
 pub use self::text::{TextAlignKeyword, TextDecorationLine, TextOverflow, WordSpacing};
 pub use self::text::{TextDecorationLength, TextDecorationSkipInk, TextJustify, TextTransform};
@@ -513,6 +513,12 @@ impl NonNegativeNumberOrPercentage {
     #[inline]
     pub fn hundred_percent() -> Self {
         NonNegative(NumberOrPercentage::Percentage(Percentage::hundred()))
+    }
+
+    /// Return a particular number.
+    #[inline]
+    pub fn new_number(n: f32) -> Self {
+        NonNegative(NumberOrPercentage::Number(Number::new(n)))
     }
 }
 

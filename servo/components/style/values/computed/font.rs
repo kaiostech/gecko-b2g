@@ -14,6 +14,7 @@ use crate::values::generics::font::{
     FeatureTagValue, FontSettings, TaggedFontValue, VariationValue,
 };
 use crate::values::generics::{font as generics, NonNegative};
+use crate::values::resolved::{Context as ResolvedContext, ToResolvedValue};
 use crate::values::specified::font::{
     self as specified, KeywordInfo, MAX_FONT_WEIGHT, MIN_FONT_WEIGHT,
 };
@@ -66,7 +67,8 @@ pub use crate::values::specified::Number as SpecifiedNumber;
     ToResolvedValue,
 )]
 pub struct FixedPoint<T, const FRACTION_BITS: u16> {
-    value: T,
+    /// The actual representation.
+    pub value: T,
 }
 
 impl<T, const FRACTION_BITS: u16> FixedPoint<T, FRACTION_BITS>
@@ -78,7 +80,7 @@ where
     const INVERSE_SCALE: f32 = 1.0 / Self::SCALE as f32;
 
     /// Returns a fixed-point bit from a floating-point context.
-    fn from_float(v: f32) -> Self {
+    pub fn from_float(v: f32) -> Self {
         use num_traits::cast::AsPrimitive;
         Self {
             value: (v * Self::SCALE as f32).round().as_(),
@@ -86,7 +88,7 @@ where
     }
 
     /// Returns the floating-point representation.
-    fn to_float(&self) -> f32 {
+    pub fn to_float(&self) -> f32 {
         self.value.as_() * Self::INVERSE_SCALE
     }
 }
@@ -1310,5 +1312,32 @@ impl ToAnimatedValue for FontStretch {
     #[inline]
     fn from_animated_value(animated: Self::AnimatedValue) -> Self {
         Self::from_percentage(animated.0)
+    }
+}
+
+/// A computed value for the `line-height` property.
+pub type LineHeight = generics::GenericLineHeight<NonNegativeNumber, NonNegativeLength>;
+
+impl ToResolvedValue for LineHeight {
+    type ResolvedValue = Self;
+
+    fn to_resolved_value(self, context: &ResolvedContext) -> Self::ResolvedValue {
+        // Resolve <number> to an absolute <length> based on font size.
+        if matches!(self, Self::Normal | Self::MozBlockHeight) {
+            return self;
+        }
+        let wm = context.style.writing_mode;
+        let vertical = wm.is_vertical() && !wm.is_sideways();
+        Self::Length(context.device.calc_line_height(
+            &self,
+            vertical,
+            context.style.get_font(),
+            Some(context.element_info.element),
+        ))
+    }
+
+    #[inline]
+    fn from_resolved_value(value: Self::ResolvedValue) -> Self {
+        value
     }
 }

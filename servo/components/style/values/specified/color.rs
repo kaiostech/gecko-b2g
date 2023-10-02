@@ -752,7 +752,7 @@ impl Color {
     #[inline]
     pub fn transparent() -> Self {
         // We should probably set authored to "transparent", but maybe it doesn't matter.
-        Self::from_absolute_color(AbsoluteColor::TRANSPARENT)
+        Self::from_absolute_color(AbsoluteColor::TRANSPARENT_BLACK)
     }
 
     /// Create a color from an [`AbsoluteColor`].
@@ -951,7 +951,7 @@ impl ToComputedValue for MozFontSmoothingBackgroundColor {
     fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
         self.0
             .to_computed_value(context)
-            .resolve_to_absolute(&AbsoluteColor::TRANSPARENT)
+            .resolve_to_absolute(&AbsoluteColor::TRANSPARENT_BLACK)
     }
 
     fn from_computed_value(computed: &Self::ComputedValue) -> Self {
@@ -1033,13 +1033,14 @@ impl Parse for CaretColor {
     }
 }
 
+/// Various flags to represent the color-scheme property in an efficient
+/// way.
+#[derive(Clone, Copy, Debug, Default, Eq, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue, ToResolvedValue, ToShmem)]
+#[repr(C)]
+#[value_info(other_values = "light,dark,only")]
+pub struct ColorSchemeFlags(u8);
 bitflags! {
-    /// Various flags to represent the color-scheme property in an efficient
-    /// way.
-    #[derive(Default, MallocSizeOf, SpecifiedValueInfo, ToComputedValue, ToResolvedValue, ToShmem)]
-    #[repr(C)]
-    #[value_info(other_values = "light,dark,only")]
-    pub struct ColorSchemeFlags: u8 {
+    impl ColorSchemeFlags: u8 {
         /// Whether the author specified `light`.
         const LIGHT = 1 << 0;
         /// Whether the author specified `dark`.

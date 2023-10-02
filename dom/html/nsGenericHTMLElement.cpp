@@ -1256,13 +1256,13 @@ static inline void MapLangAttributeInto(MappedDeclarationsBuilder& aBuilder) {
     const nsAtom* lang = langValue->GetAtomValue();
     if (nsStyleUtil::MatchesLanguagePrefix(lang, u"zh")) {
       aBuilder.SetKeywordValue(eCSSProperty_text_emphasis_position,
-                               StyleTextEmphasisPosition::UNDER.bits);
+                               StyleTextEmphasisPosition::UNDER._0);
     } else if (nsStyleUtil::MatchesLanguagePrefix(lang, u"ja") ||
                nsStyleUtil::MatchesLanguagePrefix(lang, u"mn")) {
       // This branch is currently no part of the spec.
       // See bug 1040668 comment 69 and comment 75.
       aBuilder.SetKeywordValue(eCSSProperty_text_emphasis_position,
-                               StyleTextEmphasisPosition::OVER.bits);
+                               StyleTextEmphasisPosition::OVER._0);
     }
   }
 }
@@ -3393,10 +3393,18 @@ void nsGenericHTMLElement::FocusPreviousElementAfterHidingPopover() {
     return;
   }
 
-  // Run the focusing steps for previouslyFocusedElement.
-  FocusOptions options;
-  options.mPreventScroll = true;
-  control->Focus(options, CallerType::NonSystem, IgnoreErrors());
+  // Step 14.2 at
+  // https://html.spec.whatwg.org/multipage/popover.html#hide-popover-algorithm
+  // If focusPreviousElement is true and document's focused area of the
+  // document's DOM anchor is a shadow-including inclusive descendant of
+  // element, then run the focusing steps for previouslyFocusedElement;
+  nsIContent* currentFocus = OwnerDoc()->GetUnretargetedFocusedContent();
+  if (currentFocus &&
+      currentFocus->IsShadowIncludingInclusiveDescendantOf(this)) {
+    FocusOptions options;
+    options.mPreventScroll = true;
+    control->Focus(options, CallerType::NonSystem, IgnoreErrors());
+  }
 }
 
 // https://html.spec.whatwg.org/multipage/popover.html#dom-togglepopover

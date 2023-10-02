@@ -161,7 +161,7 @@ struct AudioDeviceInfo {
   /** The string the value maps to */
   nsLiteralString tag;
   /** The enum value that maps to this string */
-  uint32_t value;
+  audio_devices_t value;
 };
 
 // Mappings audio output devices to strings.
@@ -207,7 +207,7 @@ class VolumeCurves {
   VolumeCurves() = delete;
   ~VolumeCurves() = default;
 
-  void Build(uint32_t aDevice) {
+  void Build(audio_devices_t aDevice) {
     nsTArray<float> curve;
     for (uint32_t i = 0; i <= MaxIndex(); i++) {
       curve.AppendElement(ComputeVolume(i, aDevice));
@@ -215,7 +215,7 @@ class VolumeCurves {
     mCurves.InsertOrUpdate(aDevice, std::move(curve));
   }
 
-  float GetVolume(uint32_t aIndex, uint32_t aDevice) {
+  float GetVolume(uint32_t aIndex, audio_devices_t aDevice) {
     if (aIndex > MaxIndex()) {
       aIndex = MaxIndex();
     }
@@ -230,9 +230,9 @@ class VolumeCurves {
  private:
   inline uint32_t MaxIndex() { return sMaxStreamVolumeTbl[mStreamType]; }
 
-  float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
-    float decibel = GonkAudioSystem::getStreamVolumeDB(
-        mStreamType, aIndex, static_cast<audio_devices_t>(aDevice));
+  float ComputeVolume(uint32_t aIndex, audio_devices_t aDevice) {
+    float decibel =
+        GonkAudioSystem::getStreamVolumeDB(mStreamType, aIndex, aDevice);
     // decibel to amplitude
     return exp(decibel * 0.115129f);
   }
@@ -469,10 +469,10 @@ bool AudioManager::IsFmOutConnected() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   return GetParameters("fm_status") == "fm_status=1"_ns;
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_HEADSET, nullptr) ||
-         mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_SPEAKER, nullptr);
+  return mConnectedDevices.count(AUDIO_DEVICE_OUT_FM_HEADSET) ||
+         mConnectedDevices.count(AUDIO_DEVICE_OUT_FM_SPEAKER);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
-  return mConnectedDevices.Get(AUDIO_DEVICE_IN_FM_TUNER, nullptr);
+  return mConnectedDevices.count(AUDIO_DEVICE_IN_FM_TUNER);
 #else
   // MOZ_CRASH("FM radio not supported");
   return false;
@@ -483,10 +483,10 @@ NS_IMPL_ISUPPORTS(AudioManager, nsIAudioManager, nsIObserver)
 
 void AudioManager::UpdateHeadsetConnectionState(hal::SwitchState aState) {
   bool headphoneConnected =
-      mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADPHONE, nullptr);
+      mConnectedDevices.count(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
   bool headsetConnected =
-      mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADSET, nullptr);
-  bool lineoutConnected = mConnectedDevices.Get(AUDIO_DEVICE_OUT_LINE, nullptr);
+      mConnectedDevices.count(AUDIO_DEVICE_OUT_WIRED_HEADSET);
+  bool lineoutConnected = mConnectedDevices.count(AUDIO_DEVICE_OUT_LINE);
 
   if (aState == hal::SWITCH_STATE_HEADSET) {
     UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADSET);
@@ -510,34 +510,32 @@ void AudioManager::UpdateHeadsetConnectionState(hal::SwitchState aState) {
 }
 
 static void SetDeviceConnectionStateInternal(bool aIsConnected,
-                                             uint32_t aDevice,
+                                             audio_devices_t aDevice,
                                              const nsCString& aDeviceAddress) {
-  auto device = static_cast<audio_devices_t>(aDevice);
   auto state = aIsConnected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
                             : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
-  GonkAudioSystem::setDeviceConnectionState(device, state,
+  GonkAudioSystem::setDeviceConnectionState(aDevice, state,
                                             aDeviceAddress.get());
 }
 
 void AudioManager::UpdateDeviceConnectionState(
-    bool aIsConnected, uint32_t aDevice, const nsCString& aDeviceAddress) {
+    bool aIsConnected, audio_devices_t aDevice,
+    const nsCString& aDeviceAddress) {
   // If the connection state is not changed, just return.
-  if (aIsConnected == mConnectedDevices.Get(aDevice, nullptr)) {
+  if (aIsConnected == bool(mConnectedDevices.count(aDevice))) {
     return;
   }
 
   if (aIsConnected) {
-    mConnectedDevices.InsertOrUpdate(aDevice, aDeviceAddress);
+    mConnectedDevices[aDevice] = aDeviceAddress;
   } else {
-    mConnectedDevices.Remove(aDevice);
+    mConnectedDevices.erase(aDevice);
   }
   SetDeviceConnectionStateInternal(aIsConnected, aDevice, aDeviceAddress);
 }
 
 void AudioManager::SetAllDeviceConnectionStates() {
-  for (auto iter = mConnectedDevices.Iter(); !iter.Done(); iter.Next()) {
-    const auto& device = iter.Key();
-    const auto& deviceAddress = iter.Data();
+  for (const auto& [device, deviceAddress] : mConnectedDevices) {
     SetDeviceConnectionStateInternal(true, device, deviceAddress);
   }
 }
@@ -1115,13 +1113,13 @@ void AudioManager::SetFmRouting() {
 
 void AudioManager::UpdateFmVolume() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
-  uint32_t device = GetDeviceForFm();
+  audio_devices_t device = GetDeviceForFm();
   uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
   float volume =
       mFmContentVolume * mFmVolumeCurves->GetVolume(volIndex, device);
   SetParameters("fm_volume=%f", volume);
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  uint32_t device = GetDeviceForFm();
+  audio_devices_t device = GetDeviceForFm();
   uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
   SetParameters("FM_Volume=%d", volIndex);
 #endif
@@ -1238,7 +1236,7 @@ nsresult AudioManager::ValidateVolumeIndex(audio_stream_type_t aStream,
 
 nsresult AudioManager::SetStreamVolumeForDevice(audio_stream_type_t aStream,
                                                 uint32_t aIndex,
-                                                uint32_t aDevice) {
+                                                audio_devices_t aDevice) {
   if (ValidateVolumeIndex(aStream, aIndex) != NS_OK) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -1371,7 +1369,7 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
     // following stages will set the volumes by Gecko's defaults that could
     // conflict with the UX specifications.
     audio_stream_type_t stream;
-    uint32_t device;
+    audio_devices_t device;
     uint32_t volIndex;
     nsresult rv =
         ParseVolumeSetting(aName, aValue, &stream, &device, &volIndex);
@@ -1411,7 +1409,7 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
 nsresult AudioManager::ParseVolumeSetting(const nsAString& aName,
                                           const nsAString& aValue,
                                           audio_stream_type_t* aStream,
-                                          uint32_t* aDevice,
+                                          audio_devices_t* aDevice,
                                           uint32_t* aVolIndex) {
   nsresult rv;
   uint32_t volIndex = aValue.ToInteger(&rv);
@@ -1422,7 +1420,7 @@ nsresult AudioManager::ParseVolumeSetting(const nsAString& aName,
   for (const auto& [channelName, streamType] : gVolumeData) {
     if (StringBeginsWith(aName, channelName)) {
       // Found a matched channe name. Check if any device suffix presents.
-      uint32_t device = AUDIO_DEVICE_NONE;
+      audio_devices_t device = AUDIO_DEVICE_NONE;
       for (const auto& [deviceTag, deviceValue] : kAudioDeviceInfos) {
         if (StringEndsWith(aName, deviceTag)) {
           device = deviceValue;
@@ -1461,24 +1459,24 @@ nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
   return names;
 }
 
-uint32_t AudioManager::GetDevicesForStream(audio_stream_type_t aStream) {
+audio_devices_t AudioManager::GetDevicesForStream(audio_stream_type_t aStream) {
   return GonkAudioSystem::getDevicesForStream(aStream);
 }
 
-uint32_t AudioManager::GetDeviceForStream(audio_stream_type_t aStream) {
-  uint32_t devices = GetDevicesForStream(aStream);
-  uint32_t device = SelectDeviceFromDevices(devices);
-  return device;
+audio_devices_t AudioManager::GetDeviceForStream(audio_stream_type_t aStream) {
+  audio_devices_t devices = GetDevicesForStream(aStream);
+  return SelectDeviceFromDevices(devices);
 }
 
-uint32_t AudioManager::GetDeviceForFm() {
+audio_devices_t AudioManager::GetDeviceForFm() {
   // Assume that FM radio supports the same routing of music stream.
   return GetDeviceForStream(AUDIO_STREAM_MUSIC);
 }
 
 /* static */
-uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
-  uint32_t device = aOutDevices;
+audio_devices_t AudioManager::SelectDeviceFromDevices(
+    audio_devices_t aOutDevices) {
+  audio_devices_t device = aOutDevices;
 
   // Consider force use speaker case.
   if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
@@ -1500,7 +1498,7 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
     } else if ((device & AUDIO_DEVICE_OUT_AUX_LINE) != 0) {
       device = AUDIO_DEVICE_OUT_AUX_LINE;
     } else {
-      device &= AUDIO_DEVICE_OUT_ALL_A2DP;
+      device = static_cast<audio_devices_t>(device & AUDIO_DEVICE_OUT_ALL_A2DP);
     }
   }
 
@@ -1532,7 +1530,7 @@ AudioManager::VolumeStreamState::VolumeStreamState(
 }
 
 bool AudioManager::VolumeStreamState::IsDevicesChanged() {
-  uint32_t devices = mManager.GetDevicesForStream(mStreamType);
+  audio_devices_t devices = mManager.GetDevicesForStream(mStreamType);
   if (devices != mLastDevices) {
     mLastDevices = devices;
     mIsDevicesChanged = true;
@@ -1545,10 +1543,10 @@ void AudioManager::VolumeStreamState::ClearDevicesChanged() {
 }
 
 void AudioManager::VolumeStreamState::ClearDevicesWithVolumeChange() {
-  mDevicesWithVolumeChange = 0;
+  mDevicesWithVolumeChange = AUDIO_DEVICE_NONE;
 }
 
-uint32_t AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
+audio_devices_t AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
   return mDevicesWithVolumeChange;
 }
 
@@ -1565,28 +1563,26 @@ uint32_t AudioManager::VolumeStreamState::GetMinIndex() {
 }
 
 uint32_t AudioManager::VolumeStreamState::GetVolumeIndex() {
-  uint32_t device = mManager.GetDeviceForStream(mStreamType);
+  audio_devices_t device = mManager.GetDeviceForStream(mStreamType);
   return GetVolumeIndex(device);
 }
 
-uint32_t AudioManager::VolumeStreamState::GetVolumeIndex(uint32_t aDevice) {
-  uint32_t index = 0;
-  bool ret = mVolumeIndexes.Get(aDevice, &index);
-  if (!ret) {
-    index = mVolumeIndexes.Get(AUDIO_DEVICE_OUT_DEFAULT);
+uint32_t AudioManager::VolumeStreamState::GetVolumeIndex(
+    audio_devices_t aDevice) {
+  if (mVolumeIndexes.count(aDevice)) {
+    return mVolumeIndexes[aDevice];
   }
-  return index;
+  if (mVolumeIndexes.count(AUDIO_DEVICE_OUT_DEFAULT)) {
+    return mVolumeIndexes[AUDIO_DEVICE_OUT_DEFAULT];
+  }
+  return 0;
 }
 
 nsresult AudioManager::VolumeStreamState::SetVolumeIndexToActiveDevices(
     uint32_t aIndex) {
-  uint32_t device = mManager.GetDeviceForStream(mStreamType);
-
-  // Update volume index for device
-  uint32_t oldVolumeIndex = 0;
-  bool exist = mVolumeIndexes.Get(device, &oldVolumeIndex);
-  if (exist && aIndex == oldVolumeIndex) {
-    // No update
+  audio_devices_t device = mManager.GetDeviceForStream(mStreamType);
+  if (mVolumeIndexes.count(device) && mVolumeIndexes[device] == aIndex) {
+    // No update.
     return NS_OK;
   }
 
@@ -1601,11 +1597,9 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToActiveDevices(
 }
 
 nsresult AudioManager::VolumeStreamState::SetVolumeIndexToAliasStreams(
-    uint32_t aIndex, uint32_t aDevice) {
-  uint32_t oldVolumeIndex = 0;
-  bool exist = mVolumeIndexes.Get(aDevice, &oldVolumeIndex);
-  if (exist && aIndex == oldVolumeIndex) {
-    // No update
+    uint32_t aIndex, audio_devices_t aDevice) {
+  if (mVolumeIndexes.count(aDevice) && mVolumeIndexes[aDevice] == aIndex) {
+    // No update.
     return NS_OK;
   }
 
@@ -1630,7 +1624,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToAliasStreams(
 
 nsresult
 AudioManager::VolumeStreamState::SetVolumeIndexToConsistentDeviceIfNeeded(
-    uint32_t aIndex, uint32_t aDevice) {
+    uint32_t aIndex, audio_devices_t aDevice) {
   nsresult rv;
 
   if (!IsDeviceSpecificVolume()) {
@@ -1654,17 +1648,16 @@ AudioManager::VolumeStreamState::SetVolumeIndexToConsistentDeviceIfNeeded(
   return rv;
 }
 
-nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
-                                                         uint32_t aDevice,
-                                                         bool aUpdateCache) {
+nsresult AudioManager::VolumeStreamState::SetVolumeIndex(
+    uint32_t aIndex, audio_devices_t aDevice, bool aUpdateCache) {
   status_t rv;
   if (aUpdateCache) {
-    mVolumeIndexes.InsertOrUpdate(aDevice, aIndex);
-    mDevicesWithVolumeChange |= aDevice;
+    mVolumeIndexes[aDevice] = aIndex;
+    mDevicesWithVolumeChange =
+        static_cast<audio_devices_t>(mDevicesWithVolumeChange | aDevice);
   }
 
-  rv = GonkAudioSystem::setStreamVolumeIndex(
-      mStreamType, aIndex, static_cast<audio_devices_t>(aDevice));
+  rv = GonkAudioSystem::setStreamVolumeIndex(mStreamType, aIndex, aDevice);
 
   // when changing music volume,  also set FMradio volume.Just for SPRD FMradio.
   if ((AUDIO_STREAM_MUSIC == mStreamType) && mManager.IsFmOutConnected()) {
@@ -1675,9 +1668,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
 }
 
 void AudioManager::VolumeStreamState::RestoreVolumeIndexToAllDevices() {
-  for (auto iter = mVolumeIndexes.Iter(); !iter.Done(); iter.Next()) {
-    uint32_t device = iter.Key();
-    uint32_t index = iter.Data();
+  for (auto [device, index] : mVolumeIndexes) {
     SetVolumeIndex(index, device, /* aUpdateCache */ false);
   }
 }

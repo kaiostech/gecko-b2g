@@ -21,9 +21,10 @@
 #include "mozilla/Observer.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/WakeLock.h"
-#include "nsTHashMap.h"
 #include "nsIAudioManager.h"
 #include "nsIObserver.h"
+
+#include <unordered_map>
 
 namespace mozilla {
 namespace hal {
@@ -68,21 +69,22 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
     bool IsDeviceSpecificVolume() { return mIsDeviceSpecificVolume; }
     void ClearDevicesChanged();
     void ClearDevicesWithVolumeChange();
-    uint32_t GetDevicesWithVolumeChange();
+    audio_devices_t GetDevicesWithVolumeChange();
     void InitStreamVolume();
     uint32_t GetMaxIndex();
     uint32_t GetMinIndex();
     uint32_t GetVolumeIndex();
-    uint32_t GetVolumeIndex(uint32_t aDevice);
+    uint32_t GetVolumeIndex(audio_devices_t aDevice);
     // Set volume index to all active devices.
     // Active devices are chosen by android AudioPolicyManager.
     nsresult SetVolumeIndexToActiveDevices(uint32_t aIndex);
     // Set volume index to all alias streams for device. Alias streams have same
     // volume.
-    nsresult SetVolumeIndexToAliasStreams(uint32_t aIndex, uint32_t aDevice);
+    nsresult SetVolumeIndexToAliasStreams(uint32_t aIndex,
+                                          audio_devices_t aDevice);
     nsresult SetVolumeIndexToConsistentDeviceIfNeeded(uint32_t aIndex,
-                                                      uint32_t aDevice);
-    nsresult SetVolumeIndex(uint32_t aIndex, uint32_t aDevice,
+                                                      audio_devices_t aDevice);
+    nsresult SetVolumeIndex(uint32_t aIndex, audio_devices_t aDevice,
                             bool aUpdateCache = true);
     // Restore volume index to all devices. Called when AudioFlinger is
     // restarted.
@@ -92,10 +94,10 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
     AudioManager& mManager;
     const audio_stream_type_t mStreamType;
     uint32_t mLastDevices = 0;
-    uint32_t mDevicesWithVolumeChange = 0;
+    audio_devices_t mDevicesWithVolumeChange = AUDIO_DEVICE_NONE;
     bool mIsDevicesChanged = true;
     bool mIsDeviceSpecificVolume = true;
-    nsTHashMap<nsUint32HashKey, uint32_t> mVolumeIndexes;
+    std::unordered_map<audio_devices_t, uint32_t> mVolumeIndexes;
   };
 
  protected:
@@ -104,7 +106,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   bool mIsVolumeInited = false;
 
   // Connected devices that are controlled by setDeviceConnectionState()
-  nsTHashMap<nsUint32HashKey, nsCString> mConnectedDevices;
+  std::unordered_map<audio_devices_t, nsCString> mConnectedDevices;
 
   bool mSwitchDone = true;
 
@@ -119,15 +121,15 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   bool IsFmOutConnected();
 
   nsresult SetStreamVolumeForDevice(audio_stream_type_t aStream,
-                                    uint32_t aIndex, uint32_t aDevice);
+                                    uint32_t aIndex, audio_devices_t aDevice);
   nsresult SetStreamVolumeIndex(audio_stream_type_t aStream, uint32_t aIndex);
   nsresult GetStreamVolumeIndex(audio_stream_type_t aStream, uint32_t* aIndex);
 
-  uint32_t GetDevicesForStream(audio_stream_type_t aStream);
-  uint32_t GetDeviceForStream(audio_stream_type_t aStream);
-  uint32_t GetDeviceForFm();
+  audio_devices_t GetDevicesForStream(audio_stream_type_t aStream);
+  audio_devices_t GetDeviceForStream(audio_stream_type_t aStream);
+  audio_devices_t GetDeviceForFm();
   // Choose one device as representative of active devices.
-  static uint32_t SelectDeviceFromDevices(uint32_t aOutDevices);
+  static audio_devices_t SelectDeviceFromDevices(audio_devices_t aOutDevices);
 
  private:
   UniquePtr<mozilla::hal::SwitchObserver> mObserver;
@@ -165,12 +167,12 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void MaybeWriteVolumeSettings(bool aForce = false);
   void OnAudioSettingChanged(const nsAString& aName, const nsAString& aValue);
   nsresult ParseVolumeSetting(const nsAString& aName, const nsAString& aValue,
-                              audio_stream_type_t* aStream, uint32_t* aDevice,
-                              uint32_t* aVolIndex);
+                              audio_stream_type_t* aStream,
+                              audio_devices_t* aDevice, uint32_t* aVolIndex);
   nsTArray<nsString> AudioSettingNames(bool aInitializing);
 
   void UpdateHeadsetConnectionState(hal::SwitchState aState);
-  void UpdateDeviceConnectionState(bool aIsConnected, uint32_t aDevice,
+  void UpdateDeviceConnectionState(bool aIsConnected, audio_devices_t aDevice,
                                    const nsCString& aDeviceAddress = ""_ns);
   void SetAllDeviceConnectionStates();
 

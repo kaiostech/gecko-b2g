@@ -1149,7 +1149,7 @@ class MochitestDesktop(object):
                 self.urlOpts.append("dumpAboutMemoryAfterTest=true")
             if options.dumpDMDAfterTest:
                 self.urlOpts.append("dumpDMDAfterTest=true")
-            if options.debugger:
+            if options.debugger or options.jsdebugger:
                 self.urlOpts.append("interactiveDebugger=true")
             if options.jscov_dir_prefix:
                 self.urlOpts.append("jscovDirPrefix=%s" % options.jscov_dir_prefix)
@@ -1984,13 +1984,13 @@ toolbar#nav-bar {
         d["runFailures"] = False
         if options.runFailures:
             d["runFailures"] = True
-        content = json.dumps(d)
 
         shutil.copy(
             os.path.join(SCRIPT_DIR, "ignorePrefs.json"),
             os.path.join(options.profilePath, "ignorePrefs.json"),
         )
         d["ignorePrefsFile"] = "ignorePrefs.json"
+        content = json.dumps(d)
 
         with open(os.path.join(options.profilePath, "testConfig.js"), "w") as config:
             config.write(content)
@@ -3643,7 +3643,7 @@ toolbar#nav-bar {
             # then again to actually run mochitest
             if options.timeout:
                 timeout = options.timeout + 30
-            elif options.debugger or not options.autorun:
+            elif options.debugger or options.jsdebugger or not options.autorun:
                 timeout = None
             else:
                 # We generally want the JS harness or marionette to handle

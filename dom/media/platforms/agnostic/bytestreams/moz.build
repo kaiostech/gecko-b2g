@@ -14,7 +14,7 @@ TEST_DIRS += [
 EXPORTS += [
     "Adts.h",
     "AnnexB.h",
-    "B2GH265.h",
+    "ByteStreamsUtils.h",
     "H264.h",
     "H265.h",
 ]
@@ -24,10 +24,6 @@ UNIFIED_SOURCES += [
     "AnnexB.cpp",
     "H264.cpp",
     "H265.cpp",
-]
-
-SOURCES += [
-    "B2GH265.cpp",
 ]
 
 LOCAL_INCLUDES += [

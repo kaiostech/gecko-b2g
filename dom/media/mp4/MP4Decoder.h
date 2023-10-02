@@ -31,11 +31,6 @@ class MP4Decoder {
   // space matters.
   static bool IsH264(const nsACString& aMimeType);
 
-  // Return true if aMimeType is a one of the strings used by our demuxers to
-  // identify H265. Does not parse general content type strings, i.e. white
-  // space matters.
-  static bool IsH265(const nsACString& aMimeType);
-
   // Return true if aMimeType is one of the strings used by our demuxers to
   // identify H263. Does not parse general content type strings, i.e. white
   // space matters.
@@ -55,6 +50,11 @@ class MP4Decoder {
   // identify AMR. Does not parse general content type strings, i.e. white
   // space matters.
   static bool IsAMR(const nsACString& aMimeType);
+
+  // Return true if aMimeType is a one of the strings used by our demuxers to
+  // identify HEVC. Does not parse general content type strings, i.e. white
+  // space matters.
+  static bool IsHEVC(const nsACString& aMimeType);
 
   // Returns true if the MP4 backend is preffed on.
   static bool IsEnabled();

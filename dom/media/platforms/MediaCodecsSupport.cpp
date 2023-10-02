@@ -225,6 +225,9 @@ MediaCodec MCSInfo::GetMediaCodecFromMimeType(const nsACString& aMimeType) {
   if (TheoraDecoder::IsTheora(aMimeType)) {
     return MediaCodec::Theora;
   }
+  if (MP4Decoder::IsHEVC(aMimeType)) {
+    return MediaCodec::HEVC;
+  }
 #ifdef MOZ_AV1
   if (AOMDecoder::IsAV1(aMimeType)) {
     return MediaCodec::AV1;
@@ -272,9 +275,6 @@ std::array<CodecDefinition, 13> MCSInfo::GetAllCodecDefinitions() {
       {{MediaCodec::H264, "H264", "video/avc",
         MediaCodecsSupport::H264SoftwareDecode,
         MediaCodecsSupport::H264HardwareDecode},
-       {MediaCodec::H265, "H265", "video/hevc",
-        MediaCodecsSupport::H265SoftwareDecode,
-        MediaCodecsSupport::H265HardwareDecode},
        {MediaCodec::VP9, "VP9", "video/vp9",
         MediaCodecsSupport::VP9SoftwareDecode,
         MediaCodecsSupport::VP9HardwareDecode},
@@ -284,6 +284,9 @@ std::array<CodecDefinition, 13> MCSInfo::GetAllCodecDefinitions() {
        {MediaCodec::AV1, "AV1", "video/av1",
         MediaCodecsSupport::AV1SoftwareDecode,
         MediaCodecsSupport::AV1HardwareDecode},
+       {MediaCodec::HEVC, "HEVC", "video/hevc",
+        MediaCodecsSupport::HEVCSoftwareDecode,
+        MediaCodecsSupport::HEVCHardwareDecode},
        {MediaCodec::Theora, "Theora", "video/theora",
         MediaCodecsSupport::TheoraSoftwareDecode,
         MediaCodecsSupport::TheoraHardwareDecode},

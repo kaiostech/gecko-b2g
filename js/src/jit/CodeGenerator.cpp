@@ -542,6 +542,15 @@ void CodeGenerator::visitOutOfLineCallVM(
     OutOfLineCallVM<Fn, fn, ArgSeq, StoreOutputTo>* ool) {
   LInstruction* lir = ool->lir();
 
+#ifdef JS_JITSPEW
+  JitSpewStart(JitSpew_Codegen, "                                # LIR=%s",
+               lir->opName());
+  if (const char* extra = lir->getExtraName()) {
+    JitSpewCont(JitSpew_Codegen, ":%s", extra);
+  }
+  JitSpewFin(JitSpew_Codegen);
+#endif
+  perfSpewer_.recordInstruction(masm, lir);
   saveLive(lir);
   ool->args().generate(this);
   callVM<Fn, fn>(lir);
@@ -17591,6 +17600,16 @@ void CodeGenerator::visitWasmBoundsCheck64(LWasmBoundsCheck64* ins) {
     masm.wasmBoundsCheck64(Assembler::AboveOrEqual, ptr, boundsCheckLimit,
                            ool->entry());
   }
+}
+
+void CodeGenerator::visitWasmBoundsCheckRange32(LWasmBoundsCheckRange32* ins) {
+  const MWasmBoundsCheckRange32* mir = ins->mir();
+  Register index = ToRegister(ins->index());
+  Register length = ToRegister(ins->length());
+  Register limit = ToRegister(ins->limit());
+  Register tmp = ToRegister(ins->temp0());
+
+  masm.wasmBoundsCheckRange32(index, length, limit, tmp, mir->bytecodeOffset());
 }
 
 void CodeGenerator::visitWasmAlignmentCheck(LWasmAlignmentCheck* ins) {

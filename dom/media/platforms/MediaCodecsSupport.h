@@ -20,10 +20,10 @@ namespace mozilla::media {
 // to generate MediaCodec and MediaCodecSupports enums.
 #define CODEC_LIST \
   X(H264)          \
-  X(H265)          \
   X(VP8)           \
   X(VP9)           \
   X(AV1)           \
+  X(HEVC)          \
   X(Theora)        \
   X(AAC)           \
   X(FLAC)          \

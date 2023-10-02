@@ -31,22 +31,36 @@ class AnnexB {
   };
   // All conversions assume size of NAL length field is 4 bytes.
   // Convert a sample from AVCC format to Annex B.
-  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleToAnnexB(
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertAVCCSampleToAnnexB(
       mozilla::MediaRawData* aSample, bool aAddSPS = true);
+  // All conversions assume size of NAL length field is 4 bytes.
+  // Convert a sample from HVCC format to Annex B.
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertHVCCSampleToAnnexB(
+      mozilla::MediaRawData* aSample, bool aAddSPS = true);
+
   // Convert a sample from Annex B to AVCC.
   // an AVCC extradata must not be set.
   static bool ConvertSampleToAVCC(
       mozilla::MediaRawData* aSample,
       const RefPtr<mozilla::MediaByteBuffer>& aAVCCHeader = nullptr);
 
+  // Covert sample to 4 bytes NALU byte stream.
   static mozilla::Result<mozilla::Ok, nsresult> ConvertAVCCTo4BytesAVCC(
+      mozilla::MediaRawData* aSample);
+  static mozilla::Result<mozilla::Ok, nsresult> ConvertHVCCTo4BytesHVCC(
       mozilla::MediaRawData* aSample);
 
   // Parse an AVCC extradata and construct the Annex B sample header.
-  static already_AddRefed<mozilla::MediaByteBuffer> ConvertExtraDataToAnnexB(
-      const mozilla::MediaByteBuffer* aExtraData);
+  static already_AddRefed<mozilla::MediaByteBuffer>
+  ConvertAVCCExtraDataToAnnexB(const mozilla::MediaByteBuffer* aExtraData);
+  // Parse a HVCC extradata and construct the Annex B sample header.
+  static already_AddRefed<mozilla::MediaByteBuffer>
+  ConvertHVCCExtraDataToAnnexB(const mozilla::MediaByteBuffer* aExtraData);
+
   // Returns true if format is AVCC and sample has valid extradata.
   static bool IsAVCC(const mozilla::MediaRawData* aSample);
+  // Returns true if format is HVCC and sample has valid extradata.
+  static bool IsHVCC(const mozilla::MediaRawData* aSample);
   // Returns true if format is AnnexB.
   static bool IsAnnexB(const mozilla::MediaRawData* aSample);
 
@@ -55,51 +69,16 @@ class AnnexB {
   static void ParseNALEntries(const Span<const uint8_t>& aSpan,
                               nsTArray<AnnexB::NALEntry>& aEntries);
 
- protected:
-  // AVCC/HVCC box parser helper.
+ private:
+  // AVCC box parser helper.
   static mozilla::Result<mozilla::Ok, nsresult> ConvertSPSOrPPS(
-      mozilla::BufferReader& aReader, uint16_t aCount,
+      mozilla::BufferReader& aReader, uint8_t aCount,
       mozilla::MediaByteBuffer* aAnnexB);
 
   // NALU size can vary, this function converts the sample to always 4 bytes
   // NALU.
   static mozilla::Result<mozilla::Ok, nsresult> ConvertNALUTo4BytesNALU(
       mozilla::MediaRawData* aSample, uint8_t aNALUSize);
-
-  using ConvertFunc = std::function<already_AddRefed<mozilla::MediaByteBuffer>(
-      const mozilla::MediaByteBuffer*)>;
-
-  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleToAnnexBInternal(
-      mozilla::MediaRawData* aSample, bool aAddSPS,
-      ConvertFunc aConvertExtraData);
-};
-
-class H265AnnexB final : private AnnexB {
- public:
-  using AnnexB::IsAnnexB;
-  using AnnexB::NALEntry;
-  using AnnexB::ParseNALEntries;
-
-  // All conversions assume size of NAL length field is 4 bytes.
-  // Convert a sample from HVCC format to Annex B.
-  static mozilla::Result<mozilla::Ok, nsresult> ConvertSampleToAnnexB(
-      mozilla::MediaRawData* aSample, bool aAddSPS = true);
-
-  // Convert a sample from Annex B to HVCC.
-  // an HVCC extradata must not be set.
-  static bool ConvertSampleToHVCC(
-      mozilla::MediaRawData* aSample,
-      const RefPtr<mozilla::MediaByteBuffer>& aHVCCHeader = nullptr);
-
-  static mozilla::Result<mozilla::Ok, nsresult> ConvertHVCCTo4BytesHVCC(
-      mozilla::MediaRawData* aSample);
-
-  // Parse an AVCC extradata and construct the Annex B sample header.
-  static already_AddRefed<mozilla::MediaByteBuffer> ConvertExtraDataToAnnexB(
-      const mozilla::MediaByteBuffer* aExtraData);
-
-  // Returns true if format is AVCC and sample has valid extradata.
-  static bool IsHVCC(const mozilla::MediaRawData* aSample);
 };
 
 }  // namespace mozilla

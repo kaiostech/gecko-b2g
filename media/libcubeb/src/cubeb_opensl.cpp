@@ -1038,9 +1038,7 @@ initialize_with_format(cubeb_stream * stm, cubeb_stream_params * params,
     format_sample_rate = &pcm_format.samplesPerSec;
   }
 
-  func(format, format_sample_rate, using_floats);
-
-  return CUBEB_OK;
+  return func(format, format_sample_rate, using_floats);
 }
 
 static int

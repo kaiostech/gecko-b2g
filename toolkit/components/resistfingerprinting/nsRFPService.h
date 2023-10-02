@@ -7,6 +7,7 @@
 #define __nsRFPService_h__
 
 #include <cstdint>
+#include <tuple>
 #include "ErrorList.h"
 #include "PLDHashTable.h"
 #include "mozilla/BasicEvents.h"
@@ -14,8 +15,10 @@
 #include "mozilla/TypedEnumBits.h"
 #include "nsHashtablesFwd.h"
 #include "nsICookieJarSettings.h"
+#include "nsIFingerprintingWebCompatService.h"
 #include "nsIObserver.h"
 #include "nsISupports.h"
+#include "nsIRFPService.h"
 #include "nsStringFwd.h"
 
 // Defines regarding spoofed values of Navigator object. These spoofed values
@@ -157,12 +160,13 @@ MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(RFPTarget);
 
 // ============================================================================
 
-class nsRFPService final : public nsIObserver {
+class nsRFPService final : public nsIObserver, public nsIRFPService {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
+  NS_DECL_NSIRFPSERVICE
 
-  static nsRFPService* GetOrCreate();
+  static already_AddRefed<nsRFPService> GetOrCreate();
 
   // _Rarely_ you will need to know if RFP is enabled, or if FPP is enabled.
   // 98% of the time you should use nsContentUtils::ShouldResistFingerprinting
@@ -351,6 +355,29 @@ class nsRFPService final : public nsIObserver {
   // the parent process.
   Maybe<nsID> mBrowsingSessionKey;
   Maybe<nsID> mPrivateBrowsingSessionKey;
+
+  nsCOMPtr<nsIFingerprintingWebCompatService> mWebCompatService;
+  nsTHashMap<nsCStringHashKey, RFPTarget> mFingerprintingOverrides;
+
+  // A helper function to create the domain key for the fingerprinting
+  // overrides. The key can be in the following five formats.
+  // 1. {first-party domain}: The override only apply to the first-party domain.
+  // 2. {first-party domain, *}: The overrides apply to every contexts under the
+  //    top-level domain, including itself.
+  // 3. {*, third-party domain}: The overrides apply to the third-party domain
+  //    under any top-level domain.
+  // 4. {first-party domain, third-party domain}: the overrides apply to the
+  //    specific third-party domain under the given first-party domain.
+  // 5. {*}: A global overrides that will apply to every context.
+  static nsresult CreateOverrideDomainKey(nsIFingerprintingOverride* aOverride,
+                                          nsACString& aDomainKey);
+
+  // A helper function to create the RFPTarget bitfield based on the given
+  // overrides text and the based overrides bitfield. The function will parse
+  // the text and update the based overrides bitfield accordingly. Then, it will
+  // return the updated bitfield.
+  static RFPTarget CreateOverridesFromText(
+      const nsString& aOverridesText, RFPTarget aBaseOverrides = RFPTarget(0));
 };
 
 }  // namespace mozilla

@@ -25,17 +25,42 @@ class CtapRegisterArgs final : public nsICtapRegisterArgs {
   NS_DECL_ISUPPORTS
   NS_DECL_NSICTAPREGISTERARGS
 
-  explicit CtapRegisterArgs(const WebAuthnMakeCredentialInfo& aInfo,
-                            bool aForceNoneAttestation)
-      : mInfo(aInfo), mForceNoneAttestation(aForceNoneAttestation) {
+  explicit CtapRegisterArgs(const WebAuthnMakeCredentialInfo& aInfo)
+      : mInfo(aInfo),
+        mCredProps(false),
+        mHmacCreateSecret(false),
+        mMinPinLength(false) {
     mozilla::ipc::AssertIsOnBackgroundThread();
+    for (const WebAuthnExtension& ext : mInfo.Extensions()) {
+      switch (ext.type()) {
+        case WebAuthnExtension::TWebAuthnExtensionCredProps:
+          mCredProps = ext.get_WebAuthnExtensionCredProps().credProps();
+          break;
+        case WebAuthnExtension::TWebAuthnExtensionHmacSecret:
+          mHmacCreateSecret =
+              ext.get_WebAuthnExtensionHmacSecret().hmacCreateSecret();
+          break;
+        case WebAuthnExtension::TWebAuthnExtensionMinPinLength:
+          mMinPinLength =
+              ext.get_WebAuthnExtensionMinPinLength().minPinLength();
+          break;
+        case WebAuthnExtension::TWebAuthnExtensionAppId:
+          break;
+        case WebAuthnExtension::T__None:
+          break;
+      }
+    }
   }
 
  private:
   ~CtapRegisterArgs() = default;
 
   const WebAuthnMakeCredentialInfo& mInfo;
-  const bool mForceNoneAttestation;
+
+  // Flags to indicate whether an extension is being requested.
+  bool mCredProps;
+  bool mHmacCreateSecret;
+  bool mMinPinLength;
 };
 
 class CtapSignArgs final : public nsICtapSignArgs {

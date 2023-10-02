@@ -66,6 +66,7 @@
 #ifdef MOZ_WIDGET_GONK
 #  include "GonkDecoderModule.h"
 #endif
+
 #include <functional>
 
 using DecodeSupport = mozilla::media::DecodeSupport;
@@ -452,13 +453,8 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
 #ifdef MOZ_AV1
        AOMDecoder::IsAV1(config.mMimeType) ||
 #endif
-<<<<<<< HEAD
-       MP4Decoder::IsH265(config.mMimeType) ||
-       VPXDecoder::IsVPX(config.mMimeType)) &&
-=======
        VPXDecoder::IsVPX(config.mMimeType) ||
        MP4Decoder::IsHEVC(config.mMimeType)) &&
->>>>>>> upstream/master
       !aParams.mUseNullDecoder.mUse && !aParams.mNoWrapper.mDontUseWrapper) {
     return MediaChangeMonitor::Create(this, aParams);
   }

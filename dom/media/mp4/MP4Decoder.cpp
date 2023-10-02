@@ -235,11 +235,6 @@ bool MP4Decoder::IsH264(const nsACString& aMimeType) {
 }
 
 /* static */
-bool MP4Decoder::IsH265(const nsACString& aMimeType) {
-  return aMimeType.EqualsLiteral("video/hevc");
-}
-
-/* static */
 bool MP4Decoder::IsH263(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("video/3gpp");
 }
@@ -255,14 +250,13 @@ bool MP4Decoder::IsAAC(const nsACString& aMimeType) {
 }
 
 /* static */
-<<<<<<< HEAD
 bool MP4Decoder::IsAMR(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("audio/3gpp") ||
          aMimeType.EqualsLiteral("audio/amr-wb");
-=======
+}
+
 bool MP4Decoder::IsHEVC(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("video/hevc");
->>>>>>> upstream/master
 }
 
 /* static */

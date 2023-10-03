@@ -2049,33 +2049,12 @@
   value: true
   mirror: always
 
-
 # By default, how many seconds in the future cookies should expire after they
 # have been injected. Defaults to 12 months. Individual cookie rules may
 # override this.
 - name: cookiebanners.cookieInjector.defaultExpiryRelative
   type: uint32_t
   value: 31536000
-  mirror: always
-
-# Enables the cookie banner auto clicking. The cookie banner auto clicking
-# depends on the `cookiebanners.service.mode` pref above.
-- name: cookiebanners.bannerClicking.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# The maximum time in ms for detecting banner and button elements for cookie
-# banner auto clicking.
-- name: cookiebanners.bannerClicking.timeout
-  type: uint32_t
-  value: 3000
-  mirror: always
-
-# Whether or not banner auto clicking test mode is enabled.
-- name: cookiebanners.bannerClicking.testing
-  type: bool
-  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5162,6 +5141,15 @@
   value: false
   mirror: always
 
+# Temporary pref to allow reverting the fix to bug 1853409.
+# TODO bug 1856071: Remove this pref.
+# When true, extensions can run content scripts in about:blank documents that
+# have a null principal. When false, extensions require permissions to all URLs.
+- name: extensions.script_about_blank_without_permission
+  type: bool
+  value: false
+  mirror: always
+
 # Legacy behavior on filterResponse calls on intercepted sw script requests.
 - name: extensions.filterResponseServiceWorkerScript.disabled
   type: bool
@@ -7189,6 +7177,14 @@
   value: 4
   mirror: once
 
+# Maximum size in kilobytes that we allow to allocate an imgFrame, meant for
+# testing/fuzzing purposes. -1 disables this limit (there are other limits in
+# place).
+- name: image.mem.max_legal_imgframe_size_kb
+  type: int32_t
+  value: -1
+  mirror: once
+
 # Whether we record SVG images as blobs or not.
 - name: image.svg.blob-image
   type: RelaxedAtomicBool
@@ -8476,12 +8472,6 @@
   value: true
   mirror: always
 
-# Whether we should avoid exposing styles of elements outside the flat tree in getComputedStyle().
-- name: layout.css.computed-style.styles-outside-flat-tree
-  type: bool
-  value: false
-  mirror: always
-
 # Are implicit tracks in computed grid templates serialized?
 - name: layout.css.serialize-grid-implicit-tracks
   type: RelaxedAtomicBool
@@ -9490,7 +9480,7 @@
   mirror: always
 
 - name: layout.word_select.stop_at_punctuation
-  type: bool
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -11338,11 +11328,7 @@
 
 - name: memory.phc.enabled
   type: bool
-#if defined(MOZ_PHC)
-  value: true
-#else
-  value: false
-#endif
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------

@@ -1335,7 +1335,8 @@ nsRefreshDriver::nsRefreshDriver(nsPresContext* aPresContext)
       mInNormalTick(false),
       mAttemptedExtraTickSinceLastVsync(false),
       mHasExceededAfterLoadTickPeriod(false),
-      mHasStartedTimerAtLeastOnce(false) {
+      mHasStartedTimerAtLeastOnce(false),
+      mResizeObservationCount(0) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mPresContext,
              "Need a pres context to tell us to call Disconnect() later "
@@ -1955,6 +1956,9 @@ auto nsRefreshDriver::GetReasonsToTick() const -> TickReasons {
   if (HasImageRequests() && !mThrottled) {
     reasons |= TickReasons::eHasImageRequests;
   }
+  if (mResizeObservationCount > 0) {
+    reasons |= TickReasons::eNeedsToNotifyResizeObservers;
+  }
   if (mNeedToUpdateIntersectionObservations) {
     reasons |= TickReasons::eNeedsToUpdateIntersectionObservations;
   }
@@ -1990,6 +1994,9 @@ void nsRefreshDriver::AppendTickReasonsToString(TickReasons aReasons,
   }
   if (aReasons & TickReasons::eHasImageRequests) {
     aStr.AppendLiteral(" HasImageAnimations");
+  }
+  if (mResizeObservationCount > 0) {
+    aStr.AppendLiteral(" NeedsToNotifyResizeObservers");
   }
   if (aReasons & TickReasons::eNeedsToUpdateIntersectionObservations) {
     aStr.AppendLiteral(" NeedsToUpdateIntersectionObservations");
@@ -2239,6 +2246,27 @@ void nsRefreshDriver::UpdateRelevancyOfContentVisibilityAutoFrames() {
   });
 
   mNeedToUpdateContentRelevancy = false;
+}
+
+void nsRefreshDriver::NotifyResizeObservers() {
+  if (mResizeObservationCount == 0) {
+    return;
+  }
+
+  AutoTArray<RefPtr<Document>, 32> documents;
+
+  if (mPresContext->Document()->HasResizeObservers()) {
+    documents.AppendElement(mPresContext->Document());
+  }
+
+  mPresContext->Document()->CollectDescendantDocuments(
+      documents, [](const Document* document) -> bool {
+        return document->HasResizeObservers();
+      });
+
+  for (const RefPtr<Document>& doc : documents) {
+    MOZ_KnownLive(doc)->NotifyResizeObservers();
+  }
 }
 
 void nsRefreshDriver::DispatchAnimationEvents() {
@@ -2707,6 +2735,10 @@ void nsRefreshDriver::Tick(VsyncId aId, TimeStamp aNowTime,
   if (nsXULPopupManager* pm = nsXULPopupManager::GetInstance()) {
     pm->UpdatePopupPositions(this);
   }
+
+  // Notify resize obsrevers if any, see
+  // https://html.spec.whatwg.org/#update-the-rendering step 14.
+  NotifyResizeObservers();
 
   // Update the relevancy of the content of any `content-visibility: auto`
   // elements. The specification says: "Specifically, such changes will

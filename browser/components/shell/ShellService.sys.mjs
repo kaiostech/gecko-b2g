@@ -9,7 +9,6 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
-  WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
 });
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -61,26 +60,6 @@ let ShellServiceInternal = {
     return false;
   },
 
-  isDefaultBrowserOptOut() {
-    if (AppConstants.platform == "win") {
-      let optOutValue = lazy.WindowsRegistry.readRegKey(
-        Ci.nsIWindowsRegKey.ROOT_KEY_CURRENT_USER,
-        "Software\\Mozilla\\Firefox",
-        "DefaultBrowserOptOut"
-      );
-      lazy.WindowsRegistry.removeRegKey(
-        Ci.nsIWindowsRegKey.ROOT_KEY_CURRENT_USER,
-        "Software\\Mozilla\\Firefox",
-        "DefaultBrowserOptOut"
-      );
-      if (optOutValue == "True") {
-        Services.prefs.setBoolPref("browser.shell.checkDefaultBrowser", false);
-        return true;
-      }
-    }
-    return false;
-  },
-
   /**
    * Used to determine whether or not to show a "Set Default Browser"
    * query dialog. This attribute is true if the application is starting
@@ -96,10 +75,6 @@ let ShellServiceInternal = {
     }
 
     if (!Services.prefs.getBoolPref("browser.shell.checkDefaultBrowser")) {
-      return false;
-    }
-
-    if (this.isDefaultBrowserOptOut()) {
       return false;
     }
 
@@ -339,10 +314,10 @@ let ShellServiceInternal = {
   },
 
   // override nsIShellService.setDefaultBrowser() on the ShellService proxy.
-  setDefaultBrowser(claimAllTypes, forAllUsers) {
-    // On Windows 10, our best chance is to set UserChoice, so try that first.
+  setDefaultBrowser(forAllUsers) {
+    // On Windows, our best chance is to set UserChoice, so try that first.
     if (
-      AppConstants.isPlatformAndVersionAtLeast("win", "10") &&
+      AppConstants.platform == "win" &&
       lazy.NimbusFeatures.shellService.getVariable(
         "setDefaultBrowserUserChoice"
       )
@@ -353,29 +328,18 @@ let ShellServiceInternal = {
       // to fall back in case it fails.
       this.setAsDefaultUserChoice().catch(err => {
         console.error(err);
-        this.shellService.setDefaultBrowser(claimAllTypes, forAllUsers);
+        this.shellService.setDefaultBrowser(forAllUsers);
       });
       return;
     }
 
-    this.shellService.setDefaultBrowser(claimAllTypes, forAllUsers);
+    this.shellService.setDefaultBrowser(forAllUsers);
   },
 
   setAsDefault() {
-    let claimAllTypes = true;
     let setAsDefaultError = false;
-    if (AppConstants.platform == "win") {
-      try {
-        // In Windows 8+, the UI for selecting default protocol is much
-        // nicer than the UI for setting file type associations. So we
-        // only show the protocol association screen on Windows 8+.
-        // Windows 8 is version 6.2.
-        let version = Services.sysinfo.getProperty("version");
-        claimAllTypes = parseFloat(version) < 6.2;
-      } catch (ex) {}
-    }
     try {
-      ShellService.setDefaultBrowser(claimAllTypes, false);
+      ShellService.setDefaultBrowser(false);
     } catch (ex) {
       setAsDefaultError = true;
       console.error(ex);
@@ -397,7 +361,7 @@ let ShellServiceInternal = {
       return;
     }
 
-    if (AppConstants.isPlatformAndVersionAtLeast("win", "10")) {
+    if (AppConstants.platform == "win") {
       this.setAsDefaultPDFHandlerUserChoice();
     }
   },

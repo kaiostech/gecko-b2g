@@ -15,12 +15,19 @@
 
 EXPORTS += [
     "GeolocationUtil.h",
+    "GonkEvents.h",
     "GonkGPSGeolocationProvider.h",
 ]
 UNIFIED_SOURCES += [
     "GeolocationUtil.cpp",
+    "GonkEvents.cpp",
     "GonkGPSGeolocationProvider.cpp",
 ]
+
+if CONFIG["ANDROID_VERSION"] >= "33":
+    UNIFIED_SOURCES += [
+        "AidlCallback.cpp",
+    ]
 
 EXTRA_JS_MODULES += [
     "GonkNetworkGeolocationProvider.sys.mjs",

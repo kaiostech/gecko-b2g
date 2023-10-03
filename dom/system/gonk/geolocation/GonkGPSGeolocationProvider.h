@@ -17,8 +17,13 @@
 #ifndef GonkGPSGeolocationProvider_h
 #define GonkGPSGeolocationProvider_h
 
+#include "GonkEvents.h"
+
 #include "android/hardware/gnss/1.1/IGnss.h"
 #include "android/hardware/gnss/2.0/IGnss.h"
+#if defined(AIDL_GNSS)
+#  include "android/hardware/gnss/IGnss.h"
+#endif
 #include "android/hardware/gnss/1.0/IGnss.h"
 #include "android/hardware/gnss/2.0/IAGnss.h"
 #include "android/hardware/gnss/2.0/IAGnssRil.h"
@@ -67,10 +72,9 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   static already_AddRefed<GonkGPSGeolocationProvider> GetSingleton();
 
  private:
-  class UpdateLocationEvent;
-  class UpdateCapabilitiesEvent;
   friend class UpdateLocationEvent;
-  friend class UpdateCapabilitiesEvent;
+  friend class HidlUpdateCapabilitiesEvent;
+  friend class AidlUpdateCapabilitiesEvent;
   friend struct GnssCallback;
   friend struct AGnssCallback_V2_0;
 
@@ -103,6 +107,9 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
 
   void Init();
   void SetupGnssHal();
+#if defined(AIDL_GNSS)
+  void SetupAidlHal();
+#endif
   void CleanupGnssHal();
   void StartGPS();
   void ShutdownGPS();
@@ -230,6 +237,13 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   android::sp<android::hardware::gnss::V1_0::IGnss> mGnssHal;
   android::sp<android::hardware::gnss::V1_1::IGnss> mGnssHal_V1_1;
   android::sp<android::hardware::gnss::V2_0::IGnss> mGnssHal_V2_0;
+#if defined(AIDL_GNSS)
+  android::sp<GNSS::IGnss> mAidlGnss;
+  android::sp<GNSS::visibility_control::IGnssVisibilityControl>
+      mAidlVisibilityControl;
+  android::sp<GNSS::IAGnss> mAidlAgnss;
+  android::sp<GNSS::IAGnssRil> mAidlAgnssRil;
+#endif
   android::sp<android::hardware::gnss::V2_0::IAGnss> mAGnssHal_V2_0;
   android::sp<android::hardware::gnss::V2_0::IAGnssRil> mAGnssRilHal_V2_0;
   android::sp<

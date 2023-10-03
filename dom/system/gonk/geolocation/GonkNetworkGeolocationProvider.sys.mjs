@@ -94,7 +94,7 @@ function CachedRequest(loc, cellInfo, wifiList) {
   this.hasWifis = () => wifis.size > 0;
 
   // if fields match
-  this.isCellEqual = function(cellInfo) {
+  this.isCellEqual = function (cellInfo) {
     if (!this.hasCells()) {
       return false;
     }
@@ -116,7 +116,7 @@ function CachedRequest(loc, cellInfo, wifiList) {
   };
 
   // if 50% of the SSIDS match
-  this.isWifiApproxEqual = function(wifiList) {
+  this.isWifiApproxEqual = function (wifiList) {
     if (!this.hasWifis()) {
       return false;
     }
@@ -132,19 +132,19 @@ function CachedRequest(loc, cellInfo, wifiList) {
     return common >= Math.max(wifis.size, wifiList.length) * kPercentMatch;
   };
 
-  this.isGeoip = function() {
+  this.isGeoip = function () {
     return !this.hasCells() && !this.hasWifis();
   };
 
-  this.isCellAndWifi = function() {
+  this.isCellAndWifi = function () {
     return this.hasCells() && this.hasWifis();
   };
 
-  this.isCellOnly = function() {
+  this.isCellOnly = function () {
     return this.hasCells() && !this.hasWifis();
   };
 
-  this.isWifiOnly = function() {
+  this.isWifiOnly = function () {
     return this.hasWifis() && !this.hasCells();
   };
 }

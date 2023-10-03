@@ -1527,6 +1527,10 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     if CONFIG['ANDROID_VERSION'] >= '33':
         system_headers += [
             'android/frameworks/sensorservice/1.0/ISensorManager.h',
+            'android/hardware/gnss/BnAGnssCallback.h',
+            'android/hardware/gnss/BnGnssCallback.h',
+            'android/hardware/gnss/IGnss.h',
+            'android/hardware/gnss/visibility_control/BnGnssVisibilityControlCallback.h',             
             'android/hardware/wifi/supplicant/BnSupplicantCallback.h',
             'android/hardware/wifi/supplicant/BnSupplicantStaIfaceCallback.h',
             'android/hardware/wifi/supplicant/BnSupplicantStaNetworkCallback.h',

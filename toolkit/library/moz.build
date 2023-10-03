@@ -236,6 +236,7 @@ def Libxul(name, output_category=None):
                 "android.frameworks.sensorservice@1.0",
                 "android.frameworks.stats@1.0",
                 "android.frameworks.stats-V1-ndk",
+                "android.hardware.gnss-V2-cpp",
                 "android.hardware.power-V3-cpp",
                 "android.hardware.vibrator-V2-cpp",
                 "android.hardware.wifi.supplicant-V1-cpp",

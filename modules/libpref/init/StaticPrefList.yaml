@@ -6718,6 +6718,10 @@
     type: bool
     value: false
     mirror: once
+-   name: gfx.video.convert-yuv-to-nv12.image-host-win
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
 #endif
 
 # Whether or not fallback to Software WebRender requires the GPU process.
@@ -13206,6 +13210,12 @@
 
 # Whether support for monochrome printing is enabled for CUPS.
 - name: print.cups.monochrome.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Disabling this will no-op window.print()
+- name: print.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always

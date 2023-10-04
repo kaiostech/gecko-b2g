@@ -147,6 +147,12 @@ PASS_ONLY_BASE_CFLAGS_TO_RUST=1
 endif # MOZ_CODE_COVERAGE
 endif # WINNT
 
+ifeq (WINNT,$(HOST_OS_ARCH))
+normalize_sep = $(subst \,/,$(1))
+else
+normalize_sep = $(1)
+endif
+
 # We start with host variables because the rust host and the rust target might be the same,
 # in which case we want the latter to take priority.
 
@@ -421,6 +427,11 @@ $(TARGET_RECIPES) $(HOST_RECIPES): MOZ_CARGO_WRAP_HOST_LD:=$(HOST_LINKER)
 $(TARGET_RECIPES) $(HOST_RECIPES): MOZ_CARGO_WRAP_HOST_LD_CXX:=$(HOST_LINKER)
 endif
 
+define make_default_rule
+$(1):
+
+endef
+
 ifdef RUST_LIBRARY_FILE
 
 rust_features_flag := --features '$(if $(RUST_LIBRARY_FEATURES),$(RUST_LIBRARY_FEATURES) )mozilla-central-workspace-hack'
@@ -462,11 +473,7 @@ endif
 endif
 endif
 
-define make_default_rule
-$(1):
-
-endef
-$(foreach dep, $(filter %.h,$(RUST_LIBRARY_DEPS)),$(eval $(call make_default_rule,$(dep))))
+$(foreach dep, $(call normalize_sep,$(RUST_LIBRARY_DEPS)),$(eval $(call make_default_rule,$(dep))))
 
 
 SUGGEST_INSTALL_ON_FAILURE = (ret=$$?; if [ $$ret = 101 ]; then echo If $1 is not installed, install it using: cargo install $1; fi; exit $$ret)
@@ -546,9 +553,9 @@ force-cargo-program-build: $(call resfile,module)
 #
 define RUST_PROGRAM_DEPENDENCIES
 $(1)_deps := $(wordlist 2, 10000000, $(if $(wildcard $(1).d),$(shell cat $(1).d)))
-$(1): $(CARGO_FILE) $(call resfile,module) $(if $$($(1)_deps),$$($(1)_deps),force-cargo-program-build)
-	$(if $$($(1)_deps),+$(MAKE) force-cargo-program-build,:)
-$(foreach dep,$(filter %.h,$$($(1)_deps)),$(eval $(call make_default_rule,$(dep))))
+$(1): $(CARGO_FILE) $(call resfile,module) $$(if $$($(1)_deps),$$($(1)_deps),force-cargo-program-build)
+	$$(if $$($(1)_deps),+$(MAKE) force-cargo-program-build,:)
+$$(foreach dep,$$(call normalize_sep, %.h,$$($(1)_deps)),$$(eval $$(call make_default_rule,$$(dep))))
 endef
 
 $(foreach RUST_PROGRAM,$(RUST_PROGRAMS), $(eval $(call RUST_PROGRAM_DEPENDENCIES,$(RUST_PROGRAM))))

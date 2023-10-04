@@ -33,10 +33,7 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(WakeLock)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(WakeLock)
 
-WakeLock::WakeLock()
-    : mLocked(false),
-      mHidden(true),
-      mContentParentID(CONTENT_PROCESS_ID_UNKNOWN) {}
+WakeLock::WakeLock() : mContentParentID(CONTENT_PROCESS_ID_UNKNOWN) {}
 
 WakeLock::~WakeLock() {
   DoUnlock();
@@ -67,7 +64,7 @@ nsresult WakeLock::Init(const nsAString& aTopic, nsPIDOMWindowInner* aWindow) {
   if (aWindow) {
     nsCOMPtr<Document> doc = aWindow->GetExtantDoc();
     NS_ENSURE_STATE(doc);
-    mHidden = IsDocumentInvisible(*doc);
+    mHidden = doc->Hidden();
   }
 
   AttachEventListener();
@@ -184,13 +181,6 @@ void WakeLock::Unlock(ErrorResult& aRv) {
 
 void WakeLock::GetTopic(nsAString& aTopic) { aTopic.Assign(mTopic); }
 
-bool WakeLock::IsDocumentInvisible(const Document& aDocument) const {
-  // If document has a child element being used in the picture in picture
-  // mode, which is always visible to users, then we would consider the
-  // document as visible as well.
-  return aDocument.Hidden() && !aDocument.HasPictureInPictureChildElement();
-}
-
 NS_IMETHODIMP
 WakeLock::HandleEvent(Event* aEvent) {
   nsAutoString type;
@@ -201,7 +191,7 @@ WakeLock::HandleEvent(Event* aEvent) {
     NS_ENSURE_STATE(doc);
 
     bool oldHidden = mHidden;
-    mHidden = IsDocumentInvisible(*doc);
+    mHidden = doc->Hidden();
 
     if (mLocked && oldHidden != mHidden) {
       hal::ModifyWakeLock(

@@ -138,19 +138,17 @@ mochitest-plain:
                     default: built-projects
     chunks:
         by-test-platform:
-            android-em-7.*: 4
+            android.*/debug: 10
             linux.*/debug: 16
             linux.*64-asan/opt: 10
             linux.*64-tsan-qr/opt: 20
-            linux.*64-.*cov/opt: 10
-            windows.*-ccov.*/.*: 10
-            macosx.*64-ccov.*/.*: 10
+            .*ccov.*: 10
             default: 5
     instance-size:
         by-test-platform:
             linux.*64-tsan-qr/opt: xlarge  # runs out of memory using 8GB
             default: default
-    max-run-time: 5400
+    max-run-time: 3600
     allow-software-gl-layers: false
     mozharness:
         mochitest-flavor: plain

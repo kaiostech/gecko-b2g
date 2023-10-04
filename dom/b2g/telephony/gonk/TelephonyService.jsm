@@ -233,9 +233,8 @@ MMI_SC_TO_CB_PROGRAM[MMI_SC_BA_MT] =
   Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_INCOMING_SERVICE;
 
 const CF_ACTION_TO_STATUS_MESSAGE = {};
-CF_ACTION_TO_STATUS_MESSAGE[
-  Ci.nsIMobileConnection.CALL_FORWARD_ACTION_ENABLE
-] = MMI_SM_KS_SERVICE_ENABLED;
+CF_ACTION_TO_STATUS_MESSAGE[Ci.nsIMobileConnection.CALL_FORWARD_ACTION_ENABLE] =
+  MMI_SM_KS_SERVICE_ENABLED;
 CF_ACTION_TO_STATUS_MESSAGE[
   Ci.nsIMobileConnection.CALL_FORWARD_ACTION_DISABLE
 ] = MMI_SM_KS_SERVICE_DISABLED;
@@ -247,52 +246,40 @@ CF_ACTION_TO_STATUS_MESSAGE[
 ] = MMI_SM_KS_SERVICE_ERASED;
 
 const LOCK_TYPE_TO_STATUS_MESSAGE = {};
-LOCK_TYPE_TO_STATUS_MESSAGE[
-  Ci.nsIIcc.CARD_LOCK_TYPE_PIN
-] = MMI_SM_KS_PIN_CHANGED;
-LOCK_TYPE_TO_STATUS_MESSAGE[
-  Ci.nsIIcc.CARD_LOCK_TYPE_PIN2
-] = MMI_SM_KS_PIN2_CHANGED;
-LOCK_TYPE_TO_STATUS_MESSAGE[
-  Ci.nsIIcc.CARD_LOCK_TYPE_PUK
-] = MMI_SM_KS_PIN_UNBLOCKED;
-LOCK_TYPE_TO_STATUS_MESSAGE[
-  Ci.nsIIcc.CARD_LOCK_TYPE_PUK2
-] = MMI_SM_KS_PIN2_UNBLOCKED;
+LOCK_TYPE_TO_STATUS_MESSAGE[Ci.nsIIcc.CARD_LOCK_TYPE_PIN] =
+  MMI_SM_KS_PIN_CHANGED;
+LOCK_TYPE_TO_STATUS_MESSAGE[Ci.nsIIcc.CARD_LOCK_TYPE_PIN2] =
+  MMI_SM_KS_PIN2_CHANGED;
+LOCK_TYPE_TO_STATUS_MESSAGE[Ci.nsIIcc.CARD_LOCK_TYPE_PUK] =
+  MMI_SM_KS_PIN_UNBLOCKED;
+LOCK_TYPE_TO_STATUS_MESSAGE[Ci.nsIIcc.CARD_LOCK_TYPE_PUK2] =
+  MMI_SM_KS_PIN2_UNBLOCKED;
 
 const CLIR_ACTION_TO_STATUS_MESSAGE = {};
-CLIR_ACTION_TO_STATUS_MESSAGE[
-  Ci.nsIMobileConnection.CLIR_INVOCATION
-] = MMI_SM_KS_SERVICE_ENABLED;
-CLIR_ACTION_TO_STATUS_MESSAGE[
-  Ci.nsIMobileConnection.CLIR_SUPPRESSION
-] = MMI_SM_KS_SERVICE_DISABLED;
+CLIR_ACTION_TO_STATUS_MESSAGE[Ci.nsIMobileConnection.CLIR_INVOCATION] =
+  MMI_SM_KS_SERVICE_ENABLED;
+CLIR_ACTION_TO_STATUS_MESSAGE[Ci.nsIMobileConnection.CLIR_SUPPRESSION] =
+  MMI_SM_KS_SERVICE_DISABLED;
 
 const MMI_KS_SERVICE_CLASS_MAPPING = {};
-MMI_KS_SERVICE_CLASS_MAPPING[
-  Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
-] = MMI_KS_SERVICE_CLASS_VOICE;
-MMI_KS_SERVICE_CLASS_MAPPING[
-  Ci.nsIMobileConnection.ICC_SERVICE_CLASS_DATA
-] = MMI_KS_SERVICE_CLASS_DATA;
-MMI_KS_SERVICE_CLASS_MAPPING[
-  Ci.nsIMobileConnection.ICC_SERVICE_CLASS_FAX
-] = MMI_KS_SERVICE_CLASS_FAX;
-MMI_KS_SERVICE_CLASS_MAPPING[
-  Ci.nsIMobileConnection.ICC_SERVICE_CLASS_SMS
-] = MMI_KS_SERVICE_CLASS_SMS;
+MMI_KS_SERVICE_CLASS_MAPPING[Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE] =
+  MMI_KS_SERVICE_CLASS_VOICE;
+MMI_KS_SERVICE_CLASS_MAPPING[Ci.nsIMobileConnection.ICC_SERVICE_CLASS_DATA] =
+  MMI_KS_SERVICE_CLASS_DATA;
+MMI_KS_SERVICE_CLASS_MAPPING[Ci.nsIMobileConnection.ICC_SERVICE_CLASS_FAX] =
+  MMI_KS_SERVICE_CLASS_FAX;
+MMI_KS_SERVICE_CLASS_MAPPING[Ci.nsIMobileConnection.ICC_SERVICE_CLASS_SMS] =
+  MMI_KS_SERVICE_CLASS_SMS;
 MMI_KS_SERVICE_CLASS_MAPPING[
   Ci.nsIMobileConnection.ICC_SERVICE_CLASS_DATA_SYNC
 ] = MMI_KS_SERVICE_CLASS_DATA_SYNC;
 MMI_KS_SERVICE_CLASS_MAPPING[
   Ci.nsIMobileConnection.ICC_SERVICE_CLASS_DATA_ASYNC
 ] = MMI_KS_SERVICE_CLASS_DATA_ASYNC;
-MMI_KS_SERVICE_CLASS_MAPPING[
-  Ci.nsIMobileConnection.ICC_SERVICE_CLASS_PACKET
-] = MMI_KS_SERVICE_CLASS_PACKET;
-MMI_KS_SERVICE_CLASS_MAPPING[
-  Ci.nsIMobileConnection.ICC_SERVICE_CLASS_PAD
-] = MMI_KS_SERVICE_CLASS_PAD;
+MMI_KS_SERVICE_CLASS_MAPPING[Ci.nsIMobileConnection.ICC_SERVICE_CLASS_PACKET] =
+  MMI_KS_SERVICE_CLASS_PACKET;
+MMI_KS_SERVICE_CLASS_MAPPING[Ci.nsIMobileConnection.ICC_SERVICE_CLASS_PAD] =
+  MMI_KS_SERVICE_CLASS_PAD;
 
 var ALWAYS_TRY_IMS_FOR_EMERGENCY = false;
 var IMS_ENABLED = false;
@@ -302,7 +289,7 @@ function debug(s) {
   dump("TelephonyService: " + s + "\n");
 }
 
-XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function () {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -359,11 +346,10 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsPhoneService"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
-  "gPhoneNumberUtils",
-  "resource://gre/modules/PhoneNumberUtils.jsm",
-  "PhoneNumberUtils"
+  "PhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm"
 );
 
 XPCOMUtils.defineLazyModuleGetters(lazy, {
@@ -704,8 +690,9 @@ TelephonyService.prototype = {
   },
 
   _isCdmaClient(aClientId) {
-    let type = lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId)
-      .voice.type;
+    let type =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId).voice
+        .type;
     return !this._isGsmTechGroup(type);
   },
 
@@ -715,18 +702,16 @@ TelephonyService.prototype = {
   },
 
   _isRadioOn(aClientId) {
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
     return (
       connection.radioState === nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED
     );
   },
 
   _isVoWifi(aClientId) {
-    let connInfo = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    ).data;
+    let connInfo =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId).data;
     return (
       RIL.GECKO_RADIO_TECH.indexOf(connInfo.type) ===
       RIL.NETWORK_CREG_TECH_IWLAN
@@ -1076,12 +1061,12 @@ TelephonyService.prototype = {
     // We don't try to be too clever here, as the phone is probably in the
     // locked state. Let's just check if it's a number without normalizing
     if (!aIsDialEmergency) {
-      aNumber = lazy.gPhoneNumberUtils.normalize(aNumber);
+      aNumber = lazy.PhoneNumberUtils.normalize(aNumber);
     }
 
     // Validate the number.
     // Note: isPlainPhoneNumber also accepts USSD and SS numbers
-    if (!lazy.gPhoneNumberUtils.isPlainPhoneNumber(aNumber)) {
+    if (!lazy.PhoneNumberUtils.isPlainPhoneNumber(aNumber)) {
       if (DEBUG) {
         debug("Error: Number '" + aNumber + "' is not viable. Drop.");
       }
@@ -1249,9 +1234,8 @@ TelephonyService.prototype = {
 
       // Radio is off. Turn it on first.
       if (!this._isRadioOn(aClientId) && !this._isVoWifi(aClientId)) {
-        let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-          aClientId
-        );
+        let connection =
+          lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
         let listener = new MobileConnectionListener();
 
         listener.notifyRadioStateChanged = () => {
@@ -1365,9 +1349,8 @@ TelephonyService.prototype = {
           nsITelephonyCallInfo.RADIO_TECH_CS
         );
 
-        let childCall = (this._currentCalls[aClientId][
-          CDMA_SECOND_CALL_INDEX
-        ] = new Call(aClientId, CDMA_SECOND_CALL_INDEX));
+        let childCall = (this._currentCalls[aClientId][CDMA_SECOND_CALL_INDEX] =
+          new Call(aClientId, CDMA_SECOND_CALL_INDEX));
 
         childCall.parentId = CDMA_FIRST_CALL_INDEX;
         childCall.state = nsITelephonyService.CALL_STATE_DIALING;
@@ -1547,9 +1530,8 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _callForwardingMMI(aClientId, aMmi, aCallback) {
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
     let action = MMI_PROC_TO_CF_ACTION[aMmi.procedure];
     let reason = MMI_SC_TO_CF_REASON[aMmi.serviceCode];
     let serviceClass = this._siToServiceClass(aMmi.sib);
@@ -1696,9 +1678,8 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _getImeiMMI(aClientId, aMmi, aCallback) {
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
     if (!connection.deviceIdentities || !connection.deviceIdentities.imei) {
       aCallback.notifyDialMMIError(RIL.GECKO_ERROR_GENERIC_FAILURE);
       return;
@@ -1759,9 +1740,8 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _clirMMI(aClientId, aMmi, aCallback) {
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
     switch (aMmi.procedure) {
       case MMI_PROCEDURE_INTERROGATION:
         connection.getCallingLineIdRestriction({
@@ -1905,9 +1885,8 @@ TelephonyService.prototype = {
       return;
     }
 
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
     connection.changeCallBarringPassword(aMmi.sib, aMmi.sic, {
       QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnectionCallback]),
       notifySuccess() {
@@ -1930,9 +1909,8 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _callBarringMMI(aClientId, aMmi, aCallback) {
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
     let program = MMI_SC_TO_CB_PROGRAM[aMmi.serviceCode];
     let password = aMmi.sia || "";
     let serviceClass = this._siToServiceClass(aMmi.sib);
@@ -1943,7 +1921,7 @@ TelephonyService.prototype = {
           QueryInterface: ChromeUtils.generateQI([
             Ci.nsIMobileConnectionCallback,
           ]),
-          notifyGetCallBarringSuccess: function(
+          notifyGetCallBarringSuccess: function (
             aProgram,
             aEnabled,
             aServiceClass
@@ -2000,9 +1978,8 @@ TelephonyService.prototype = {
    *        A nsITelephonyDialCallback object.
    */
   _callWaitingMMI(aClientId, aMmi, aCallback) {
-    let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-      aClientId
-    );
+    let connection =
+      lazy.gGonkMobileConnectionService.getItemByServiceId(aClientId);
 
     switch (aMmi.procedure) {
       case MMI_PROCEDURE_INTERROGATION:
@@ -2010,7 +1987,7 @@ TelephonyService.prototype = {
           QueryInterface: ChromeUtils.generateQI([
             Ci.nsIMobileConnectionCallback,
           ]),
-          notifyGetCallWaitingSuccess: function(aServiceClass) {
+          notifyGetCallWaitingSuccess: function (aServiceClass) {
             if (
               aServiceClass === Ci.nsIMobileConnection.ICC_SERVICE_CLASS_NONE
             ) {
@@ -2332,9 +2309,8 @@ TelephonyService.prototype = {
    * @return [conference state, array of calls being updated]
    */
   _updateConference(aClientId) {
-    let [newConferenceState, conferenceCalls] = this._detectConference(
-      aClientId
-    );
+    let [newConferenceState, conferenceCalls] =
+      this._detectConference(aClientId);
     if (DEBUG) {
       debug("Conference state: " + newConferenceState);
     }
@@ -2364,7 +2340,7 @@ TelephonyService.prototype = {
       if (DEBUG) {
         debug("sendTones playTone: " + tone);
       }
-      let run = function() {
+      let run = function () {
         if (DEBUG) {
           debug("sendTones run: " + tone);
         }
@@ -3320,9 +3296,8 @@ TelephonyService.prototype = {
 
     // Detect conference and update isConference flag.
     /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "newConferenceState" }]*/
-    let [_newConferenceState, conferenceChangedCalls] = this._updateConference(
-      aClientId
-    );
+    let [_newConferenceState, conferenceChangedCalls] =
+      this._updateConference(aClientId);
     conferenceChangedCalls.forEach(call => changedCalls.add(call));
 
     this._handleCallStateChanged(aClientId, [...changedCalls]);
@@ -3576,9 +3551,8 @@ TelephonyService.prototype = {
         Services.prefs.removeObserver(kPrefTwoDigitShortCodes, this);
 
         for (let i = 0; i < this._mobileConnListeners.length; i++) {
-          let connection = lazy.gGonkMobileConnectionService.getItemByServiceId(
-            i
-          );
+          let connection =
+            lazy.gGonkMobileConnectionService.getItemByServiceId(i);
           connection.unregisterListener(this._mobileConnListeners[i]);
         }
         this._mobileConnListeners = [];

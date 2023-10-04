@@ -6,14 +6,14 @@
 
 "use strict";
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   this,
   "MinimalIDService",
   "resource://gre/modules/identity/MinimalIdentity.jsm",
   "IdentityService"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   this,
   "SignInToWebsiteController",
   "resource://gre/modules/SignInToWebsite.jsm",

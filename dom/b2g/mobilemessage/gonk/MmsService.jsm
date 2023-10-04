@@ -105,7 +105,7 @@ const PREF_SEND_RETRY_COUNT = Services.prefs.getIntPref(
   "dom.mms.sendRetryCount"
 );
 
-const PREF_SEND_RETRY_INTERVAL = (function() {
+const PREF_SEND_RETRY_INTERVAL = (function () {
   let intervals = Services.prefs
     .getCharPref("dom.mms.sendRetryInterval", "")
     .split(",");
@@ -125,7 +125,7 @@ const PREF_RETRIEVAL_RETRY_COUNT = Services.prefs.getIntPref(
   "dom.mms.retrievalRetryCount"
 );
 
-const PREF_RETRIEVAL_RETRY_INTERVALS = (function() {
+const PREF_RETRIEVAL_RETRY_INTERVALS = (function () {
   let intervals = Services.prefs
     .getCharPref("dom.mms.retrievalRetryIntervals")
     .split(",");
@@ -213,11 +213,10 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsRegService"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
-  "gPhoneNumberUtils",
-  "resource://gre/modules/PhoneNumberUtils.jsm",
-  "PhoneNumberUtils"
+  "PhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -227,14 +226,14 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIDiskSpaceWatcher"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gSettingsObserver", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gSettingsObserver", function () {
   let obj = ChromeUtils.import(
     "resource://gre/modules/RILSettingsObserver.jsm"
   );
   return obj;
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "MMS", function() {
+XPCOMUtils.defineLazyGetter(lazy, "MMS", function () {
   let MMS = ChromeUtils.import("resource://gre/modules/MmsPduHelper.jsm");
   return MMS;
 });
@@ -714,7 +713,7 @@ MmsConnection.prototype = {
   },
 };
 
-XPCOMUtils.defineLazyGetter(lazy, "gMmsConnections", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gMmsConnections", function () {
   return {
     _connections: null,
     getConnByServiceId(id) {
@@ -808,7 +807,7 @@ MmsProxyFilter.prototype = {
   },
 };
 
-XPCOMUtils.defineLazyGetter(lazy, "gMmsTransactionHelper", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gMmsTransactionHelper", function () {
   let helper = {
     /**
      * Send MMS request to MMSC.
@@ -1434,11 +1433,12 @@ RetrieveTransaction.prototype = Object.create(
           this.contentLocation,
           null,
           (httpStatus, data) => {
-            let mmsStatus = lazy.gMmsTransactionHelper.translateHttpStatusToMmsStatus(
-              httpStatus,
-              this.cancelledReason,
-              lazy.MMS.MMS_PDU_STATUS_DEFERRED
-            );
+            let mmsStatus =
+              lazy.gMmsTransactionHelper.translateHttpStatusToMmsStatus(
+                httpStatus,
+                this.cancelledReason,
+                lazy.MMS.MMS_PDU_STATUS_DEFERRED
+              );
             if (mmsStatus != lazy.MMS.MMS_PDU_ERROR_OK) {
               callback(mmsStatus, null);
               return;
@@ -1715,11 +1715,12 @@ SendTransaction.prototype = Object.create(CancellableTransaction.prototype, {
         null,
         this.istream,
         (httpStatus, data) => {
-          let mmsStatus = lazy.gMmsTransactionHelper.translateHttpStatusToMmsStatus(
-            httpStatus,
-            this.cancelledReason,
-            lazy.MMS.MMS_PDU_ERROR_TRANSIENT_FAILURE
-          );
+          let mmsStatus =
+            lazy.gMmsTransactionHelper.translateHttpStatusToMmsStatus(
+              httpStatus,
+              this.cancelledReason,
+              lazy.MMS.MMS_PDU_ERROR_TRANSIENT_FAILURE
+            );
           if (httpStatus != HTTP_STATUS_OK) {
             callback(mmsStatus, null);
             return;
@@ -1944,7 +1945,7 @@ MmsService.prototype = {
     retrievalMode,
     serviceId
   ) {
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       let kDevicePhoneNumber;
       if (serviceId === 0) {
         kDevicePhoneNumber = kDevicePhoneNumberSim1;
@@ -2461,16 +2462,15 @@ MmsService.prototype = {
               retrievalMode = RETRIEVAL_MODE_MANUAL;
             }
 
-            let mmsConnection = lazy.gMmsConnections.getConnByServiceId(
-              serviceId
-            );
+            let mmsConnection =
+              lazy.gMmsConnections.getConnByServiceId(serviceId);
             let that = this;
             this.convertIntermediateToSavable(
               mmsConnection,
               notification,
               retrievalMode,
               serviceId
-            ).then(function(savableMessage) {
+            ).then(function (savableMessage) {
               lazy.gMobileMessageDatabaseService.saveReceivedMessage(
                 savableMessage,
                 (aRv, aDomMessage) => {
@@ -2700,8 +2700,8 @@ MmsService.prototype = {
         let type = lazy.MMS.Address.resolveType(receiver);
         let address;
         if (type == "PLMN") {
-          address = lazy.gPhoneNumberUtils.normalize(receiver, false);
-          if (!lazy.gPhoneNumberUtils.isPlainPhoneNumber(address)) {
+          address = lazy.PhoneNumberUtils.normalize(receiver, false);
+          if (!lazy.PhoneNumberUtils.isPlainPhoneNumber(address)) {
             isAddrValid = false;
           }
           address = receiver;

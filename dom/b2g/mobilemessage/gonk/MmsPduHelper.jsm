@@ -13,16 +13,17 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
-  this,
-  "gPhoneNumberUtils",
-  "resource://gre/modules/PhoneNumberUtils.jsm",
-  "PhoneNumberUtils"
+const lazy = {};
+
+ChromeUtils.defineModuleGetter(
+  lazy,
+  "PhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm"
 );
 
 var DEBUG = false; // set to true to see debug messages
 
-this.MMS_VERSION = (function() {
+this.MMS_VERSION = (function () {
   try {
     return Services.prefs.getIntPref("dom.mms.version");
   } catch (ex) {}
@@ -46,7 +47,7 @@ this.translatePduErrorToStatus = function translatePduErrorToStatus(error) {
 };
 
 function defineLazyRegExp(obj, name, pattern) {
-  obj.__defineGetter__(name, function() {
+  obj.__defineGetter__(name, function () {
     delete obj[name];
     return (obj[name] = new RegExp(pattern));
   });
@@ -265,8 +266,8 @@ this.Address = {
       return "IPv6";
     }
 
-    let normalizedAddress = gPhoneNumberUtils.normalize(address, false);
-    if (gPhoneNumberUtils.isPlainPhoneNumber(normalizedAddress)) {
+    let normalizedAddress = lazy.PhoneNumberUtils.normalize(address, false);
+    if (lazy.PhoneNumberUtils.isPlainPhoneNumber(normalizedAddress)) {
       return "PLMN";
     }
     return "Others";
@@ -1444,7 +1445,7 @@ this.PduHelper = {
       );
     }
 
-    entry.mandatoryFields.forEach(function(name) {
+    entry.mandatoryFields.forEach(function (name) {
       WSP.ensureHeader(msg.headers, name);
     });
 
@@ -1608,7 +1609,7 @@ this.PduHelper = {
   },
 };
 
-const MMS_PDU_TYPES = (function() {
+const MMS_PDU_TYPES = (function () {
   let pdus = {};
   function add(number, hasContent, mandatoryFields) {
     pdus[number] = {
@@ -1691,7 +1692,7 @@ const MMS_PDU_TYPES = (function() {
  *
  * @see OMA-TS-MMS_ENC-V1_3-20110913-A clause 7.4
  */
-const MMS_HEADER_FIELDS = (function() {
+const MMS_HEADER_FIELDS = (function () {
   let names = {};
   function add(name, number, coder) {
     let entry = {
@@ -1770,7 +1771,7 @@ const MMS_HEADER_FIELDS = (function() {
 })();
 
 // @see OMA-TS-MMS_ENC-V1_3-20110913-A Table 27: Parameter Name Assignments
-const MMS_WELL_KNOWN_PARAMS = (function() {
+const MMS_WELL_KNOWN_PARAMS = (function () {
   let params = {};
 
   function add(name, number, coder) {

@@ -18,19 +18,19 @@ const lazy = {};
 /**
  * WAP Push decoders
  */
-XPCOMUtils.defineLazyGetter(lazy, "SI", function() {
+XPCOMUtils.defineLazyGetter(lazy, "SI", function () {
   return ChromeUtils.import("resource://gre/modules/SiPduHelper.jsm");
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "SL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "SL", function () {
   return ChromeUtils.import("resource://gre/modules/SlPduHelper.jsm");
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "CP", function() {
+XPCOMUtils.defineLazyGetter(lazy, "CP", function () {
   return ChromeUtils.import("resource://gre/modules/CpPduHelper.jsm");
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "WSP", function() {
+XPCOMUtils.defineLazyGetter(lazy, "WSP", function () {
   return ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm");
 });
 
@@ -48,11 +48,10 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIIccService"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
-  "gPhoneNumberUtils",
-  "resource://gre/modules/PhoneNumberUtils.jsm",
-  "PhoneNumberUtils"
+  "PhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm"
 );
 
 /**
@@ -154,7 +153,7 @@ const WapPushManager = {
       };
     }
 
-    let sender = lazy.gPhoneNumberUtils.normalize(options.sourceAddress, false);
+    let sender = lazy.PhoneNumberUtils.normalize(options.sourceAddress, false);
     //let parsedSender = PhoneNumberUtils.parse(sender);
     //if (parsedSender && parsedSender.internationalNumber) {
     //  sender = parsedSender.internationalNumber;

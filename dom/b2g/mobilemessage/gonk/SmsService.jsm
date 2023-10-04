@@ -12,7 +12,7 @@ var WAP_CONSTS = ChromeUtils.import("resource://gre/modules/wap_consts.js");
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function () {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
@@ -54,7 +54,7 @@ const DOM_MOBILE_MESSAGE_DELIVERY_ERROR = "error";
 const SMS_HANDLED_WAKELOCK_TIMEOUT = 5000;
 const SMS_SUPL_INIT_PORT = 7275;
 
-XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaces", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaces", function () {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -67,7 +67,7 @@ XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaces", function() {
   return interfaces;
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "gSmsSegmentHelper", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gSmsSegmentHelper", function () {
   let { SmsSegmentHelper } = ChromeUtils.import(
     "resource://gre/modules/SmsSegmentHelper.jsm"
   );
@@ -78,12 +78,12 @@ XPCOMUtils.defineLazyGetter(lazy, "gSmsSegmentHelper", function() {
   return SmsSegmentHelper;
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "gWAP", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gWAP", function () {
   let ns = ChromeUtils.import("resource://gre/modules/WapPushManager.jsm");
   return ns;
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "gSmsSendingSchedulers", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gSmsSendingSchedulers", function () {
   return {
     _schedulers: [],
     getSchedulerByServiceId(aServiceId) {
@@ -99,7 +99,7 @@ XPCOMUtils.defineLazyGetter(lazy, "gSmsSendingSchedulers", function() {
   };
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "SIM", function() {
+XPCOMUtils.defineLazyGetter(lazy, "SIM", function () {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
 });
 
@@ -159,14 +159,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsRegService"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
-  "gPhoneNumberUtils",
-  "resource://gre/modules/PhoneNumberUtils.jsm",
-  "PhoneNumberUtils"
+  "PhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gSettingsObserver", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gSettingsObserver", function () {
   let obj = ChromeUtils.import(
     "resource://gre/modules/RILSettingsObserver.jsm"
   );
@@ -745,7 +744,7 @@ SmsService.prototype = {
           Ci.nsIGonkSmsService.SMS_MESSAGE_ENCODING_8BITS_ALPHABET &&
         options.encoding == aSegment.encoding &&
         options.segments[seq].length == aSegment.data.length &&
-        options.segments[seq].every(function(aElement, aIndex) {
+        options.segments[seq].every(function (aElement, aIndex) {
           return aElement == aSegment.data[aIndex];
         })
       ) {
@@ -1277,7 +1276,7 @@ SmsService.prototype = {
       strict7BitEncoding
     );
 
-    options.number = lazy.gPhoneNumberUtils.normalize(aNumber);
+    options.number = lazy.PhoneNumberUtils.normalize(aNumber);
     this.settingsObserver
       .getSettingWithDefault(kSettingsRequestStatusReport, true)
       .then(setting => {
@@ -1322,15 +1321,14 @@ SmsService.prototype = {
             Services.obs.notifyObservers(smsMessage, kSmsSendingObserverTopic);
           }
 
-          let connection = lazy.gMobileConnectionService.getItemByServiceId(
-            aServiceId
-          );
+          let connection =
+            lazy.gMobileConnectionService.getItemByServiceId(aServiceId);
           // If the radio is disabled or the SIM card is not ready, just directly
           // return with the corresponding error code.
           let errorCode;
           let radioState = connection && connection.radioState;
 
-          if (!lazy.gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
+          if (!lazy.PhoneNumberUtils.isPlainPhoneNumber(options.number)) {
             if (DEBUG) {
               debug(
                 "Error! Address is invalid when sending SMS: " + options.number
@@ -1562,7 +1560,8 @@ SmsService.prototype = {
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         } else if (aData === kPrefLastKnownSimMcc) {
-          lazy.gSmsSegmentHelper.enabledGsmTableTuples = getEnabledGsmTableTuplesFromMcc();
+          lazy.gSmsSegmentHelper.enabledGsmTableTuples =
+            getEnabledGsmTableTuplesFromMcc();
         }
         break;
       case kDiskSpaceWatcherObserverTopic:
@@ -1757,7 +1756,7 @@ SmsSendingScheduler.prototype = {
 
       // Keep the queue in order to guarantee the sending order matches user
       // expectation.
-      this._queue.sort(function(a, b) {
+      this._queue.sort(function (a, b) {
         return a.messageId - b.messageId;
       });
     }

@@ -8,7 +8,7 @@ const { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   this,
   "MinimalIDService",
   "resource://gre/modules/identity/MinimalIdentity.jsm",

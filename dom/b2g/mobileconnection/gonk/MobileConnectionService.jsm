@@ -156,14 +156,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIDataCallManager"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
-  "gTelephonyUtils",
-  "resource://gre/modules/TelephonyUtils.jsm",
-  "TelephonyUtils"
+  "TelephonyUtils",
+  "resource://gre/modules/TelephonyUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioInterfaceLayer", function () {
   let ril = { numRadioInterfaces: 0 };
   try {
     ril = Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
@@ -185,11 +184,10 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsICustomizationInfo"
 );
 
-XPCOMUtils.defineLazyModuleGetter(
+ChromeUtils.defineModuleGetter(
   lazy,
-  "gPhoneNumberUtils",
-  "resource://gre/modules/PhoneNumberUtils.jsm",
-  "PhoneNumberUtils"
+  "PhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -1391,8 +1389,8 @@ MobileConnectionProvider.prototype = {
 
       this._dataRegistrationFailed = true;
       // If there is any ongoing call, wait for them to disconnect.
-      if (lazy.gTelephonyUtils.hasAnyCalls(this._clientId)) {
-        lazy.gTelephonyUtils.waitForNoCalls(this._clientId).then(() => {
+      if (lazy.TelephonyUtils.hasAnyCalls(this._clientId)) {
+        lazy.TelephonyUtils.waitForNoCalls(this._clientId).then(() => {
           if (this._dataRegistrationFailed) {
             this._recoverDataRegistration();
           }
@@ -1583,7 +1581,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "setRadioEnabled",
         { enabled: action },
-        function(aResponse) {
+        function (aResponse) {
           if (!aCallback) {
             return false;
           }
@@ -1657,7 +1655,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "getAvailableNetworks",
       null,
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1696,7 +1694,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "selectNetwork",
       options,
-      function(aResponse) {
+      function (aResponse) {
         this._selectingNetwork = null;
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
@@ -1719,7 +1717,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "selectNetworkAuto",
       null,
-      function(aResponse) {
+      function (aResponse) {
         this._selectingNetwork = null;
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
@@ -1742,7 +1740,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "setPreferredNetworkType",
       { type: aType },
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1763,7 +1761,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "getPreferredNetworkType",
       null,
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1779,7 +1777,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "setRoamingPreference",
       { mode: aMode },
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1795,7 +1793,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "queryRoamingPreference",
       null,
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1811,7 +1809,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "setVoicePrivacyMode",
       { enabled: aEnabled },
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1827,7 +1825,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "queryVoicePrivacyMode",
       null,
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -1894,7 +1892,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "setCallForward",
         options,
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return false;
@@ -1944,7 +1942,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "queryCallForwardStatus",
         { reason: aReason, serviceClass: aServiceClass },
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return false;
@@ -1999,7 +1997,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "setCallBarring",
         options,
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return false;
@@ -2051,7 +2049,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "queryCallBarringStatus",
         options,
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return false;
@@ -2077,7 +2075,7 @@ MobileConnectionProvider.prototype = {
     this._radioInterface.sendWorkerMessage(
       "changeCallBarringPassword",
       options,
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
           return false;
@@ -2121,7 +2119,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "setCallWaiting",
         options,
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return false;
@@ -2158,17 +2156,19 @@ MobileConnectionProvider.prototype = {
         this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
       }
     } else {
-      this._radioInterface.sendWorkerMessage("queryCallWaiting", null, function(
-        aResponse
-      ) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
+      this._radioInterface.sendWorkerMessage(
+        "queryCallWaiting",
+        null,
+        function (aResponse) {
+          if (aResponse.errorMsg) {
+            aCallback.notifyError(aResponse.errorMsg);
+            return false;
+          }
+
+          aCallback.notifyGetCallWaitingSuccess(aResponse.serviceClass);
           return false;
         }
-
-        aCallback.notifyGetCallWaitingSuccess(aResponse.serviceClass);
-        return false;
-      });
+      );
     }
   },
 
@@ -2220,7 +2220,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "setCLIR",
         { clirMode: aMode },
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return false;
@@ -2268,17 +2268,19 @@ MobileConnectionProvider.prototype = {
         return;
       }
 
-      this._radioInterface.sendWorkerMessage("getCLIR", null, function(
-        aResponse
-      ) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
+      this._radioInterface.sendWorkerMessage(
+        "getCLIR",
+        null,
+        function (aResponse) {
+          if (aResponse.errorMsg) {
+            aCallback.notifyError(aResponse.errorMsg);
+            return false;
+          }
+
+          aCallback.notifyGetClirStatusSuccess(aResponse.n, aResponse.m);
           return false;
         }
-
-        aCallback.notifyGetClirStatusSuccess(aResponse.n, aResponse.m);
-        return false;
-      });
+      );
     }
   },
 
@@ -2301,7 +2303,7 @@ MobileConnectionProvider.prototype = {
       this._radioInterface.sendWorkerMessage(
         "sendExitEmergencyCbModeRequest",
         null,
-        function(aResponse) {
+        function (aResponse) {
           if (aResponse.errorMsg) {
             aCallback.notifyError(aResponse.errorMsg);
             return;
@@ -2339,49 +2341,51 @@ MobileConnectionProvider.prototype = {
   },
 
   getCellInfoList(aCallback) {
-    this._radioInterface.sendWorkerMessage("getCellInfoList", null, function(
-      aResponse
-    ) {
-      if (aResponse.errorMsg) {
-        aCallback.notifyGetCellInfoListFailed(aResponse.errorMsg);
-        return;
-      }
-
-      let cellInfoList = [];
-      let count = aResponse.result.length;
-      for (let i = 0; i < count; i++) {
-        let srcCellInfo = aResponse.result[i];
-        let cellInfo;
-        switch (srcCellInfo.type) {
-          case RIL.CELL_INFO_TYPE_GSM:
-            cellInfo = new GsmCellInfo(srcCellInfo);
-            break;
-          case RIL.CELL_INFO_TYPE_WCDMA:
-            cellInfo = new WcdmaCellInfo(srcCellInfo);
-            break;
-          case RIL.CELL_INFO_TYPE_LTE:
-            cellInfo = new LteCellInfo(srcCellInfo);
-            break;
-          case RIL.CELL_INFO_TYPE_CDMA:
-            cellInfo = new CdmaCellInfo(srcCellInfo);
-            break;
+    this._radioInterface.sendWorkerMessage(
+      "getCellInfoList",
+      null,
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyGetCellInfoListFailed(aResponse.errorMsg);
+          return;
         }
 
-        if (!cellInfo || !cellInfo.isValid()) {
-          continue;
-        }
+        let cellInfoList = [];
+        let count = aResponse.result.length;
+        for (let i = 0; i < count; i++) {
+          let srcCellInfo = aResponse.result[i];
+          let cellInfo;
+          switch (srcCellInfo.type) {
+            case RIL.CELL_INFO_TYPE_GSM:
+              cellInfo = new GsmCellInfo(srcCellInfo);
+              break;
+            case RIL.CELL_INFO_TYPE_WCDMA:
+              cellInfo = new WcdmaCellInfo(srcCellInfo);
+              break;
+            case RIL.CELL_INFO_TYPE_LTE:
+              cellInfo = new LteCellInfo(srcCellInfo);
+              break;
+            case RIL.CELL_INFO_TYPE_CDMA:
+              cellInfo = new CdmaCellInfo(srcCellInfo);
+              break;
+          }
 
-        cellInfoList.push(cellInfo);
+          if (!cellInfo || !cellInfo.isValid()) {
+            continue;
+          }
+
+          cellInfoList.push(cellInfo);
+        }
+        aCallback.notifyGetCellInfoList(cellInfoList.length, cellInfoList);
       }
-      aCallback.notifyGetCellInfoList(cellInfoList.length, cellInfoList);
-    });
+    );
   },
 
   getNeighboringCellIds(aCallback) {
     this._radioInterface.sendWorkerMessage(
       "getNeighboringCellIds",
       null,
-      function(aResponse) {
+      function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyGetNeighboringCellIdsFailed(aResponse.errorMsg);
           return;
@@ -2414,17 +2418,19 @@ MobileConnectionProvider.prototype = {
   },
 
   stopNetworkScan(aCallback) {
-    this._radioInterface.sendWorkerMessage("stopNetworkScan", null, function(
-      aResponse
-    ) {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
+    this._radioInterface.sendWorkerMessage(
+      "stopNetworkScan",
+      null,
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return false;
+        }
+
+        aCallback.notifySuccess();
         return false;
       }
-
-      aCallback.notifySuccess();
-      return false;
-    });
+    );
   },
 
   initUt() {
@@ -2900,9 +2906,10 @@ MobileConnectionService.prototype = {
       debug("notifyOtaStatusChanged for " + aClientId + ": " + aStatus);
     }
 
-    this.getItemByServiceId(
-      aClientId
-    ).deliverListenerEvent("notifyOtaStatusChanged", [aStatus]);
+    this.getItemByServiceId(aClientId).deliverListenerEvent(
+      "notifyOtaStatusChanged",
+      [aStatus]
+    );
   },
 
   notifyRadioStateChanged(aClientId, aRadioState) {
@@ -2941,7 +2948,7 @@ MobileConnectionService.prototype = {
 
     if (voiceMessage) {
       provider.updateVoiceInfo(voiceMessage, true);
-      lazy.gPhoneNumberUtils.updateCountryNameProperty(aClientId);
+      lazy.PhoneNumberUtils.updateCountryNameProperty(aClientId);
     }
 
     if (dataMessage) {

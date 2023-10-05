@@ -75,7 +75,7 @@ nsresult IccManager::NotifyIccAdd(const nsAString& aIccId) {
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-      new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event.forget());
 
   return asyncDispatcher->PostDOMEvent();
 }
@@ -93,7 +93,7 @@ nsresult IccManager::NotifyIccRemove(const nsAString& aIccId) {
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-      new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event.forget());
 
   return asyncDispatcher->PostDOMEvent();
 }

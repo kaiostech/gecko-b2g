@@ -26,18 +26,22 @@ using mozilla::dom::ContentChild;
 #define LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
 
-NS_IMPL_ISUPPORTS_INHERITED0(nsClipboard, ClipboardSetDataHelper)
+NS_IMPL_ISUPPORTS_INHERITED0(nsClipboard, nsBaseClipboard)
 
 nsClipboard::nsClipboard()
-    : mClipboard(mozilla::MakeUnique<GonkClipboardData>()) {}
+    : nsBaseClipboard(mozilla::dom::ClipboardCapabilities(
+          false /* supportsSelectionClipboard */,
+          false /* supportsFindClipboard */,
+          false /* supportsSelectionCache */)),
+      mClipboard(mozilla::MakeUnique<GonkClipboardData>()) {}
 
 NS_IMETHODIMP
 nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
                                     nsIClipboardOwner* aOwner,
                                     int32_t aWhichClipboard) {
-  if (aWhichClipboard != kGlobalClipboard) {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
+  MOZ_DIAGNOSTIC_ASSERT(aTransferable);
+  MOZ_DIAGNOSTIC_ASSERT(
+      nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
 
   if (!XRE_IsParentProcess()) {
     // Re-direct to the clipboard proxy.
@@ -161,10 +165,11 @@ nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
 }
 
 NS_IMETHODIMP
-nsClipboard::GetData(nsITransferable* aTransferable, int32_t aWhichClipboard) {
-  if (aWhichClipboard != kGlobalClipboard) {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
+nsClipboard::GetNativeClipboardData(nsITransferable* aTransferable,
+                                    int32_t aWhichClipboard) {
+  MOZ_DIAGNOSTIC_ASSERT(aTransferable);
+  MOZ_DIAGNOSTIC_ASSERT(
+      nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
 
   if (!XRE_IsParentProcess()) {
     // Re-direct to the clipboard proxy.
@@ -281,36 +286,10 @@ nsClipboard::GetData(nsITransferable* aTransferable, int32_t aWhichClipboard) {
   return NS_OK;
 }
 
-RefPtr<GenericPromise> nsClipboard::AsyncGetData(nsITransferable* aTransferable,
-                                                 int32_t aWhichClipboard) {
-  nsresult rv = GetData(aTransferable, aWhichClipboard);
-  if (NS_FAILED(rv)) {
-    return GenericPromise::CreateAndReject(rv, __func__);
-  }
+nsresult nsClipboard::EmptyNativeClipboardData(int32_t aWhichClipboard) {
+  MOZ_DIAGNOSTIC_ASSERT(
+      nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
 
-  return GenericPromise::CreateAndResolve(true, __func__);
-}
-
-RefPtr<DataFlavorsPromise> nsClipboard::AsyncHasDataMatchingFlavors(
-    const nsTArray<nsCString>& aFlavorList, int32_t aWhichClipboard) {
-  nsTArray<nsCString> results;
-  for (const auto& flavor : aFlavorList) {
-    bool hasMatchingFlavor = false;
-    nsresult rv = HasDataMatchingFlavors(AutoTArray<nsCString, 1>{flavor},
-                                         aWhichClipboard, &hasMatchingFlavor);
-    if (NS_SUCCEEDED(rv) && hasMatchingFlavor) {
-      results.AppendElement(flavor);
-    }
-  }
-
-  return DataFlavorsPromise::CreateAndResolve(std::move(results), __func__);
-}
-
-NS_IMETHODIMP
-nsClipboard::EmptyClipboard(int32_t aWhichClipboard) {
-  if (aWhichClipboard != kGlobalClipboard) {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
   if (XRE_IsParentProcess()) {
     mClipboard->Clear();
   } else {
@@ -320,13 +299,12 @@ nsClipboard::EmptyClipboard(int32_t aWhichClipboard) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
-                                    int32_t aWhichClipboard, bool* aHasType) {
-  *aHasType = false;
-  if (aWhichClipboard != kGlobalClipboard) {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
+mozilla::Result<bool, nsresult>
+nsClipboard::HasNativeClipboardDataMatchingFlavors(
+    const nsTArray<nsCString>& aFlavorList, int32_t aWhichClipboard) {
+  MOZ_DIAGNOSTIC_ASSERT(
+      nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
+
   if (XRE_IsParentProcess()) {
     // Retrieve the union of all aHasType in aFlavorList
     for (auto& item : aFlavorList) {
@@ -335,31 +313,36 @@ nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
         continue;
       }
       if (!strcmp(flavor, kTextMime) && mClipboard->HasText()) {
-        *aHasType = true;
+        return true;
       } else if (!strcmp(flavor, kHTMLMime) && mClipboard->HasHTML()) {
-        *aHasType = true;
+        return true;
       } else if (!strcmp(flavor, kJPEGImageMime) ||
                  !strcmp(flavor, kJPGImageMime) ||
                  !strcmp(flavor, kPNGImageMime)) {
         // We will encode the image into any format you want, so we don't
         // need to check each specific format
         if (mClipboard->HasImage()) {
-          *aHasType = true;
+          return true;
         }
       }
     }
+    return false;
   } else {
     RefPtr<nsClipboardProxy> clipboardProxy = new nsClipboardProxy();
-    return clipboardProxy->HasDataMatchingFlavors(aFlavorList, aWhichClipboard,
-                                                  aHasType);
+    bool result = false;
+    nsresult rv = clipboardProxy->HasDataMatchingFlavors(
+        aFlavorList, aWhichClipboard, &result);
+    if (NS_FAILED(rv)) {
+      return Err(rv);
+    } else {
+      return result;
+    }
   }
-  return NS_OK;
 }
 
-NS_IMETHODIMP
-nsClipboard::IsClipboardTypeSupported(int32_t aWhichClipboard, bool* aRetval) {
-  NS_ENSURE_ARG_POINTER(aRetval);
-
-  *aRetval = aWhichClipboard == nsIClipboard::kGlobalClipboard;
-  return NS_OK;
+mozilla::Result<int32_t, nsresult>
+nsClipboard::GetNativeClipboardSequenceNumber(int32_t aWhichClipboard) {
+  MOZ_DIAGNOSTIC_ASSERT(
+      nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
+  return Err(NS_ERROR_NOT_AVAILABLE);
 }

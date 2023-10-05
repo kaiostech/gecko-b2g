@@ -909,9 +909,10 @@ void js::Nursery::printCollectionProfile(JS::GCReason reason,
   stats().maybePrintProfileHeaders();
 
   Sprinter sprinter;
-  if (!sprinter.init() || !sprinter.put(gcstats::MinorGCProfilePrefix)) {
+  if (!sprinter.init()) {
     return;
   }
+  sprinter.put(gcstats::MinorGCProfilePrefix);
 
   size_t pid = getpid();
   JSRuntime* runtime = gc->rt;
@@ -923,55 +924,56 @@ void js::Nursery::printCollectionProfile(JS::GCReason reason,
   size_t dedupCount = stats().getStat(gcstats::STAT_STRINGS_DEDUPLICATED);
 
 #define PRINT_FIELD_VALUE(_1, _2, format, value) \
-  if (!sprinter.jsprintf(" " format, value)) {   \
-    return;                                      \
-  }
+  sprinter.printf(" " format, value);
+
   FOR_EACH_NURSERY_PROFILE_METADATA(PRINT_FIELD_VALUE)
 #undef PRINT_FIELD_VALUE
 
   printProfileDurations(profileDurations_, sprinter);
 
-  fputs(sprinter.string(), stats().profileFile());
+  JS::UniqueChars str = sprinter.release();
+  if (!str) {
+    return;
+  }
+  fputs(str.get(), stats().profileFile());
 }
 
 void js::Nursery::printProfileHeader() {
   Sprinter sprinter;
-  if (!sprinter.init() || !sprinter.put(gcstats::MinorGCProfilePrefix)) {
+  if (!sprinter.init()) {
     return;
   }
+  sprinter.put(gcstats::MinorGCProfilePrefix);
 
-#define PRINT_FIELD_NAME(name, width, _1, _2)     \
-  if (!sprinter.jsprintf(" %-*s", width, name)) { \
-    return;                                       \
-  }
+#define PRINT_FIELD_NAME(name, width, _1, _2) \
+  sprinter.printf(" %-*s", width, name);
+
   FOR_EACH_NURSERY_PROFILE_METADATA(PRINT_FIELD_NAME)
 #undef PRINT_FIELD_NAME
 
-#define PRINT_PROFILE_NAME(_1, text)         \
-  if (!sprinter.jsprintf(" %-6.6s", text)) { \
-    return;                                  \
-  }
+#define PRINT_PROFILE_NAME(_1, text) sprinter.printf(" %-6.6s", text);
+
   FOR_EACH_NURSERY_PROFILE_TIME(PRINT_PROFILE_NAME)
 #undef PRINT_PROFILE_NAME
 
-  if (!sprinter.put("\n")) {
+  sprinter.put("\n");
+
+  JS::UniqueChars str = sprinter.release();
+  if (!str) {
     return;
   }
-
-  fputs(sprinter.string(), stats().profileFile());
+  fputs(str.get(), stats().profileFile());
 }
 
 // static
-bool js::Nursery::printProfileDurations(const ProfileDurations& times,
+void js::Nursery::printProfileDurations(const ProfileDurations& times,
                                         Sprinter& sprinter) {
   for (auto time : times) {
     int64_t micros = int64_t(time.ToMicroseconds());
-    if (!sprinter.jsprintf(" %6" PRIi64, micros)) {
-      return false;
-    }
+    sprinter.printf(" %6" PRIi64, micros);
   }
 
-  return sprinter.put("\n");
+  sprinter.put("\n");
 }
 
 static constexpr size_t NurserySliceMetadataFormatWidth() {
@@ -996,9 +998,10 @@ void js::Nursery::printTotalProfileTimes() {
   }
 
   Sprinter sprinter;
-  if (!sprinter.init() || !sprinter.put(gcstats::MinorGCProfilePrefix)) {
+  if (!sprinter.init()) {
     return;
   }
+  sprinter.put(gcstats::MinorGCProfilePrefix);
 
   size_t pid = getpid();
   JSRuntime* runtime = gc->rt;
@@ -1009,24 +1012,23 @@ void js::Nursery::printTotalProfileTimes() {
   MOZ_ASSERT(r > 0 && r < int(sizeof(collections)));
 
 #define PRINT_FIELD_VALUE(_1, _2, format, value) \
-  if (!sprinter.jsprintf(" " format, value)) {   \
-    return;                                      \
-  }
+  sprinter.printf(" " format, value);
+
   FOR_EACH_NURSERY_PROFILE_COMMON_METADATA(PRINT_FIELD_VALUE)
 #undef PRINT_FIELD_VALUE
 
   // Use whole width of per-slice metadata to print total slices so the profile
   // totals that follow line up.
   size_t width = NurserySliceMetadataFormatWidth();
-  if (!sprinter.jsprintf(" %-*s", int(width), collections)) {
+  sprinter.printf(" %-*s", int(width), collections);
+
+  printProfileDurations(totalDurations_, sprinter);
+
+  JS::UniqueChars str = sprinter.release();
+  if (!str) {
     return;
   }
-
-  if (!printProfileDurations(totalDurations_, sprinter)) {
-    return;
-  }
-
-  fputs(sprinter.string(), stats().profileFile());
+  fputs(str.get(), stats().profileFile());
 }
 
 void js::Nursery::maybeClearProfileDurations() {

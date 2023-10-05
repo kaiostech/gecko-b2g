@@ -39,6 +39,7 @@ use to_shmem::impl_trivial_to_shmem;
 use crate::stylesheets::{CssRuleType, CssRuleTypes, Origin, UrlExtraData};
 use crate::use_counters::UseCounters;
 use crate::values::generics::font::LineHeight;
+use crate::values::specified::length::LineHeightBase;
 use crate::values::{computed, resolved, serialize_atom_name};
 use crate::values::specified::font::SystemFont;
 use crate::rule_tree::StrongRuleNode;
@@ -362,6 +363,16 @@ impl MallocSizeOf for PropertyDeclaration {
 
 
 impl PropertyDeclaration {
+    /// Dumps the property declaration before crashing.
+    #[cold]
+    #[cfg(debug_assertions)]
+    pub(crate) fn debug_crash(&self, reason: &str) {
+        panic!("{}: {:?}", reason, self);
+    }
+    #[cfg(not(debug_assertions))]
+    #[inline(always)]
+    pub(crate) fn debug_crash(&self, _reason: &str) {}
+
     /// Returns whether this is a variant of the Longhand(Value) type, rather
     /// than one of the special variants in extra_variants.
     fn is_longhand_value(&self) -> bool {
@@ -897,6 +908,8 @@ PRIORITARY_PROPERTIES = set([
     "forced-color-adjust",
     # Zoom affects all absolute lengths.
     "zoom",
+    # Line height lengths depend on this.
+    "line-height",
 ])
 
 def is_visited_dependent(p):
@@ -4029,6 +4042,31 @@ impl<'a> StyleBuilder<'a> {
     #[inline]
     pub fn get_parent_flags(&self) -> ComputedValueFlags {
         self.inherited_style.flags
+    }
+
+    /// Calculate the line height, given the currently resolved line-height and font.
+    pub fn calc_line_height(
+        &self,
+        device: &Device,
+        line_height_base: LineHeightBase,
+        writing_mode: WritingMode,
+    ) -> computed::NonNegativeLength {
+        use crate::computed_value_flags::ComputedValueFlags;
+        let (font, flag) = match line_height_base {
+            LineHeightBase::CurrentStyle => (
+                self.get_font(),
+                ComputedValueFlags::DEPENDS_ON_SELF_FONT_METRICS,
+            ),
+            LineHeightBase::InheritedStyle => (
+                self.get_parent_font(),
+                ComputedValueFlags::DEPENDS_ON_INHERITED_FONT_METRICS,
+            ),
+        };
+        let line_height = font.clone_line_height();
+        if matches!(line_height, computed::LineHeight::Normal) {
+            self.add_flags(flag);
+        }
+        device.calc_line_height(&font, writing_mode, None)
     }
 
     /// And access to inherited style structs.

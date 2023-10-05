@@ -1700,7 +1700,7 @@ static bool DisassembleNative(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  Sprinter sprinter(cx);
+  JSSprinter sprinter(cx);
   if (!sprinter.init()) {
     return false;
   }
@@ -1711,12 +1711,11 @@ static bool DisassembleNative(JSContext* cx, unsigned argc, Value* vp) {
   uint8_t* jit_end = nullptr;
 
   if (fun->isAsmJSNative() || fun->isWasmWithJitEntry()) {
-    if (fun->isAsmJSNative() && !sprinter.jsprintf("; backend=asmjs\n")) {
+    if (fun->isAsmJSNative()) {
       return false;
     }
-    if (!sprinter.jsprintf("; backend=wasm\n")) {
-      return false;
-    }
+    sprinter.printf("; backend=asmjs\n");
+    sprinter.printf("; backend=wasm\n");
 
     js::wasm::Instance& inst = fun->wasmInstance();
     const js::wasm::Code& code = inst.code();
@@ -1742,17 +1741,11 @@ static bool DisassembleNative(JSContext* cx, unsigned argc, Value* vp) {
     js::jit::BaselineScript* baseline =
         script->hasBaselineScript() ? script->baselineScript() : nullptr;
     if (ion && ion->method()) {
-      if (!sprinter.jsprintf("; backend=ion\n")) {
-        return false;
-      }
-
+      sprinter.printf("; backend=ion\n");
       jit_begin = ion->method()->raw();
       jit_end = ion->method()->rawEnd();
     } else if (baseline) {
-      if (!sprinter.jsprintf("; backend=baseline\n")) {
-        return false;
-      }
-
+      sprinter.printf("; backend=baseline\n");
       jit_begin = baseline->method()->raw();
       jit_end = baseline->method()->rawEnd();
     }
@@ -1779,7 +1772,7 @@ static bool DisassembleNative(JSContext* cx, unsigned argc, Value* vp) {
     ReportOutOfMemory(cx);
     return false;
   }
-  sprinter.putString(sresult);
+  sprinter.putString(cx, sresult);
 
   if (args.length() > 1 && args[1].isString()) {
     RootedString str(cx, args[1].toString());
@@ -1807,7 +1800,7 @@ static bool DisassembleNative(JSContext* cx, unsigned argc, Value* vp) {
     fclose(f);
   }
 
-  JSString* str = JS_NewStringCopyZ(cx, sprinter.string());
+  JSString* str = sprinter.release(cx);
   if (!str) {
     return false;
   }
@@ -6965,17 +6958,13 @@ static bool GetStringRepresentation(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  Sprinter out(cx, true);
+  JSSprinter out(cx);
   if (!out.init()) {
     return false;
   }
   str->dumpRepresentation(out, 0);
 
-  if (out.hadOutOfMemory()) {
-    return false;
-  }
-
-  JSString* rep = JS_NewStringCopyN(cx, out.string(), out.getOffset());
+  JSString* rep = out.release(cx);
   if (!rep) {
     return false;
   }

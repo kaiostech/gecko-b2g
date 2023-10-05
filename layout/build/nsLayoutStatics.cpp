@@ -109,7 +109,6 @@
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/dom/U2FTokenManager.h"
 #endif
-#include "mozilla/dom/WebAuthnController.h"
 #ifdef XP_WIN
 #  include "mozilla/dom/WinWebAuthnManager.h"
 #endif
@@ -276,8 +275,6 @@ nsresult nsLayoutStatics::Initialize() {
 #ifdef MOZ_WIDGET_ANDROID
   mozilla::dom::U2FTokenManager::Initialize();
 #endif
-
-  mozilla::dom::WebAuthnController::Initialize();
 
 #ifdef XP_WIN
   mozilla::dom::WinWebAuthnManager::Initialize();

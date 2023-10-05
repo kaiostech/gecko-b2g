@@ -1312,9 +1312,6 @@ pref("network.sts.pollable_event_timeout", 6);
 // 2147483647 == PR_INT32_MAX == ~2 GB
 pref("network.websocket.max-message-size", 2147483647);
 
-// Should we automatically follow http 3xx redirects during handshake
-pref("network.websocket.auto-follow-http-redirects", false);
-
 // the number of seconds to wait for websocket connection to be opened
 pref("network.websocket.timeout.open", 20);
 
@@ -3466,6 +3463,11 @@ pref("browser.search.suggest.enabled.private", false);
 pref("browser.search.separatePrivateDefault", true);
 pref("browser.search.separatePrivateDefault.ui.enabled", false);
 pref("browser.search.removeEngineInfobar.enabled", true);
+
+// Enables a new search configuration style with no functional changes for the
+// user. This is solely intended as a rollout button - it will go away once the
+// new configuration has been rolled out.
+pref("browser.search.newSearchConfig.enabled", false);
 
 // GMPInstallManager prefs
 

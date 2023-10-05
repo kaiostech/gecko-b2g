@@ -131,21 +131,22 @@ static const uint32_t sDefaultStreamVolumeTbl[AUDIO_STREAM_PUBLIC_CNT] = {
     8,   // accessibility
 };
 
-static const int32_t sStreamVolumeAliasTbl[AUDIO_STREAM_PUBLIC_CNT] = {
-    AUDIO_STREAM_VOICE_CALL,        // voice call
-    AUDIO_STREAM_NOTIFICATION,      // system
-    AUDIO_STREAM_NOTIFICATION,      // ring
-    AUDIO_STREAM_MUSIC,             // music
-    AUDIO_STREAM_ALARM,             // alarm
-    AUDIO_STREAM_NOTIFICATION,      // notification
-    AUDIO_STREAM_BLUETOOTH_SCO,     // BT SCO
-    AUDIO_STREAM_ENFORCED_AUDIBLE,  // enforced audible
-    AUDIO_STREAM_DTMF,              // DTMF
-    AUDIO_STREAM_TTS,               // TTS
-    AUDIO_STREAM_ACCESSIBILITY,     // accessibility
+static const audio_stream_type_t
+    sStreamVolumeAliasTbl[AUDIO_STREAM_PUBLIC_CNT] = {
+        AUDIO_STREAM_VOICE_CALL,        // voice call
+        AUDIO_STREAM_NOTIFICATION,      // system
+        AUDIO_STREAM_NOTIFICATION,      // ring
+        AUDIO_STREAM_MUSIC,             // music
+        AUDIO_STREAM_ALARM,             // alarm
+        AUDIO_STREAM_NOTIFICATION,      // notification
+        AUDIO_STREAM_BLUETOOTH_SCO,     // BT SCO
+        AUDIO_STREAM_ENFORCED_AUDIBLE,  // enforced audible
+        AUDIO_STREAM_DTMF,              // DTMF
+        AUDIO_STREAM_TTS,               // TTS
+        AUDIO_STREAM_ACCESSIBILITY,     // accessibility
 };
 
-static const uint32_t sChannelStreamTbl[NUMBER_OF_AUDIO_CHANNELS] = {
+static const audio_stream_type_t sChannelStreamTbl[NUMBER_OF_AUDIO_CHANNELS] = {
     AUDIO_STREAM_MUSIC,             // AudioChannel::Normal
     AUDIO_STREAM_MUSIC,             // AudioChannel::Content
     AUDIO_STREAM_NOTIFICATION,      // AudioChannel::Notification
@@ -187,7 +188,7 @@ static const int kBtWideBandSampleRate = 16000;
  **/
 struct VolumeData {
   nsLiteralString mChannelName;
-  int32_t mStreamType;
+  audio_stream_type_t mStreamType;
 };
 
 static const VolumeData gVolumeData[] = {
@@ -199,7 +200,8 @@ static const VolumeData gVolumeData[] = {
 
 class VolumeCurves {
  public:
-  explicit VolumeCurves(int32_t aStreamType) : mStreamType(aStreamType) {
+  explicit VolumeCurves(audio_stream_type_t aStreamType)
+      : mStreamType(aStreamType) {
     MOZ_ASSERT(aStreamType < AUDIO_STREAM_PUBLIC_CNT);
   }
   VolumeCurves() = delete;
@@ -230,14 +232,13 @@ class VolumeCurves {
 
   float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
     float decibel = GonkAudioSystem::getStreamVolumeDB(
-        static_cast<audio_stream_type_t>(mStreamType), aIndex,
-        static_cast<audio_devices_t>(aDevice));
+        mStreamType, aIndex, static_cast<audio_devices_t>(aDevice));
     // decibel to amplitude
     return exp(decibel * 0.115129f);
   }
 
   nsTHashMap<nsUint32HashKey, nsTArray<float>> mCurves;
-  const int32_t mStreamType;
+  const audio_stream_type_t mStreamType;
 };
 
 class GonkAudioPortCallback : public GonkAudioSystem::AudioPortCallback {
@@ -778,8 +779,8 @@ AudioManager::AudioManager()
 #endif
 
   // Create VolumeStreamStates
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
-       ++streamType) {
+  for (int i = AUDIO_STREAM_MIN; i < AUDIO_STREAM_PUBLIC_CNT; i++) {
+    auto streamType = static_cast<audio_stream_type_t>(i);
     auto streamState = MakeUnique<VolumeStreamState>(*this, streamType);
     mStreamStates.AppendElement(std::move(streamState));
   }
@@ -821,8 +822,8 @@ void AudioManager::Init() {
 #endif
 
   // Initialize stream volumes with default values
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
-       streamType++) {
+  for (int i = AUDIO_STREAM_MIN; i < AUDIO_STREAM_PUBLIC_CNT; i++) {
+    auto streamType = static_cast<audio_stream_type_t>(i);
     uint32_t volIndex = sDefaultStreamVolumeTbl[streamType];
     SetStreamVolumeForDevice(streamType, volIndex, AUDIO_DEVICE_OUT_DEFAULT);
   }
@@ -1221,7 +1222,7 @@ AudioManager::GetMaxAudioChannelVolume(uint32_t aChannel, uint32_t* aMaxIndex) {
   return NS_OK;
 }
 
-nsresult AudioManager::ValidateVolumeIndex(int32_t aStream,
+nsresult AudioManager::ValidateVolumeIndex(audio_stream_type_t aStream,
                                            uint32_t aIndex) const {
   if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_PUBLIC_CNT) {
     return NS_ERROR_INVALID_ARG;
@@ -1235,29 +1236,28 @@ nsresult AudioManager::ValidateVolumeIndex(int32_t aStream,
   return NS_OK;
 }
 
-nsresult AudioManager::SetStreamVolumeForDevice(int32_t aStream,
+nsresult AudioManager::SetStreamVolumeForDevice(audio_stream_type_t aStream,
                                                 uint32_t aIndex,
                                                 uint32_t aDevice) {
   if (ValidateVolumeIndex(aStream, aIndex) != NS_OK) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
+  audio_stream_type_t streamAlias = sStreamVolumeAliasTbl[aStream];
   auto& streamState = mStreamStates[streamAlias];
   return streamState->SetVolumeIndexToAliasStreams(aIndex, aDevice);
 }
 
-nsresult AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex) {
+nsresult AudioManager::SetStreamVolumeIndex(audio_stream_type_t aStream,
+                                            uint32_t aIndex) {
   if (ValidateVolumeIndex(aStream, aIndex) != NS_OK) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
-       streamType++) {
-    if (streamAlias == sStreamVolumeAliasTbl[streamType]) {
-      nsresult rv =
-          mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
+  audio_stream_type_t streamAlias = sStreamVolumeAliasTbl[aStream];
+  for (int i = AUDIO_STREAM_MIN; i < AUDIO_STREAM_PUBLIC_CNT; i++) {
+    if (streamAlias == sStreamVolumeAliasTbl[i]) {
+      nsresult rv = mStreamStates[i]->SetVolumeIndexToActiveDevices(aIndex);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -1267,7 +1267,8 @@ nsresult AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex) {
   return NS_OK;
 }
 
-nsresult AudioManager::GetStreamVolumeIndex(int32_t aStream, uint32_t* aIndex) {
+nsresult AudioManager::GetStreamVolumeIndex(audio_stream_type_t aStream,
+                                            uint32_t* aIndex) {
   if (!aIndex) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -1352,7 +1353,7 @@ void AudioManager::MaybeWriteVolumeSettings(bool aForce) {
 
   // Clear changed flags
   for (const auto& data : gVolumeData) {
-    int32_t streamType = data.mStreamType;
+    audio_stream_type_t streamType = data.mStreamType;
     mStreamStates[streamType]->ClearDevicesChanged();
     mStreamStates[streamType]->ClearDevicesWithVolumeChange();
   }
@@ -1369,7 +1370,7 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
     // have to set the volumes of all devices with this value. If not, the
     // following stages will set the volumes by Gecko's defaults that could
     // conflict with the UX specifications.
-    int32_t stream;
+    audio_stream_type_t stream;
     uint32_t device;
     uint32_t volIndex;
     nsresult rv =
@@ -1409,7 +1410,8 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
 
 nsresult AudioManager::ParseVolumeSetting(const nsAString& aName,
                                           const nsAString& aValue,
-                                          int32_t* aStream, uint32_t* aDevice,
+                                          audio_stream_type_t* aStream,
+                                          uint32_t* aDevice,
                                           uint32_t* aVolIndex) {
   nsresult rv;
   uint32_t volIndex = aValue.ToInteger(&rv);
@@ -1459,12 +1461,11 @@ nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
   return names;
 }
 
-uint32_t AudioManager::GetDevicesForStream(int32_t aStream) {
-  return GonkAudioSystem::getDevicesForStream(
-      static_cast<audio_stream_type_t>(aStream));
+uint32_t AudioManager::GetDevicesForStream(audio_stream_type_t aStream) {
+  return GonkAudioSystem::getDevicesForStream(aStream);
 }
 
-uint32_t AudioManager::GetDeviceForStream(int32_t aStream) {
+uint32_t AudioManager::GetDeviceForStream(audio_stream_type_t aStream) {
   uint32_t devices = GetDevicesForStream(aStream);
   uint32_t device = SelectDeviceFromDevices(devices);
   return device;
@@ -1514,8 +1515,8 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
   return device;
 }
 
-AudioManager::VolumeStreamState::VolumeStreamState(AudioManager& aManager,
-                                                   int32_t aStreamType)
+AudioManager::VolumeStreamState::VolumeStreamState(
+    AudioManager& aManager, audio_stream_type_t aStreamType)
     : mManager(aManager), mStreamType(aStreamType) {
   switch (mStreamType) {
     case AUDIO_STREAM_SYSTEM:
@@ -1552,9 +1553,7 @@ uint32_t AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
 }
 
 void AudioManager::VolumeStreamState::InitStreamVolume() {
-  GonkAudioSystem::initStreamVolume(
-      static_cast<audio_stream_type_t>(mStreamType), GetMinIndex(),
-      GetMaxIndex());
+  GonkAudioSystem::initStreamVolume(mStreamType, GetMinIndex(), GetMaxIndex());
 }
 
 uint32_t AudioManager::VolumeStreamState::GetMaxIndex() {
@@ -1615,13 +1614,11 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToAliasStreams(
     return rv;
   }
 
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
-       streamType++) {
-    if ((streamType != mStreamType) &&
-        sStreamVolumeAliasTbl[streamType] == mStreamType) {
+  for (int i = AUDIO_STREAM_MIN; i < AUDIO_STREAM_PUBLIC_CNT; i++) {
+    if (i != mStreamType && sStreamVolumeAliasTbl[i] == mStreamType) {
       // Rescaling of index is not necessary.
-      rv = mManager.mStreamStates[streamType]->SetVolumeIndexToAliasStreams(
-          aIndex, aDevice);
+      rv = mManager.mStreamStates[i]->SetVolumeIndexToAliasStreams(aIndex,
+                                                                   aDevice);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -1667,8 +1664,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
   }
 
   rv = GonkAudioSystem::setStreamVolumeIndex(
-      static_cast<audio_stream_type_t>(mStreamType), aIndex,
-      static_cast<audio_devices_t>(aDevice));
+      mStreamType, aIndex, static_cast<audio_devices_t>(aDevice));
 
   // when changing music volume,  also set FMradio volume.Just for SPRD FMradio.
   if ((AUDIO_STREAM_MUSIC == mStreamType) && mManager.IsFmOutConnected()) {

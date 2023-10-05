@@ -47,7 +47,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   NS_DECL_NSIOBSERVER
 
   // Validate whether the volume index is within the range
-  nsresult ValidateVolumeIndex(int32_t aStream, uint32_t aIndex) const;
+  nsresult ValidateVolumeIndex(audio_stream_type_t aStream,
+                               uint32_t aIndex) const;
 
   // Called when android AudioFlinger in mediaserver is died
   void HandleAudioFlingerDied();
@@ -56,7 +57,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   class VolumeStreamState {
    public:
-    explicit VolumeStreamState(AudioManager& aManager, int32_t aStreamType);
+    explicit VolumeStreamState(AudioManager& aManager,
+                               audio_stream_type_t aStreamType);
     bool IsDevicesChanged();
     // Returns true if this stream stores separate volume index for each output
     // device. For example, speaker volume of media stream is different from
@@ -88,7 +90,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
    private:
     AudioManager& mManager;
-    const int32_t mStreamType;
+    const audio_stream_type_t mStreamType;
     uint32_t mLastDevices = 0;
     uint32_t mDevicesWithVolumeChange = 0;
     bool mIsDevicesChanged = true;
@@ -116,13 +118,13 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   bool IsFmOutConnected();
 
-  nsresult SetStreamVolumeForDevice(int32_t aStream, uint32_t aIndex,
-                                    uint32_t aDevice);
-  nsresult SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex);
-  nsresult GetStreamVolumeIndex(int32_t aStream, uint32_t* aIndex);
+  nsresult SetStreamVolumeForDevice(audio_stream_type_t aStream,
+                                    uint32_t aIndex, uint32_t aDevice);
+  nsresult SetStreamVolumeIndex(audio_stream_type_t aStream, uint32_t aIndex);
+  nsresult GetStreamVolumeIndex(audio_stream_type_t aStream, uint32_t* aIndex);
 
-  uint32_t GetDevicesForStream(int32_t aStream);
-  uint32_t GetDeviceForStream(int32_t aStream);
+  uint32_t GetDevicesForStream(audio_stream_type_t aStream);
+  uint32_t GetDeviceForStream(audio_stream_type_t aStream);
   uint32_t GetDeviceForFm();
   // Choose one device as representative of active devices.
   static uint32_t SelectDeviceFromDevices(uint32_t aOutDevices);
@@ -163,7 +165,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void MaybeWriteVolumeSettings(bool aForce = false);
   void OnAudioSettingChanged(const nsAString& aName, const nsAString& aValue);
   nsresult ParseVolumeSetting(const nsAString& aName, const nsAString& aValue,
-                              int32_t* aStream, uint32_t* aDevice,
+                              audio_stream_type_t* aStream, uint32_t* aDevice,
                               uint32_t* aVolIndex);
   nsTArray<nsString> AudioSettingNames(bool aInitializing);
 

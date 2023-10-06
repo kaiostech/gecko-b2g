@@ -24,7 +24,7 @@ const VALID_EXPLAINER_L10N_IDS = new Map([
  */
 class AnalysisExplainer extends MozLitElement {
   static properties = {
-    productURL: { type: String, reflect: true },
+    productUrl: { type: String, reflect: true },
   };
 
   getGradesDescriptionTemplate() {
@@ -83,10 +83,10 @@ class AnalysisExplainer extends MozLitElement {
   // placeholder "retailer", which should never be visible to users.
   getRetailerDisplayName() {
     let defaultName = "retailer";
-    if (!this.productURL) {
+    if (!this.productUrl) {
       return defaultName;
     }
-    let url = new URL(this.productURL);
+    let url = new URL(this.productUrl);
     let hostname = url.hostname;
     let displayNames = {
       "www.amazon.com": "Amazon",
@@ -98,13 +98,7 @@ class AnalysisExplainer extends MozLitElement {
 
   handleReviewQualityUrlClicked(e) {
     if (e.target.localName == "a" && e.button == 0) {
-      this.dispatchEvent(
-        new CustomEvent("ShoppingTelemetryEvent", {
-          composed: true,
-          bubbles: true,
-          detail: "surfaceReviewQualityExplainerURLClicked",
-        })
-      );
+      Glean.shopping.surfaceShowQualityExplainerUrlClicked.record();
     }
   }
 

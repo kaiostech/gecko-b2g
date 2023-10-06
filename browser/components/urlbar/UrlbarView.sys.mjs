@@ -552,6 +552,14 @@ export class UrlbarView {
 
     this.controller.notify(this.controller.NOTIFICATIONS.VIEW_CLOSE);
 
+    // Revoke icon blob URLs that were created while the view was open.
+    if (this.#blobUrlsByResultUrl) {
+      for (let blobUrl of this.#blobUrlsByResultUrl.values()) {
+        URL.revokeObjectURL(blobUrl);
+      }
+      this.#blobUrlsByResultUrl.clear();
+    }
+
     if (this.#isShowingZeroPrefix) {
       if (elementPicked) {
         Services.telemetry.scalarAdd(ZERO_PREFIX_SCALAR_ENGAGEMENT, 1);
@@ -1031,6 +1039,7 @@ export class UrlbarView {
 
   // Private properties and methods below.
   #announceTabToSearchOnSelection;
+  #blobUrlsByResultUrl = null;
   #inputWidthOnLastClose = 0;
   #l10nCache;
   #mainContainer;
@@ -1403,22 +1412,45 @@ export class UrlbarView {
       UrlbarView.dynamicViewTemplatesByName.get(dynamicType);
     if (!viewTemplate) {
       console.error(`No viewTemplate found for ${result.providerName}`);
+      return;
     }
-    this.#buildViewForDynamicType(
+    let hasUrl = this.#buildViewForDynamicType(
       dynamicType,
       item._content,
       item._elements,
       viewTemplate
     );
+    item.toggleAttribute("has-url", hasUrl);
     this.#setRowSelectable(item, item._content.hasAttribute("selectable"));
   }
 
+  /**
+   * Recursively builds a row's DOM for a dynamic result type.
+   *
+   * @param {string} type
+   *   The name of the dynamic type.
+   * @param {Element} parentNode
+   *   The element being recursed into. Pass `row._content`
+   *   (i.e., the row's `.urlbarView-row-inner`) to start with.
+   * @param {Map} elementsByName
+   *   The `row._elements` map.
+   * @param {object} template
+   *   The template object being recursed into. Pass the top-level template
+   *   object to start with.
+   * @returns {boolean}
+   *   Whether the given template or any of its descendants contains a
+   *   `.urlbarView-url` element.
+   */
   #buildViewForDynamicType(type, parentNode, elementsByName, template) {
+    let hasUrl = false;
+
     // Set attributes on parentNode.
     this.#setDynamicAttributes(parentNode, template.attributes);
+
     // Add classes to parentNode's classList.
     if (template.classList) {
       parentNode.classList.add(...template.classList);
+      hasUrl ||= template.classList.includes("urlbarView-url");
     }
     if (template.overflowable) {
       parentNode.classList.add("urlbarView-overflowable");
@@ -1427,13 +1459,22 @@ export class UrlbarView {
       parentNode.setAttribute("name", template.name);
       elementsByName.set(template.name, parentNode);
     }
+
     // Recurse into children.
     for (let childTemplate of template.children || []) {
       let child = this.#createElement(childTemplate.tag);
       child.classList.add(`urlbarView-dynamic-${type}-${childTemplate.name}`);
       parentNode.appendChild(child);
-      this.#buildViewForDynamicType(type, child, elementsByName, childTemplate);
+      let descendantHasUrl = this.#buildViewForDynamicType(
+        type,
+        child,
+        elementsByName,
+        childTemplate
+      );
+      hasUrl ||= descendantHasUrl;
     }
+
+    return hasUrl;
   }
 
   #createRowContentForRichSuggestion(item, result) {
@@ -1662,14 +1703,7 @@ export class UrlbarView {
     }
 
     let favicon = item._elements.get("favicon");
-    if (
-      result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH ||
-      result.type == lazy.UrlbarUtils.RESULT_TYPE.KEYWORD
-    ) {
-      favicon.src = this.#iconForResult(result);
-    } else {
-      favicon.src = result.payload.icon || lazy.UrlbarUtils.ICON.DEFAULT;
-    }
+    favicon.src = this.#iconForResult(result);
 
     let title = item._elements.get("title");
     this.#setResultTitle(result, title);
@@ -1878,21 +1912,54 @@ export class UrlbarView {
   }
 
   #iconForResult(result, iconUrlOverride = null) {
-    return (
-      (result.source == lazy.UrlbarUtils.RESULT_SOURCE.HISTORY &&
-        (result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH ||
-          result.type == lazy.UrlbarUtils.RESULT_TYPE.KEYWORD) &&
-        lazy.UrlbarUtils.ICON.HISTORY) ||
-      iconUrlOverride ||
-      result.payload.icon ||
-      (result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
-        result.payload.trending &&
-        lazy.UrlbarUtils.ICON.TRENDING) ||
-      ((result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH ||
-        result.type == lazy.UrlbarUtils.RESULT_TYPE.KEYWORD) &&
-        lazy.UrlbarUtils.ICON.SEARCH_GLASS) ||
-      lazy.UrlbarUtils.ICON.DEFAULT
-    );
+    if (
+      result.source == lazy.UrlbarUtils.RESULT_SOURCE.HISTORY &&
+      (result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH ||
+        result.type == lazy.UrlbarUtils.RESULT_TYPE.KEYWORD)
+    ) {
+      return lazy.UrlbarUtils.ICON.HISTORY;
+    }
+
+    if (iconUrlOverride) {
+      return iconUrlOverride;
+    }
+
+    if (result.payload.icon) {
+      return result.payload.icon;
+    }
+    if (result.payload.iconBlob) {
+      // Blob icons are currently limited to Suggest results, which will define
+      // a `payload.originalUrl` if the result URL contains timestamp templates
+      // that are replaced at query time.
+      let resultUrl = result.payload.originalUrl || result.payload.url;
+      if (resultUrl) {
+        let blobUrl = this.#blobUrlsByResultUrl?.get(resultUrl);
+        if (!blobUrl) {
+          blobUrl = URL.createObjectURL(result.payload.iconBlob);
+          // Since most users will not trigger results with blob icons, we
+          // create this map lazily.
+          this.#blobUrlsByResultUrl ||= new Map();
+          this.#blobUrlsByResultUrl.set(resultUrl, blobUrl);
+        }
+        return blobUrl;
+      }
+    }
+
+    if (
+      result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH &&
+      result.payload.trending
+    ) {
+      return lazy.UrlbarUtils.ICON.TRENDING;
+    }
+
+    if (
+      result.type == lazy.UrlbarUtils.RESULT_TYPE.SEARCH ||
+      result.type == lazy.UrlbarUtils.RESULT_TYPE.KEYWORD
+    ) {
+      return lazy.UrlbarUtils.ICON.SEARCH_GLASS;
+    }
+
+    return lazy.UrlbarUtils.ICON.DEFAULT;
   }
 
   async #updateRowForDynamicType(item, result) {

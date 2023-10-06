@@ -1697,7 +1697,16 @@ void nsJSContext::MaybeRunNextCollectorSlice(nsIDocShell* aDocShell,
     // Try to not delay the next RefreshDriver tick, so give a reasonable
     // deadline for collectors.
     if (next.isSome()) {
-      sScheduler.RunNextCollectorTimer(aReason, next.value());
+      if (sScheduler.InIncrementalGC() || sScheduler.IsCollectingCycles()) {
+        sScheduler.RunNextCollectorTimer(aReason, next.value());
+      } else {
+        // In order to improve performance on the next page, run a minor GC.
+        // The 16ms limit ensures it isn't called all the time if there are for
+        // example multiple iframes loading at the same time.
+        JS::RunNurseryCollection(CycleCollectedJSRuntime::Get()->Runtime(),
+                                 JS::GCReason::PREPARE_FOR_PAGELOAD,
+                                 mozilla::TimeDuration::FromMilliseconds(16));
+      }
     }
   }
 }

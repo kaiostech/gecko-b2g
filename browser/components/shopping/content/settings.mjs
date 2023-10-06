@@ -16,6 +16,7 @@ import { FAKESPOT_BASE_URL } from "chrome://global/content/shopping/ProductConfi
 
 class ShoppingSettings extends MozLitElement {
   static properties = {
+    adsEnabled: { type: Boolean },
     adsEnabledByUser: { type: Boolean },
   };
 
@@ -45,22 +46,15 @@ class ShoppingSettings extends MozLitElement {
 
   fakespotLinkClicked(e) {
     if (e.target.localName == "a" && e.button == 0) {
-      this.dispatchEvent(
-        new CustomEvent("ShoppingTelemetryEvent", {
-          composed: true,
-          bubbles: true,
-          detail: "surfacePoweredByFakespotLinkClicked",
-        })
-      );
+      Glean.shopping.surfacePoweredByFakespotLinkClicked.record();
     }
   }
 
   render() {
     // Whether we show recommendations at all (including offering a user
     // control for them) is controlled via a nimbus-enabled pref.
-    let canShowRecommendationToggle = RPMGetBoolPref(
-      "browser.shopping.experience2023.ads.enabled"
-    );
+    let canShowRecommendationToggle = this.adsEnabled;
+
     let toggleMarkup = canShowRecommendationToggle
       ? html`
         <moz-toggle

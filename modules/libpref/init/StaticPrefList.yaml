@@ -7711,7 +7711,7 @@
 # Maximum amount of time that should elapse between incremental GC slices, in ms.
 - name: javascript.options.gc_delay.interslice
   type: uint32_t
-  value: 100
+  value: 250
   mirror: always
 
 # nsJSEnvironmentObserver observes the memory-pressure notifications and
@@ -8579,7 +8579,7 @@
 # Is support for light-dark() on content enabled?
 - name: layout.css.light-dark.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -9510,6 +9510,12 @@
 
 # Controls whether nsRefreshDriver::IsInHighRateMode() may ever return true.
 - name: layout.expose_high_rate_mode_from_refreshdriver
+  type: bool
+  value: true
+  mirror: always
+
+# Whether <details> is forced to be a block, see bug 1856374
+- name: layout.details.force-block-layout
   type: bool
   value: true
   mirror: always
@@ -14687,6 +14693,26 @@
 - name: test.events.async.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: test.events.async.key.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: test.events.async.mouse.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: test.events.async.touch.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: test.events.async.wheel.enabled
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 - name: test.mousescroll

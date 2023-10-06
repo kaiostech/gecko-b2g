@@ -59,7 +59,7 @@ struct NurseryChunk : public ChunkBase {
       : ChunkBase(runtime, &runtime->gc.storeBuffer()) {}
 
   void poisonAndInit(JSRuntime* rt, size_t size = ChunkSize);
-  void poisonRange(size_t from, size_t size, uint8_t value,
+  void poisonRange(size_t start, size_t end, uint8_t value,
                    MemCheckKind checkKind);
   void poisonAfterEvict(size_t extent = ChunkSize);
 
@@ -114,23 +114,26 @@ inline void js::NurseryChunk::poisonAndInit(JSRuntime* rt, size_t size) {
   new (this) NurseryChunk(rt);
 }
 
-inline void js::NurseryChunk::poisonRange(size_t from, size_t size,
+inline void js::NurseryChunk::poisonRange(size_t start, size_t end,
                                           uint8_t value,
                                           MemCheckKind checkKind) {
-  MOZ_ASSERT(from + size <= ChunkSize);
+  MOZ_ASSERT((start % gc::CellAlignBytes) == 0);
+  MOZ_ASSERT((end % gc::CellAlignBytes) == 0);
+  MOZ_ASSERT(end > start);
+  MOZ_ASSERT(end <= ChunkSize);
 
-  auto* start = reinterpret_cast<uint8_t*>(this) + from;
+  auto* ptr = reinterpret_cast<uint8_t*>(this) + start;
+  size_t size = end - start;
 
   // We can poison the same chunk more than once, so first make sure memory
   // sanitizers will let us poison it.
-  MOZ_MAKE_MEM_UNDEFINED(start, size);
-  Poison(start, value, size, checkKind);
+  MOZ_MAKE_MEM_UNDEFINED(ptr, size);
+  Poison(ptr, value, size, checkKind);
 }
 
 inline void js::NurseryChunk::poisonAfterEvict(size_t extent) {
-  MOZ_ASSERT(extent <= ChunkSize);
-  poisonRange(sizeof(ChunkBase), extent - sizeof(ChunkBase),
-              JS_SWEPT_NURSERY_PATTERN, MemCheckKind::MakeNoAccess);
+  poisonRange(sizeof(ChunkBase), extent, JS_SWEPT_NURSERY_PATTERN,
+              MemCheckKind::MakeNoAccess);
 }
 
 inline void js::NurseryChunk::markPagesUnusedHard(size_t startOffset) {
@@ -216,8 +219,8 @@ js::Nursery::Nursery(GCRuntime* gc)
       currentEnd_(0),
       gc(gc),
       currentChunk_(0),
-      currentStartChunk_(0),
-      currentStartPosition_(0),
+      startChunk_(0),
+      startPosition_(0),
       capacity_(0),
       enableProfiling_(false),
       canAllocateStrings_(true),
@@ -350,8 +353,8 @@ bool js::Nursery::initFirstChunk(AutoLockGCBgAlloc& lock) {
     return false;
   }
 
-  setCurrentChunk(0);
-  setStartPosition();
+  moveToStartOfChunk(0);
+  setStartToCurrentPosition();
   poisonAndInitCurrentChunk();
 
   // Clear any information about previous collections.
@@ -467,10 +470,10 @@ bool js::Nursery::isEmpty() const {
   }
 
   if (!gc->hasZealMode(ZealMode::GenerationalGC)) {
-    MOZ_ASSERT(currentStartChunk_ == 0);
-    MOZ_ASSERT(currentStartPosition_ == chunk(0).start());
+    MOZ_ASSERT(startChunk_ == 0);
+    MOZ_ASSERT(startPosition_ == chunk(0).start());
   }
-  return position() == currentStartPosition_;
+  return position() == startPosition_;
 }
 
 #ifdef JS_GC_ZEAL
@@ -494,8 +497,8 @@ void js::Nursery::enterZealMode() {
 
     // It'd be simpler to poison the whole chunk, but we can't do that
     // because the nursery might be partially used.
-    chunk(0).poisonRange(capacity_, ChunkSize - capacity_,
-                         JS_FRESH_NURSERY_PATTERN, MemCheckKind::MakeUndefined);
+    chunk(0).poisonRange(capacity_, ChunkSize, JS_FRESH_NURSERY_PATTERN,
+                         MemCheckKind::MakeUndefined);
   }
 
   capacity_ = RoundUp(tunables().gcMaxNurseryBytes(), ChunkSize);
@@ -514,8 +517,8 @@ void js::Nursery::leaveZealMode() {
 
   MOZ_ASSERT(isEmpty());
 
-  setCurrentChunk(0);
-  setStartPosition();
+  moveToStartOfChunk(0);
+  setStartToCurrentPosition();
   poisonAndInitCurrentChunk();
 }
 #endif  // JS_GC_ZEAL
@@ -589,7 +592,7 @@ bool Nursery::moveToNextChunk() {
     MOZ_ASSERT(chunkno < allocatedChunkCount());
   }
 
-  setCurrentChunk(chunkno);
+  moveToStartOfChunk(chunkno);
   poisonAndInitCurrentChunk();
   return true;
 }
@@ -1050,7 +1053,7 @@ inline TimeStamp js::Nursery::collectionStartTime() const {
   return startTimes_[ProfileKey::Total];
 }
 
-inline TimeStamp js::Nursery::lastCollectionEndTime() const {
+TimeStamp js::Nursery::lastCollectionEndTime() const {
   return previousGC.endTime;
 }
 
@@ -1684,11 +1687,11 @@ void js::Nursery::clear() {
     // Poison all the chunks used in this cycle. The new start chunk is
     // reposioned in Nursery::collect() but there's no point optimising that in
     // this case.
-    firstClearChunk = currentStartChunk_;
+    firstClearChunk = startChunk_;
   } else {
     // In normal mode we start at the second chunk, the first one will be used
     // in the next cycle and poisoned in Nusery::collect();
-    MOZ_ASSERT(currentStartChunk_ == 0);
+    MOZ_ASSERT(startChunk_ == 0);
     firstClearChunk = 1;
   }
   for (unsigned i = firstClearChunk; i < currentChunk_; ++i) {
@@ -1707,47 +1710,14 @@ void js::Nursery::clear() {
   if (!gc->hasZealMode(ZealMode::GenerationalGC) ||
       (gc->hasZealMode(ZealMode::GenerationalGC) &&
        currentChunk_ + 1 == maxChunkCount())) {
-    setCurrentChunk(0);
+    moveToStartOfChunk(0);
   }
 
   // Set current start position for isEmpty checks.
-  setStartPosition();
+  setStartToCurrentPosition();
 }
 
-size_t js::Nursery::spaceToEnd(unsigned chunkCount) const {
-  if (chunkCount == 0) {
-    return 0;
-  }
-
-  unsigned lastChunk = chunkCount - 1;
-
-  MOZ_ASSERT(lastChunk >= currentStartChunk_);
-  MOZ_ASSERT(currentStartPosition_ - chunk(currentStartChunk_).start() <=
-             NurseryChunkUsableSize);
-
-  size_t bytes;
-
-  if (chunkCount != 1) {
-    // In the general case we have to add:
-    //  + the bytes used in the first
-    //    chunk which may be less than the total size of a chunk since in some
-    //    zeal modes we start the first chunk at some later position
-    //    (currentStartPosition_).
-    //  + the size of all the other chunks.
-    bytes = (chunk(currentStartChunk_).end() - currentStartPosition_) +
-            ((lastChunk - currentStartChunk_) * ChunkSize);
-  } else {
-    // In sub-chunk mode, but it also works whenever chunkCount == 1, we need to
-    // use currentEnd_ since it may not refer to a full chunk.
-    bytes = currentEnd_ - currentStartPosition_;
-  }
-
-  MOZ_ASSERT(bytes <= maxChunkCount() * ChunkSize);
-
-  return bytes;
-}
-
-MOZ_ALWAYS_INLINE void js::Nursery::setCurrentChunk(unsigned chunkno) {
+MOZ_ALWAYS_INLINE void js::Nursery::moveToStartOfChunk(unsigned chunkno) {
   MOZ_ASSERT(chunkno < allocatedChunkCount());
 
   currentChunk_ = chunkno;
@@ -1802,9 +1772,9 @@ bool js::Nursery::allocateNextChunk(const unsigned chunkno,
   return true;
 }
 
-MOZ_ALWAYS_INLINE void js::Nursery::setStartPosition() {
-  currentStartChunk_ = currentChunk_;
-  currentStartPosition_ = position();
+MOZ_ALWAYS_INLINE void js::Nursery::setStartToCurrentPosition() {
+  startChunk_ = currentChunk_;
+  startPosition_ = position();
 }
 
 void js::Nursery::maybeResizeNursery(JS::GCOptions options,
@@ -1870,6 +1840,10 @@ size_t js::Nursery::targetSize(JS::GCOptions options, JS::GCReason reason) {
   }
 
   TimeStamp now = TimeStamp::Now();
+
+  if (reason == JS::GCReason::PREPARE_FOR_PAGELOAD) {
+    return roundSize(tunables().gcMaxNurseryBytes());
+  }
 
   // If the nursery is completely unused then minimise it.
   if (hasRecentGrowthData && previousGC.nurseryUsedBytes == 0 &&
@@ -1980,8 +1954,8 @@ void js::Nursery::growAllocableSpace(size_t newCapacity) {
     // The capacity has changed and since we were in sub-chunk mode we need to
     // update the poison values / asan information for the now-valid region of
     // this chunk.
-    size_t size = std::min(newCapacity, ChunkSize) - capacity();
-    chunk(0).poisonRange(capacity(), size, JS_FRESH_NURSERY_PATTERN,
+    size_t end = std::min(newCapacity, ChunkSize);
+    chunk(0).poisonRange(capacity(), end, JS_FRESH_NURSERY_PATTERN,
                          MemCheckKind::MakeUndefined);
   }
 
@@ -2047,8 +2021,8 @@ void js::Nursery::shrinkAllocableSpace(size_t newCapacity) {
 
   if (isSubChunkMode()) {
     MOZ_ASSERT(currentChunk_ == 0);
-    size_t size = std::min(oldCapacity, ChunkSize) - newCapacity;
-    chunk(0).poisonRange(newCapacity, size, JS_SWEPT_NURSERY_PATTERN,
+    size_t end = std::min(oldCapacity, ChunkSize);
+    chunk(0).poisonRange(newCapacity, end, JS_SWEPT_NURSERY_PATTERN,
                          MemCheckKind::MakeNoAccess);
 
     AutoLockHelperThreadState lock;

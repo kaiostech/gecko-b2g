@@ -386,10 +386,10 @@ let JSWINDOWACTORS = {
 
   AboutWelcomeShopping: {
     parent: {
-      moduleURI: "resource:///actors/AboutWelcomeParent.jsm",
+      esModuleURI: "resource:///actors/AboutWelcomeParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/AboutWelcomeChild.jsm",
+      esModuleURI: "resource:///actors/AboutWelcomeChild.sys.mjs",
       events: {
         Update: {},
       },
@@ -400,10 +400,10 @@ let JSWINDOWACTORS = {
 
   AboutWelcome: {
     parent: {
-      moduleURI: "resource:///actors/AboutWelcomeParent.jsm",
+      esModuleURI: "resource:///actors/AboutWelcomeParent.sys.mjs",
     },
     child: {
-      moduleURI: "resource:///actors/AboutWelcomeChild.jsm",
+      esModuleURI: "resource:///actors/AboutWelcomeChild.sys.mjs",
       events: {
         // This is added so the actor instantiates immediately and makes
         // methods available to the page js on load.
@@ -767,7 +767,6 @@ let JSWINDOWACTORS = {
         // This is added so the actor instantiates immediately and makes
         // methods available to the page js on load.
         DOMDocElementInserted: {},
-        ShoppingTelemetryEvent: { wantUntrusted: true },
         ReportProductAvailable: { wantUntrusted: true },
       },
     },
@@ -3646,7 +3645,7 @@ BrowserGlue.prototype = {
   _migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 140;
+    const UI_VERSION = 141;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
@@ -4226,6 +4225,13 @@ BrowserGlue.prototype = {
     if (currentUIVersion < 140) {
       // Remove browser.fixup.alternate.enabled pref in Bug 1850902.
       Services.prefs.clearUserPref("browser.fixup.alternate.enabled");
+    }
+
+    if (currentUIVersion < 141) {
+      for (const filename of ["signons.sqlite", "signons.sqlite.corrupt"]) {
+        const filePath = PathUtils.join(PathUtils.profileDir, filename);
+        IOUtils.remove(filePath, { ignoreAbsent: true }).catch(console.error);
+      }
     }
 
     // Update the migration version.

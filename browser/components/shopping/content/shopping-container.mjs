@@ -70,6 +70,7 @@ export class ShoppingContainer extends MozLitElement {
     window.document.addEventListener("ReportedProductAvailable", this);
     window.document.addEventListener("adsEnabledByUserChanged", this);
     window.document.addEventListener("scroll", this);
+    window.document.addEventListener("UpdateRecommendations", this);
 
     window.dispatchEvent(
       new CustomEvent("ContentReady", {
@@ -104,6 +105,10 @@ export class ShoppingContainer extends MozLitElement {
     this.adsEnabledByUser = adsEnabledByUser;
   }
 
+  _updateRecommendations({ recommendationData }) {
+    this.recommendationData = recommendationData;
+  }
+
   handleEvent(event) {
     switch (event.type) {
       case "Update":
@@ -132,13 +137,7 @@ export class ShoppingContainer extends MozLitElement {
             composed: true,
           })
         );
-        window.dispatchEvent(
-          new CustomEvent("ShoppingTelemetryEvent", {
-            bubbles: true,
-            composed: true,
-            detail: "surfaceReactivatedButtonClicked",
-          })
-        );
+        Glean.shopping.surfaceReactivatedButtonClicked.record();
         break;
       case "adsEnabledByUserChanged":
         this.adsEnabledByUser = event.detail?.adsEnabledByUser;
@@ -146,6 +145,9 @@ export class ShoppingContainer extends MozLitElement {
       case "scroll":
         let scrollYPosition = window.scrollY;
         this.isOverflow = scrollYPosition > HEADER_SCROLL_PIXEL_OFFSET;
+        break;
+      case "UpdateRecommendations":
+        this._updateRecommendations(event.detail);
         break;
     }
   }
@@ -318,6 +320,7 @@ export class ShoppingContainer extends MozLitElement {
       ></analysis-explainer>
       ${this.recommendationTemplate()}
       <shopping-settings
+        ?adsEnabled=${this.adsEnabled}
         ?adsEnabledByUser=${this.adsEnabledByUser}
       ></shopping-settings>
     `;
@@ -349,13 +352,7 @@ export class ShoppingContainer extends MozLitElement {
 
   handleClick() {
     RPMSetPref("browser.shopping.experience2023.active", false);
-    this.dispatchEvent(
-      new CustomEvent("ShoppingTelemetryEvent", {
-        composed: true,
-        bubbles: true,
-        detail: ["surfaceClosed", "closeButton"],
-      })
-    );
+    Glean.shopping.surfaceClosed.record({ source: "closeButton" });
   }
 }
 

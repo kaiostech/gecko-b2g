@@ -781,7 +781,7 @@ JSLinearString* JSRope::flattenInternal(JSRope* root) {
   JSRope* parent = nullptr;
   uint32_t parentFlag = 0;
 
-first_visit_node : {
+first_visit_node: {
   MOZ_ASSERT_IF(str != root, parent && parentFlag);
   MOZ_ASSERT(!str->asRope().isBeingFlattened());
 
@@ -806,7 +806,7 @@ first_visit_node : {
   pos += left.length();
 }
 
-visit_right_child : {
+visit_right_child: {
   JSString& right = *str->d.s.u3.right;
   if (right.isRope()) {
     /* Return to this node when 'right' done, then goto finish_node. */
@@ -819,7 +819,7 @@ visit_right_child : {
   pos += right.length();
 }
 
-finish_node : {
+finish_node: {
   if (str == root) {
     goto finish_root;
   }
@@ -1038,7 +1038,11 @@ void JSDependentString::dumpRepresentation(js::GenericPrinter& out,
 #endif
 
 bool js::EqualChars(const JSLinearString* str1, const JSLinearString* str2) {
+  // Assert this isn't called for strings the caller should handle with a fast
+  // path.
   MOZ_ASSERT(str1->length() == str2->length());
+  MOZ_ASSERT(str1 != str2);
+  MOZ_ASSERT(!str1->isAtom() || !str2->isAtom());
 
   size_t len = str1->length();
 
@@ -1089,9 +1093,11 @@ bool js::EqualStrings(JSContext* cx, JSString* str1, JSString* str2,
     *result = true;
     return true;
   }
-
-  size_t length1 = str1->length();
-  if (length1 != str2->length()) {
+  if (str1->length() != str2->length()) {
+    *result = false;
+    return true;
+  }
+  if (str1->isAtom() && str2->isAtom()) {
     *result = false;
     return true;
   }
@@ -1113,12 +1119,12 @@ bool js::EqualStrings(const JSLinearString* str1, const JSLinearString* str2) {
   if (str1 == str2) {
     return true;
   }
-
-  size_t length1 = str1->length();
-  if (length1 != str2->length()) {
+  if (str1->length() != str2->length()) {
     return false;
   }
-
+  if (str1->isAtom() && str2->isAtom()) {
+    return false;
+  }
   return EqualChars(str1, str2);
 }
 
@@ -1509,18 +1515,34 @@ JSLinearString* js::NewDependentString(JSContext* cx, JSString* baseArg,
     return base;
   }
 
+  bool useInline;
   if (base->hasTwoByteChars()) {
     AutoCheckCannotGC nogc;
     const char16_t* chars = base->twoByteChars(nogc) + start;
     if (JSLinearString* staticStr = cx->staticStrings().lookup(chars, length)) {
       return staticStr;
     }
+    useInline = JSInlineString::lengthFits<char16_t>(length);
   } else {
     AutoCheckCannotGC nogc;
     const Latin1Char* chars = base->latin1Chars(nogc) + start;
     if (JSLinearString* staticStr = cx->staticStrings().lookup(chars, length)) {
       return staticStr;
     }
+    useInline = JSInlineString::lengthFits<Latin1Char>(length);
+  }
+
+  if (useInline) {
+    Rooted<JSLinearString*> rootedBase(cx, base);
+
+    // Do not create a dependent string that would fit into an inline string.
+    // First, that could create a string dependent on an inline base string's
+    // chars, which would be an awkward moving-GC hazard. Second, this makes
+    // it more likely to have a very short string keep a very long string alive.
+    if (base->hasTwoByteChars()) {
+      return NewInlineString<char16_t>(cx, rootedBase, start, length, heap);
+    }
+    return NewInlineString<Latin1Char>(cx, rootedBase, start, length, heap);
   }
 
   return JSDependentString::new_(cx, base, start, length, heap);
@@ -1851,17 +1873,17 @@ JSLinearString* NewStringCopyUTF8N(JSContext* cx, const JS::UTF8Chars utf8,
   return NewString<js::CanGC>(cx, std::move(utf16), length, heap);
 }
 
-MOZ_ALWAYS_INLINE JSString* ExternalStringCache::lookup(const char16_t* chars,
-                                                        size_t len) const {
+MOZ_ALWAYS_INLINE JSExternalString* ExternalStringCache::lookupExternal(
+    const char16_t* chars, size_t len) const {
   AutoCheckCannotGC nogc;
 
   for (size_t i = 0; i < NumEntries; i++) {
-    JSString* str = entries_[i];
+    JSExternalString* str = externalEntries_[i];
     if (!str || str->length() != len) {
       continue;
     }
 
-    const char16_t* strChars = str->asLinear().nonInlineTwoByteChars(nogc);
+    const char16_t* strChars = str->nonInlineTwoByteChars(nogc);
     if (chars == strChars) {
       // Note that we don't need an incremental barrier here or below.
       // The cache is purged on GC so any string we get from the cache
@@ -1880,14 +1902,43 @@ MOZ_ALWAYS_INLINE JSString* ExternalStringCache::lookup(const char16_t* chars,
   return nullptr;
 }
 
-MOZ_ALWAYS_INLINE void ExternalStringCache::put(JSString* str) {
-  MOZ_ASSERT(str->isExternal());
-
+MOZ_ALWAYS_INLINE void ExternalStringCache::putExternal(JSExternalString* str) {
+  MOZ_ASSERT(str->hasTwoByteChars());
   for (size_t i = NumEntries - 1; i > 0; i--) {
-    entries_[i] = entries_[i - 1];
+    externalEntries_[i] = externalEntries_[i - 1];
+  }
+  externalEntries_[0] = str;
+}
+
+MOZ_ALWAYS_INLINE JSInlineString* ExternalStringCache::lookupInline(
+    const char16_t* chars, size_t len) const {
+  MOZ_ASSERT(CanStoreCharsAsLatin1(chars, len));
+  MOZ_ASSERT(JSThinInlineString::lengthFits<Latin1Char>(len));
+
+  AutoCheckCannotGC nogc;
+
+  for (size_t i = 0; i < NumEntries; i++) {
+    JSInlineString* str = inlineEntries_[i];
+    if (!str || str->length() != len) {
+      continue;
+    }
+
+    const JS::Latin1Char* strChars = str->latin1Chars(nogc);
+    if (EqualChars(chars, strChars, len)) {
+      return str;
+    }
   }
 
-  entries_[0] = str;
+  return nullptr;
+}
+
+MOZ_ALWAYS_INLINE void ExternalStringCache::putInline(JSInlineString* str) {
+  MOZ_ASSERT(str->hasLatin1Chars());
+
+  for (size_t i = NumEntries - 1; i > 0; i--) {
+    inlineEntries_[i] = inlineEntries_[i - 1];
+  }
+  inlineEntries_[0] = str;
 }
 
 JSString* NewMaybeExternalString(JSContext* cx, const char16_t* s, size_t n,
@@ -1898,26 +1949,35 @@ JSString* NewMaybeExternalString(JSContext* cx, const char16_t* s, size_t n,
     return str;
   }
 
+  ExternalStringCache& cache = cx->zone()->externalStringCache();
+
   if (JSThinInlineString::lengthFits<Latin1Char>(n) &&
       CanStoreCharsAsLatin1(s, n)) {
     *allocatedExternal = false;
-    return NewInlineStringDeflated<AllowGC::CanGC>(
+    if (JSInlineString* str = cache.lookupInline(s, n)) {
+      return str;
+    }
+    JSInlineString* str = NewInlineStringDeflated<AllowGC::CanGC>(
         cx, mozilla::Range<const char16_t>(s, n), heap);
+    if (!str) {
+      return nullptr;
+    }
+    cache.putInline(str);
+    return str;
   }
 
-  ExternalStringCache& cache = cx->zone()->externalStringCache();
-  if (JSString* str = cache.lookup(s, n)) {
+  if (JSExternalString* str = cache.lookupExternal(s, n)) {
     *allocatedExternal = false;
     return str;
   }
 
-  JSString* str = JSExternalString::new_(cx, s, n, callbacks);
+  JSExternalString* str = JSExternalString::new_(cx, s, n, callbacks);
   if (!str) {
     return nullptr;
   }
 
   *allocatedExternal = true;
-  cache.put(str);
+  cache.putExternal(str);
   return str;
 }
 

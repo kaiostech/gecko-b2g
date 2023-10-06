@@ -2,12 +2,14 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
 const {
+  getFirefoxViewURL,
   withFirefoxView,
   assertFirefoxViewTab,
   assertFirefoxViewTabSelected,
   openFirefoxViewTab,
   closeFirefoxViewTab,
   isFirefoxViewTabSelectedInWindow,
+  init: FirefoxViewTestUtilsInit,
 } = ChromeUtils.importESModule(
   "resource://testing-common/FirefoxViewTestUtils.sys.mjs"
 );
@@ -35,15 +37,13 @@ const { SessionStoreTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/SessionStoreTestUtils.sys.mjs"
 );
 SessionStoreTestUtils.init(this, window);
+FirefoxViewTestUtilsInit(this, window);
 
 ChromeUtils.defineESModuleGetters(this, {
+  AboutWelcomeParent: "resource:///actors/AboutWelcomeParent.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   SyncedTabs: "resource://services-sync/SyncedTabs.sys.mjs",
   TabStateFlusher: "resource:///modules/sessionstore/TabStateFlusher.sys.mjs",
-});
-
-XPCOMUtils.defineLazyModuleGetters(this, {
-  AboutWelcomeParent: "resource:///actors/AboutWelcomeParent.jsm",
 });
 
 const MOBILE_PROMO_DISMISSED_PREF =

@@ -11975,6 +11975,14 @@ nsresult DatabaseFileManager::SyncDeleteFile(nsIFile& aFile,
   return NS_OK;
 }
 
+nsresult DatabaseFileManager::Invalidate() {
+  mCipherKeyManager.Invalidate();
+
+  QM_TRY(MOZ_TO_RESULT(FileInfoManager::Invalidate()));
+
+  return NS_OK;
+}
+
 /*******************************************************************************
  * QuotaClient
  ******************************************************************************/

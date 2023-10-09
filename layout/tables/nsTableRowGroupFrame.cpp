@@ -312,13 +312,11 @@ void nsTableRowGroupFrame::InitChildReflowInput(nsPresContext& aPresContext,
   aReflowInput.Init(&aPresContext, Nothing(), Some(border), Some(zeroPadding));
 }
 
-static void CacheRowBSizesForPrinting(nsPresContext* aPresContext,
-                                      nsTableRowFrame* aFirstRow,
+static void CacheRowBSizesForPrinting(nsTableRowFrame* aFirstRow,
                                       WritingMode aWM) {
   for (nsTableRowFrame* row = aFirstRow; row; row = row->GetNextRow()) {
     if (!row->GetPrevInFlow()) {
-      row->SetHasUnpaginatedBSize(true);
-      row->SetUnpaginatedBSize(aPresContext, row->BSize(aWM));
+      row->SetUnpaginatedBSize(row->BSize(aWM));
     }
   }
 }
@@ -354,15 +352,9 @@ void nsTableRowGroupFrame::ReflowChildren(
       aReflowInput.reflowInput.ComputedSizeAsContainerIfConstrained();
 
   nsIFrame* prevKidFrame = nullptr;
-  for (nsIFrame* kidFrame = mFrames.FirstChild(); kidFrame;
-       prevKidFrame = kidFrame, kidFrame = kidFrame->GetNextSibling()) {
-    nsTableRowFrame* rowFrame = do_QueryFrame(kidFrame);
-    if (!rowFrame) {
-      // XXXldb nsCSSFrameConstructor needs to enforce this!
-      MOZ_ASSERT_UNREACHABLE("yikes, a non-row child");
-      continue;
-    }
-    nscoord cellSpacingB = tableFrame->GetRowSpacing(rowFrame->GetRowIndex());
+  for (nsTableRowFrame* kidFrame = GetFirstRow(); kidFrame;
+       prevKidFrame = kidFrame, kidFrame = kidFrame->GetNextRow()) {
+    nscoord cellSpacingB = tableFrame->GetRowSpacing(kidFrame->GetRowIndex());
     haveRow = true;
 
     // Reflow the row frame
@@ -411,9 +403,9 @@ void nsTableRowGroupFrame::ReflowChildren(
       aReflowInput.bCoord += cellSpacingB;
 
       if (!reflowAllKids) {
-        if (IsSimpleRowFrame(aReflowInput.tableFrame, rowFrame)) {
+        if (IsSimpleRowFrame(aReflowInput.tableFrame, kidFrame)) {
           // Inform the row of its new bsize.
-          rowFrame->DidResize();
+          kidFrame->DidResize();
           // the overflow area may have changed inflate the overflow area
           const nsStylePosition* stylePos = StylePosition();
           if (aReflowInput.tableFrame->IsAutoBSize(wm) &&
@@ -430,7 +422,7 @@ void nsTableRowGroupFrame::ReflowChildren(
       }
 
       if (isPaginated && aPageBreakBeforeEnd && !*aPageBreakBeforeEnd) {
-        nsTableRowFrame* nextRow = rowFrame->GetNextRow();
+        nsTableRowFrame* nextRow = kidFrame->GetNextRow();
         if (nextRow) {
           *aPageBreakBeforeEnd =
               nsTableFrame::PageBreakAfter(kidFrame, nextRow);
@@ -473,7 +465,7 @@ void nsTableRowGroupFrame::ReflowChildren(
   if (aReflowInput.reflowInput.mFlags.mSpecialBSizeReflow) {
     DidResizeRows(aDesiredSize);
     if (isPaginated) {
-      CacheRowBSizesForPrinting(aPresContext, GetFirstRow(), wm);
+      CacheRowBSizesForPrinting(GetFirstRow(), wm);
     }
   } else if (needToCalcRowBSizes) {
     CalculateRowBSizes(aPresContext, aDesiredSize, aReflowInput.reflowInput);
@@ -483,25 +475,20 @@ void nsTableRowGroupFrame::ReflowChildren(
   }
 }
 
-nsTableRowFrame* nsTableRowGroupFrame::GetFirstRow() {
-  for (nsIFrame* childFrame : mFrames) {
-    nsTableRowFrame* rowFrame = do_QueryFrame(childFrame);
-    if (rowFrame) {
-      return rowFrame;
-    }
-  }
-  return nullptr;
+nsTableRowFrame* nsTableRowGroupFrame::GetFirstRow() const {
+  nsIFrame* firstChild = mFrames.FirstChild();
+  MOZ_ASSERT(
+      !firstChild || static_cast<nsTableRowFrame*>(do_QueryFrame(firstChild)),
+      "How do we have a non-row child?");
+  return static_cast<nsTableRowFrame*>(firstChild);
 }
 
-nsTableRowFrame* nsTableRowGroupFrame::GetLastRow() {
-  for (auto iter = mFrames.rbegin(), end = mFrames.rend(); iter != end;
-       ++iter) {
-    nsTableRowFrame* rowFrame = do_QueryFrame(*iter);
-    if (rowFrame) {
-      return rowFrame;
-    }
-  }
-  return nullptr;
+nsTableRowFrame* nsTableRowGroupFrame::GetLastRow() const {
+  nsIFrame* lastChild = mFrames.LastChild();
+  MOZ_ASSERT(
+      !lastChild || static_cast<nsTableRowFrame*>(do_QueryFrame(lastChild)),
+      "How do we have a non-row child?");
+  return static_cast<nsTableRowFrame*>(lastChild);
 }
 
 struct RowInfo {
@@ -674,8 +661,8 @@ void nsTableRowGroupFrame::CalculateRowBSizes(nsPresContext* aPresContext,
             // get the bsize of the cell
             LogicalSize cellFrameSize = cellFrame->GetLogicalSize(wm);
             LogicalSize cellDesSize = cellFrame->GetDesiredSize();
-            rowFrame->CalculateCellActualBSize(cellFrame, cellDesSize.BSize(wm),
-                                               wm);
+            cellDesSize.BSize(wm) = rowFrame->CalcCellActualBSize(
+                cellFrame, cellDesSize.BSize(wm), wm);
             cellFrameSize.BSize(wm) = cellDesSize.BSize(wm);
             if (cellFrame->HasVerticalAlignBaseline()) {
               // to ensure that a spanning cell with a long descender doesn't
@@ -862,7 +849,7 @@ void nsTableRowGroupFrame::CalculateRowBSizes(nsPresContext* aPresContext,
   if (isPaginated && styleBSizeAllocation) {
     // since the row group has a style bsize, cache the row bsizes,
     // so next in flows can honor them
-    CacheRowBSizesForPrinting(aPresContext, GetFirstRow(), wm);
+    CacheRowBSizesForPrinting(GetFirstRow(), wm);
   }
 
   DidResizeRows(aDesiredSize);

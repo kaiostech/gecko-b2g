@@ -55,6 +55,7 @@
 #include "mozilla/dom/StorageManager.h"
 #include "mozilla/dom/TCPSocket.h"
 #include "mozilla/dom/URLSearchParams.h"
+#include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/VRDisplay.h"
 #include "mozilla/dom/VRDisplayEvent.h"
 #include "mozilla/dom/VRServiceTest.h"
@@ -161,6 +162,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAddonManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebGpu)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUserActivation)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindow)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaKeySystemAccessManager)
@@ -251,6 +253,8 @@ void Navigator::Invalidate() {
     mLocks->Shutdown();
     mLocks = nullptr;
   }
+
+  mUserActivation = nullptr;
 
   mSharePromise = nullptr;
 }
@@ -2312,6 +2316,13 @@ AutoplayPolicy Navigator::GetAutoplayPolicy(HTMLMediaElement& aElement) {
 
 AutoplayPolicy Navigator::GetAutoplayPolicy(AudioContext& aContext) {
   return media::AutoplayPolicy::GetAutoplayPolicy(aContext);
+}
+
+already_AddRefed<dom::UserActivation> Navigator::UserActivation() {
+  if (!mUserActivation) {
+    mUserActivation = new dom::UserActivation(GetWindow());
+  }
+  return do_AddRef(mUserActivation);
 }
 
 }  // namespace mozilla::dom

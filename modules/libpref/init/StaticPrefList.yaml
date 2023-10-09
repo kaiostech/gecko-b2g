@@ -1870,6 +1870,12 @@
     type: bool
     value: false
     mirror: always
+
+  # Whether to put a file promise onto the clipboard when copying images on Windows
+-   name: clipboard.imageAsFile.enabled
+    type: bool
+    value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+    mirror: always
 #endif
 
 #---------------------------------------------------------------------------
@@ -10432,7 +10438,11 @@
 # 2 : enable for media engine only
 -   name: media.wmf.hevc.enabled
     type: RelaxedAtomicUint32
-    value: 2
+#if defined(NIGHTLY_BUILD)
+    value: 1
+#else
+    value: 0
+#endif
     mirror: always
 
 #endif  # MOZ_WMF
@@ -14096,19 +14106,13 @@
   mirror: always
   rust: true
 
-# Dispatch WebAuthn requests to virtual authenticators. (mutually exclusive
-# with webauthn_enable_android_fido2, and webauthn_enable_usbtoken)
+# Dispatch WebAuthn requests to virtual authenticators (mutually exclusive
+# with and webauthn_enable_usbtoken)
 - name: security.webauth.webauthn_enable_softtoken
   type: RelaxedAtomicBool
   value: false
   mirror: always
   rust: true
-
-# Dispatch WebAuthn requests to the Android platform API
-- name: security.webauth.webauthn_enable_android_fido2
-  type: RelaxedAtomicBool
-  value: @IS_ANDROID@
-  mirror: always
 
 # residentKey support when using Android platform API
 - name: security.webauthn.webauthn_enable_android_fido2.residentkey

@@ -90,7 +90,12 @@ def get_stack_info(vcs: SupportedVcsRepository) -> Tuple[str, List[str]]:
     nodes = vcs.get_branch_nodes(**branch_nodes_kwargs)
     if not nodes:
         raise ValueError("Could not find any commit hashes for submission.")
-    print("Submitting stack of", len(nodes) - 1, "nodes and the try commit.")
+    elif len(nodes) == 1:
+        print("Submitting a single try config commit.")
+    elif len(nodes) == 2:
+        print("Submitting 1 node and the try commit.")
+    else:
+        print("Submitting stack of", len(nodes) - 1, "nodes and the try commit.")
 
     patches = vcs.get_commit_patches(nodes)
     base64_patches = [
@@ -156,7 +161,10 @@ class Auth0Config:
         return response.json()
 
     def validate_token(self, user_token: dict) -> Optional[dict]:
-        """Verify the given ID token is valid."""
+        """Verify the given user token is valid.
+
+        Validate the ID token, and validate the access token's expiration claim.
+        """
         # Import `auth0-python` here to avoid `ImportError` in tests, since
         # the `python-test` site won't have `auth0-python` installed.
         import jwt
@@ -178,7 +186,20 @@ class Auth0Config:
         try:
             token_verifier.verify(user_token["id_token"])
         except TokenValidationError as e:
-            print("Could not validate existing Auth0 token:", str(e))
+            print("Could not validate existing Auth0 ID token:", str(e))
+            return None
+
+        decoded_access_token = jwt.decode(
+            user_token["access_token"],
+            algorithms=self.algorithms,
+            options={"verify_signature": False},
+        )
+
+        access_token_expiration = decoded_access_token["exp"]
+
+        # Assert that the access token isn't expired or expiring within a minute.
+        if time.time() > access_token_expiration + 60:
+            print("Access token is expired.")
             return None
 
         user_token.update(
@@ -386,7 +407,12 @@ def push_to_lando_try(vcs: SupportedVcsRepository, commit_message: str):
     push_start_time = time.perf_counter()
 
     with try_config_commit(vcs, commit_message):
-        base_commit, patches = get_stack_info(vcs)
+        try:
+            base_commit, patches = get_stack_info(vcs)
+        except ValueError as exc:
+            print("abort: error gathering patches for submission.")
+            print(str(exc))
+            return
 
         try:
             # Make the try request to Lando.

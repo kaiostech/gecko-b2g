@@ -9,13 +9,9 @@
 #include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/StaticPrefs_security.h"
 
-#include "CtapArgs.h"
 #include "nsIWebAuthnService.h"
 #include "nsThreadUtils.h"
-
-#ifdef MOZ_WIDGET_ANDROID
-#  include "mozilla/dom/U2FTokenManager.h"
-#endif
+#include "WebAuthnArgs.h"
 
 #ifdef XP_WIN
 #  include "WinWebAuthnManager.h"
@@ -33,23 +29,6 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestRegister(
       StaticPrefs::security_webauth_webauthn_enable_softtoken();
   if (!usingTestToken && WinWebAuthnManager::AreWebAuthNApisAvailable()) {
     WinWebAuthnManager* mgr = WinWebAuthnManager::Get();
-    if (mgr) {
-      mgr->Register(this, aTransactionId, aTransactionInfo);
-    }
-    return IPC_OK();
-  }
-#endif
-
-// Bug 1819414 will reroute requests on Android through WebAuthnController and
-// allow us to remove this.
-#ifdef MOZ_WIDGET_ANDROID
-  bool usingTestToken =
-      StaticPrefs::security_webauth_webauthn_enable_softtoken();
-  bool androidFido2 =
-      StaticPrefs::security_webauth_webauthn_enable_android_fido2();
-
-  if (!usingTestToken && androidFido2) {
-    U2FTokenManager* mgr = U2FTokenManager::Get();
     if (mgr) {
       mgr->Register(this, aTransactionId, aTransactionInfo);
     }
@@ -107,6 +86,22 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestRegister(
               return;
             }
 
+            Maybe<nsString> authenticatorAttachment;
+            nsString maybeAuthenticatorAttachment;
+            rv = aValue->GetAuthenticatorAttachment(
+                maybeAuthenticatorAttachment);
+            if (rv != NS_ERROR_NOT_AVAILABLE) {
+              if (NS_WARN_IF(NS_FAILED(rv))) {
+                Telemetry::ScalarAdd(
+                    Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
+                    u"CTAPRegisterAbort"_ns, 1);
+                Unused << parent->SendAbort(aTransactionId,
+                                            NS_ERROR_DOM_NOT_ALLOWED_ERR);
+                return;
+              }
+              authenticatorAttachment = Some(maybeAuthenticatorAttachment);
+            }
+
             nsTArray<WebAuthnExtensionResult> extensions;
             bool credPropsRk;
             rv = aValue->GetCredPropsRk(&credPropsRk);
@@ -124,7 +119,8 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestRegister(
             }
 
             WebAuthnMakeCredentialResult result(
-                clientData, attObj, credentialId, transports, extensions);
+                clientData, attObj, credentialId, transports, extensions,
+                authenticatorAttachment);
 
             Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
                                  u"CTAPRegisterFinish"_ns, 1);
@@ -142,11 +138,11 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestRegister(
   nsCOMPtr<nsIWebAuthnService> webauthnService(
       do_GetService("@mozilla.org/webauthn/service;1"));
 
-  RefPtr<CtapRegisterArgs> args(new CtapRegisterArgs(aTransactionInfo));
+  uint64_t browsingContextId = aTransactionInfo.BrowsingContextId();
+  RefPtr<WebAuthnRegisterArgs> args(new WebAuthnRegisterArgs(aTransactionInfo));
 
   nsresult rv = webauthnService->MakeCredential(
-      aTransactionId, aTransactionInfo.BrowsingContextId(), args,
-      promiseHolder);
+      aTransactionId, browsingContextId, args, promiseHolder);
   if (NS_FAILED(rv)) {
     promiseHolder->Reject(NS_ERROR_DOM_NOT_ALLOWED_ERR);
   }
@@ -164,23 +160,6 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestSign(
       StaticPrefs::security_webauth_webauthn_enable_softtoken();
   if (!usingTestToken && WinWebAuthnManager::AreWebAuthNApisAvailable()) {
     WinWebAuthnManager* mgr = WinWebAuthnManager::Get();
-    if (mgr) {
-      mgr->Sign(this, aTransactionId, aTransactionInfo);
-    }
-    return IPC_OK();
-  }
-#endif
-
-// Bug 1819414 will reroute requests on Android through WebAuthnController and
-// allow us to remove this.
-#ifdef MOZ_WIDGET_ANDROID
-  bool usingTestToken =
-      StaticPrefs::security_webauth_webauthn_enable_softtoken();
-  bool androidFido2 =
-      StaticPrefs::security_webauth_webauthn_enable_android_fido2();
-
-  if (!usingTestToken && androidFido2) {
-    U2FTokenManager* mgr = U2FTokenManager::Get();
     if (mgr) {
       mgr->Sign(this, aTransactionId, aTransactionInfo);
     }
@@ -240,6 +219,22 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestSign(
             nsTArray<uint8_t> userHandle;
             Unused << aValue->GetUserHandle(userHandle);  // optional
 
+            Maybe<nsString> authenticatorAttachment;
+            nsString maybeAuthenticatorAttachment;
+            rv = aValue->GetAuthenticatorAttachment(
+                maybeAuthenticatorAttachment);
+            if (rv != NS_ERROR_NOT_AVAILABLE) {
+              if (NS_WARN_IF(NS_FAILED(rv))) {
+                Telemetry::ScalarAdd(
+                    Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
+                    u"CTAPSignAbort"_ns, 1);
+                Unused << parent->SendAbort(aTransactionId,
+                                            NS_ERROR_DOM_NOT_ALLOWED_ERR);
+                return;
+              }
+              authenticatorAttachment = Some(maybeAuthenticatorAttachment);
+            }
+
             nsTArray<WebAuthnExtensionResult> extensions;
             bool usedAppId;
             rv = aValue->GetUsedAppId(&usedAppId);
@@ -255,9 +250,9 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestSign(
               extensions.AppendElement(WebAuthnExtensionResultAppId(usedAppId));
             }
 
-            WebAuthnGetAssertionResult result(clientData, credentialId,
-                                              signature, authenticatorData,
-                                              extensions, userHandle);
+            WebAuthnGetAssertionResult result(
+                clientData, credentialId, signature, authenticatorData,
+                extensions, userHandle, authenticatorAttachment);
 
             Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
                                  u"CTAPSignFinish"_ns, 1);
@@ -272,7 +267,7 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestSign(
           })
       ->Track(mSignPromiseRequest);
 
-  RefPtr<CtapSignArgs> args(new CtapSignArgs(aTransactionInfo));
+  RefPtr<WebAuthnSignArgs> args(new WebAuthnSignArgs(aTransactionInfo));
 
   nsCOMPtr<nsIWebAuthnService> webauthnService(
       do_GetService("@mozilla.org/webauthn/service;1"));
@@ -296,16 +291,6 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestCancel(
     if (mgr) {
       mgr->Cancel(this, aTransactionId);
     }
-  }
-  // fall through in case the virtual token was used.
-#endif
-
-// Bug 1819414 will reroute requests on Android through WebAuthnController and
-// allow us to remove this.
-#ifdef MOZ_WIDGET_ANDROID
-  U2FTokenManager* mgr = U2FTokenManager::Get();
-  if (mgr) {
-    mgr->Cancel(this, aTransactionId);
   }
   // fall through in case the virtual token was used.
 #endif
@@ -358,16 +343,6 @@ void WebAuthnTransactionParent::ActorDestroy(ActorDestroyReason aWhy) {
     if (mgr) {
       mgr->MaybeClearTransaction(this);
     }
-  }
-  // fall through in case the virtual token was used.
-#endif
-
-// Bug 1819414 will reroute requests on Android through WebAuthnController and
-// allow us to remove this.
-#ifdef MOZ_WIDGET_ANDROID
-  U2FTokenManager* mgr = U2FTokenManager::Get();
-  if (mgr) {
-    mgr->MaybeClearTransaction(this);
   }
   // fall through in case the virtual token was used.
 #endif

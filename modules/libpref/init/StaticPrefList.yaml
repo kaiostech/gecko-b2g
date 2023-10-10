@@ -9657,12 +9657,6 @@
   mirror: always
   value: 0
 
-# ClockDrift desired buffering in milliseconds
-- name: media.clockdrift.buffering
-  type: RelaxedAtomicUint32
-  mirror: always
-  value: 50
-
 # If a resource is known to be smaller than this size (in kilobytes), a
 # memory-backed MediaCache may be used; otherwise the (single shared global)
 # file-backed MediaCache is used.
@@ -15129,6 +15123,20 @@
 - name: ui.mouse.radius.inputSource.touchOnly
   type: bool
   value: true
+  mirror: always
+
+# When true, selection is not collapased at the right click point if there is a
+# non-collapsed selection.
+- name: ui.mouse.right_click.collapse_selection.stop_if_non_collapsed_selection
+  type: bool
+  value: true
+  mirror: always
+
+# When true, selection is not collapsed at the right click point if the clicked
+# node is not editable.
+- name: ui.mouse.right_click.collapse_selection.stop_if_non_editable_node
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

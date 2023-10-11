@@ -45,16 +45,11 @@ First, we need to specify the registration info of service worker in manifest, t
 
 ```javascript
 "serviceworker": {
-  "script_url": "script_url",
-  "options": {
-    "scope": "scope_of_sw",
-    "update_via_cache": "value_of_update_via_cache"
-  }
+  "script_url": "script_url"
 },
 ```
-The `options` object is optional, as defined in [ServiceWorkerContainer.register()#Syntax](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register#Syntax), for example:
 
-`script_url` refers to the URL of service worker script, relative to the root directory of your site, and by default, the `scope` value for a service worker registration is set to the directory where the service worker script is located. So in the following example, service worker will loaded as `site_root_directory/your_service_worker_script.js`, and will control pages underneath it.
+`script_url` refers to the URL of service worker script, for security reason, the scope of this service worker is default to the root directory, updateViaCache is default to imports. In the following example, service worker will loaded as `site_root_directory/your_service_worker_script.js`, and will control pages underneath it.
 
 ```javascript
 "serviceworker": {

@@ -392,8 +392,8 @@ AudioNodeTrack* AudioDestinationNode::Track() {
 
   // GetParentObject can return nullptr here when the document has been
   // unlinked.
-  MediaTrackGraph* graph = MediaTrackGraph::CreateNonRealtimeInstance(
-      context->SampleRate(), context->GetParentObject());
+  MediaTrackGraph* graph =
+      MediaTrackGraph::CreateNonRealtimeInstance(context->SampleRate());
   AudioNodeEngine* engine = new OfflineDestinationNodeEngine(this);
 
   mTrack = AudioNodeTrack::Create(context, engine, kTrackFlags, graph);
@@ -455,8 +455,8 @@ void AudioDestinationNode::NotifyMainThreadTrackEnded() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mTrack->IsEnded());
 
-  if (mIsOffline && GetAbstractMainThread()) {
-    GetAbstractMainThread()->Dispatch(NewRunnableMethod(
+  if (mIsOffline) {
+    AbstractThread::MainThread()->Dispatch(NewRunnableMethod(
         "dom::AudioDestinationNode::FireOfflineCompletionEvent", this,
         &AudioDestinationNode::FireOfflineCompletionEvent));
   }

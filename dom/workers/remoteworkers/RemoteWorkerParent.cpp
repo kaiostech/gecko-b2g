@@ -26,7 +26,9 @@ class UnregisterActorRunnable final : public Runnable {
   explicit UnregisterActorRunnable(
       already_AddRefed<ThreadsafeContentParentHandle> aParent,
       nsIURI* aScriptURL)
-      : Runnable("UnregisterActorRunnable"), mContentHandle(aParent), mScriptURL(aScriptURL) {
+      : Runnable("UnregisterActorRunnable"),
+        mContentHandle(aParent),
+        mScriptURL(aScriptURL) {
     AssertIsOnBackgroundThread();
   }
 
@@ -92,10 +94,9 @@ void RemoteWorkerParent::ActorDestroy(IProtocol::ActorDestroyReason) {
   // Parent is null if the child actor runs on the parent process.
   if (parent) {
     RefPtr<UnregisterActorRunnable> r =
-        new UnregisterActorRunnable(parent.forget(),
-                                    mScriptURL.get());
+        new UnregisterActorRunnable(parent.forget(), mScriptURL.get());
 
-    SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
+    SchedulerGroup::Dispatch(r.forget());
   }
 
   if (mController) {

@@ -4,34 +4,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "base/basictypes.h"
-
 #include "BrowserChild.h"
 
 #ifdef ACCESSIBILITY
 #  include "mozilla/a11y/DocAccessibleChild.h"
 #endif
-#include <algorithm>
 #include <utility>
 
 #include "BrowserParent.h"
 #include "ContentChild.h"
-#include "DocumentInlines.h"
 #include "EventStateManager.h"
 #include "MMPrinter.h"
-#include "PermissionMessageUtils.h"
 #include "mozilla/ipc/ProcessUtils.h"
 #include "PuppetWidget.h"
 #include "StructuredCloneData.h"
 #include "UnitTransforms.h"
 #include "Units.h"
 #include "VRManagerChild.h"
-#include "ipc/nsGUIEventIPC.h"
-#include "js/JSON.h"
 #include "mozilla/Assertions.h"
-#include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/BasePrincipal.h"
-#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/EventListenerManager.h"
 #include "mozilla/HoldDropJSObjects.h"
@@ -40,19 +31,14 @@
 #include "mozilla/MouseEvents.h"
 #include "mozilla/NativeKeyBindingsType.h"
 #include "mozilla/NullPrincipal.h"
-#include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ProcessHangMonitor.h"
 #include "mozilla/ProfilerLabels.h"
-#include "mozilla/ResultExtensions.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_dom.h"
-#include "mozilla/StaticPrefs_fission.h"
-#include "mozilla/StaticPtr.h"
-#include "mozilla/Telemetry.h"
 #include "mozilla/TextEvents.h"
-#include "mozilla/TouchEvents.h"
 #include "mozilla/ToString.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/AutoPrintEventDispatcher.h"
@@ -60,18 +46,16 @@
 #include "mozilla/dom/BrowserElementDictionariesBinding.h"
 #include "mozilla/dom/CustomEvent.h"
 #include "mozilla/dom/DataTransfer.h"
-#include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/JSWindowActorChild.h"
 #include "mozilla/dom/ImageDocument.h"
 #include "mozilla/dom/LoadURIOptionsBinding.h"
-#include "mozilla/dom/MediaDocument.h"
 #include "mozilla/dom/MessageManagerBinding.h"
 #include "mozilla/dom/MouseEventBinding.h"
 #include "mozilla/dom/Nullable.h"
-#include "mozilla/dom/PBrowser.h"
 #include "mozilla/dom/PaymentRequestChild.h"
+#include "mozilla/dom/PBrowser.h"
 #include "mozilla/dom/PointerEventHandler.h"
 #include "mozilla/dom/SessionStoreUtils.h"
 #include "mozilla/dom/SessionStoreChild.h"
@@ -80,11 +64,9 @@
 #include "mozilla/dom/KeyboardEventForwarderChild.h"
 #include "mozilla/gfx/CrossProcessPaint.h"
 #include "mozilla/gfx/Matrix.h"
-#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/PBackgroundChild.h"
-#include "mozilla/ipc/URIUtils.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
 #include "mozilla/layers/TouchActionHelper.h"
 #include "mozilla/layers/APZCTreeManagerChild.h"
@@ -98,14 +80,12 @@
 #include "mozilla/layers/InputAPZContext.h"
 #include "mozilla/layers/WebRenderLayerManager.h"
 #include "nsBrowserStatusFilter.h"
-#include "nsColorPickerProxy.h"
 #include "nsCommandParams.h"
 #include "nsContentPermissionHelper.h"
 #include "nsContentUtils.h"
 #include "nsDeviceContext.h"
 #include "nsDocShell.h"
 #include "nsDocShellLoadState.h"
-#include "nsEmbedCID.h"
 #include "nsExceptionHandler.h"
 #include "nsFilePickerProxy.h"
 #include "nsFocusManager.h"
@@ -121,7 +101,6 @@
 #include "nsISHistory.h"
 #include "nsIScreenManager.h"
 #include "nsIScriptError.h"
-#include "nsISecureBrowserUI.h"
 #include "nsISupportsPrimitives.h"
 #include "nsIURI.h"
 #include "nsIURIMutator.h"
@@ -133,18 +112,11 @@
 #include "nsIOpenWindowInfo.h"
 #include "nsPIDOMWindow.h"
 #include "nsPIWindowRoot.h"
-#include "nsPointerHashKeys.h"
 #include "nsPrintfCString.h"
-#include "nsQueryActor.h"
-#include "nsQueryObject.h"
 #include "nsRefreshDriver.h"
-#include "nsSandboxFlags.h"
-#include "nsString.h"
-#include "nsTHashtable.h"
 #include "nsThreadManager.h"
 #include "nsThreadUtils.h"
 #include "nsViewManager.h"
-#include "nsViewportInfo.h"
 #include "nsWebBrowser.h"
 #include "nsWindowWatcher.h"
 #include "nsIXULRuntime.h"
@@ -1032,9 +1004,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
     } else {
       mozilla::ipc::SetThisProcessName(appName.get());
     }
-  }
-  else if (!StringEndsWith(host, "about:blank"_ns) && mIsTopLevel) {
-
+  } else if (!StringEndsWith(host, "about:blank"_ns) && mIsTopLevel) {
     nsCOMPtr<nsIEffectiveTLDService> tldService =
         do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
     MOZ_ASSERT(tldService);
@@ -2542,8 +2512,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelVolume(
         window, static_cast<AudioChannel>(aAudioChannel), volume, muted);
   }
 
-  aResolve(
-      std::tuple<const bool&, const float&, const bool&>(success, volume, muted));
+  aResolve(std::tuple<const bool&, const float&, const bool&>(success, volume,
+                                                              muted));
   return IPC_OK();
 }
 
@@ -4138,23 +4108,12 @@ already_AddRefed<nsIDocShell> BrowserChildMessageManager::GetDocShell(
 
 already_AddRefed<nsIEventTarget>
 BrowserChildMessageManager::GetTabEventTarget() {
-  nsCOMPtr<nsIEventTarget> target = EventTargetFor(TaskCategory::Other);
-  return target.forget();
+  return do_AddRef(GetMainThreadSerialEventTarget());
 }
 
 nsresult BrowserChildMessageManager::Dispatch(
-    TaskCategory aCategory, already_AddRefed<nsIRunnable>&& aRunnable) {
-  return DispatcherTrait::Dispatch(aCategory, std::move(aRunnable));
-}
-
-nsISerialEventTarget* BrowserChildMessageManager::EventTargetFor(
-    TaskCategory aCategory) const {
-  return DispatcherTrait::EventTargetFor(aCategory);
-}
-
-AbstractThread* BrowserChildMessageManager::AbstractMainThreadFor(
-    TaskCategory aCategory) {
-  return DispatcherTrait::AbstractMainThreadFor(aCategory);
+    already_AddRefed<nsIRunnable>&& aRunnable) const {
+  return SchedulerGroup::Dispatch(std::move(aRunnable));
 }
 
 PKeyboardEventForwarderChild*

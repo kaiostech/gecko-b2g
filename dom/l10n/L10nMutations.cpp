@@ -329,10 +329,6 @@ void L10nMutations::StartRefreshObserver() {
 }
 
 void L10nMutations::StopRefreshObserver() {
-  if (!mDOMLocalization) {
-    return;
-  }
-
   if (mRefreshDriver) {
     mRefreshDriver->RemoveRefreshObserver(this, FlushType::Style);
     mRefreshDriver = nullptr;
@@ -340,6 +336,7 @@ void L10nMutations::StopRefreshObserver() {
 }
 
 void L10nMutations::OnCreatePresShell() {
+  StopRefreshObserver();
   if (!mPendingElements.IsEmpty()) {
     StartRefreshObserver();
   }

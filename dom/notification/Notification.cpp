@@ -604,10 +604,7 @@ inline nsresult NotificationPermissionRequest::DispatchResolvePromise() {
   nsCOMPtr<nsIRunnable> resolver =
       NewRunnableMethod("NotificationPermissionRequest::DispatchResolvePromise",
                         this, &NotificationPermissionRequest::ResolvePromise);
-  if (nsIEventTarget* target = mWindow->EventTargetFor(TaskCategory::Other)) {
-    return target->Dispatch(resolver.forget(), nsIEventTarget::DISPATCH_NORMAL);
-  }
-  return NS_ERROR_FAILURE;
+  return nsGlobalWindowInner::Cast(mWindow.get())->Dispatch(resolver.forget());
 }
 
 nsresult NotificationPermissionRequest::ResolvePromise() {
@@ -1668,7 +1665,7 @@ already_AddRefed<Promise> Notification::RequestPermission(
   nsCOMPtr<nsIRunnable> request = new NotificationPermissionRequest(
       principal, window, promise, permissionCallback);
 
-  window->AsGlobal()->Dispatch(TaskCategory::Other, request.forget());
+  window->AsGlobal()->Dispatch(request.forget());
 
   return promise.forget();
 }
@@ -1878,7 +1875,7 @@ already_AddRefed<Promise> Notification::Get(
   RefPtr<NotificationGetRunnable> r =
       new NotificationGetRunnable(origin, aFilter.mTag, callback);
 
-  aRv = aWindow->AsGlobal()->Dispatch(TaskCategory::Other, r.forget());
+  aRv = aWindow->AsGlobal()->Dispatch(r.forget());
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -2532,16 +2529,7 @@ nsresult Notification::DispatchToMainThread(
     return mWorkerPrivate->DispatchToMainThread(std::move(aRunnable));
   }
   AssertIsOnMainThread();
-  if (nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal()) {
-    if (nsIEventTarget* target = global->EventTargetFor(TaskCategory::Other)) {
-      return target->Dispatch(std::move(aRunnable),
-                              nsIEventTarget::DISPATCH_NORMAL);
-    }
-  }
-  nsCOMPtr<nsIEventTarget> mainTarget = GetMainThreadSerialEventTarget();
-  MOZ_ASSERT(mainTarget);
-  return mainTarget->Dispatch(std::move(aRunnable),
-                              nsIEventTarget::DISPATCH_NORMAL);
+  return NS_DispatchToCurrentThread(std::move(aRunnable));
 }
 
 }  // namespace mozilla::dom

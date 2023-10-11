@@ -3417,7 +3417,8 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
     dom::AudioChannel aAudioChannel) {
   return MediaTrackGraphImpl::GetInstanceIfExists(
       aWindow->WindowID(),
-      aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::AudioSampleRate),
+      aWindow->AsGlobal()->ShouldResistFingerprinting(
+          RFPTarget::AudioSampleRate),
       aSampleRate, aOutputDeviceID, aAudioChannel);
 }
 
@@ -3471,9 +3472,10 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     dom::AudioChannel aAudioChannel) {
   return MediaTrackGraphImpl::GetInstance(
       aGraphDriverRequested, aWindow->WindowID(),
-      aWindow->AsGlobal()->ShouldResistFingerprinting(RFPTarget::AudioSampleRate),
+      aWindow->AsGlobal()->ShouldResistFingerprinting(
+          RFPTarget::AudioSampleRate),
       aSampleRate, aOutputDeviceID, aAudioChannel,
-      aWindow->EventTargetFor(TaskCategory::Other));
+      GetMainThreadSerialEventTarget());
 }
 
 /* static */
@@ -3488,17 +3490,10 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
 }
 
 MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(
-    TrackRate aSampleRate, nsPIDOMWindowInner* aWindow) {
+    TrackRate aSampleRate) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   nsISerialEventTarget* mainThread = GetMainThreadSerialEventTarget();
-  // aWindow can be null when the document is being unlinked, so this works when
-  // with a generic main thread if that's the case.
-  if (aWindow) {
-    mainThread =
-        aWindow->AsGlobal()->AbstractMainThreadFor(TaskCategory::Other);
-  }
-
   // Offline graphs have 0 output channel count: they write the output to a
   // buffer, not an audio output track.
   MediaTrackGraphImpl* graph = new MediaTrackGraphImpl(

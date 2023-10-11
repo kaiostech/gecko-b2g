@@ -14,7 +14,6 @@
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/Unused.h"
 #include "nsContentUtils.h"
 #include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
 #include "MIDILog.h"
@@ -36,12 +35,11 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(MIDIPort, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(MIDIPort, DOMEventTargetHelper)
 
-MIDIPort::MIDIPort(nsPIDOMWindowInner* aWindow, MIDIAccess* aMIDIAccessParent)
+MIDIPort::MIDIPort(nsPIDOMWindowInner* aWindow)
     : DOMEventTargetHelper(aWindow),
-      mMIDIAccessParent(aMIDIAccessParent),
+      mMIDIAccessParent(nullptr),
       mKeepAlive(false) {
   MOZ_ASSERT(aWindow);
-  MOZ_ASSERT(aMIDIAccessParent);
 
   Document* aDoc = GetOwner()->GetExtantDoc();
   if (aDoc) {
@@ -62,7 +60,9 @@ MIDIPort::~MIDIPort() {
   }
 }
 
-bool MIDIPort::Initialize(const MIDIPortInfo& aPortInfo, bool aSysexEnabled) {
+bool MIDIPort::Initialize(const MIDIPortInfo& aPortInfo, bool aSysexEnabled,
+                          MIDIAccess* aMIDIAccessParent) {
+  MOZ_ASSERT(aMIDIAccessParent);
   nsCOMPtr<Document> document = GetDocumentIfCurrent();
   if (!document) {
     return false;
@@ -99,6 +99,8 @@ bool MIDIPort::Initialize(const MIDIPortInfo& aPortInfo, bool aSysexEnabled) {
                              aSysexEnabled)) {
     return false;
   }
+
+  mMIDIAccessParent = aMIDIAccessParent;
   mPortHolder.Init(port.forget());
   LOG("MIDIPort::Initialize (%s, %s)",
       NS_ConvertUTF16toUTF8(Port()->Name()).get(),

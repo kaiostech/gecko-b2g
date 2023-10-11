@@ -64,7 +64,7 @@ class ShoppingSettings extends MozLitElement {
           data-l10n-attrs="label"
           @toggle=${this.onToggleRecommendations}>
         </moz-toggle/>
-        <span id="shopping-ads-learn-more" data-l10n-id="shopping-settings-recommendations-learn-more">
+        <span id="shopping-ads-learn-more" data-l10n-id="shopping-settings-recommendations-learn-more2">
           <a
             is="moz-support-link"
             support-page="todo"
@@ -101,7 +101,7 @@ class ShoppingSettings extends MozLitElement {
         <a
           data-l10n-name="fakespot-link"
           target="_blank"
-          href="${FAKESPOT_BASE_URL}review-checker?utm_source=review-checker&utm_campaign=fakespot-by-mozilla&utm_medium=inproduct&utm_term=core-sidebar"
+          href="${FAKESPOT_BASE_URL}our-mission?utm_source=review-checker&utm_campaign=fakespot-by-mozilla&utm_medium=inproduct&utm_term=core-sidebar"
         ></a>
       </p>
     `;

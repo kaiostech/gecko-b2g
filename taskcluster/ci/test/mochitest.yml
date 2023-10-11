@@ -134,7 +134,6 @@ mochitest-plain:
                 by-test-platform:
                     android-em-7.0-x86_64-qr/debug-isolated-process: []
                     android.*: built-projects
-                    .*wayland.*: []
                     default: built-projects
     chunks:
         by-test-platform:
@@ -277,6 +276,7 @@ mochitest-browser-chrome:
                     linux.*64-asan-qr/opt: 16
                     linux.*64-tsan-qr/opt: 32
                     macosx.*64-qr/debug: 12
+                    macosx.*64-qr/opt: 8
                     windows.*-ccov.*/.*: 14
                     windows.*-asan-qr/opt: 14
                     windows.*32-qr/debug: 12
@@ -561,7 +561,6 @@ mochitest-plain-gpu:
             default:
                 by-test-platform:
                     android-em-7.0-x86_64-qr/debug-isolated-process: []
-                    .*-wayland/debug: []
                     default: built-projects
     virtualization: virtual-with-gpu
     tier:
@@ -1081,7 +1080,6 @@ mochitest-remote:
             default:
                 by-test-platform:
                     android.*: []
-                    .*wayland.*: []
                     default: built-projects
     tier: default
     max-run-time: 5400

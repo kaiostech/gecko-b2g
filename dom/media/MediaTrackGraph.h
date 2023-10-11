@@ -1070,8 +1070,7 @@ class MediaTrackGraph {
                                       dom::AudioChannel aAudioChannel,
                                       nsISerialEventTarget* aMainThread);
 
-  static MediaTrackGraph* CreateNonRealtimeInstance(
-      TrackRate aSampleRate, nsPIDOMWindowInner* aWindowId);
+  static MediaTrackGraph* CreateNonRealtimeInstance(TrackRate aSampleRate);
 
   // Idempotent
   void ForceShutDown();

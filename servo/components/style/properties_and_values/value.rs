@@ -14,9 +14,15 @@ use super::{
 };
 use crate::custom_properties::ComputedValue as ComputedPropertyValue;
 use crate::parser::{Parse, ParserContext};
-use crate::stylesheets::{CssRuleType, Origin, UrlExtraData};
-use crate::values::{specified, CustomIdent};
-use cssparser::{BasicParseErrorKind, ParseErrorKind, Parser as CSSParser};
+use crate::properties::StyleBuilder;
+use crate::rule_cache::RuleCacheConditions;
+use crate::stylesheets::{container_rule::ContainerSizeQuery, CssRuleType, Origin, UrlExtraData};
+use crate::stylist::Stylist;
+use crate::values::{
+    computed::{self, ToComputedValue},
+    specified, CustomIdent,
+};
+use cssparser::{BasicParseErrorKind, ParseErrorKind, Parser as CSSParser, ParserInput};
 use selectors::matching::QuirksMode;
 use servo_arc::{Arc, ThinArc};
 use smallvec::SmallVec;
@@ -26,45 +32,237 @@ use style_traits::{
 };
 
 /// A single component of the computed value.
+pub type ComputedValueComponent = GenericValueComponent<
+    // TODO(zrhoffman, bug 1856524): Use computed::Length
+    specified::Length,
+    computed::Number,
+    computed::Percentage,
+    // TODO(zrhoffman, bug 1856524): Use computed::LengthPercentage
+    specified::LengthPercentage,
+    computed::Color,
+    computed::Image,
+    computed::url::ComputedUrl,
+    computed::Integer,
+    computed::Angle,
+    computed::Time,
+    computed::Resolution,
+    computed::Transform,
+    ComputedValueComponentList,
+>;
+
+/// A single component of the specified value.
+pub type SpecifiedValueComponent = GenericValueComponent<
+    specified::Length,
+    specified::Number,
+    specified::Percentage,
+    specified::LengthPercentage,
+    specified::Color,
+    specified::Image,
+    specified::url::SpecifiedUrl,
+    specified::Integer,
+    specified::Angle,
+    specified::Time,
+    specified::Resolution,
+    specified::Transform,
+    SpecifiedValueComponentList,
+>;
+
+/// A generic enum used for both specified value components and computed value components.
 #[derive(Clone, ToCss)]
-pub enum ValueComponent {
+pub enum GenericValueComponent<
+    Length,
+    Number,
+    Percentage,
+    LengthPercentage,
+    Color,
+    Image,
+    Url,
+    Integer,
+    Angle,
+    Time,
+    Resolution,
+    TransformFunction,
+    TransformList,
+> {
     /// A <length> value
-    Length(specified::Length),
+    Length(Length),
     /// A <number> value
-    Number(specified::Number),
+    Number(Number),
     /// A <percentage> value
-    Percentage(specified::Percentage),
+    Percentage(Percentage),
     /// A <length-percentage> value
-    LengthPercentage(specified::LengthPercentage),
+    LengthPercentage(LengthPercentage),
     /// A <color> value
-    Color(specified::Color),
+    Color(Color),
     /// An <image> value
-    Image(specified::Image),
+    Image(Image),
     /// A <url> value
-    Url(specified::url::SpecifiedUrl),
+    Url(Url),
     /// An <integer> value
-    Integer(specified::Integer),
+    Integer(Integer),
     /// An <angle> value
-    Angle(specified::Angle),
+    Angle(Angle),
     /// A <time> value
-    Time(specified::Time),
+    Time(Time),
     /// A <resolution> value
-    Resolution(specified::Resolution),
+    Resolution(Resolution),
     /// A <transform-function> value
-    TransformFunction(specified::Transform),
+    TransformFunction(TransformFunction),
     /// A <custom-ident> value
     CustomIdent(CustomIdent),
     /// A <transform-list> value, equivalent to <transform-function>+
-    TransformList(ValueComponentList),
+    TransformList(TransformList),
     /// A <string> value
     String(OwnedStr),
 }
 
+impl ToComputedValue for SpecifiedValueComponent {
+    type ComputedValue = ComputedValueComponent;
+
+    fn to_computed_value(&self, context: &computed::Context) -> Self::ComputedValue {
+        match self {
+            SpecifiedValueComponent::Length(length) => ComputedValueComponent::Length(
+                // TODO(zrhoffman, bug 1856524): Compute <length>, which may contain font-relative
+                // units
+                length.clone(),
+            ),
+            SpecifiedValueComponent::Number(number) => {
+                ComputedValueComponent::Number(number.to_computed_value(context))
+            },
+            SpecifiedValueComponent::Percentage(percentage) => {
+                ComputedValueComponent::Percentage(percentage.to_computed_value(context))
+            },
+            SpecifiedValueComponent::LengthPercentage(length_percentage) => {
+                // TODO(zrhoffman, bug 1856524): Compute <length-percentage>, which may contain
+                // font-relative units
+                ComputedValueComponent::LengthPercentage(length_percentage.clone())
+            },
+            SpecifiedValueComponent::Color(color) => {
+                ComputedValueComponent::Color(color.to_computed_value(context))
+            },
+            SpecifiedValueComponent::Image(image) => {
+                ComputedValueComponent::Image(image.to_computed_value(context))
+            },
+            SpecifiedValueComponent::Url(url) => ComputedValueComponent::Url(
+                // TODO(zrhoffman, bug 1846625): Compute <url>
+                url.to_computed_value(context),
+            ),
+            SpecifiedValueComponent::Integer(integer) => {
+                ComputedValueComponent::Integer(integer.to_computed_value(context))
+            },
+            SpecifiedValueComponent::Angle(angle) => {
+                ComputedValueComponent::Angle(angle.to_computed_value(context))
+            },
+            SpecifiedValueComponent::Time(time) => {
+                ComputedValueComponent::Time(time.to_computed_value(context))
+            },
+            SpecifiedValueComponent::Resolution(resolution) => {
+                ComputedValueComponent::Resolution(resolution.to_computed_value(context))
+            },
+            SpecifiedValueComponent::TransformFunction(transform_function) => {
+                ComputedValueComponent::TransformFunction(
+                    transform_function.to_computed_value(context),
+                )
+            },
+            SpecifiedValueComponent::CustomIdent(custom_ident) => {
+                ComputedValueComponent::CustomIdent(custom_ident.to_computed_value(context))
+            },
+            SpecifiedValueComponent::TransformList(transform_list) => {
+                ComputedValueComponent::TransformList(transform_list.to_computed_value(context))
+            },
+            SpecifiedValueComponent::String(string) => {
+                ComputedValueComponent::String(string.to_computed_value(context))
+            },
+        }
+    }
+
+    fn from_computed_value(computed: &Self::ComputedValue) -> Self {
+        match computed {
+            ComputedValueComponent::Length(length) => SpecifiedValueComponent::Length(
+                // TODO(zrhoffman, bug 1856524): Use computed <length>
+                length.clone(),
+            ),
+            ComputedValueComponent::Number(number) => {
+                SpecifiedValueComponent::Number(ToComputedValue::from_computed_value(number))
+            },
+            ComputedValueComponent::Percentage(percentage) => SpecifiedValueComponent::Percentage(
+                ToComputedValue::from_computed_value(percentage),
+            ),
+            ComputedValueComponent::LengthPercentage(length_percentage) => {
+                // TODO(zrhoffman, bug 1856524): Use computed <length-percentage>
+                SpecifiedValueComponent::LengthPercentage(length_percentage.clone())
+            },
+            ComputedValueComponent::Color(color) => {
+                SpecifiedValueComponent::Color(ToComputedValue::from_computed_value(color))
+            },
+            ComputedValueComponent::Image(image) => {
+                SpecifiedValueComponent::Image(ToComputedValue::from_computed_value(image))
+            },
+            ComputedValueComponent::Url(url) => SpecifiedValueComponent::Url(
+                // TODO(zrhoffman, bug 1846625): Compute <url>
+                ToComputedValue::from_computed_value(url),
+            ),
+            ComputedValueComponent::Integer(integer) => {
+                SpecifiedValueComponent::Integer(ToComputedValue::from_computed_value(integer))
+            },
+            ComputedValueComponent::Angle(angle) => {
+                SpecifiedValueComponent::Angle(ToComputedValue::from_computed_value(angle))
+            },
+            ComputedValueComponent::Time(time) => {
+                SpecifiedValueComponent::Time(ToComputedValue::from_computed_value(time))
+            },
+            ComputedValueComponent::Resolution(resolution) => SpecifiedValueComponent::Resolution(
+                ToComputedValue::from_computed_value(resolution),
+            ),
+            ComputedValueComponent::TransformFunction(transform_function) => {
+                SpecifiedValueComponent::TransformFunction(ToComputedValue::from_computed_value(
+                    transform_function,
+                ))
+            },
+            ComputedValueComponent::CustomIdent(custom_ident) => {
+                SpecifiedValueComponent::CustomIdent(ToComputedValue::from_computed_value(
+                    custom_ident,
+                ))
+            },
+            ComputedValueComponent::TransformList(transform_list) => {
+                SpecifiedValueComponent::TransformList(ToComputedValue::from_computed_value(
+                    transform_list,
+                ))
+            },
+            ComputedValueComponent::String(string) => {
+                SpecifiedValueComponent::String(ToComputedValue::from_computed_value(string))
+            },
+        }
+    }
+}
+
 /// A list of component values, including the list's multiplier.
 #[derive(Clone)]
-pub struct ValueComponentList(ThinArc<Multiplier, ValueComponent>);
+pub struct SpecifiedValueComponentList(ThinArc<Multiplier, SpecifiedValueComponent>);
 
-impl ToCss for ValueComponentList {
+impl ToComputedValue for SpecifiedValueComponentList {
+    type ComputedValue = ComputedValueComponentList;
+
+    fn to_computed_value(&self, context: &computed::Context) -> Self::ComputedValue {
+        let iter = self
+            .0
+            .slice()
+            .iter()
+            .map(|item| item.to_computed_value(context));
+        ComputedValueComponentList::new(self.0.header, iter)
+    }
+
+    fn from_computed_value(computed: &Self::ComputedValue) -> Self {
+        let iter = computed
+            .0
+            .slice()
+            .iter()
+            .map(SpecifiedValueComponent::from_computed_value);
+        Self::new(computed.0.header, iter)
+    }
+}
+
+impl ToCss for SpecifiedValueComponentList {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
         W: Write,
@@ -90,45 +288,106 @@ impl ToCss for ValueComponentList {
     }
 }
 
-impl ValueComponentList {
+impl SpecifiedValueComponentList {
     fn new<I>(multiplier: Multiplier, values: I) -> Self
     where
-        I: Iterator<Item = ValueComponent> + ExactSizeIterator,
+        I: Iterator<Item = SpecifiedValueComponent> + ExactSizeIterator,
     {
         Self(ThinArc::from_header_and_iter(multiplier, values))
     }
 }
 
-/// A parsed property value.
-#[derive(ToCss)]
-pub enum ComputedValue {
-    /// A single parsed component value whose matched syntax descriptor component did not have a
-    /// multiplier.
-    Component(ValueComponent),
-    /// A parsed value whose syntax descriptor was the universal syntax definition.
-    Universal(Arc<ComputedPropertyValue>),
-    /// A list of parsed component values whose matched syntax descriptor component had a
-    /// multiplier.
-    List(ValueComponentList),
+/// A list of computed component values, including the list's unchanged multiplier.
+#[derive(Clone)]
+pub struct ComputedValueComponentList(ThinArc<Multiplier, ComputedValueComponent>);
+
+impl ComputedValueComponentList {
+    fn new<I>(multiplier: Multiplier, values: I) -> Self
+    where
+        I: Iterator<Item = ComputedValueComponent> + ExactSizeIterator,
+    {
+        Self(ThinArc::from_header_and_iter(multiplier, values))
+    }
 }
 
-impl ComputedValue {
-    /// Parse and validate a registered custom property, given a string and a property registration.
+/// A specified registered custom property value.
+#[derive(ToCss)]
+pub enum SpecifiedValue {
+    /// A single specified component value whose syntax descriptor component did not have a
+    /// multiplier.
+    Component(SpecifiedValueComponent),
+    /// A specified value whose syntax descriptor was the universal syntax definition.
+    Universal(Arc<ComputedPropertyValue>),
+    /// A list of specified component values whose syntax descriptor component had a multiplier.
+    List(SpecifiedValueComponentList),
+}
+
+impl ToComputedValue for SpecifiedValue {
+    type ComputedValue = ComputedValue;
+
+    fn to_computed_value(&self, context: &computed::Context) -> Self::ComputedValue {
+        match self {
+            SpecifiedValue::Component(component) => {
+                ComputedValue::Component(component.to_computed_value(context))
+            },
+            SpecifiedValue::Universal(value) => ComputedValue::Universal(value.clone()),
+            SpecifiedValue::List(list) => ComputedValue::List(list.to_computed_value(context)),
+        }
+    }
+
+    fn from_computed_value(computed: &Self::ComputedValue) -> Self {
+        match computed {
+            ComputedValue::Component(component) => {
+                SpecifiedValue::Component(SpecifiedValueComponent::from_computed_value(component))
+            },
+            ComputedValue::Universal(value) => SpecifiedValue::Universal(value.clone()),
+            ComputedValue::List(list) => {
+                SpecifiedValue::List(SpecifiedValueComponentList::from_computed_value(list))
+            },
+        }
+    }
+}
+
+impl SpecifiedValue {
+    /// Convert a registered custom property to a VariableValue, given input and a property
+    /// registration.
     pub fn compute<'i, 't>(
         input: &mut CSSParser<'i, 't>,
         registration: &PropertyRegistration,
-    ) -> Result<(), ()> {
-        let parse_result = Self::parse(
+        stylist: &Stylist,
+    ) -> Result<Arc<ComputedPropertyValue>, ()> {
+        let Ok(value) = Self::parse(
             input,
             &registration.syntax,
             &registration.url_data,
             AllowComputationallyDependent::Yes,
-        );
-        if parse_result.is_err() {
+        ) else {
             return Err(());
+        };
+
+        let mut rule_cache_conditions = RuleCacheConditions::default();
+        let context = computed::Context::new(
+            // TODO(zrhoffman, bug 1857674): Pass the existing StyleBuilder from the computed
+            // context.
+            StyleBuilder::new(stylist.device(), Some(stylist), None, None, None, false),
+            stylist.quirks_mode(),
+            &mut rule_cache_conditions,
+            ContainerSizeQuery::none(),
+        );
+        let value = value.to_computed_value(&context);
+        let value = SpecifiedValue::from_computed_value(&value).to_css_string();
+
+        let result = {
+            let mut input = ParserInput::new(&value);
+            let mut input = CSSParser::new(&mut input);
+            // TODO(zrhoffman, bug 1858305): Get the variable without parsing
+            ComputedPropertyValue::parse(&mut input)
+        };
+        if let Ok(value) = result {
+            Ok(value)
+        } else {
+            Err(())
         }
-        // TODO(zrhoffman, 1846632): Return a CSS string for the computed value.
-        Ok(())
     }
 
     /// Parse and validate a registered custom property value according to its syntax descriptor,
@@ -150,12 +409,26 @@ impl ComputedValue {
             parser.parse(&mut input, url_data, allow_computationally_dependent)?;
         }
         let computed_value = if let Some(ref multiplier) = multiplier {
-            Self::List(ValueComponentList::new(*multiplier, values.into_iter()))
+            Self::List(SpecifiedValueComponentList::new(
+                *multiplier,
+                values.into_iter(),
+            ))
         } else {
             Self::Component(values[0].clone())
         };
         Ok(computed_value)
     }
+}
+
+/// A computed registered custom property value.
+pub enum ComputedValue {
+    /// A single computed component value whose syntax descriptor component did not have a
+    /// multiplier.
+    Component(ComputedValueComponent),
+    /// A computed value whose syntax descriptor was the universal syntax definition.
+    Universal(Arc<ComputedPropertyValue>),
+    /// A list of computed component values whose syntax descriptor component had a multiplier.
+    List(ComputedValueComponentList),
 }
 
 /// Whether the computed value parsing should allow computationaly dependent values like 3em or
@@ -169,7 +442,7 @@ pub enum AllowComputationallyDependent {
     Yes,
 }
 
-type SmallComponentVec = SmallVec<[ValueComponent; 1]>;
+type SmallComponentVec = SmallVec<[SpecifiedValueComponent; 1]>;
 
 struct Parser<'a> {
     syntax: &'a Descriptor,
@@ -257,7 +530,7 @@ impl<'a> Parser<'a> {
         context: &ParserContext,
         input: &mut CSSParser<'i, 't>,
         component: &SyntaxComponent,
-    ) -> Result<ValueComponent, StyleParseError<'i>> {
+    ) -> Result<SpecifiedValueComponent, StyleParseError<'i>> {
         let data_type = match component.name() {
             ComponentName::DataType(ty) => ty,
             ComponentName::Ident(ref name) => {
@@ -265,38 +538,50 @@ impl<'a> Parser<'a> {
                 if ident != *name {
                     return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
                 }
-                return Ok(ValueComponent::CustomIdent(ident));
+                return Ok(SpecifiedValueComponent::CustomIdent(ident));
             },
         };
 
         let value = match data_type {
-            DataType::Length => ValueComponent::Length(specified::Length::parse(context, input)?),
-            DataType::Number => ValueComponent::Number(specified::Number::parse(context, input)?),
-            DataType::Percentage => {
-                ValueComponent::Percentage(specified::Percentage::parse(context, input)?)
+            DataType::Length => {
+                SpecifiedValueComponent::Length(specified::Length::parse(context, input)?)
             },
-            DataType::LengthPercentage => ValueComponent::LengthPercentage(
+            DataType::Number => {
+                SpecifiedValueComponent::Number(specified::Number::parse(context, input)?)
+            },
+            DataType::Percentage => {
+                SpecifiedValueComponent::Percentage(specified::Percentage::parse(context, input)?)
+            },
+            DataType::LengthPercentage => SpecifiedValueComponent::LengthPercentage(
                 specified::LengthPercentage::parse(context, input)?,
             ),
-            DataType::Color => ValueComponent::Color(specified::Color::parse(context, input)?),
-            DataType::Image => ValueComponent::Image(specified::Image::parse(context, input)?),
+            DataType::Color => {
+                SpecifiedValueComponent::Color(specified::Color::parse(context, input)?)
+            },
+            DataType::Image => {
+                SpecifiedValueComponent::Image(specified::Image::parse(context, input)?)
+            },
             DataType::Url => {
-                ValueComponent::Url(specified::url::SpecifiedUrl::parse(context, input)?)
+                SpecifiedValueComponent::Url(specified::url::SpecifiedUrl::parse(context, input)?)
             },
             DataType::Integer => {
-                ValueComponent::Integer(specified::Integer::parse(context, input)?)
+                SpecifiedValueComponent::Integer(specified::Integer::parse(context, input)?)
             },
-            DataType::Angle => ValueComponent::Angle(specified::Angle::parse(context, input)?),
-            DataType::Time => ValueComponent::Time(specified::Time::parse(context, input)?),
+            DataType::Angle => {
+                SpecifiedValueComponent::Angle(specified::Angle::parse(context, input)?)
+            },
+            DataType::Time => {
+                SpecifiedValueComponent::Time(specified::Time::parse(context, input)?)
+            },
             DataType::Resolution => {
-                ValueComponent::Resolution(specified::Resolution::parse(context, input)?)
+                SpecifiedValueComponent::Resolution(specified::Resolution::parse(context, input)?)
             },
-            DataType::TransformFunction => {
-                ValueComponent::TransformFunction(specified::Transform::parse(context, input)?)
-            },
+            DataType::TransformFunction => SpecifiedValueComponent::TransformFunction(
+                specified::Transform::parse(context, input)?,
+            ),
             DataType::CustomIdent => {
                 let name = CustomIdent::parse(input, &[])?;
-                ValueComponent::CustomIdent(name)
+                SpecifiedValueComponent::CustomIdent(name)
             },
             DataType::TransformList => {
                 let mut values = vec![];
@@ -310,7 +595,7 @@ impl<'a> Parser<'a> {
                 };
                 debug_assert_matches!(multiplier, Multiplier::Space);
                 loop {
-                    values.push(ValueComponent::TransformFunction(
+                    values.push(SpecifiedValueComponent::TransformFunction(
                         specified::Transform::parse(context, input)?,
                     ));
                     let result = Self::expect_multiplier(input, &multiplier);
@@ -319,12 +604,12 @@ impl<'a> Parser<'a> {
                     }
                     result?;
                 }
-                let list = ValueComponentList::new(multiplier, values.into_iter());
-                ValueComponent::TransformList(list)
+                let list = SpecifiedValueComponentList::new(multiplier, values.into_iter());
+                SpecifiedValueComponent::TransformList(list)
             },
             DataType::String => {
                 let string = input.expect_string()?;
-                ValueComponent::String(string.as_ref().to_owned().into())
+                SpecifiedValueComponent::String(string.as_ref().to_owned().into())
             },
         };
         Ok(value)

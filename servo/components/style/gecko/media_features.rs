@@ -1027,4 +1027,8 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 62] = [
         atom!("-moz-mathml-core-mi"),
         "mathml.legacy_mathvariant_attribute.disabled"
     ),
+    bool_pref_feature!(
+        atom!("-moz-always-underline-links"),
+        "layout.css.always_underline_links"
+    ),
 ];

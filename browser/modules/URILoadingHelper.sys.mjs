@@ -129,6 +129,12 @@ function openInWindow(url, params, sourceWindow) {
       );
     }
   }
+  if (params.wasSchemelessInput !== undefined) {
+    extraOptions.setPropertyAsBool(
+      "wasSchemelessInput",
+      params.wasSchemelessInput
+    );
+  }
 
   var allowThirdPartyFixupSupports = Cc[
     "@mozilla.org/supports-PRBool;1"
@@ -260,6 +266,7 @@ function openInCurrentTab(targetBrowser, url, uriObj, params) {
     hasValidUserGestureActivation,
     globalHistoryOptions,
     triggeringRemoteType,
+    wasSchemelessInput,
   } = params;
 
   targetBrowser.fixupAndLoadURIString(url, {
@@ -272,6 +279,7 @@ function openInCurrentTab(targetBrowser, url, uriObj, params) {
     hasValidUserGestureActivation,
     globalHistoryOptions,
     triggeringRemoteType,
+    wasSchemelessInput,
   });
   params.resolveOnContentBrowserCreated?.(targetBrowser);
 }
@@ -363,6 +371,8 @@ export const URILoadingHelper = {
    * @param {string}  params.charset
    *                  Character set to use for the load. Only honoured for tabs.
    *                  Legacy argument - do not use.
+   * @param {string}  params.wasSchemelessInput
+   *                  Whether the search/URL term was without an explicit scheme.
    *
    * Options relating to security, whether the load is allowed to happen,
    * and what cookie container to use for the load:
@@ -577,6 +587,7 @@ export const URILoadingHelper = {
           openerBrowser: params.openerBrowser,
           fromExternal: params.fromExternal,
           globalHistoryOptions,
+          wasSchemelessInput: params.wasSchemelessInput,
         });
         targetBrowser = tabUsedForLoad.linkedBrowser;
 
@@ -761,19 +772,17 @@ export const URILoadingHelper = {
     for (let win of lazy.BrowserWindowTracker.orderedWindows) {
       for (let tab of win.gBrowser.visibleTabs) {
         let { userContextId } = tab;
-        if (userContextId) {
-          let currentURIHost = null;
-          try {
-            currentURIHost = tab.linkedBrowser.currentURI.host;
-          } catch (e) {}
+        let currentURIHost = null;
+        try {
+          currentURIHost = tab.linkedBrowser.currentURI.host;
+        } catch (e) {}
 
-          if (currentURIHost == host) {
-            let count = (containerScores.get(userContextId) ?? 0) + 1;
-            containerScores.set(userContextId, count);
-            if (count > maxCount) {
-              guessedUserContextId = userContextId;
-              maxCount = count;
-            }
+        if (currentURIHost == host) {
+          let count = (containerScores.get(userContextId) ?? 0) + 1;
+          containerScores.set(userContextId, count);
+          if (count > maxCount) {
+            guessedUserContextId = userContextId;
+            maxCount = count;
           }
         }
       }

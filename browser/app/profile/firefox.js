@@ -453,13 +453,6 @@ pref("browser.urlbar.suggest.weather", true);
 // trending suggestions are turned on.
 pref("browser.urlbar.suggest.trending", true);
 
-// When `browser.urlbar.bestMatch.enabled` is true, this controls whether best
-// match results are shown in the urlbar. This pref is exposed to the user in
-// the UI, and it's sticky so that its user-branch value persists regardless of
-// whatever Firefox Suggest experiments or rollouts the user is enrolled in over
-// time.
-pref("browser.urlbar.suggest.bestmatch", true, sticky);
-
 // Whether non-sponsored quick suggest results are shown in the urlbar. This
 // pref is exposed to the user in the UI, and it's sticky so that its
 // user-branch value persists regardless of whatever Firefox Suggest scenarios,
@@ -581,8 +574,6 @@ pref("browser.urlbar.shortcuts.bookmarks", true);
 pref("browser.urlbar.shortcuts.tabs", true);
 pref("browser.urlbar.shortcuts.history", true);
 
-pref("browser.urlbar.eventTelemetry.enabled", false);
-
 // When we send events to Urlbar extensions, we wait this amount of time in
 // milliseconds for them to respond before timing out.
 pref("browser.urlbar.extension.timeout", 400);
@@ -617,13 +608,6 @@ pref("browser.urlbar.merino.providers", "");
 
 // Comma-separated list of client variants to send to Merino
 pref("browser.urlbar.merino.clientVariants", "");
-
-// Whether the best match feature in the urlbar is enabled.
-pref("browser.urlbar.bestMatch.enabled", false);
-
-// Whether best match results can be blocked. This pref is a fallback for the
-// Nimbus variable `bestMatchBlockingEnabled`.
-pref("browser.urlbar.bestMatch.blockingEnabled", true);
 
 // Enable site specific search result.
 pref("browser.urlbar.contextualSearch.enabled", false);
@@ -2194,6 +2178,7 @@ pref("browser.migrate.chrome.enabled", true);
 pref("browser.migrate.chrome.history.limit", 2000);
 pref("browser.migrate.chrome.payment_methods.enabled", true);
 pref("browser.migrate.chrome.extensions.enabled", true);
+pref("browser.migrate.chrome.get_permissions.enabled", true);
 
 pref("browser.migrate.chrome-beta.enabled", true);
 pref("browser.migrate.chrome-dev.enabled", true);

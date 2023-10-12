@@ -586,6 +586,7 @@ pref("toolkit.scrollbox.clickToScroll.scrollDelay", 150);
 
 pref("toolkit.shopping.ohttpConfigURL", "https://prod.ohttp-gateway.prod.webservices.mozgcp.net/ohttp-configs");
 pref("toolkit.shopping.ohttpRelayURL", "https://mozilla-ohttp-fakespot.fastly-edge.com/");
+pref("toolkit.shopping.environment", "prod");
 
 // Controls logging for Sqlite.sys.mjs.
 pref("toolkit.sqlitejsm.loglevel", "Error");
@@ -702,8 +703,8 @@ pref("devtools.performance.recording.duration.remote", 0);
 // explanations. Remote profiling also includes the java feature by default.
 // If the remote debuggee isn't an Android phone, then this feature will
 // be ignored.
-pref("devtools.performance.recording.features", "[\"js\",\"leaf\",\"stackwalk\",\"cpu\",\"screenshots\"]");
-pref("devtools.performance.recording.features.remote", "[\"js\",\"leaf\",\"stackwalk\",\"cpu\",\"screenshots\",\"java\"]");
+pref("devtools.performance.recording.features", "[\"js\",\"stackwalk\",\"cpu\",\"screenshots\"]");
+pref("devtools.performance.recording.features.remote", "[\"js\",\"stackwalk\",\"cpu\",\"screenshots\",\"java\"]");
 // Threads to be captured by the profiler.
 pref("devtools.performance.recording.threads", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
 pref("devtools.performance.recording.threads.remote", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
@@ -4010,9 +4011,13 @@ pref("cookiebanners.bannerClicking.enabled", true);
 // Whether or not banner auto clicking test mode is enabled.
 pref("cookiebanners.bannerClicking.testing", false);
 
-// The maximum time in ms for detecting banner and button elements for cookie
-// banner auto clicking.
-pref("cookiebanners.bannerClicking.timeout", 3000);
+// The maximum time (ms) after load for detecting banner and button elements for
+// cookie banner auto clicking.
+pref("cookiebanners.bannerClicking.timeoutAfterLoad", 5000);
+
+// Maximum time (ms) after DOMContentLoaded for detecting banners. This is a
+// catchall for cases where a load even never occurs.
+pref("cookiebanners.bannerClicking.timeoutAfterDOMContentLoaded", 20000);
 
 // How often (milliseconds) to run the banner detection query selectors to detect
 // the banner element and/or buttons.

@@ -40,20 +40,6 @@ menuitem[image] > .menu-iconic-left > .menu-iconic-icon {
   width: 16px;
 }
 
-/* menu arrow box */
-
-.menu-right,
-.menu-accel-container {
-  margin-inline: 21px -9px;
-  justify-content: flex-end;
-}
-
-.menu-right {
-  list-style-image: none;
-  appearance: auto;
-  -moz-default-appearance: menuarrow;
-}
-
 /* menu/menuitems in menubar */
 
 menubar > menu {
@@ -72,7 +58,7 @@ menubar > menu[_moz-menuactive="true"][open="true"] {
   appearance: auto;
   -moz-default-appearance: menuitem;
   -moz-font-smoothing-background-color: -moz-mac-active-menuitem;
-  color: -moz-mac-menutextselect;
+  color: -moz-menuhovertext;
 }
 
 /* Internal content  */
@@ -91,13 +77,6 @@ menupopup > menu,
 menupopup > menuitem,
 menupopup > menucaption {
   max-width: 42em;
-}
-
-menu[_moz-menuactive="true"],
-menuitem[_moz-menuactive="true"] {
-  -moz-font-smoothing-background-color: -moz-mac-active-menuitem;
-  color: -moz-mac-menutextselect;
-  background-color: SelectedItem;
 }
 
 menuitem[customoptionstyling="true"] {

@@ -34,7 +34,7 @@ mozilla-repo-urls==0.1.1
 mozilla-version==2.0.0
 packaging==23.1
 pathspec==0.9.0
-pip==23.0.1
+pip==23.2.1
 pip-tools==5.5.0
 ply==3.10
 pyasn1==0.4.8
@@ -48,7 +48,7 @@ requests-unixsocket==0.2.0
 responses==0.10.6
 rsa==3.1.4
 sentry-sdk==0.14.3
-setuptools==51.2.0
+setuptools==68.0.0
 six==1.13.0
 slugid==2.0.0
 taskcluster==44.2.2

@@ -34,6 +34,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/Services.h"
+#include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_javascript.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StaticPtr.h"
@@ -1260,7 +1261,8 @@ nsresult nsRFPService::GenerateCanvasKeyFromImageData(
 
 // static
 nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
-                                       uint8_t* aData, uint32_t aSize,
+                                       uint8_t* aData, uint32_t aWidth,
+                                       uint32_t aHeight, uint32_t aSize,
                                        gfx::SurfaceFormat aSurfaceFormat) {
   NS_ENSURE_ARG_POINTER(aData);
 
@@ -1268,7 +1270,25 @@ nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
     return NS_OK;
   }
 
-  if (aSize == 0) {
+  if (aSize <= 4) {
+    return NS_OK;
+  }
+
+  // Don't randomize if all pixels are uniform.
+  static constexpr size_t bytesPerPixel = 4;
+  MOZ_ASSERT(aSize == aWidth * aHeight * bytesPerPixel,
+             "Pixels must be tightly-packed");
+  const bool allPixelsMatch = [&]() {
+    auto itr = RangedPtr<const uint8_t>(aData, aSize);
+    const auto itrEnd = itr + aSize;
+    for (; itr != itrEnd; itr += bytesPerPixel) {
+      if (memcmp(itr.get(), aData, bytesPerPixel) != 0) {
+        return false;
+      }
+    }
+    return true;
+  }();
+  if (allPixelsMatch) {
     return NS_OK;
   }
 
@@ -1313,8 +1333,31 @@ nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
       *reinterpret_cast<uint64_t*>(canvasKey.Elements() + 16),
       *reinterpret_cast<uint64_t*>(canvasKey.Elements() + 24));
 
-  // Ensure at least 16 random changes may occur.
-  uint8_t numNoises = std::clamp<uint8_t>(rnd3, 15, 255);
+  // Ensure at least 20 random changes may occur.
+  uint8_t numNoises = std::clamp<uint8_t>(rnd3, 20, 255);
+
+#ifdef __clang__
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunreachable-code"
+#endif
+  if (false) {
+    // For debugging purposes you can dump the image with this code
+    // then convert it with the image-magick command
+    // convert -size WxH -depth 8 rgba:$i $i.png
+    // Depending on surface format, the alpha and color channels might be mixed
+    // up...
+    static int calls = 0;
+    char filename[256];
+    SprintfLiteral(filename, "rendered_image_%dx%d_%d_pre", aWidth, aHeight,
+                   calls);
+    FILE* outputFile = fopen(filename, "wb");  // "wb" for binary write mode
+    fwrite(aData, 1, aSize, outputFile);
+    fclose(outputFile);
+    calls++;
+  }
+#ifdef __clang__
+#  pragma clang diagnostic pop
+#endif
 
   for (uint8_t i = 0; i <= numNoises; i++) {
     // Choose which RGB channel to add a noise. The pixel data is in either
@@ -1332,7 +1375,8 @@ nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
     uint32_t idx = 4 * (rng1.next() % pixelCnt) + channel;
     uint8_t bit = rng2.next();
 
-    aData[idx] = aData[idx] ^ (bit & 0x1);
+    // 50% chance to XOR a 0x2 or 0x1 into the existing byte
+    aData[idx] = aData[idx] ^ (0x2 >> (bit & 0x1));
   }
 
   glean::fingerprinting_protection::canvas_noise_calculate_time

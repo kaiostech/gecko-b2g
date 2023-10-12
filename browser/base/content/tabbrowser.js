@@ -2590,6 +2590,7 @@
         insertTab = true,
         globalHistoryOptions,
         triggeringRemoteType,
+        wasSchemelessInput,
       } = {}
     ) {
       // all callers of addTab that pass a params object need to pass
@@ -2779,6 +2780,7 @@
           csp,
           globalHistoryOptions,
           triggeringRemoteType,
+          wasSchemelessInput,
         });
       }
 
@@ -3020,6 +3022,7 @@
         csp,
         globalHistoryOptions,
         triggeringRemoteType,
+        wasSchemelessInput,
       }
     ) {
       if (
@@ -3083,6 +3086,7 @@
             csp,
             globalHistoryOptions,
             triggeringRemoteType,
+            wasSchemelessInput,
           });
         } catch (ex) {
           console.error(ex);
@@ -3562,8 +3566,10 @@
      * @param   aParams
      *          An optional set of parameters that will be passed to the
      *          removeTabs function.
+     * @param   {boolean} [skipWarnAboutClosingTabs=false]
+     *          Whether to skip the tab close warning prompt.mach
      */
-    removeAllTabsBut(aTab, aParams) {
+    removeAllTabsBut(aTab, aParams, skipWarnAboutClosingTabs = false) {
       let tabsToRemove = [];
       if (aTab && aTab.multiselected) {
         tabsToRemove = this.visibleTabs.filter(
@@ -3576,6 +3582,7 @@
       }
 
       if (
+        !skipWarnAboutClosingTabs &&
         !this.warnAboutClosingTabs(
           tabsToRemove.length,
           this.closingTabsEnum.OTHER

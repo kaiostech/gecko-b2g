@@ -1548,7 +1548,7 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
     device = AUDIO_DEVICE_OUT_SPEAKER;
   }
 
-  MOZ_ASSERT(audio_is_output_device(device));
+  MOZ_ASSERT(audio_is_output_device(static_cast<audio_devices_t>(device)));
   return device;
 }
 

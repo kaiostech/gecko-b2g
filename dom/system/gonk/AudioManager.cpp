@@ -84,7 +84,7 @@ mozilla::LazyLogModule gAudioManagerLog("AudioManager");
 #define SETTINGS_MANAGER "@mozilla.org/sidl-native/settings;1"
 
 // Refer AudioService.java from Android
-static const uint32_t sMaxStreamVolumeTbl[AUDIO_STREAM_CNT] = {
+static const uint32_t sMaxStreamVolumeTbl[AUDIO_STREAM_PUBLIC_CNT] = {
     5,   // voice call
     15,  // system
     15,  // ring
@@ -95,9 +95,24 @@ static const uint32_t sMaxStreamVolumeTbl[AUDIO_STREAM_CNT] = {
     15,  // enforced audible
     15,  // DTMF
     15,  // TTS
+    15,  // accessibility
 };
 
-static const uint32_t sDefaultStreamVolumeTbl[AUDIO_STREAM_CNT] = {
+static const uint32_t sMinStreamVolumeTbl[AUDIO_STREAM_PUBLIC_CNT] = {
+    1,  // voice call
+    0,  // system
+    0,  // ring
+    0,  // music
+    1,  // alarm
+    0,  // notification
+    0,  // BT SCO
+    0,  // enforced audible
+    0,  // DTMF
+    0,  // TTS
+    1,  // accessibility
+};
+
+static const uint32_t sDefaultStreamVolumeTbl[AUDIO_STREAM_PUBLIC_CNT] = {
     3,   // voice call
     8,   // system
     8,   // ring
@@ -108,9 +123,10 @@ static const uint32_t sDefaultStreamVolumeTbl[AUDIO_STREAM_CNT] = {
     15,  // enforced audible  // XXX Handle as fixed maximum audio setting
     8,   // DTMF
     8,   // TTS
+    8,   // accessibility
 };
 
-static const int32_t sStreamVolumeAliasTbl[AUDIO_STREAM_CNT] = {
+static const int32_t sStreamVolumeAliasTbl[AUDIO_STREAM_PUBLIC_CNT] = {
     AUDIO_STREAM_VOICE_CALL,        // voice call
     AUDIO_STREAM_NOTIFICATION,      // system
     AUDIO_STREAM_NOTIFICATION,      // ring
@@ -121,6 +137,7 @@ static const int32_t sStreamVolumeAliasTbl[AUDIO_STREAM_CNT] = {
     AUDIO_STREAM_ENFORCED_AUDIBLE,  // enforced audible
     AUDIO_STREAM_DTMF,              // DTMF
     AUDIO_STREAM_TTS,               // TTS
+    AUDIO_STREAM_ACCESSIBILITY,     // accessibility
 };
 
 static const uint32_t sChannelStreamTbl[NUMBER_OF_AUDIO_CHANNELS] = {
@@ -184,7 +201,7 @@ static const VolumeData gVolumeData[] = {
 class VolumeCurves {
  public:
   explicit VolumeCurves(int32_t aStreamType) : mStreamType(aStreamType) {
-    MOZ_ASSERT(aStreamType < AUDIO_STREAM_CNT);
+    MOZ_ASSERT(aStreamType < AUDIO_STREAM_PUBLIC_CNT);
   }
   VolumeCurves() = delete;
   ~VolumeCurves() = default;
@@ -780,7 +797,8 @@ AudioManager::AudioManager()
 #endif
 
   // Create VolumeStreamStates
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; ++streamType) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
+       ++streamType) {
     auto streamState = MakeUnique<VolumeStreamState>(*this, streamType);
     mStreamStates.AppendElement(std::move(streamState));
   }
@@ -830,7 +848,8 @@ void AudioManager::Init() {
 #endif
 
   // Initialize stream volumes with default values
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
+       streamType++) {
     uint32_t volIndex = sDefaultStreamVolumeTbl[streamType];
     SetStreamVolumeForDevice(streamType, volIndex, AUDIO_DEVICE_OUT_DEFAULT);
   }
@@ -1235,12 +1254,13 @@ AudioManager::GetMaxAudioChannelVolume(uint32_t aChannel, uint32_t* aMaxIndex) {
 
 nsresult AudioManager::ValidateVolumeIndex(int32_t aStream,
                                            uint32_t aIndex) const {
-  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_CNT) {
+  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_PUBLIC_CNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  uint32_t maxIndex = mStreamStates[aStream]->GetMaxIndex();
-  if (aIndex > maxIndex) {
+  auto& streamState = mStreamStates[aStream];
+  if (aIndex < streamState->GetMinIndex() ||
+      aIndex > streamState->GetMaxIndex()) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -1264,7 +1284,8 @@ nsresult AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex) {
   }
 
   int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
+       streamType++) {
     if (streamAlias == sStreamVolumeAliasTbl[streamType]) {
       nsresult rv =
           mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
@@ -1282,7 +1303,7 @@ nsresult AudioManager::GetStreamVolumeIndex(int32_t aStream, uint32_t* aIndex) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_CNT) {
+  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_PUBLIC_CNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -1570,11 +1591,15 @@ uint32_t AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
 
 void AudioManager::VolumeStreamState::InitStreamVolume() {
   AudioSystem::initStreamVolume(static_cast<audio_stream_type_t>(mStreamType),
-                                0, GetMaxIndex());
+                                GetMinIndex(), GetMaxIndex());
 }
 
 uint32_t AudioManager::VolumeStreamState::GetMaxIndex() {
   return sMaxStreamVolumeTbl[mStreamType];
+}
+
+uint32_t AudioManager::VolumeStreamState::GetMinIndex() {
+  return sMinStreamVolumeTbl[mStreamType];
 }
 
 uint32_t AudioManager::VolumeStreamState::GetVolumeIndex() {
@@ -1630,7 +1655,8 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToAliasStreams(
     return rv;
   }
 
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_PUBLIC_CNT;
+       streamType++) {
     if ((streamType != mStreamType) &&
         sStreamVolumeAliasTbl[streamType] == mStreamType) {
       // Rescaling of index is not necessary.

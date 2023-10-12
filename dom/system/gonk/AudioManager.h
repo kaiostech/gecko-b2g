@@ -68,6 +68,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
     uint32_t GetDevicesWithVolumeChange();
     void InitStreamVolume();
     uint32_t GetMaxIndex();
+    uint32_t GetMinIndex();
     uint32_t GetVolumeIndex();
     uint32_t GetVolumeIndex(uint32_t aDevice);
     // Set volume index to all active devices.

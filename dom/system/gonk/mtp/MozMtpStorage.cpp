@@ -97,12 +97,27 @@ void MozMtpStorage::StorageAvailable() {
 
   MOZ_ASSERT(!mMtpStorage);
 
-  mMtpStorage.reset(
-      new MtpStorage(mStorageID,                            // id
-                     mountPoint.get(),                      // filePath
-                     mVolume->NameStr(),                    // description
-                     mVolume->IsHotSwappable(),             // removable
-                     2uLL * 1024uLL * 1024uLL * 1024uLL));  // maxFileSize
+  nsTArray<RefPtr<VolumeInfo>>& via = VolumeManager::GetVolumeInfoArray();
+  struct MountPtEquals {
+    bool Equals(const RefPtr<VolumeInfo>& aInfo,
+                const nsCString& aMountPoint) const {
+      return aMountPoint.Equals(aInfo->getMountPoint());
+    }
+  };
+  nsCString fsType;
+  auto index = via.IndexOf(mountPoint, 0, MountPtEquals());
+  if (index != nsTArray<RefPtr<VolumeInfo>>::NoIndex) {
+    fsType = via[index]->getFsType();
+  }
+
+  mMtpStorage.reset(new MtpStorage(
+      mStorageID,                 // id
+      mountPoint.get(),           // filePath
+      mVolume->NameStr(),         // description
+      mVolume->IsHotSwappable(),  // removable
+      (fsType.Equals("exfat"_ns)
+           ? 0
+           : 4uLL * 1024uLL * 1024uLL * 1024uLL)));  // maxFileSize
   RefPtr<RefCountedMtpServer> server = mMozMtpServer->GetMtpServer();
 
   MTP_LOG("Adding Volume %s mStorageID 0x%08x mountPoint %s to MtpServer",

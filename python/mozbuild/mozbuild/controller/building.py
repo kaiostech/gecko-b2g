@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -182,7 +181,7 @@ class TierStatus(object):
 class BuildMonitor(MozbuildObject):
     """Monitors the output of the build."""
 
-    def init(self, warnings_path):
+    def init(self, warnings_path, terminal):
         """Create a new monitor.
 
         warnings_path is a path of a warnings database to use.
@@ -203,6 +202,8 @@ class BuildMonitor(MozbuildObject):
         # Contains warnings unique to this invocation. Not populated with old
         # warnings.
         self.instance_warnings = WarningsDatabase()
+
+        self._terminal = terminal
 
         def on_warning(warning):
             # Skip `errors`
@@ -254,8 +255,12 @@ class BuildMonitor(MozbuildObject):
         """
         message = None
 
-        if line.startswith("BUILDSTATUS"):
-            args = line.split()[1:]
+        # If the previous line was colored (eg. for a compiler warning), our
+        # line will start with the ansi reset sequence. Strip it to ensure it
+        # does not interfere with our parsing of the line.
+        plain_line = self._terminal.strip(line) if self._terminal else line
+        if plain_line.startswith("BUILDSTATUS"):
+            args = plain_line.split()[1:]
 
             action = args.pop(0)
             update_needed = True
@@ -271,6 +276,13 @@ class BuildMonitor(MozbuildObject):
                 self.tiers.finish_tier(tier)
             elif action == "OBJECT_FILE":
                 self.build_objects.append(args[0])
+                self.resources.begin_marker("Object", args[0])
+                update_needed = False
+            elif action.startswith("START_"):
+                self.resources.begin_marker(action[len("START_") :], " ".join(args))
+                update_needed = False
+            elif action.startswith("END_"):
+                self.resources.end_marker(action[len("END_") :], " ".join(args))
                 update_needed = False
             elif action == "BUILD_VERBOSE":
                 build_dir = args[0]
@@ -282,8 +294,8 @@ class BuildMonitor(MozbuildObject):
                 raise Exception("Unknown build status: %s" % action)
 
             return BuildOutputResult(None, update_needed, message)
-        elif line.startswith("BUILDTASK"):
-            _, data = line.split(maxsplit=1)
+        elif plain_line.startswith("BUILDTASK"):
+            _, data = plain_line.split(maxsplit=1)
             # Check that we can parse the JSON. Skip this line if we can't;
             # we'll be missing data, but that's not a huge deal.
             try:
@@ -345,28 +357,18 @@ class BuildMonitor(MozbuildObject):
             # the upload path, alongside, for convenience, a copy of the HTML
             # viewer.
             if "MOZ_AUTOMATION" in os.environ and "UPLOAD_PATH" in os.environ:
-                build_resources_path = os.path.join(
-                    os.environ["UPLOAD_PATH"], "build_resources.json"
-                )
-                shutil.copy(
-                    os.path.join(
-                        self.topsrcdir,
-                        "python",
-                        "mozbuild",
-                        "mozbuild",
-                        "resources",
-                        "html-build-viewer",
-                        "build_resources.html",
-                    ),
-                    os.environ["UPLOAD_PATH"],
+                build_resources_profile_path = os.path.join(
+                    os.environ["UPLOAD_PATH"], "profile_build_resources.json"
                 )
             else:
-                build_resources_path = self._get_state_filename("build_resources.json")
+                build_resources_profile_path = self._get_state_filename(
+                    "profile_build_resources.json"
+                )
             with io.open(
-                build_resources_path, "w", encoding="utf-8", newline="\n"
+                build_resources_profile_path, "w", encoding="utf-8", newline="\n"
             ) as fh:
                 to_write = six.ensure_text(
-                    json.dumps(self.resources.as_dict(), indent=2)
+                    json.dumps(self.resources.as_profile(), separators=(",", ":"))
                 )
                 fh.write(to_write)
         except Exception as e:
@@ -1142,7 +1144,7 @@ class BuildDriver(MozbuildObject):
         self.mach_context = mach_context
         warnings_path = self._get_state_filename("warnings.json")
         monitor = self._spawn(BuildMonitor)
-        monitor.init(warnings_path)
+        monitor.init(warnings_path, self.log_manager.terminal)
         footer = BuildProgressFooter(self.log_manager.terminal, monitor)
 
         # Disable indexing in objdir because it is not necessary and can slow
@@ -1537,7 +1539,7 @@ class BuildDriver(MozbuildObject):
             # if excessive:
             #    print(EXCESSIVE_SWAP_MESSAGE)
 
-            print("To view resource usage of the build, run |mach " "resource-usage|.")
+            print("To view a profile of the build, run |mach " "resource-usage|.")
 
         long_build = monitor.elapsed > 1200
 

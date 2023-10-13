@@ -43,8 +43,6 @@ if (!this.runTest) {
     enableStorageTesting();
     enableTesting();
 
-    Cu.importGlobalProperties(["indexedDB", "File", "Blob", "FileReader"]);
-
     // In order to support converting tests to using async functions from using
     // generator functions, we detect async functions by checking the name of
     // function's constructor.
@@ -166,6 +164,27 @@ function initTemporaryOrigin(persistence, principal, callback) {
   let request = SpecialPowers._getQuotaManager().initializeTemporaryOrigin(
     persistence,
     principal
+  );
+  request.callback = callback;
+
+  return request;
+}
+
+function initPersistentClient(principal, client, callback) {
+  let request = SpecialPowers._getQuotaManager().initializePersistentClient(
+    principal,
+    client
+  );
+  request.callback = callback;
+
+  return request;
+}
+
+function initTemporaryClient(persistence, principal, client, callback) {
+  let request = SpecialPowers._getQuotaManager().initializeTemporaryClient(
+    persistence,
+    principal,
+    client
   );
   request.callback = callback;
 

@@ -20,6 +20,12 @@ WebAuthnRegisterArgs::GetOrigin(nsAString& aOrigin) {
 }
 
 NS_IMETHODIMP
+WebAuthnRegisterArgs::GetChallenge(nsTArray<uint8_t>& aChallenge) {
+  aChallenge.Assign(mInfo.Challenge());
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 WebAuthnRegisterArgs::GetClientDataHash(nsTArray<uint8_t>& aClientDataHash) {
   nsresult rv = HashCString(mInfo.ClientDataJSON(), aClientDataHash);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -74,6 +80,16 @@ WebAuthnRegisterArgs::GetExcludeList(
   aExcludeList.Clear();
   for (const WebAuthnScopedCredential& cred : mInfo.ExcludeList()) {
     aExcludeList.AppendElement(cred.id().Clone());
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+WebAuthnRegisterArgs::GetExcludeListTransports(
+    nsTArray<uint8_t>& aExcludeListTransports) {
+  aExcludeListTransports.Clear();
+  for (const WebAuthnScopedCredential& cred : mInfo.ExcludeList()) {
+    aExcludeListTransports.AppendElement(cred.transports());
   }
   return NS_OK;
 }
@@ -152,6 +168,12 @@ WebAuthnSignArgs::GetRpId(nsAString& aRpId) {
 }
 
 NS_IMETHODIMP
+WebAuthnSignArgs::GetChallenge(nsTArray<uint8_t>& aChallenge) {
+  aChallenge.Assign(mInfo.Challenge());
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 WebAuthnSignArgs::GetClientDataHash(nsTArray<uint8_t>& aClientDataHash) {
   nsresult rv = HashCString(mInfo.ClientDataJSON(), aClientDataHash);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -166,6 +188,16 @@ WebAuthnSignArgs::GetAllowList(nsTArray<nsTArray<uint8_t> >& aAllowList) {
   aAllowList.Clear();
   for (const WebAuthnScopedCredential& cred : mInfo.AllowList()) {
     aAllowList.AppendElement(cred.id().Clone());
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+WebAuthnSignArgs::GetAllowListTransports(
+    nsTArray<uint8_t>& aAllowListTransports) {
+  aAllowListTransports.Clear();
+  for (const WebAuthnScopedCredential& cred : mInfo.AllowList()) {
+    aAllowListTransports.AppendElement(cred.transports());
   }
   return NS_OK;
 }

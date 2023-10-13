@@ -205,14 +205,12 @@ urlbar:
       description: >-
         Comma separated list of client variants to report to the Merino server.
         May impact server behavior.
-    merinoEnabled:
-      type: boolean
-      fallbackPref: browser.urlbar.merino.enabled
-      description: Whether Merino is enabled as a quick suggest source
     merinoEndpointURL:
       type: string
       fallbackPref: browser.urlbar.merino.endpointURL
-      description: The Merino endpoint URL, not including parameters.
+      description: >-
+        The Merino endpoint URL, not including parameters. An empty string will
+        cause Firefox not to fetch from Merino.
     merinoProviders:
       type: string
       fallbackPref: browser.urlbar.merino.providers
@@ -250,10 +248,6 @@ urlbar:
       type: boolean
       fallbackPref: browser.urlbar.quicksuggest.allowPositionInSuggestions
       description: Whether quick suggest results can be shown in position specified in the suggestions.
-    quickSuggestBlockingEnabled:
-      type: boolean
-      fallbackPref: browser.urlbar.quicksuggest.blockingEnabled
-      description: Whether Suggest suggestions can be blocked.
     quickSuggestDataCollectionEnabled:
       type: boolean
       description: Whether data collection should be enabled by default. If this variable is specified, it will override the value implied by the scenario. It will never override the user's local preference to disable (or enable) data collection, if the user has already toggled that preference.
@@ -285,10 +279,6 @@ urlbar:
     quickSuggestRemoteSettingsDataType:
       type: string
       description: The `type` of the suggestions data in remote settings. If not specified, "data" is used.
-    quickSuggestRemoteSettingsEnabled:
-      type: boolean
-      fallbackPref: browser.urlbar.quicksuggest.remoteSettings.enabled
-      description: Whether Remote Settings is enabled as a quick suggest source
     quickSuggestRustEnabled:
       type: boolean
       fallbackPref: browser.urlbar.quicksuggest.rustEnabled
@@ -1814,7 +1804,7 @@ backgroundUpdate:
     feature is enabled and the service registry key (Mozilla Maintenance
     Service) is *not* available for this installation. That is the first time
     the feature can impact Firefox behaviour and the user experience.
-  isEarlyStartup: false
+  isEarlyStartup: true
   variables:
     enableUpdatesForUnelevatedInstallations:
       description: >-
@@ -1876,6 +1866,10 @@ cookieBannerHandling:
       type: boolean
       setPref: cookiebanners.ui.desktop.enabled
       description: Enables the cookie banner desktop UI.
+    enablePromo:
+      type: boolean
+      setPref: browser.promo.cookiebanners.enabled
+      description: Enables the cookie banner promo in about:privatebrowsing.
 
 backgroundThreads:
   description: Prefs to control MacOS thread priorities for power savings.

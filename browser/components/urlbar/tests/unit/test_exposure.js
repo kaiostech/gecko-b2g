@@ -55,7 +55,7 @@ const EXPECTED_REMOTE_SETTINGS_URLBAR_RESULT = {
         ? "urlbar-result-menu-learn-more-about-firefox-suggest"
         : "firefox-suggest-urlbar-learn-more",
     },
-    isBlockable: UrlbarPrefs.get("quickSuggestBlockingEnabled"),
+    isBlockable: true,
     blockL10n: {
       id: UrlbarPrefs.get("resultMenu")
         ? "urlbar-result-menu-dismiss-firefox-suggest"
@@ -90,7 +90,7 @@ const EXPECTED_NON_SPONSORED_REMOTE_SETTINGS_RESULT = {
         ? "urlbar-result-menu-learn-more-about-firefox-suggest"
         : "firefox-suggest-urlbar-learn-more",
     },
-    isBlockable: UrlbarPrefs.get("quickSuggestBlockingEnabled"),
+    isBlockable: true,
     blockL10n: {
       id: UrlbarPrefs.get("resultMenu")
         ? "urlbar-result-menu-dismiss-firefox-suggest"
@@ -128,7 +128,6 @@ add_setup(async function test_setup() {
 });
 
 add_task(async function testExposureCheck() {
-  UrlbarPrefs.set("quicksuggest.remoteSettings.enabled", true);
   UrlbarPrefs.set("exposureResults", "rs_adm_sponsored");
   UrlbarPrefs.set("showExposureResults", true);
 
@@ -147,7 +146,6 @@ add_task(async function testExposureCheck() {
 });
 
 add_task(async function testExposureCheckMultiple() {
-  UrlbarPrefs.set("quicksuggest.remoteSettings.enabled", true);
   UrlbarPrefs.set("exposureResults", "rs_adm_sponsored,rs_adm_nonsponsored");
   UrlbarPrefs.set("showExposureResults", true);
 
@@ -179,7 +177,6 @@ add_task(async function testExposureCheckMultiple() {
 });
 
 add_task(async function exposureDisplayFiltering() {
-  UrlbarPrefs.set("quicksuggest.remoteSettings.enabled", true);
   UrlbarPrefs.set("exposureResults", "rs_adm_sponsored");
   UrlbarPrefs.set("showExposureResults", false);
 

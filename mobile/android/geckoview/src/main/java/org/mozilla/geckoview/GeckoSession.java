@@ -3622,6 +3622,9 @@ public class GeckoSession {
     /** Boolean indicating if the analysis is stale. */
     public final boolean needsAnalysis;
 
+    /** Boolean indicating if the page is not supported. */
+    public final boolean pageNotSupported;
+
     /** Object containing highlights for product. */
     @Nullable public final Highlight highlights;
 
@@ -3639,7 +3642,8 @@ public class GeckoSession {
       productId = message.getString("product_id");
       grade = message.getString("grade");
       adjustedRating = message.getDoubleObject("adjusted_rating");
-      needsAnalysis = message.getBoolean("needs_analysis", true);
+      needsAnalysis = message.getBoolean("needs_analysis");
+      pageNotSupported = message.getBoolean("page_not_supported");
       if (message.getBundle("highlights") == null) {
         highlights = null;
       } else {
@@ -3661,6 +3665,7 @@ public class GeckoSession {
       productId = builder.mProductId;
       grade = builder.mGrade;
       needsAnalysis = builder.mNeedsAnalysis;
+      pageNotSupported = builder.mPageNotSupported;
       highlights = builder.mHighlights;
       lastAnalysisTime = builder.mLastAnalysisTime;
       deletedProduct = builder.mDeletedProduct;
@@ -3674,6 +3679,7 @@ public class GeckoSession {
       /* package */ String mGrade = null;
       /* package */ Double mAdjustedRating = 0.0;
       /* package */ Boolean mNeedsAnalysis = false;
+      /* package */ Boolean mPageNotSupported = false;
       /* package */ Highlight mHighlights = new Highlight();
       /* package */ long mLastAnalysisTime = 0;
       /* package */ Boolean mDeletedProductReported = false;
@@ -3745,6 +3751,19 @@ public class GeckoSession {
       @AnyThread
       public @NonNull ReviewAnalysis.Builder needsAnalysis(final @NonNull Boolean needsAnalysis) {
         mNeedsAnalysis = needsAnalysis;
+        return this;
+      }
+
+      /**
+       * Set the flag that indicates whether this product page is supported
+       *
+       * @param pageNotSupported indicates whether this product page is supported
+       * @return This Builder instance.
+       */
+      @AnyThread
+      public @NonNull ReviewAnalysis.Builder pageNotSupported(
+          final @NonNull Boolean pageNotSupported) {
+        mPageNotSupported = pageNotSupported;
         return this;
       }
 
@@ -3846,34 +3865,34 @@ public class GeckoSession {
   @AnyThread
   public static class Recommendation {
     /** Analysis URL. */
-    @Nullable public final String analysisUrl;
+    @NonNull public final String analysisUrl;
 
     /** Adjusted rating. */
-    @Nullable public final Double adjustedRating;
+    @NonNull public final Double adjustedRating;
 
     /** Whether or not it is a sponsored recommendation. */
-    @Nullable public final Boolean sponsored;
+    @NonNull public final Boolean sponsored;
 
     /** Url of product recommendation image. */
-    @Nullable public final String imageUrl;
+    @NonNull public final String imageUrl;
 
     /** Unique identifier for the ad entity. */
-    @Nullable public final String aid;
+    @NonNull public final String aid;
 
     /** Url of recommended product. */
-    @Nullable public final String url;
+    @NonNull public final String url;
 
     /** Name of recommended product. */
-    @Nullable public final String name;
+    @NonNull public final String name;
 
     /** Grade of recommended product. */
-    @Nullable public final String grade;
+    @NonNull public final String grade;
 
     /** Price of recommended product. */
-    @Nullable public final String price;
+    @NonNull public final String price;
 
     /** Currency of recommended product. */
-    @Nullable public final String currency;
+    @NonNull public final String currency;
 
     /* package */ Recommendation(@NonNull final GeckoBundle message) {
       analysisUrl = message.getString("analysis_url");

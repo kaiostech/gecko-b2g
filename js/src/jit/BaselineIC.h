@@ -157,7 +157,9 @@ class ICStub {
 
   ICStub(uint8_t* stubCode, bool isFallback)
       : stubCode_(stubCode), isFallback_(isFallback) {
+#ifndef ENABLE_PORTABLE_BASELINE_INTERP
     MOZ_ASSERT(stubCode != nullptr);
+#endif  // !ENABLE_PORTABLE_BASELINE_INTERP
   }
 
  public:
@@ -193,6 +195,7 @@ class ICStub {
     MOZ_ASSERT(!usesTrampolineCode());
     return JitCode::FromExecutable(stubCode_);
   }
+  bool hasJitCode() { return !!stubCode_; }
 
   uint32_t enteredCount() const { return enteredCount_; }
   inline void incrementEnteredCount() { enteredCount_++; }
@@ -269,8 +272,10 @@ class ICCacheIRStub final : public ICStub {
 
  public:
   ICCacheIRStub(JitCode* stubCode, const CacheIRStubInfo* stubInfo)
-      : ICStub(stubCode->raw(), /* isFallback = */ false),
-        stubInfo_(stubInfo) {}
+      : ICStub(stubCode ? stubCode->raw() : nullptr, /* isFallback = */ false),
+        stubInfo_(stubInfo) {
+    MOZ_ASSERT_IF(!IsPortableBaselineInterpreterEnabled(), stubCode);
+  }
 
   ICStub* next() const { return next_; }
   void setNext(ICStub* stub) { next_ = stub; }

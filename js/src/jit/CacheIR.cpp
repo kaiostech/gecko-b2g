@@ -5861,10 +5861,18 @@ void IRGenerator::emitCalleeGuard(ObjOperandId calleeId, JSFunction* callee) {
   // for lambda clones (multiple functions with the same BaseScript). We guard
   // on the function's BaseScript if the callee is scripted and this isn't the
   // first IC stub.
+  //
+  // Self-hosted functions are more complicated: top-level functions can be
+  // relazified using SelfHostedLazyScript and this means they don't have a
+  // stable BaseScript pointer. These functions are never lambda clones, though,
+  // so we can just always guard on the JSFunction*. Self-hosted lambdas are
+  // never relazified so there we use the normal heuristics.
   if (isFirstStub_ || !callee->hasBaseScript() ||
-      callee->isSelfHostedBuiltin()) {
+      (callee->isSelfHostedBuiltin() && !callee->isLambda())) {
     writer.guardSpecificFunction(calleeId, callee);
   } else {
+    MOZ_ASSERT_IF(callee->isSelfHostedBuiltin(),
+                  !callee->baseScript()->allowRelazify());
     writer.guardClass(calleeId, GuardClassKind::JSFunction);
     writer.guardFunctionScript(calleeId, callee->baseScript());
   }
@@ -6756,6 +6764,9 @@ static bool HasOptimizableLastIndexSlot(RegExpObject* regexp, JSContext* cx) {
 // Returns the RegExp stub used by the optimized code path for this intrinsic.
 // We store a pointer to this in the IC stub to ensure GC doesn't discard it.
 static JitCode* GetOrCreateRegExpStub(JSContext* cx, InlinableNative native) {
+#ifdef ENABLE_PORTABLE_BASELINE_INTERP
+  return nullptr;
+#else
   // The stubs assume the global has non-null RegExpStatics and match result
   // shape.
   if (!GlobalObject::getRegExpStatics(cx, cx->global()) ||
@@ -6764,7 +6775,6 @@ static JitCode* GetOrCreateRegExpStub(JSContext* cx, InlinableNative native) {
     cx->clearPendingException();
     return nullptr;
   }
-
   JitCode* code;
   switch (native) {
     case InlinableNative::IntrinsicRegExpBuiltinExecForTest:
@@ -6790,6 +6800,7 @@ static JitCode* GetOrCreateRegExpStub(JSContext* cx, InlinableNative native) {
     return nullptr;
   }
   return code;
+#endif
 }
 
 static void EmitGuardLastIndexIsNonNegativeInt32(CacheIRWriter& writer,

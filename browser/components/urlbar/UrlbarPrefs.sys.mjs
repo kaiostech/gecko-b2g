@@ -163,9 +163,6 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // Comma-separated list of client variants to send to Merino
   ["merino.clientVariants", ""],
 
-  // Whether Merino is enabled as a quick suggest source.
-  ["merino.enabled", false],
-
   // The Merino endpoint URL, not including parameters.
   ["merino.endpointURL", "https://merino.services.mozilla.com/api/v1/suggest"],
 
@@ -248,6 +245,10 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // Whether results will include QuickActions in the default search mode.
   ["suggest.quickactions", false],
 
+  // Controls whether searching for open tabs returns tabs from any container
+  // or only from the current container.
+  ["switchTabs.searchAllContainers", false],
+
   // If disabled, QuickActions will not be included in either the default search
   // mode or the QuickActions search mode.
   ["quickactions.enabled", false],
@@ -301,10 +302,6 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // JSON'ed array of blocked quick suggest URL digests.
   ["quicksuggest.blockedDigests", ""],
 
-  // Whether the usual non-best-match quick suggest results can be blocked. This
-  // pref is a fallback for the Nimbus variable `quickSuggestBlockingEnabled`.
-  ["quicksuggest.blockingEnabled", true],
-
   // Global toggle for whether the quick suggest feature is enabled, i.e.,
   // sponsored and recommended results related to the user's search string.
   ["quicksuggest.enabled", false],
@@ -344,9 +341,6 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // 2: For online, the defaults for `suggest.quicksuggest.nonsponsored` and
   //    `suggest.quicksuggest.sponsored` are true. Previously they were false.
   ["quicksuggest.migrationVersion", 0],
-
-  // Whether Remote Settings is enabled as a quick suggest source.
-  ["quicksuggest.remoteSettings.enabled", true],
 
   // Whether Firefox Suggest will use the new Rust backend instead of the
   // original JS backend.

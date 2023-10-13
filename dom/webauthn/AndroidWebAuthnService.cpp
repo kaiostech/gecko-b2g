@@ -84,11 +84,7 @@ AndroidWebAuthnService::MakeCredential(uint64_t aTransactionId,
             userId.Length());
 
         nsTArray<uint8_t> challBuf;
-        nsresult rv = aArgs->GetClientDataHash(challBuf);
-        if (NS_FAILED(rv)) {
-          aPromise->Reject(rv);
-          return;
-        }
+        Unused << aArgs->GetChallenge(challBuf);
         jni::ByteBuffer::LocalRef challenge = jni::ByteBuffer::New(
             const_cast<void*>(static_cast<const void*>(challBuf.Elements())),
             challBuf.Length());
@@ -109,9 +105,7 @@ AndroidWebAuthnService::MakeCredential(uint64_t aTransactionId,
         }
 
         nsTArray<uint8_t> transportBuf;
-        /* Bug 1857335 - nsIWebAuthnRegisterArgs doesn't expose the transports
-         * associated with the allowList entries. They're optional, so it's
-         * not critical that we include them. */
+        Unused << aArgs->GetExcludeListTransports(transportBuf);
         jni::ByteBuffer::LocalRef transportList = jni::ByteBuffer::New(
             const_cast<void*>(
                 static_cast<const void*>(transportBuf.Elements())),
@@ -152,7 +146,8 @@ AndroidWebAuthnService::MakeCredential(uint64_t aTransactionId,
         }
 
         nsString authenticatorAttachment;
-        rv = aArgs->GetAuthenticatorAttachment(authenticatorAttachment);
+        nsresult rv =
+            aArgs->GetAuthenticatorAttachment(authenticatorAttachment);
         if (rv != NS_ERROR_NOT_AVAILABLE) {
           if (NS_FAILED(rv)) {
             aPromise->Reject(rv);
@@ -213,11 +208,7 @@ AndroidWebAuthnService::GetAssertion(uint64_t aTransactionId,
         AssertIsOnMainThread();
 
         nsTArray<uint8_t> challBuf;
-        nsresult rv = aArgs->GetClientDataHash(challBuf);
-        if (NS_FAILED(rv)) {
-          aPromise->Reject(NS_ERROR_DOM_NOT_ALLOWED_ERR);
-          return;
-        }
+        Unused << aArgs->GetChallenge(challBuf);
         jni::ByteBuffer::LocalRef challenge = jni::ByteBuffer::New(
             const_cast<void*>(static_cast<const void*>(challBuf.Elements())),
             challBuf.Length());
@@ -238,9 +229,7 @@ AndroidWebAuthnService::GetAssertion(uint64_t aTransactionId,
         }
 
         nsTArray<uint8_t> transportBuf;
-        /* Bug 1857335 - nsIWebAuthnSignArgs doesn't expose the transports
-         * associated with the allowList entries. They're optional, so it's
-         * not critical that we include them. */
+        Unused << aArgs->GetAllowListTransports(transportBuf);
         jni::ByteBuffer::LocalRef transportList = jni::ByteBuffer::New(
             const_cast<void*>(
                 static_cast<const void*>(transportBuf.Elements())),
@@ -272,7 +261,7 @@ AndroidWebAuthnService::GetAssertion(uint64_t aTransactionId,
         GECKOBUNDLE_START(extensionsBundle);
 
         nsString appId;
-        rv = aArgs->GetAppId(appId);
+        nsresult rv = aArgs->GetAppId(appId);
         if (rv != NS_ERROR_NOT_AVAILABLE) {
           if (NS_FAILED(rv)) {
             aPromise->Reject(NS_ERROR_DOM_NOT_ALLOWED_ERR);

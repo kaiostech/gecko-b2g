@@ -469,6 +469,15 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+#ifdef ENABLE_PORTABLE_BASELINE_INTERP
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "pbl", value)) {
+    return false;
+  }
+
 #ifdef JS_CODEGEN_LOONG64
   value = BooleanValue(true);
 #else
@@ -615,6 +624,26 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   value = BooleanValue(false);
 #endif
   if (!JS_SetProperty(cx, info, "fuzzing-defined", value)) {
+    return false;
+  }
+
+  value = Int32Value(JSFatInlineString::MAX_LENGTH_LATIN1);
+  if (!JS_SetProperty(cx, info, "inline-latin1-chars", value)) {
+    return false;
+  }
+
+  value = Int32Value(JSFatInlineString::MAX_LENGTH_TWO_BYTE);
+  if (!JS_SetProperty(cx, info, "inline-two-byte-chars", value)) {
+    return false;
+  }
+
+  value = Int32Value(JSThinInlineString::MAX_LENGTH_LATIN1);
+  if (!JS_SetProperty(cx, info, "thin-inline-latin1-chars", value)) {
+    return false;
+  }
+
+  value = Int32Value(JSThinInlineString::MAX_LENGTH_TWO_BYTE);
+  if (!JS_SetProperty(cx, info, "thin-inline-two-byte-chars", value)) {
     return false;
   }
 

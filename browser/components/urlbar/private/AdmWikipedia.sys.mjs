@@ -28,9 +28,8 @@ export class AdmWikipedia extends BaseFeature {
 
   get shouldEnable() {
     return (
-      lazy.UrlbarPrefs.get("quickSuggestRemoteSettingsEnabled") &&
-      (lazy.UrlbarPrefs.get("suggest.quicksuggest.nonsponsored") ||
-        lazy.UrlbarPrefs.get("suggest.quicksuggest.sponsored"))
+      lazy.UrlbarPrefs.get("suggest.quicksuggest.nonsponsored") ||
+      lazy.UrlbarPrefs.get("suggest.quicksuggest.sponsored")
     );
   }
 
@@ -164,7 +163,7 @@ export class AdmWikipedia extends BaseFeature {
       helpL10n: {
         id: "urlbar-result-menu-learn-more-about-firefox-suggest",
       },
-      isBlockable: lazy.UrlbarPrefs.get("quickSuggestBlockingEnabled"),
+      isBlockable: true,
       blockL10n: {
         id: "urlbar-result-menu-dismiss-firefox-suggest",
       },

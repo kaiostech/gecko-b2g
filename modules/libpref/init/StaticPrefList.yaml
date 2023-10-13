@@ -2252,6 +2252,11 @@
   value: false
   mirror: always
 
+- name: dom.cache.privateBrowsing.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Exposes window.caches and skips SecureContext check.
 # dom.serviceWorkers.testing.enabled also includes the same effect.
 - name: dom.caches.testing.enabled
@@ -4623,6 +4628,11 @@
 - name: dom.w3c_pointer_events.implicit_capture
   type: bool
   value: true
+  mirror: always
+
+- name: dom.w3c_pointer_events.getcoalescedevents_only_in_securecontext
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # In case Touch API is enabled, this pref controls whether to support
@@ -12534,6 +12544,11 @@
   value: true
   mirror: always
 
+- name: network.url.strict_protocol_setter
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Force remapping of remote port numbers to allow reaching local testing
 # servers or port forwarders listening on non-standard ports.  Note that
 # this is not changing the origin URL in the addressbar, only internally
@@ -14112,7 +14127,7 @@
 # (OS) mapping when loaded via the file:// protocol.
 - name: security.block_fileuri_script_with_wrong_mime
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: false
   mirror: always
 
 # Cancel outgoing requests from SystemPrincipal:

@@ -489,9 +489,6 @@ pref("browser.urlbar.quicksuggest.showOnboardingDialogAfterNRestarts", 0);
 pref("browser.urlbar.quicksuggest.sponsoredIndex", -1);
 pref("browser.urlbar.quicksuggest.nonSponsoredIndex", -1);
 
-// Whether Remote Settings is enabled as a quick suggest source.
-pref("browser.urlbar.quicksuggest.remoteSettings.enabled", true);
-
 // Whether quick suggest results can be shown in position specified in the
 // suggestions.
 pref("browser.urlbar.quicksuggest.allowPositionInSuggestions", true);
@@ -503,10 +500,6 @@ pref("browser.urlbar.quicksuggest.impressionCaps.nonSponsoredEnabled", false);
 // Whether sponsored quick suggest results are subject to impression frequency
 // caps.
 pref("browser.urlbar.quicksuggest.impressionCaps.sponsoredEnabled", false);
-
-// Whether the usual non-best-match quick suggest results can be blocked. This
-// pref is a fallback for the Nimbus variable `quickSuggestBlockingEnabled`.
-pref("browser.urlbar.quicksuggest.blockingEnabled", true);
 
 // Whether unit conversion is enabled.
 #ifdef NIGHTLY_BUILD
@@ -534,6 +527,10 @@ pref("browser.urlbar.decodeURLsOnCopy", false);
 // Whether or not to move tabs into the active window when using the "Switch to
 // Tab" feature of the awesomebar.
 pref("browser.urlbar.switchTabs.adoptIntoActiveWindow", false);
+
+// Controls whether searching for open tabs returns tabs from any container
+// or only from the current container.
+pref("browser.urlbar.switchTabs.searchAllContainers", false);
 
 // Whether addresses and search results typed into the address bar
 // should be opened in new tabs by default.
@@ -593,9 +590,6 @@ pref("browser.urlbar.keepPanelOpenDuringImeComposition", false);
 
 // Whether Firefox Suggest group labels are shown in the urlbar view.
 pref("browser.urlbar.groupLabels.enabled", true);
-
-// Whether Merino is enabled as a quick suggest source in the urlbar.
-pref("browser.urlbar.merino.enabled", true);
 
 // The Merino endpoint URL, not including parameters.
 pref("browser.urlbar.merino.endpointURL", "https://merino.services.mozilla.com/api/v1/suggest");

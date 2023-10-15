@@ -224,6 +224,9 @@ def Libxul(name, output_category=None):
             LDFLAGS += ["-v"]
             OS_LIBS += [
                 "activitymanager_aidl",
+                "audioclient_aidl_conversion",
+                "audiofoundation",
+                "audiopolicy",
                 "audiopolicyservice",
                 "binder_ndk",
                 "input",
@@ -241,6 +244,7 @@ def Libxul(name, output_category=None):
                 "android.hardware.vibrator-V2-cpp",
                 "android.hardware.wifi.supplicant-V1-cpp",
                 "android.hardware.wifi@1.5",
+                "android.media.audio.common.types-V1-cpp",
                 "audiopolicy-aidl-cpp",
                 "libsensor",
                 "libsensorservicehidl",

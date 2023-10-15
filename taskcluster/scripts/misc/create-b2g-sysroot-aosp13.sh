@@ -95,6 +95,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant-V1-cpp.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.media.audio.common.types-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.system.wifi.keystore@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats-V1-ndk.so
@@ -108,6 +109,9 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_teleph
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_remotesimunlock_interface-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/dnsresolver_aidl_interface-V2-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libaudioclient.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libaudioclient_aidl_conversion.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libaudiofoundation.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libaudiopolicy.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libbase.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libbinder.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libbinder_ndk.so

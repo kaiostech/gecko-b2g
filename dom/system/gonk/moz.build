@@ -35,6 +35,7 @@ UNIFIED_SOURCES += [
     "AudioManager.cpp",
     "AutoMounter.cpp",
     "AutoMounterSetting.cpp",
+    "GonkAudioSystem.cpp",
     "RndisController.cpp",
     "SystemProperty.cpp",
     "SystemWorkerManager.cpp",

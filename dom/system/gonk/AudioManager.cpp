@@ -18,6 +18,7 @@
 #include "BluetoothCommon.h"
 #include "BluetoothHfpManagerBase.h"
 #include "base/message_loop.h"
+#include "GonkAudioSystem.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Hal.h"
 #include "mozilla/ModuleUtils.h"
@@ -42,14 +43,13 @@
 #include <android/log.h>
 #include <binder/IServiceManager.h>
 #include <cutils/properties.h>
-#include <media/AudioSystem.h>
 
 #ifdef MOZ_B2G_RIL
 #  include "nsIRadioInterfaceLayer.h"
 #  include "nsITelephonyService.h"
 #endif
 
-using android::AudioSystem;
+using android::GonkAudioSystem;
 using android::status_t;
 using android::String16;
 using android::String8;
@@ -229,7 +229,7 @@ class VolumeCurves {
   inline uint32_t MaxIndex() { return sMaxStreamVolumeTbl[mStreamType]; }
 
   float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
-    float decibel = AudioSystem::getStreamVolumeDB(
+    float decibel = GonkAudioSystem::getStreamVolumeDB(
         static_cast<audio_stream_type_t>(mStreamType), aIndex,
         static_cast<audio_devices_t>(aDevice));
     // decibel to amplitude
@@ -240,7 +240,7 @@ class VolumeCurves {
   const int32_t mStreamType;
 };
 
-class GonkAudioPortCallback : public AudioSystem::AudioPortCallback {
+class GonkAudioPortCallback : public GonkAudioSystem::AudioPortCallback {
  public:
   virtual void onAudioPortListUpdate() {
     nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
@@ -264,7 +264,7 @@ class AudioPortCallbackHolder {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AudioPortCallbackHolder);
 
-  android::sp<AudioSystem::AudioPortCallback> Callback() {
+  android::sp<GonkAudioSystem::AudioPortCallback> Callback() {
     if (!mCallback) {
       mCallback = new GonkAudioPortCallback();
     }
@@ -273,7 +273,7 @@ class AudioPortCallbackHolder {
 
  private:
   ~AudioPortCallbackHolder(){};
-  android::sp<AudioSystem::AudioPortCallback> mCallback;
+  android::sp<GonkAudioSystem::AudioPortCallback> mCallback;
 };
 
 void AudioManager::HandleAudioFlingerDied() {
@@ -300,16 +300,12 @@ void AudioManager::HandleAudioFlingerDied() {
   SetAllDeviceConnectionStates();
 
   // Restore call state
-#if ANDROID_VERSION >= 30
-  AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState), 0);
-#else
-  AudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState));
-#endif
+  GonkAudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState));
 
   // Restore master volume/mono/balance
-  AudioSystem::setMasterVolume(1.0);
-  AudioSystem::setMasterMono(mMasterMono);
-  AudioSystem::setMasterBalance(mMasterBalance);
+  GonkAudioSystem::setMasterVolume(1.0);
+  GonkAudioSystem::setMasterMono(mMasterMono);
+  GonkAudioSystem::setMasterBalance(mMasterBalance);
 
   // Restore stream volumes
   for (auto& streamState : mStreamStates) {
@@ -324,12 +320,9 @@ void AudioManager::HandleAudioFlingerDied() {
   mIsVolumeInited = true;
   MaybeWriteVolumeSettings(true);
 
-#if ANDROID_VERSION < 33  // FIXME
-  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
-#endif
-
-  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
-                           AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
+  GonkAudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+  GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
+                               AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
 }
 
 class SettingInfo final : public nsISettingInfo {
@@ -521,10 +514,8 @@ static void SetDeviceConnectionStateInternal(bool aIsConnected,
   auto device = static_cast<audio_devices_t>(aDevice);
   auto state = aIsConnected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
                             : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
-#if ANDROID_VERSION < 33  // FIXME
-  AudioSystem::setDeviceConnectionState(device, state, aDeviceAddress.get(), "",
-                                        AUDIO_FORMAT_DEFAULT);
-#endif
+  GonkAudioSystem::setDeviceConnectionState(device, state,
+                                            aDeviceAddress.get());
 }
 
 void AudioManager::UpdateDeviceConnectionState(
@@ -612,7 +603,7 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
       SetParameters("bluetooth_enabled=true");
       SetParameters("A2dpSuspended=false");
       mA2dpSwitchDone = true;
-      if (AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
+      if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
           AUDIO_POLICY_FORCE_NO_BT_A2DP) {
         SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
       }
@@ -797,31 +788,23 @@ AudioManager::AudioManager()
 
 void AudioManager::Init() {
   // Register AudioSystem callbacks.
-#if ANDROID_VERSION >= 30
-  AudioSystem::addErrorCallback(BinderDeadCallback);
-#else
-  AudioSystem::setErrorCallback(BinderDeadCallback);
-#endif
+  GonkAudioSystem::setErrorCallback(BinderDeadCallback);
+  GonkAudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
-#if ANDROID_VERSION < 33  // FIXME: Android 13 port: workaround crash
-  AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
-#endif
   // Gecko only control stream volume not master so set to default value
   // directly.
-  AudioSystem::setMasterVolume(1.0);
+  GonkAudioSystem::setMasterVolume(1.0);
 
   // Android 10 introduces new rules for sharing audio input. This call can
   // prevent AudioPolicyService from treating us as assistant app and
   // incorrectly muting our audio input because we don't meet some criteria of
   // assistant app.
-#if ANDROID_VERSION < 33  // FIXME: Android 13 port
-  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
-#endif
+  GonkAudioSystem::setAssistantUid(AUDIO_UID_INVALID);
 
   // If this is not set, AUDIO_STREAM_ENFORCED_AUDIBLE will be mapped to
   // AUDIO_STREAM_MUSIC inside AudioPolicyManager.
-  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
-                           AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
+  GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
+                               AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
 
   // Initialize mStreamStates, which calls AudioSystem::initStreamVolume().
   for (auto& streamState : mStreamStates) {
@@ -909,12 +892,9 @@ void AudioManager::Init() {
 AudioManager::~AudioManager() {
   MOZ_ASSERT(!sAudioManager);
 
-#if ANDROID_VERSION >= 30
-  AudioSystem::addErrorCallback(nullptr);
-#else
-  AudioSystem::setErrorCallback(nullptr);
-#endif
-  AudioSystem::removeAudioPortCallback(mAudioPortCallbackHolder->Callback());
+  GonkAudioSystem::setErrorCallback(nullptr);
+  GonkAudioSystem::removeAudioPortCallback(
+      mAudioPortCallbackHolder->Callback());
   hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
   hal::UnregisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver.get());
 
@@ -983,7 +963,7 @@ AudioManager::GetMicrophoneMuted(bool* aMicrophoneMuted) {
   }
 #endif
 
-  if (AudioSystem::isMicrophoneMuted(aMicrophoneMuted)) {
+  if (GonkAudioSystem::isMicrophoneMuted(aMicrophoneMuted)) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -1002,10 +982,10 @@ AudioManager::SetMicrophoneMuted(bool aMicrophoneMuted) {
   }
 #endif
 
-  AudioSystem::muteMicrophone(aMicrophoneMuted);
+  GonkAudioSystem::muteMicrophone(aMicrophoneMuted);
 
   bool micMuted;
-  AudioSystem::isMicrophoneMuted(&micMuted);
+  GonkAudioSystem::isMicrophoneMuted(&micMuted);
   if (micMuted != aMicrophoneMuted) {
     return NS_ERROR_FAILURE;
   }
@@ -1030,11 +1010,7 @@ AudioManager::SetPhoneState(int32_t aState) {
                          IntToString<int32_t>(aState).get());
   }
 
-#if ANDROID_VERSION >= 30
-  if (AudioSystem::setPhoneState(static_cast<audio_mode_t>(aState), 0)) {
-#else
-  if (AudioSystem::setPhoneState(static_cast<audio_mode_t>(aState))) {
-#endif
+  if (GonkAudioSystem::setPhoneState(static_cast<audio_mode_t>(aState))) {
     return NS_ERROR_FAILURE;
   }
 
@@ -1077,8 +1053,8 @@ AudioManager::SetTtyMode(uint16_t aTtyMode) {
 
 NS_IMETHODIMP
 AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
-  status_t status = AudioSystem::setForceUse((audio_policy_force_use_t)aUsage,
-                                             (audio_policy_forced_cfg_t)aForce);
+  status_t status = GonkAudioSystem::setForceUse(
+      (audio_policy_force_use_t)aUsage, (audio_policy_forced_cfg_t)aForce);
 
   // AudioPortListUpdate may not be triggered after setting force use, so
   // manually update volume settings here.
@@ -1092,7 +1068,7 @@ AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
 
 NS_IMETHODIMP
 AudioManager::GetForceForUse(int32_t aUsage, int32_t* aForce) {
-  *aForce = AudioSystem::getForceUse((audio_policy_force_use_t)aUsage);
+  *aForce = GonkAudioSystem::getForceUse((audio_policy_force_use_t)aUsage);
   return NS_OK;
 }
 
@@ -1116,13 +1092,13 @@ void AudioManager::SetFmRouting() {
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   // Sync force use between MEDIA and FM
-  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
-  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM, force);
+  auto force = GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
+  GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM, force);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   /* FIXME
   // Sync force use between MEDIA and FM
-  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
-  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_PROPRIETARY, force);
+  auto force = GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
+  GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_PROPRIETARY, force);
   */
 #else
   MOZ_CRASH("FM radio not supported");
@@ -1412,7 +1388,7 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
     }
   } else if (aName.Equals(u"accessibility.force_mono_audio"_ns)) {
     mMasterMono = aValue.Equals(u"true"_ns);
-    AudioSystem::setMasterMono(mMasterMono);
+    GonkAudioSystem::setMasterMono(mMasterMono);
   } else if (aName.Equals(u"accessibility.volume_balance"_ns)) {
     nsresult rv;
     int32_t balance = aValue.ToInteger(&rv);
@@ -1423,7 +1399,7 @@ void AudioManager::OnAudioSettingChanged(const nsAString& aName,
       return;
     }
     mMasterBalance = std::clamp(balance, 0, 100) / 100.0f;
-    AudioSystem::setMasterBalance(mMasterBalance);
+    GonkAudioSystem::setMasterBalance(mMasterBalance);
   }
 }
 
@@ -1480,14 +1456,8 @@ nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
 }
 
 uint32_t AudioManager::GetDevicesForStream(int32_t aStream) {
-#if ANDROID_VERSION < 33  // FIXME
-  audio_devices_t devices = AudioSystem::getDevicesForStream(
+  return GonkAudioSystem::getDevicesForStream(
       static_cast<audio_stream_type_t>(aStream));
-
-  return static_cast<uint32_t>(devices);
-#else
-  return 0;
-#endif
 }
 
 uint32_t AudioManager::GetDeviceForStream(int32_t aStream) {
@@ -1506,7 +1476,7 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
   uint32_t device = aOutDevices;
 
   // Consider force use speaker case.
-  int32_t force = AudioSystem::getForceUse(
+  int32_t force = GonkAudioSystem::getForceUse(
       (audio_policy_force_use_t)nsIAudioManager::USE_MEDIA);
   if (force == nsIAudioManager::FORCE_SPEAKER) {
     device = AUDIO_DEVICE_OUT_SPEAKER;
@@ -1579,8 +1549,9 @@ uint32_t AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
 }
 
 void AudioManager::VolumeStreamState::InitStreamVolume() {
-  AudioSystem::initStreamVolume(static_cast<audio_stream_type_t>(mStreamType),
-                                GetMinIndex(), GetMaxIndex());
+  GonkAudioSystem::initStreamVolume(
+      static_cast<audio_stream_type_t>(mStreamType), GetMinIndex(),
+      GetMaxIndex());
 }
 
 uint32_t AudioManager::VolumeStreamState::GetMaxIndex() {
@@ -1617,7 +1588,6 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToActiveDevices(
     return NS_OK;
   }
 
-#if ANDROID_VERSION < 33  // FIXME
   // AudioPolicyManager::setStreamVolumeIndex() set volumes of all active
   // devices for stream.
   nsresult rv;
@@ -1625,8 +1595,6 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToActiveDevices(
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-#endif
-
   return NS_OK;
 }
 
@@ -1695,10 +1663,9 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
     mDevicesWithVolumeChange |= aDevice;
   }
 
-#if ANDROID_VERSION < 33  // FIXME
-  rv = AudioSystem::setStreamVolumeIndex(
-      static_cast<audio_stream_type_t>(mStreamType), aIndex, aDevice);
-#endif
+  rv = GonkAudioSystem::setStreamVolumeIndex(
+      static_cast<audio_stream_type_t>(mStreamType), aIndex,
+      static_cast<audio_devices_t>(aDevice));
 
   // when changing music volume,  also set FMradio volume.Just for SPRD FMradio.
   if ((AUDIO_STREAM_MUSIC == mStreamType) && mManager.IsFmOutConnected()) {
@@ -1726,10 +1693,9 @@ AudioManager::SetHacMode(bool aHacMode) {
   return NS_OK;
 }
 
-static nsresult SetAudioSystemParameters(audio_io_handle_t aIoHandle,
-                                         const String8& aKeyValuePairs) {
+static nsresult SetAudioSystemParameters(const String8& aKeyValuePairs) {
   ANDLOG("Set audio system parameter: %s", aKeyValuePairs.string());
-  status_t status = AudioSystem::setParameters(aIoHandle, aKeyValuePairs);
+  status_t status = GonkAudioSystem::setParameters(aKeyValuePairs);
   if (status != android::OK) {
     ANDLOG("Failed to set parameter: %s, error status: %d",
            aKeyValuePairs.string(), status);
@@ -1741,7 +1707,7 @@ static nsresult SetAudioSystemParameters(audio_io_handle_t aIoHandle,
 NS_IMETHODIMP
 AudioManager::SetParameters(const nsACString& aKeyValuePairs) {
   String8 cmd(aKeyValuePairs.Data(), aKeyValuePairs.Length());
-  return SetAudioSystemParameters(0, cmd);
+  return SetAudioSystemParameters(cmd);
 }
 
 nsresult AudioManager::SetParameters(const char* aFormat, ...) {
@@ -1755,11 +1721,11 @@ nsresult AudioManager::SetParameters(const char* aFormat, ...) {
     LOGE("Invalid parameter, error status: %d", status);
     return NS_ERROR_FAILURE;
   }
-  return SetAudioSystemParameters(0, cmd);
+  return SetAudioSystemParameters(cmd);
 }
 
 nsAutoCString AudioManager::GetParameters(const char* aKeys) {
-  auto keyValuePairs = AudioSystem::getParameters(0, String8(aKeys));
+  auto keyValuePairs = GonkAudioSystem::getParameters(0, String8(aKeys));
   return nsAutoCString(keyValuePairs.string());
 }
 

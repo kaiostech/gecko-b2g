@@ -40,6 +40,8 @@ class AudioSettingsObserver;
 class VolumeCurves;
 
 class AudioManager final : public nsIAudioManager, public nsIObserver {
+  using DeviceTypeSet = android::DeviceTypeSet;
+
  public:
   static already_AddRefed<AudioManager> GetInstance();
 
@@ -69,7 +71,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
     bool IsDeviceSpecificVolume() { return mIsDeviceSpecificVolume; }
     void ClearDevicesChanged();
     void ClearDevicesWithVolumeChange();
-    audio_devices_t GetDevicesWithVolumeChange();
+    DeviceTypeSet GetDevicesWithVolumeChange();
     void InitStreamVolume();
     uint32_t GetMaxIndex();
     uint32_t GetMinIndex();
@@ -93,8 +95,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
    private:
     AudioManager& mManager;
     const audio_stream_type_t mStreamType;
-    uint32_t mLastDevices = 0;
-    audio_devices_t mDevicesWithVolumeChange = AUDIO_DEVICE_NONE;
+    DeviceTypeSet mLastDevices;
+    DeviceTypeSet mDevicesWithVolumeChange;
     bool mIsDevicesChanged = true;
     bool mIsDeviceSpecificVolume = true;
     std::unordered_map<audio_devices_t, uint32_t> mVolumeIndexes;
@@ -125,11 +127,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   nsresult SetStreamVolumeIndex(audio_stream_type_t aStream, uint32_t aIndex);
   nsresult GetStreamVolumeIndex(audio_stream_type_t aStream, uint32_t* aIndex);
 
-  audio_devices_t GetDevicesForStream(audio_stream_type_t aStream);
   audio_devices_t GetDeviceForStream(audio_stream_type_t aStream);
   audio_devices_t GetDeviceForFm();
-  // Choose one device as representative of active devices.
-  static audio_devices_t SelectDeviceFromDevices(audio_devices_t aOutDevices);
 
  private:
   UniquePtr<mozilla::hal::SwitchObserver> mObserver;

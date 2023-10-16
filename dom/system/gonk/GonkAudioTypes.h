@@ -15,6 +15,13 @@
 #endif
 
 #if ANDROID_VERSION < 30
+// From audio-base-utils.h
+static inline constexpr audio_devices_t AUDIO_DEVICE_OUT_ALL_A2DP_ARRAY[] = {
+    AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,            // 0x00000080u,
+    AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES, // 0x00000100u,
+    AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER,    // 0x00000200u,
+};
+
 namespace android {
 // From AudioContainers.h.
 using DeviceTypeSet = std::set<audio_devices_t>;

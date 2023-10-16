@@ -49,6 +49,7 @@
 #  include "nsITelephonyService.h"
 #endif
 
+using android::DeviceTypeSet;
 using android::GonkAudioSystem;
 using android::status_t;
 using android::String16;
@@ -1327,7 +1328,7 @@ void AudioManager::MaybeWriteVolumeSettings(bool aForce) {
     auto devices = streamState->GetDevicesWithVolumeChange();
 
     for (const auto& deviceInfo : kAudioDeviceInfos) {
-      if (deviceInfo.value & devices) {
+      if (devices.count(deviceInfo.value)) {
         // append device suffix to the channel name
         nsAutoString name = data.mChannelName + u"."_ns + deviceInfo.tag;
         auto volIndex = streamState->GetVolumeIndex(deviceInfo.value);
@@ -1459,24 +1460,9 @@ nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
   return names;
 }
 
-audio_devices_t AudioManager::GetDevicesForStream(audio_stream_type_t aStream) {
-  return GonkAudioSystem::getDevicesForStream(aStream);
-}
-
 audio_devices_t AudioManager::GetDeviceForStream(audio_stream_type_t aStream) {
-  audio_devices_t devices = GetDevicesForStream(aStream);
-  return SelectDeviceFromDevices(devices);
-}
-
-audio_devices_t AudioManager::GetDeviceForFm() {
-  // Assume that FM radio supports the same routing of music stream.
-  return GetDeviceForStream(AUDIO_STREAM_MUSIC);
-}
-
-/* static */
-audio_devices_t AudioManager::SelectDeviceFromDevices(
-    audio_devices_t aOutDevices) {
-  audio_devices_t device = aOutDevices;
+  auto devices = GonkAudioSystem::getDeviceTypesForStream(aStream);
+  auto device = devices.size() ? *devices.begin() : AUDIO_DEVICE_NONE;
 
   // Consider force use speaker case.
   if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
@@ -1487,18 +1473,23 @@ audio_devices_t AudioManager::SelectDeviceFromDevices(
   // See android AudioService.getDeviceForStream().
   // AudioPolicyManager expects it.
   // See also android AudioPolicy Volume::getDeviceForVolume().
-  if ((device & (device - 1)) != 0) {
+  if (devices.size() > 1) {
     // Multiple device selection.
-    if ((device & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
+    if (devices.count(AUDIO_DEVICE_OUT_SPEAKER)) {
       device = AUDIO_DEVICE_OUT_SPEAKER;
-    } else if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) != 0) {
+    } else if (devices.count(AUDIO_DEVICE_OUT_HDMI_ARC)) {
       device = AUDIO_DEVICE_OUT_HDMI_ARC;
-    } else if ((device & AUDIO_DEVICE_OUT_SPDIF) != 0) {
+    } else if (devices.count(AUDIO_DEVICE_OUT_SPDIF)) {
       device = AUDIO_DEVICE_OUT_SPDIF;
-    } else if ((device & AUDIO_DEVICE_OUT_AUX_LINE) != 0) {
+    } else if (devices.count(AUDIO_DEVICE_OUT_AUX_LINE)) {
       device = AUDIO_DEVICE_OUT_AUX_LINE;
     } else {
-      device = static_cast<audio_devices_t>(device & AUDIO_DEVICE_OUT_ALL_A2DP);
+      for (auto a2dp : AUDIO_DEVICE_OUT_ALL_A2DP_ARRAY) {
+        if (devices.count(a2dp)) {
+          device = a2dp;
+          break;
+        }
+      }
     }
   }
 
@@ -1511,6 +1502,11 @@ audio_devices_t AudioManager::SelectDeviceFromDevices(
 
   MOZ_ASSERT(audio_is_output_device(static_cast<audio_devices_t>(device)));
   return device;
+}
+
+audio_devices_t AudioManager::GetDeviceForFm() {
+  // Assume that FM radio supports the same routing of music stream.
+  return GetDeviceForStream(AUDIO_STREAM_MUSIC);
 }
 
 AudioManager::VolumeStreamState::VolumeStreamState(
@@ -1530,9 +1526,9 @@ AudioManager::VolumeStreamState::VolumeStreamState(
 }
 
 bool AudioManager::VolumeStreamState::IsDevicesChanged() {
-  audio_devices_t devices = mManager.GetDevicesForStream(mStreamType);
+  auto devices = GonkAudioSystem::getDeviceTypesForStream(mStreamType);
   if (devices != mLastDevices) {
-    mLastDevices = devices;
+    mLastDevices = std::move(devices);
     mIsDevicesChanged = true;
   }
   return mIsDevicesChanged;
@@ -1543,10 +1539,10 @@ void AudioManager::VolumeStreamState::ClearDevicesChanged() {
 }
 
 void AudioManager::VolumeStreamState::ClearDevicesWithVolumeChange() {
-  mDevicesWithVolumeChange = AUDIO_DEVICE_NONE;
+  mDevicesWithVolumeChange.clear();
 }
 
-audio_devices_t AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
+DeviceTypeSet AudioManager::VolumeStreamState::GetDevicesWithVolumeChange() {
   return mDevicesWithVolumeChange;
 }
 
@@ -1653,8 +1649,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(
   status_t rv;
   if (aUpdateCache) {
     mVolumeIndexes[aDevice] = aIndex;
-    mDevicesWithVolumeChange =
-        static_cast<audio_devices_t>(mDevicesWithVolumeChange | aDevice);
+    mDevicesWithVolumeChange.insert(aDevice);
   }
 
   rv = GonkAudioSystem::setStreamVolumeIndex(mStreamType, aIndex, aDevice);

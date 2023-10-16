@@ -49,7 +49,13 @@ fi
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r25b}
+if [ "$PLATFORM_VERSION" == "33" ]; then
+  ANDROID_NDK_VERSION="r25b"
+else
+  ANDROID_NDK_VERSION="r21d"
+fi
+
+ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-$ANDROID_NDK_VERSION}
 export ANDROID_NDK="${ANDROID_NDK/#\~/$HOME}"
 export ANDROID_NDK_HOME="${ANDROID_NDK}"
 

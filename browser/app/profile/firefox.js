@@ -536,8 +536,6 @@ pref("browser.urlbar.switchTabs.searchAllContainers", false);
 // should be opened in new tabs by default.
 pref("browser.urlbar.openintab", false);
 
-// Enable three-dot options button and menu for eligible results.
-pref("browser.urlbar.resultMenu", true);
 // Allow the result menu button to be reached with the Tab key.
 pref("browser.urlbar.resultMenu.keyboardAccessible", true);
 
@@ -1020,9 +1018,7 @@ pref("privacy.temporary_permission_expire_time_ms",  3600000);
 pref("privacy.authPromptSpoofingProtection",         true);
 
 // Enable GPC if the user turns it on in about:preferences
-#ifdef NIGHTLY_BUILD
 pref("privacy.globalprivacycontrol.functionality.enabled",  true);
-#endif
 
 pref("network.proxy.share_proxy_settings",  false); // use the same proxy settings for all protocols
 

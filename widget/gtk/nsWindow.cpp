@@ -278,8 +278,7 @@ namespace mozilla {
 #ifdef MOZ_X11
 class CurrentX11TimeGetter {
  public:
-  explicit CurrentX11TimeGetter(GdkWindow* aWindow)
-      : mWindow(aWindow), mAsyncUpdateStart() {}
+  explicit CurrentX11TimeGetter(GdkWindow* aWindow) : mWindow(aWindow) {}
 
   guint32 GetCurrentTime() const { return gdk_x11_get_server_time(mWindow); }
 

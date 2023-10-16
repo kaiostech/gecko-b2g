@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
   SearchUtils: "resource://gre/modules/SearchUtils.sys.mjs",
   Suggestion: "resource://gre/modules/RustSuggest.sys.mjs",
+  SuggestionProvider: "resource://gre/modules/RustSuggest.sys.mjs",
   SuggestStore: "resource://gre/modules/RustSuggest.sys.mjs",
   TelemetryTestUtils: "resource://testing-common/TelemetryTestUtils.sys.mjs",
   TestUtils: "resource://testing-common/TestUtils.sys.mjs",
@@ -278,22 +279,27 @@ export class MockRustSuggest {
       let isSponsored = suggestion.hasOwnProperty("is_sponsored")
         ? suggestion.is_sponsored
         : suggestion.iab_category == "22 - Shopping";
+      // TODO: Generalize this and support the other providers.
       if (
-        (isSponsored && query.includeSponsored) ||
-        (!isSponsored && query.includeNonSponsored)
+        (isSponsored &&
+          query.providers.includes(lazy.SuggestionProvider.AMP)) ||
+        (!isSponsored &&
+          query.providers.includes(lazy.SuggestionProvider.WIKIPEDIA))
       ) {
         matchedSuggestions.push(
           isSponsored
             ? new lazy.Suggestion.Amp(
                 suggestion.title,
                 suggestion.url,
+                suggestion.url, // rawUrl
                 [], // icon
                 query.keyword, // fullKeyword
                 suggestion.id, // blockId
                 suggestion.advertiser,
                 suggestion.iab_category,
                 suggestion.impression_url,
-                suggestion.click_url
+                suggestion.click_url,
+                suggestion.click_url // rawClickUrl
               )
             : new lazy.Suggestion.Wikipedia(
                 suggestion.title,
@@ -635,18 +641,10 @@ class _QuickSuggestTestUtils {
       "Result helpURL"
     );
 
-    if (lazy.UrlbarPrefs.get("resultMenu")) {
-      this.Assert.ok(
-        row._buttons.get("menu"),
-        "The menu button should be present"
-      );
-    } else {
-      let helpButton = row._buttons.get("help");
-      this.Assert.ok(helpButton, "The help button should be present");
-
-      let blockButton = row._buttons.get("block");
-      this.Assert.ok(blockButton, "The block button should be present");
-    }
+    this.Assert.ok(
+      row._buttons.get("menu"),
+      "The menu button should be present"
+    );
 
     return details;
   }

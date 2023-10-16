@@ -14,7 +14,7 @@
 namespace mozilla {
 namespace net {
 
-nsStreamLoader::nsStreamLoader() : mData() {}
+nsStreamLoader::nsStreamLoader() = default;
 
 NS_IMETHODIMP
 nsStreamLoader::Init(nsIStreamLoaderObserver* aStreamObserver,

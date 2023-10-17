@@ -87,6 +87,7 @@ pub extern "C" fn wgpu_server_new(
         factory,
         wgt::InstanceDescriptor {
             backends,
+            flags: wgt::InstanceFlags::from_build_config().with_env(),
             dx12_shader_compiler: wgt::Dx12Compiler::Fxc,
             gles_minor_version: wgt::Gles3MinorVersion::Automatic,
         },
@@ -223,6 +224,11 @@ pub unsafe extern "C" fn wgpu_server_adapter_request_device(
 #[no_mangle]
 pub extern "C" fn wgpu_server_adapter_drop(global: &Global, adapter_id: id::AdapterId) {
     gfx_select!(adapter_id => global.adapter_drop(adapter_id))
+}
+
+#[no_mangle]
+pub extern "C" fn wgpu_server_device_destroy(global: &Global, self_id: id::DeviceId) {
+    gfx_select!(self_id => global.device_destroy(self_id))
 }
 
 #[no_mangle]

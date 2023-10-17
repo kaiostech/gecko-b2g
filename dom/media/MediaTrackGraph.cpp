@@ -1292,7 +1292,7 @@ void MediaTrackGraphImpl::ProduceDataForTracksBlockByBlock(
 }
 
 void MediaTrackGraphImpl::RunMessageAfterProcessing(
-    UniquePtr<ControlMessage> aMessage) {
+    UniquePtr<ControlMessageInterface> aMessage) {
   MOZ_ASSERT(OnGraphThread());
 
   if (mFrontMessageQueue.IsEmpty()) {
@@ -1311,7 +1311,7 @@ void MediaTrackGraphImpl::RunMessagesInQueue() {
   // batch corresponding to an event loop task). This isolates the performance
   // of different scripts to some extent.
   for (uint32_t i = 0; i < mFrontMessageQueue.Length(); ++i) {
-    nsTArray<UniquePtr<ControlMessage>>& messages =
+    nsTArray<UniquePtr<ControlMessageInterface>>& messages =
         mFrontMessageQueue[i].mMessages;
 
     for (uint32_t j = 0; j < messages.Length(); ++j) {
@@ -1876,7 +1876,8 @@ void MediaTrackGraphImpl::RunInStableState(bool aSourceIsMTG) {
   // When we're doing a forced shutdown, pending control messages may be
   // run on the main thread via RunDuringShutdown. Those messages must
   // run without the graph monitor being held. So, we collect them here.
-  nsTArray<UniquePtr<ControlMessage>> controlMessagesToRunDuringShutdown;
+  nsTArray<UniquePtr<ControlMessageInterface>>
+      controlMessagesToRunDuringShutdown;
 
   {
     MonitorAutoLock lock(mMonitor);
@@ -2039,10 +2040,9 @@ void MediaTrackGraphImpl::SignalMainThreadCleanup() {
   EnsureStableStateEventPosted();
 }
 
-void MediaTrackGraphImpl::AppendMessage(UniquePtr<ControlMessage> aMessage) {
+void MediaTrackGraphImpl::AppendMessage(
+    UniquePtr<ControlMessageInterface> aMessage) {
   MOZ_ASSERT(NS_IsMainThread(), "main thread only");
-  MOZ_RELEASE_ASSERT(!aMessage->GetTrack() ||
-                     !aMessage->GetTrack()->IsDestroyed());
   MOZ_DIAGNOSTIC_ASSERT(mMainThreadTrackCount > 0 || mMainThreadPortCount > 0);
 
   if (!mGraphDriverRunning &&
@@ -2229,26 +2229,21 @@ void MediaTrack::DestroyImpl() {
 void MediaTrack::Destroy() {
   // Keep this track alive until we leave this method
   RefPtr<MediaTrack> kungFuDeathGrip = this;
-
-  class Message : public ControlMessage {
-   public:
-    explicit Message(MediaTrack* aTrack) : ControlMessage(aTrack) {}
-    void RunDuringShutdown() override {
-      TRACE("MediaTrack::Destroy ControlMessage");
-      mTrack->RemoveAllResourcesAndListenersImpl();
-      auto graph = mTrack->GraphImpl();
-      mTrack->DestroyImpl();
-      graph->RemoveTrackGraphThread(mTrack);
-    }
-    void Run() override {
-      mTrack->OnGraphThreadDone();
-      RunDuringShutdown();
-    }
-  };
   // Keep a reference to the graph, since Message might RunDuringShutdown()
   // synchronously and make GraphImpl() invalid.
   RefPtr<MediaTrackGraphImpl> graph = GraphImpl();
-  graph->AppendMessage(MakeUnique<Message>(this));
+
+  QueueControlOrShutdownMessage(
+      [self = RefPtr{this}, this](IsInShutdown aInShutdown) {
+        if (aInShutdown == IsInShutdown::No) {
+          OnGraphThreadDone();
+        }
+        TRACE("MediaTrack::Destroy ControlMessage");
+        RemoveAllResourcesAndListenersImpl();
+        auto* graph = GraphImpl();
+        DestroyImpl();
+        graph->RemoveTrackGraphThread(this);
+      });
   graph->RemoveTrack(this);
   // Message::RunDuringShutdown may have removed this track from the graph,
   // but our kungFuDeathGrip above will have kept this track alive if
@@ -2261,20 +2256,13 @@ TrackTime MediaTrack::GetEnd() const {
 }
 
 void MediaTrack::AddAudioOutput(void* aKey) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, void* aKey)
-        : ControlMessage(aTrack), mKey(aKey) {}
-    void Run() override {
-      TRACE("MediaTrack::AddAudioOutputImpl ControlMessage");
-      mTrack->AddAudioOutputImpl(mKey);
-    }
-    void* mKey;
-  };
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aKey));
+  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this, aKey] {
+    TRACE("MediaTrack::AddAudioOutputImpl ControlMessage");
+    AddAudioOutputImpl(aKey);
+  });
 }
 
 void MediaTrackGraphImpl::SetAudioOutputVolume(MediaTrack* aTrack, void* aKey,
@@ -2294,21 +2282,13 @@ void MediaTrack::SetAudioOutputVolumeImpl(void* aKey, float aVolume) {
 }
 
 void MediaTrack::SetAudioOutputVolume(void* aKey, float aVolume) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, void* aKey, float aVolume)
-        : ControlMessage(aTrack), mKey(aKey), mVolume(aVolume) {}
-    void Run() override {
-      TRACE("MediaTrack::SetAudioOutputVolumeImpl ControlMessage");
-      mTrack->SetAudioOutputVolumeImpl(mKey, mVolume);
-    }
-    void* mKey;
-    float mVolume;
-  };
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aKey, aVolume));
+  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this, aKey, aVolume] {
+    TRACE("MediaTrack::SetAudioOutputVolumeImpl ControlMessage");
+    SetAudioOutputVolumeImpl(aKey, aVolume);
+  });
 }
 
 void MediaTrack::AddAudioOutputImpl(void* aKey) {
@@ -2322,20 +2302,13 @@ void MediaTrack::RemoveAudioOutputImpl(void* aKey) {
 }
 
 void MediaTrack::RemoveAudioOutput(void* aKey) {
-  class Message : public ControlMessage {
-   public:
-    explicit Message(MediaTrack* aTrack, void* aKey)
-        : ControlMessage(aTrack), mKey(aKey) {}
-    void Run() override {
-      TRACE("MediaTrack::RemoveAudioOutputImpl ControlMessage");
-      mTrack->RemoveAudioOutputImpl(mKey);
-    }
-    void* mKey;
-  };
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aKey));
+  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this, aKey] {
+    TRACE("MediaTrack::RemoveAudioOutputImpl ControlMessage");
+    RemoveAudioOutputImpl(aKey);
+  });
 }
 
 void MediaTrack::AddVideoOutputImpl(
@@ -2379,39 +2352,27 @@ void MediaTrack::RemoveVideoOutput(VideoFrameContainer* aContainer) {
 }
 
 void MediaTrack::Suspend() {
-  class Message : public ControlMessage {
-   public:
-    explicit Message(MediaTrack* aTrack) : ControlMessage(aTrack) {}
-    void Run() override {
-      TRACE("MediaTrack::IncrementSuspendCount ControlMessage");
-      mTrack->IncrementSuspendCount();
-    }
-  };
-
   // This can happen if this method has been called asynchronously, and the
   // track has been destroyed since then.
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this));
+  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this] {
+    TRACE("MediaTrack::IncrementSuspendCount ControlMessage");
+    IncrementSuspendCount();
+  });
 }
 
 void MediaTrack::Resume() {
-  class Message : public ControlMessage {
-   public:
-    explicit Message(MediaTrack* aTrack) : ControlMessage(aTrack) {}
-    void Run() override {
-      TRACE("MediaTrack::DecrementSuspendCount ControlMessage");
-      mTrack->DecrementSuspendCount();
-    }
-  };
-
   // This can happen if this method has been called asynchronously, and the
   // track has been destroyed since then.
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this));
+  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this] {
+    TRACE("MediaTrack::DecrementSuspendCount ControlMessage");
+    DecrementSuspendCount();
+  });
 }
 
 void MediaTrack::AddListenerImpl(
@@ -2431,21 +2392,15 @@ void MediaTrack::AddListenerImpl(
 }
 
 void MediaTrack::AddListener(MediaTrackListener* aListener) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, MediaTrackListener* aListener)
-        : ControlMessage(aTrack), mListener(aListener) {}
-    void Run() override {
-      TRACE("MediaTrack::AddListenerImpl ControlMessage");
-      mTrack->AddListenerImpl(mListener.forget());
-    }
-    RefPtr<MediaTrackListener> mListener;
-  };
   MOZ_ASSERT(mSegment, "Segment-less tracks do not support listeners");
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aListener));
+  QueueControlMessageWithNoShutdown(
+      [self = RefPtr{this}, this, listener = RefPtr{aListener}]() mutable {
+        TRACE("MediaTrack::AddListenerImpl ControlMessage");
+        AddListenerImpl(listener.forget());
+      });
 }
 
 void MediaTrack::RemoveListenerImpl(MediaTrackListener* aListener) {
@@ -2460,31 +2415,21 @@ void MediaTrack::RemoveListenerImpl(MediaTrackListener* aListener) {
 
 RefPtr<GenericPromise> MediaTrack::RemoveListener(
     MediaTrackListener* aListener) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, MediaTrackListener* aListener)
-        : ControlMessage(aTrack), mListener(aListener) {}
-    void Run() override {
-      TRACE("MediaTrack::RemoveListenerImpl ControlMessage");
-      mTrack->RemoveListenerImpl(mListener);
-      mRemovedPromise.Resolve(true, __func__);
-    }
-    void RunDuringShutdown() override {
-      // During shutdown we still want the listener's NotifyRemoved to be
-      // called, since not doing that might block shutdown of other modules.
-      Run();
-    }
-    RefPtr<MediaTrackListener> mListener;
-    MozPromiseHolder<GenericPromise> mRemovedPromise;
-  };
-
-  UniquePtr<Message> message = MakeUnique<Message>(this, aListener);
-  RefPtr<GenericPromise> p = message->mRemovedPromise.Ensure(__func__);
+  MozPromiseHolder<GenericPromise> promiseHolder;
+  RefPtr<GenericPromise> p = promiseHolder.Ensure(__func__);
   if (mMainThreadDestroyed) {
-    message->mRemovedPromise.Reject(NS_ERROR_FAILURE, __func__);
+    promiseHolder.Reject(NS_ERROR_FAILURE, __func__);
     return p;
   }
-  GraphImpl()->AppendMessage(std::move(message));
+  QueueControlOrShutdownMessage(
+      [self = RefPtr{this}, this, listener = RefPtr{aListener},
+       promiseHolder = std::move(promiseHolder)](IsInShutdown) mutable {
+        TRACE("MediaTrack::RemoveListenerImpl ControlMessage");
+        // During shutdown we still want the listener's NotifyRemoved to be
+        // called, since not doing that might block shutdown of other modules.
+        RemoveListenerImpl(listener);
+        promiseHolder.Resolve(true, __func__);
+      });
   return p;
 }
 
@@ -2498,20 +2443,14 @@ void MediaTrack::AddDirectListenerImpl(
 }
 
 void MediaTrack::AddDirectListener(DirectMediaTrackListener* aListener) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, DirectMediaTrackListener* aListener)
-        : ControlMessage(aTrack), mListener(aListener) {}
-    void Run() override {
-      TRACE("MediaTrack::AddDirectListenerImpl ControlMessage");
-      mTrack->AddDirectListenerImpl(mListener.forget());
-    }
-    RefPtr<DirectMediaTrackListener> mListener;
-  };
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aListener));
+  QueueControlMessageWithNoShutdown(
+      [self = RefPtr{this}, this, listener = RefPtr{aListener}]() mutable {
+        TRACE("MediaTrack::AddDirectListenerImpl ControlMessage");
+        AddDirectListenerImpl(listener.forget());
+      });
 }
 
 void MediaTrack::RemoveDirectListenerImpl(DirectMediaTrackListener* aListener) {
@@ -2519,57 +2458,39 @@ void MediaTrack::RemoveDirectListenerImpl(DirectMediaTrackListener* aListener) {
 }
 
 void MediaTrack::RemoveDirectListener(DirectMediaTrackListener* aListener) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, DirectMediaTrackListener* aListener)
-        : ControlMessage(aTrack), mListener(aListener) {}
-    void Run() override {
-      TRACE("MediaTrack::RemoveDirectListenerImpl ControlMessage");
-      mTrack->RemoveDirectListenerImpl(mListener);
-    }
-    void RunDuringShutdown() override {
-      // During shutdown we still want the listener's
-      // NotifyDirectListenerUninstalled to be called, since not doing that
-      // might block shutdown of other modules.
-      Run();
-    }
-    RefPtr<DirectMediaTrackListener> mListener;
-  };
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aListener));
+  QueueControlOrShutdownMessage(
+      [self = RefPtr{this}, this, listener = RefPtr{aListener}](IsInShutdown) {
+        TRACE("MediaTrack::RemoveDirectListenerImpl ControlMessage");
+        // During shutdown we still want the listener's
+        // NotifyDirectListenerUninstalled to be called, since not doing that
+        // might block shutdown of other modules.
+        RemoveDirectListenerImpl(listener);
+      });
 }
 
 void MediaTrack::RunAfterPendingUpdates(
     already_AddRefed<nsIRunnable> aRunnable) {
   MOZ_ASSERT(NS_IsMainThread());
-  MediaTrackGraphImpl* graph = GraphImpl();
-  nsCOMPtr<nsIRunnable> runnable(aRunnable);
-
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, already_AddRefed<nsIRunnable> aRunnable)
-        : ControlMessage(aTrack), mRunnable(aRunnable) {}
-    void Run() override {
-      TRACE("MediaTrack::DispatchToMainThreadStableState ControlMessage");
-      mTrack->Graph()->DispatchToMainThreadStableState(mRunnable.forget());
-    }
-    void RunDuringShutdown() override {
-      // Don't run mRunnable now as it may call AppendMessage() which would
-      // assume that there are no remaining controlMessagesToRunDuringShutdown.
-      MOZ_ASSERT(NS_IsMainThread());
-      mTrack->GraphImpl()->Dispatch(mRunnable.forget());
-    }
-
-   private:
-    nsCOMPtr<nsIRunnable> mRunnable;
-  };
-
   if (mMainThreadDestroyed) {
     return;
   }
-  graph->AppendMessage(MakeUnique<Message>(this, runnable.forget()));
+  QueueControlOrShutdownMessage(
+      [self = RefPtr{this}, this,
+       runnable = nsCOMPtr{aRunnable}](IsInShutdown aInShutdown) mutable {
+        TRACE("MediaTrack::DispatchToMainThreadStableState ControlMessage");
+        if (aInShutdown == IsInShutdown::No) {
+          Graph()->DispatchToMainThreadStableState(runnable.forget());
+        } else {
+          // Don't run mRunnable now as it may call AppendMessage() which would
+          // assume that there are no remaining
+          // controlMessagesToRunDuringShutdown.
+          MOZ_ASSERT(NS_IsMainThread());
+          GraphImpl()->Dispatch(runnable.forget());
+        }
+      });
 }
 
 void MediaTrack::SetDisabledTrackModeImpl(DisabledTrackMode aMode) {
@@ -2584,20 +2505,13 @@ void MediaTrack::SetDisabledTrackModeImpl(DisabledTrackMode aMode) {
 }
 
 void MediaTrack::SetDisabledTrackMode(DisabledTrackMode aMode) {
-  class Message : public ControlMessage {
-   public:
-    Message(MediaTrack* aTrack, DisabledTrackMode aMode)
-        : ControlMessage(aTrack), mMode(aMode) {}
-    void Run() override {
-      TRACE("MediaTrack::SetDisabledTrackModeImpl ControlMessage");
-      mTrack->SetDisabledTrackModeImpl(mMode);
-    }
-    DisabledTrackMode mMode;
-  };
   if (mMainThreadDestroyed) {
     return;
   }
-  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aMode));
+  QueueControlMessageWithNoShutdown([self = RefPtr{this}, this, aMode]() {
+    TRACE("MediaTrack::SetDisabledTrackModeImpl ControlMessage");
+    SetDisabledTrackModeImpl(aMode);
+  });
 }
 
 void MediaTrack::ApplyTrackDisabling(MediaSegment* aSegment,
@@ -2678,6 +2592,12 @@ void MediaTrack::NotifyIfDisabledModeChangedFrom(DisabledTrackMode aOldMode) {
       c->GetDestination()->OnInputDisabledModeChanged(mode);
     }
   }
+}
+
+void MediaTrack::QueueMessage(UniquePtr<ControlMessageInterface> aMessage) {
+  MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
+  MOZ_RELEASE_ASSERT(!IsDestroyed());
+  GraphImpl()->AppendMessage(std::move(aMessage));
 }
 
 SourceMediaTrack::SourceMediaTrack(MediaSegment::Type aType,

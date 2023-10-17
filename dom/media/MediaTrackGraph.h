@@ -332,6 +332,33 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   }
 
   /**
+   * Append to the message queue a control message to execute a given lambda
+   * function with no parameters.  The queue is drained during
+   * RunInStableState().  The lambda will be executed on the graph thread.
+   * The lambda will not be executed if the graph has been forced to shut
+   * down.
+   **/
+  template <typename Function>
+  void QueueControlMessageWithNoShutdown(Function&& aFunction) {
+    QueueMessage(WrapUnique(
+        new ControlMessageWithNoShutdown(std::forward<Function>(aFunction))));
+  }
+
+  enum class IsInShutdown { No, Yes };
+  /**
+   * Append to the message queue a control message to execute a given lambda
+   * function with a single IsInShutdown parameter.  A No argument indicates
+   * execution on the thread of a graph that is still running.  A Yes argument
+   * indicates execution on the main thread when the graph has been forced to
+   * shut down.
+   **/
+  template <typename Function>
+  void QueueControlOrShutdownMessage(Function&& aFunction) {
+    QueueMessage(WrapUnique(
+        new ControlOrShutdownMessage(std::forward<Function>(aFunction))));
+  }
+
+  /**
    * Ensure a runnable will run on the main thread after running all pending
    * updates that were sent from the graph thread or will be sent before the
    * graph thread receives the next graph update.
@@ -509,6 +536,8 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
    */
   virtual void DecrementSuspendCount();
 
+  class ControlMessageInterface;
+
  protected:
   // Called on graph thread either during destroy handling or before handing
   // graph control to the main thread to release tracks.
@@ -518,6 +547,14 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   // SourceMediaTrack.
   virtual void AdvanceTimeVaryingValuesToCurrentTime(GraphTime aCurrentTime,
                                                      GraphTime aBlockedTime);
+
+ private:
+  template <typename Function>
+  class ControlMessageWithNoShutdown;
+  template <typename Function>
+  class ControlOrShutdownMessage;
+
+  void QueueMessage(UniquePtr<ControlMessageInterface> aMessage);
 
   void NotifyMainThreadListeners() {
     NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
@@ -538,6 +575,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
     return true;
   }
 
+ protected:
   // Notifies listeners and consumers of the change in disabled mode when the
   // current combined mode is different from aMode.
   void NotifyIfDisabledModeChangedFrom(DisabledTrackMode aOldMode);
@@ -1217,6 +1255,70 @@ class MediaTrackGraph {
    * at construction.
    */
   const TrackRate mSampleRate;
+};
+
+/**
+ * This represents a message run on the graph thread to modify track or graph
+ * state.  These are passed from main thread to graph thread by
+ * QueueControlMessageWithNoShutdown() or QueueControlOrShutdownMessage()
+ * through AppendMessage(), or scheduled on the graph thread with
+ * RunMessageAfterProcessing().
+ */
+class MediaTrack::ControlMessageInterface {
+ public:
+  MOZ_COUNTED_DEFAULT_CTOR(ControlMessageInterface)
+  // All these run on the graph thread unless the graph has been forced to
+  // shut down.
+  MOZ_COUNTED_DTOR_VIRTUAL(ControlMessageInterface)
+  // Do the action of this message on the MediaTrackGraph thread. Any actions
+  // affecting graph processing should take effect at mProcessedTime.
+  // All track data for times < mProcessedTime has already been
+  // computed.
+  virtual void Run() = 0;
+  // RunDuringShutdown() is only relevant to messages generated on the main
+  // thread by QueueControlOrShutdownMessage() or for AppendMessage().
+  // When we're shutting down the application, most messages are ignored but
+  // some cleanup messages should still be processed (on the main thread).
+  // This must not add new control messages to the graph.
+  virtual void RunDuringShutdown() {}
+};
+
+template <typename Function>
+class MediaTrack::ControlMessageWithNoShutdown
+    : public ControlMessageInterface {
+ public:
+  explicit ControlMessageWithNoShutdown(Function&& aFunction)
+      : mFunction(std::forward<Function>(aFunction)) {}
+
+  void Run() override {
+    static_assert(std::is_void_v<decltype(mFunction())>,
+                  "The lambda must return void!");
+    mFunction();
+  }
+
+ private:
+  using StoredFunction = std::decay_t<Function>;
+  StoredFunction mFunction;
+};
+
+template <typename Function>
+class MediaTrack::ControlOrShutdownMessage : public ControlMessageInterface {
+ public:
+  explicit ControlOrShutdownMessage(Function&& aFunction)
+      : mFunction(std::forward<Function>(aFunction)) {}
+
+  void Run() override {
+    static_assert(std::is_void_v<decltype(mFunction(IsInShutdown()))>,
+                  "The lambda must return void!");
+    mFunction(IsInShutdown::No);
+  }
+  void RunDuringShutdown() override { mFunction(IsInShutdown::Yes); }
+
+ private:
+  // The same lambda is used whether or not in shutdown so that captured
+  // variables are available in both cases.
+  using StoredFunction = std::decay_t<Function>;
+  StoredFunction mFunction;
 };
 
 }  // namespace mozilla

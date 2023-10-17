@@ -40,7 +40,7 @@ class MockGraphImpl : public MediaTrackGraphImpl {
   }
 
   MOCK_CONST_METHOD0(OnGraphThread, bool());
-  MOCK_METHOD1(AppendMessage, void(UniquePtr<ControlMessage>));
+  MOCK_METHOD1(AppendMessage, void(UniquePtr<ControlMessageInterface>));
 
  protected:
   ~MockGraphImpl() = default;

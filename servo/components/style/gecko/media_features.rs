@@ -1031,4 +1031,8 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 63] = [
         atom!("-moz-always-underline-links"),
         "layout.css.always_underline_links"
     ),
+    bool_pref_feature!(
+        atom!("-moz-windows-accent-color-in-tabs"),
+        "browser.theme.windows.accent-color-in-tabs.enabled"
+    ),
 ];

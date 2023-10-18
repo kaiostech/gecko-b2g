@@ -37,7 +37,6 @@ nsClipboard::nsClipboard()
 
 NS_IMETHODIMP
 nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
-                                    nsIClipboardOwner* aOwner,
                                     int32_t aWhichClipboard) {
   MOZ_DIAGNOSTIC_ASSERT(aTransferable);
   MOZ_DIAGNOSTIC_ASSERT(
@@ -46,7 +45,7 @@ nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
   if (!XRE_IsParentProcess()) {
     // Re-direct to the clipboard proxy.
     RefPtr<nsClipboardProxy> clipboardProxy = new nsClipboardProxy();
-    return clipboardProxy->SetData(aTransferable, aOwner, aWhichClipboard);
+    return clipboardProxy->SetData(aTransferable, nullptr, aWhichClipboard);
   }
 
   // Clear out the clipboard in order to set the new data.

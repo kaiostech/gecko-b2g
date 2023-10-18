@@ -37,11 +37,8 @@ stages:
   - test
   - deploy
 
-Check if MR is rebased:
-  extends: .rebase_validation
-
-Validate message format:
-  extends: .commit_validation
+Check if MR is good to merge:
+  extends: .mr_validation
 
 lint:eslint:
   extends: .lint_eslint

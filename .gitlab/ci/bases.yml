@@ -26,7 +26,7 @@ variables:
     }
   - |
     if [[ ${GIT_STRATEGY} == none ]]; then
-      msg "Try restoring a bare repo in ${GIT_CLONE_PATH}"
+      msg "Try restoring a bare repo in ${GIT_CLONE_PATH} from ${LOCAL_GIT_MIRROR:-"${CI_SERVER_URL}"}/${CI_MERGE_REQUEST_PROJECT_PATH}.git"
       pushd ${GIT_CLONE_PATH%/*}
       rm -rf ${GIT_CLONE_PATH}
       git clone \
@@ -91,10 +91,12 @@ variables:
   before_script:
     - *global_setup
 
-.rebase_validation:
+.mr_validation:
   extends:
     - .precautions_base
     - .rules:unskippable
+  variables:
+    COMMIT_MESSAGE_PATTERN: '^(Revert \")?(Bug|MozBug) [[:digit:]]+ \- '
   script:
     - |
       remote_head=$( \
@@ -113,15 +115,6 @@ variables:
           --color=always
         die "Please rebase your MR to the latest ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}."
       fi
-      echo "MR #${CI_MERGE_REQUEST_IID} (detached from ${GITLAB_USER_LOGIN}/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}) is rebased."
-
-.commit_validation:
-  extends:
-    - .precautions_base
-    - .rules:skippable
-  variables:
-    COMMIT_MESSAGE_PATTERN: '^(Revert \")?(Bug|MozBug) [[:digit:]]+ \- '
-  script:
     - |
       if [[ $(git rev-list kaios/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}..FETCH_HEAD --oneline --merges) ]]; then
         msg "MR #${CI_MERGE_REQUEST_IID} contains merge commit:"
@@ -138,6 +131,7 @@ variables:
         fi
         echo "commit message of ${c} validated."
       done
+      echo "MR #${CI_MERGE_REQUEST_IID} (detached from ${GITLAB_USER_LOGIN}/${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}) is good."
 
 .lint_base:
   stage: lint

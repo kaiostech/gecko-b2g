@@ -150,6 +150,9 @@ enum TimerPrecisionType {
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define ITEM_VALUE(name, val) name = val,
 
+// The definition for fingerprinting protections. Each enum represents one
+// fingerprinting protection that targets one specific WebAPI our fingerprinting
+// surface. The enums can be found in RFPTargets.inc.
 enum class RFPTarget : uint64_t {
 #include "RFPTargets.inc"
 };
@@ -172,7 +175,9 @@ class nsRFPService final : public nsIObserver, public nsIRFPService {
   // 98% of the time you should use nsContentUtils::ShouldResistFingerprinting
   // as the difference will not matter to you.
   static bool IsRFPPrefEnabled(bool aIsPrivateMode);
-  static bool IsRFPEnabledFor(RFPTarget aTarget);
+  static bool IsRFPEnabledFor(
+      RFPTarget aTarget,
+      const Maybe<RFPTarget>& aOverriddenFingerprintingSettings);
 
   // --------------------------------------------------------------------------
   static double TimerResolution(RTPCallerType aRTPCallerType);
@@ -289,6 +294,24 @@ class nsRFPService final : public nsIObserver, public nsIRFPService {
                                   uint8_t* aData, uint32_t aWidth,
                                   uint32_t aHeight, uint32_t aSize,
                                   mozilla::gfx::SurfaceFormat aSurfaceFormat);
+
+  // --------------------------------------------------------------------------
+
+  // The method for getting the granular fingerprinting protection override of
+  // the given channel. Due to WebCompat reason, there can be a granular
+  // overrides to replace default enabled RFPTargets for the context of the
+  // channel. The method will return Nothing() to indicate using the default
+  // RFPTargets
+  static Maybe<RFPTarget> GetOverriddenFingerprintingSettingsForChannel(
+      nsIChannel* aChannel);
+
+  // The method for getting the granular fingerprinting protection override of
+  // the given first-party and third-party URIs. It will return the granular
+  // overrides if there is one defined for the context of the first-party URI
+  // and third-party URI. Otherwise, it will return Nothing() to indicate using
+  // the default RFPTargets.
+  static Maybe<RFPTarget> GetOverriddenFingerprintingSettingsForURI(
+      nsIURI* aFirstPartyURI, nsIURI* aThirdPartyURI);
 
   // --------------------------------------------------------------------------
 

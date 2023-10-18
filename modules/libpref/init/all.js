@@ -189,7 +189,12 @@ pref("pdfjs.enableScripting", true);
 pref("pdfjs.enableXfa", true);
 
 // Enable adding an image in a pdf.
-pref("pdfjs.enableStampEditor", true);
+#ifdef RELEASE_OR_BETA
+  // It'll be enabled through Nimbus.
+  pref("pdfjs.enableStampEditor", false);
+#else
+  pref("pdfjs.enableStampEditor", true);
+#endif
 
 // Disable support for MathML
 pref("mathml.disabled",    false);
@@ -382,9 +387,6 @@ pref("media.video-queue.default-size", 10);
 pref("media.video-queue.send-to-compositor-size", 9999);
 
 pref("media.cubeb.output_voice_routing", true);
-
-// GraphRunner (fixed MediaTrackGraph thread) control
-pref("media.audiograph.single_thread.enabled", true);
 
 // APZ preferences. For documentation/details on what these prefs do, check
 // gfx/layers/apz/src/AsyncPanZoomController.cpp.

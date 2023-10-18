@@ -31,23 +31,18 @@ using namespace mozilla::layout;
 
 namespace mozilla {
 
-struct TableRowGroupReflowInput {
-  const ReflowInput& reflowInput;  // Our reflow input
-
-  nsTableFrame* tableFrame;
+struct TableRowGroupReflowInput final {
+  // Our reflow input
+  const ReflowInput& mReflowInput;
 
   // The available size (computed from the parent)
-  mozilla::LogicalSize availSize;
+  LogicalSize mAvailSize;
 
   // Running block-offset
-  nscoord bCoord;
+  nscoord mBCoord = 0;
 
-  TableRowGroupReflowInput(const ReflowInput& aReflowInput,
-                           nsTableFrame* aTableFrame)
-      : reflowInput(aReflowInput),
-        tableFrame(aTableFrame),
-        availSize(aReflowInput.AvailableSize()),
-        bCoord(0) {}
+  explicit TableRowGroupReflowInput(const ReflowInput& aReflowInput)
+      : mReflowInput(aReflowInput), mAvailSize(aReflowInput.AvailableSize()) {}
 
   ~TableRowGroupReflowInput() = default;
 };
@@ -148,7 +143,7 @@ void nsTableRowGroupFrame::AddDeletedRowIndex(int32_t aDeletedRowStoredIndex) {
   return tableFrame->AddDeletedRowIndex(aDeletedRowStoredIndex);
 }
 
-nsresult nsTableRowGroupFrame::InitRepeatedFrame(
+void nsTableRowGroupFrame::InitRepeatedFrame(
     nsTableRowGroupFrame* aHeaderFooterFrame) {
   nsTableRowFrame* copyRowFrame = GetFirstRow();
   nsTableRowFrame* originalRowFrame = aHeaderFooterFrame->GetFirstRow();
@@ -177,8 +172,6 @@ nsresult nsTableRowGroupFrame::InitRepeatedFrame(
     originalRowFrame = originalRowFrame->GetNextRow();
     copyRowFrame = copyRowFrame->GetNextRow();
   }
-
-  return NS_OK;
 }
 
 // Handle the child-traversal part of DisplayGenericTablePart
@@ -290,11 +283,11 @@ void nsTableRowGroupFrame::PlaceChild(
   }
 
   // Adjust the running block-offset
-  aReflowInput.bCoord += aDesiredSize.BSize(aWM);
+  aReflowInput.mBCoord += aDesiredSize.BSize(aWM);
 
   // If our block-size is constrained then update the available bsize
-  if (NS_UNCONSTRAINEDSIZE != aReflowInput.availSize.BSize(aWM)) {
-    aReflowInput.availSize.BSize(aWM) -= aDesiredSize.BSize(aWM);
+  if (NS_UNCONSTRAINEDSIZE != aReflowInput.mAvailSize.BSize(aWM)) {
+    aReflowInput.mAvailSize.BSize(aWM) -= aDesiredSize.BSize(aWM);
   }
 }
 
@@ -329,7 +322,7 @@ void nsTableRowGroupFrame::ReflowChildren(
     *aPageBreakBeforeEnd = false;
   }
 
-  WritingMode wm = aReflowInput.reflowInput.GetWritingMode();
+  WritingMode wm = aReflowInput.mReflowInput.GetWritingMode();
   nsTableFrame* tableFrame = GetTableFrame();
   const bool borderCollapse = tableFrame->IsBorderCollapse();
 
@@ -337,10 +330,9 @@ void nsTableRowGroupFrame::ReflowChildren(
   // or should we *only* check available block-size?
   // (Think about multi-column layout!)
   bool isPaginated = aPresContext->IsPaginated() &&
-                     NS_UNCONSTRAINEDSIZE != aReflowInput.availSize.BSize(wm);
+                     NS_UNCONSTRAINEDSIZE != aReflowInput.mAvailSize.BSize(wm);
 
-  bool haveRow = false;
-  bool reflowAllKids = aReflowInput.reflowInput.ShouldReflowAllKids() ||
+  bool reflowAllKids = aReflowInput.mReflowInput.ShouldReflowAllKids() ||
                        tableFrame->IsGeometryDirty() ||
                        tableFrame->NeedToCollapse();
 
@@ -349,36 +341,35 @@ void nsTableRowGroupFrame::ReflowChildren(
   bool needToCalcRowBSizes = reflowAllKids || wm.IsVerticalRL();
 
   nsSize containerSize =
-      aReflowInput.reflowInput.ComputedSizeAsContainerIfConstrained();
+      aReflowInput.mReflowInput.ComputedSizeAsContainerIfConstrained();
 
   nsIFrame* prevKidFrame = nullptr;
   for (nsTableRowFrame* kidFrame = GetFirstRow(); kidFrame;
        prevKidFrame = kidFrame, kidFrame = kidFrame->GetNextRow()) {
     nscoord cellSpacingB = tableFrame->GetRowSpacing(kidFrame->GetRowIndex());
-    haveRow = true;
 
     // Reflow the row frame
     if (reflowAllKids || kidFrame->IsSubtreeDirty() ||
-        (aReflowInput.reflowInput.mFlags.mSpecialBSizeReflow &&
+        (aReflowInput.mReflowInput.mFlags.mSpecialBSizeReflow &&
          (isPaginated ||
           kidFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)))) {
       LogicalRect oldKidRect = kidFrame->GetLogicalRect(wm, containerSize);
       nsRect oldKidInkOverflow = kidFrame->InkOverflowRect();
 
-      ReflowOutput desiredSize(aReflowInput.reflowInput);
+      ReflowOutput kidDesiredSize(aReflowInput.mReflowInput);
 
       // Reflow the child into the available space, giving it as much bsize as
       // it wants. We'll deal with splitting later after we've computed the row
       // bsizes, taking into account cells with row spans...
-      LogicalSize kidAvailSize = aReflowInput.availSize;
+      LogicalSize kidAvailSize = aReflowInput.mAvailSize;
       kidAvailSize.BSize(wm) = NS_UNCONSTRAINEDSIZE;
-      ReflowInput kidReflowInput(aPresContext, aReflowInput.reflowInput,
+      ReflowInput kidReflowInput(aPresContext, aReflowInput.mReflowInput,
                                  kidFrame, kidAvailSize, Nothing(),
                                  ReflowInput::InitFlag::CallerWillInit);
       InitChildReflowInput(*aPresContext, borderCollapse, kidReflowInput);
 
       // This can indicate that columns were resized.
-      if (aReflowInput.reflowInput.IsIResize()) {
+      if (aReflowInput.mReflowInput.IsIResize()) {
         kidReflowInput.SetIResize(true);
       }
 
@@ -390,30 +381,30 @@ void nsTableRowGroupFrame::ReflowChildren(
         kidReflowInput.mFlags.mIsTopOfPage = false;
       }
 
-      LogicalPoint kidPosition(wm, 0, aReflowInput.bCoord);
-      ReflowChild(kidFrame, aPresContext, desiredSize, kidReflowInput, wm,
+      LogicalPoint kidPosition(wm, 0, aReflowInput.mBCoord);
+      ReflowChild(kidFrame, aPresContext, kidDesiredSize, kidReflowInput, wm,
                   kidPosition, containerSize, ReflowChildFlags::Default,
                   aStatus);
 
       // Place the child
       PlaceChild(aPresContext, aReflowInput, kidFrame, kidReflowInput, wm,
-                 kidPosition, containerSize, desiredSize,
+                 kidPosition, containerSize, kidDesiredSize,
                  oldKidRect.GetPhysicalRect(wm, containerSize),
                  oldKidInkOverflow);
-      aReflowInput.bCoord += cellSpacingB;
+      aReflowInput.mBCoord += cellSpacingB;
 
       if (!reflowAllKids) {
-        if (IsSimpleRowFrame(aReflowInput.tableFrame, kidFrame)) {
+        if (IsSimpleRowFrame(tableFrame, kidFrame)) {
           // Inform the row of its new bsize.
           kidFrame->DidResize();
           // the overflow area may have changed inflate the overflow area
           const nsStylePosition* stylePos = StylePosition();
-          if (aReflowInput.tableFrame->IsAutoBSize(wm) &&
+          if (tableFrame->IsAutoBSize(wm) &&
               !stylePos->BSize(wm).ConvertsToLength()) {
             // Because other cells in the row may need to be aligned
             // differently, repaint the entire row
             InvalidateFrame();
-          } else if (oldKidRect.BSize(wm) != desiredSize.BSize(wm)) {
+          } else if (oldKidRect.BSize(wm) != kidDesiredSize.BSize(wm)) {
             needToCalcRowBSizes = true;
           }
         } else {
@@ -432,10 +423,10 @@ void nsTableRowGroupFrame::ReflowChildren(
       // Move a child that was skipped during a reflow.
       const LogicalPoint oldPosition =
           kidFrame->GetLogicalNormalPosition(wm, containerSize);
-      if (oldPosition.B(wm) != aReflowInput.bCoord) {
+      if (oldPosition.B(wm) != aReflowInput.mBCoord) {
         kidFrame->InvalidateFrameSubtree();
         const LogicalPoint offset(wm, 0,
-                                  aReflowInput.bCoord - oldPosition.B(wm));
+                                  aReflowInput.mBCoord - oldPosition.B(wm));
         kidFrame->MovePositionBy(wm, offset);
         nsTableFrame::RePositionViews(kidFrame);
         kidFrame->InvalidateFrameSubtree();
@@ -444,31 +435,31 @@ void nsTableRowGroupFrame::ReflowChildren(
       // Adjust the running b-offset so we know where the next row should be
       // placed
       nscoord bSize = kidFrame->BSize(wm) + cellSpacingB;
-      aReflowInput.bCoord += bSize;
+      aReflowInput.mBCoord += bSize;
 
-      if (NS_UNCONSTRAINEDSIZE != aReflowInput.availSize.BSize(wm)) {
-        aReflowInput.availSize.BSize(wm) -= bSize;
+      if (NS_UNCONSTRAINEDSIZE != aReflowInput.mAvailSize.BSize(wm)) {
+        aReflowInput.mAvailSize.BSize(wm) -= bSize;
       }
     }
     ConsiderChildOverflow(aDesiredSize.mOverflowAreas, kidFrame);
   }
 
-  if (haveRow) {
-    aReflowInput.bCoord -=
+  if (GetFirstRow()) {
+    aReflowInput.mBCoord -=
         tableFrame->GetRowSpacing(GetStartRowIndex() + GetRowCount());
   }
 
   // Return our desired rect
-  aDesiredSize.ISize(wm) = aReflowInput.reflowInput.AvailableISize();
-  aDesiredSize.BSize(wm) = aReflowInput.bCoord;
+  aDesiredSize.ISize(wm) = aReflowInput.mReflowInput.AvailableISize();
+  aDesiredSize.BSize(wm) = aReflowInput.mBCoord;
 
-  if (aReflowInput.reflowInput.mFlags.mSpecialBSizeReflow) {
+  if (aReflowInput.mReflowInput.mFlags.mSpecialBSizeReflow) {
     DidResizeRows(aDesiredSize);
     if (isPaginated) {
       CacheRowBSizesForPrinting(GetFirstRow(), wm);
     }
   } else if (needToCalcRowBSizes) {
-    CalculateRowBSizes(aPresContext, aDesiredSize, aReflowInput.reflowInput);
+    CalculateRowBSizes(aPresContext, aDesiredSize, aReflowInput.mReflowInput);
     if (!reflowAllKids) {
       InvalidateFrame();
     }
@@ -909,25 +900,20 @@ nscoord nsTableRowGroupFrame::CollapseRowGroupIfNecessary(nscoord aBTotalOffset,
   return bGroupOffset;
 }
 
-// Create a continuing frame, add it to the child list, and then push it
-// and the frames that follow
-void nsTableRowGroupFrame::CreateContinuingRowFrame(nsIFrame& aRowFrame,
-                                                    nsIFrame** aContRowFrame) {
-  // XXX what is the row index?
-  if (!aContRowFrame) {
-    NS_ASSERTION(false, "bad call");
-    return;
-  }
-  // create the continuing frame which will create continuing cell frames
-  *aContRowFrame =
-      PresShell()->FrameConstructor()->CreateContinuingFrame(&aRowFrame, this);
+nsTableRowFrame* nsTableRowGroupFrame::CreateContinuingRowFrame(
+    nsIFrame* aRowFrame) {
+  // Create the continuing frame which will create continuing cell frames.
+  auto* contRowFrame = static_cast<nsTableRowFrame*>(
+      PresShell()->FrameConstructor()->CreateContinuingFrame(aRowFrame, this));
 
-  // Add the continuing row frame to the child list
-  mFrames.InsertFrame(nullptr, &aRowFrame, *aContRowFrame);
+  // Add the continuing row frame to the child list.
+  mFrames.InsertFrame(nullptr, aRowFrame, contRowFrame);
 
-  // Push the continuing row frame and the frames that follow
+  // Push the continuing row frame and the frames that follow.
   // This needs to match `UndoContinuedRow`.
-  PushChildrenToOverflow(*aContRowFrame, &aRowFrame);
+  PushChildrenToOverflow(contRowFrame, aRowFrame);
+
+  return contRowFrame;
 }
 
 // Reflow the cells with rowspan > 1 which originate between aFirstRow
@@ -999,7 +985,7 @@ void nsTableRowGroupFrame::SplitSpanningCells(
           }
         } else {
           if (!aContRow) {
-            CreateContinuingRowFrame(aLastRow, (nsIFrame**)&aContRow);
+            aContRow = CreateContinuingRowFrame(&aLastRow);
           }
           if (aContRow) {
             if (row != &aLastRow) {
@@ -1064,12 +1050,12 @@ static nsTableRowFrame* GetRowBefore(nsTableRowFrame& aStartRow,
   return rowBefore;
 }
 
-nsresult nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
-                                             ReflowOutput& aDesiredSize,
-                                             const ReflowInput& aReflowInput,
-                                             nsTableFrame* aTableFrame,
-                                             nsReflowStatus& aStatus,
-                                             bool aRowForcedPageBreak) {
+void nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
+                                         ReflowOutput& aDesiredSize,
+                                         const ReflowInput& aReflowInput,
+                                         nsTableFrame* aTableFrame,
+                                         nsReflowStatus& aStatus,
+                                         bool aRowForcedPageBreak) {
   MOZ_ASSERT(aPresContext->IsPaginated(),
              "SplitRowGroup currently supports only paged media");
 
@@ -1156,12 +1142,11 @@ nsresult nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
                 rowMetrics.Height() <= rowReflowInput.AvailableHeight(),
                 "data loss - incomplete row needed more height than available, "
                 "on top of page");
-            CreateContinuingRowFrame(*rowFrame, (nsIFrame**)&contRow);
-            if (contRow) {
-              aDesiredSize.Height() += rowMetrics.Height();
-              if (prevRowFrame) aDesiredSize.Height() += cellSpacingB;
-            } else
-              return NS_ERROR_NULL_POINTER;
+            contRow = CreateContinuingRowFrame(rowFrame);
+            aDesiredSize.Height() += rowMetrics.Height();
+            if (prevRowFrame) {
+              aDesiredSize.Height() += cellSpacingB;
+            }
           } else {
             // Put the row on the next page to give it more height
             rowIsOnPage = false;
@@ -1323,7 +1308,6 @@ nsresult nsTableRowGroupFrame::SplitRowGroup(nsPresContext* aPresContext,
     // of the page anymore.
     isTopOfPage = isTopOfPage && rowRect.YMost() == 0;
   }
-  return NS_OK;
 }
 
 /** Layout the entire row group.
@@ -1347,7 +1331,7 @@ void nsTableRowGroupFrame::Reflow(nsPresContext* aPresContext,
   nsTableFrame::CheckRequestSpecialBSizeReflow(aReflowInput);
 
   nsTableFrame* tableFrame = GetTableFrame();
-  TableRowGroupReflowInput state(aReflowInput, tableFrame);
+  TableRowGroupReflowInput state(aReflowInput);
   const nsStyleVisibility* groupVis = StyleVisibility();
   bool collapseGroup = StyleVisibility::Collapse == groupVis->mVisible;
   if (collapseGroup) {

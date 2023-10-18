@@ -21,6 +21,7 @@ FINAL_LIBRARY = "xul"
 EXPORTS += ["nsRFPService.h", "RFPTargets.inc"]
 EXPORTS.mozilla += [
     "RelativeTimeline.h",
+    "RFPTargetIPCUtils.h",
 ]
 
 EXTRA_JS_MODULES += [
@@ -38,3 +39,5 @@ XPIDL_SOURCES += [
     "nsIFingerprintingWebCompatService.idl",
     "nsIRFPService.idl",
 ]
+
+include("/ipc/chromium/chromium-config.mozbuild")

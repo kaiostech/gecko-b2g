@@ -15767,22 +15767,6 @@
         return this._ancestor.key;
       }
 
-      set node(replacement) {
-        if (this.type !== "Identifier") {
-          throw new Error(
-            "Replacing anything other than leaf nodes is undefined behavior " +
-              "in t.traverse()"
-          );
-        }
-
-        const { node, key, index } = this._ancestor;
-        if (typeof index === "number") {
-          node[key][index] = replacement;
-        } else {
-          node[key] = replacement;
-        }
-      }
-
       get type() {
         return this.node.type;
       }
@@ -15801,14 +15785,6 @@
         return index;
       }
 
-      get depth() {
-        return this._index;
-      }
-
-      replace(node) {
-        this.node = node;
-      }
-
       find(predicate) {
         for (let path = this; path; path = path.parentPath) {
           if (predicate(path)) {
@@ -15824,25 +15800,6 @@
         }
 
         return this.parentPath.find(predicate);
-      }
-
-      getSibling(offset) {
-        const { node, key, index } = this._ancestor;
-
-        if (typeof index !== "number") {
-          throw new Error("Non-array nodes do not have siblings");
-        }
-
-        const container = node[key];
-
-        const siblingIndex = index + offset;
-        if (siblingIndex < 0 || siblingIndex >= container.length) {
-          return null;
-        }
-
-        return new SimplePath(
-          this._ancestors.slice(0, -1).concat([{ node, key, index: siblingIndex }])
-        );
       }
     }
 
@@ -41339,20 +41296,22 @@
       }));
     }
 
-    function getSpecifiers(specifiers) {
-      if (!specifiers) {
-        return [];
-      }
-
-      return specifiers.map(specifier => specifier.local?.name);
-    }
-
     function isComputedExpression(expression) {
       return /^\[/m.test(expression);
     }
 
-    function getPatternIdentifiers(pattern) {
-      let items = [];
+    /**
+     * Add the identifiers for a given object pattern.
+     *
+     * @param {Array.<Object>} identifiers
+     *        the current list of identifiers where to push the new identifiers
+     *        related to this path.
+     * @param {Set<String>} identifiersKeys
+     *        List of currently registered identifier location key.
+     * @param {Object} pattern
+     */
+    function addPatternIdentifiers(identifiers, identifiersKeys, pattern) {
+      let items;
       if (lib$3.isObjectPattern(pattern)) {
         items = pattern.properties.map(({ value }) => value);
       }
@@ -41361,24 +41320,25 @@
         items = pattern.elements;
       }
 
-      return getIdentifiers(items);
+      if (items) {
+        addIdentifiers(identifiers, identifiersKeys, items);
+      }
     }
 
-    function getIdentifiers(items) {
-      let ids = [];
-      items.forEach(function (item) {
+    function addIdentifiers(identifiers, identifiersKeys, items) {
+      for (const item of items) {
         if (lib$3.isObjectPattern(item) || lib$3.isArrayPattern(item)) {
-          ids = ids.concat(getPatternIdentifiers(item));
+          addPatternIdentifiers(identifiers, identifiersKeys, item);
         } else if (lib$3.isIdentifier(item)) {
-          const { start, end } = item.loc;
-          ids.push({
-            name: item.name,
-            expression: item.name,
-            location: { start, end },
-          });
+          if (!identifiersKeys.has(nodeLocationKey(item.loc))) {
+            identifiers.push({
+              name: item.name,
+              expression: item.name,
+              location: item.loc,
+            });
+          }
         }
-      });
-      return ids;
+      }
     }
 
     // Top Level checks the number of "body" nodes in the ancestor chain
@@ -41387,8 +41347,7 @@
       return ancestors.filter(ancestor => ancestor.key == "body").length == 1;
     }
 
-    function nodeLocationKey(a) {
-      const { start, end } = a.location;
+    function nodeLocationKey({ start, end }) {
       return `${start.line}:${start.column}:${end.line}:${end.column}`;
     }
 
@@ -41626,29 +41585,12 @@
       return null;
     }
 
-    function isReactComponent({ imports, classes, callExpressions, identifiers }) {
+    function isReactComponent({ importsReact, classes, identifiers }) {
       return (
-        importsReact(imports) ||
-        requiresReact(callExpressions) ||
+        importsReact ||
         extendsReactComponent(classes) ||
         isReact(identifiers) ||
         isRedux(identifiers)
-      );
-    }
-
-    function importsReact(imports) {
-      return imports.some(
-        importObj =>
-          importObj.source === "react" &&
-          importObj.specifiers.some(specifier => specifier === "React")
-      );
-    }
-
-    function requiresReact(callExpressions) {
-      return callExpressions.some(
-        callExpression =>
-          callExpression.name === "require" &&
-          callExpression.values.some(value => value === "react")
       );
     }
 
@@ -41723,8 +41665,12 @@
         symbols.classes.push(getClassDeclarationSymbol(path.node));
       }
 
-      if (lib$3.isImportDeclaration(path)) {
-        symbols.imports.push(getImportDeclarationSymbol(path.node));
+      if (!symbols.importsReact) {
+        if (lib$3.isImportDeclaration(path)) {
+          symbols.importsReact = isReactImport(path.node);
+        } else if (lib$3.isCallExpression(path)) {
+          symbols.importsReact = isReactRequire(path.node);
+        }
       }
 
       if (lib$3.isMemberExpression(path) || lib$3.isOptionalMemberExpression(path)) {
@@ -41738,32 +41684,33 @@
         // We only need literals that are part of computed memeber expressions
         const { start, end } = path.node.loc;
         symbols.literals.push({
-          name: path.node.value,
           location: { start, end },
-          expression: getSnippet(path.parentPath),
+          get expression() {
+            delete this.expression;
+            this.expression = getSnippet(path.parentPath);
+            return this.expression;
+          },
         });
       }
 
-      if (lib$3.isCallExpression(path)) {
-        symbols.callExpressions.push(getCallExpressionSymbol(path.node));
-      }
-
-      symbols.identifiers.push(...getIdentifierSymbols(path));
+      getIdentifierSymbols(symbols.identifiers, symbols.identifiersKeys, path);
     }
 
     function extractSymbols(sourceId) {
       const symbols = {
         functions: [],
-        callExpressions: [],
         memberExpressions: [],
         comments: [],
         identifiers: [],
+        // This holds a set of unique identifier location key (string)
+        // It helps registering only the first identifier when there is duplicated ones for the same location.
+        identifiersKeys: new Set(),
         classes: [],
-        imports: [],
         literals: [],
         hasJsx: false,
         hasTypes: false,
         framework: undefined,
+        importsReact: false,
       };
 
       const state = {
@@ -41785,7 +41732,6 @@
 
       // comments are extracted separately from the AST
       symbols.comments = getComments(ast);
-      symbols.identifiers = getUniqueIdentifiers(symbols.identifiers);
       symbols.framework = getFramework(symbols);
 
       return symbols;
@@ -42003,6 +41949,19 @@
         // `memberExpressions`, `literals`
         // This one is also used within the worker for framework computation
         // `identifiers`
+        //
+        // These three memberExpressions, literals and identifiers attributes are arrays containing objects whose attributes are:
+        // * name: string
+        // * location: object {start: number, end: number}
+        // * expression: string
+        // * computed: boolean (only for memberExpressions)
+        //
+        // `findBestMatchExpression` uses `location`, `computed` and `expression` (not name).
+        //    `expression` isn't used from the worker thread implementation of `findBestMatchExpression`.
+        //    The main thread only uses `expression` and `location`.
+        // framework computation uses only:
+        // * `name` for identifiers
+        // * `expression` for memberExpression
 
         // This is used within the worker for framework computation,
         // and in the main thread by the outline panel
@@ -42015,66 +41974,37 @@
         // This is used in the main thread only to compute the source icon
         framework: symbols.framework,
 
-        // This is only used within the worker for framework computation:
-        // `imports`, `callExpressions`
         // This is only used by `findOutOfScopeLocations`:
         // `comments`
       };
     }
 
-    function getUniqueIdentifiers(identifiers) {
-      const newIdentifiers = [];
-      const locationKeys = new Set();
-      for (const newId of identifiers) {
-        const key = nodeLocationKey(newId);
-        if (!locationKeys.has(key)) {
-          locationKeys.add(key);
-          newIdentifiers.push(newId);
-        }
-      }
-
-      return newIdentifiers;
-    }
-
     function getMemberExpressionSymbol(path) {
       const { start, end } = path.node.property.loc;
       return {
-        name: lib$3.isPrivateName(path.node.property)
-          ? `#${path.node.property.id.name}`
-          : path.node.property.name,
         location: { start, end },
-        expression: getSnippet(path),
+        get expression() {
+          delete this.expression;
+          this.expression = getSnippet(path);
+          return this.expression;
+        },
         computed: path.node.computed,
       };
     }
 
-    function getImportDeclarationSymbol(node) {
-      return {
-        source: node.source.value,
-        location: node.loc,
-        specifiers: getSpecifiers(node.specifiers),
-      };
+    function isReactImport(node) {
+      return (
+        node.source.value == "react" &&
+        node.specifiers?.some(specifier => specifier.local?.name == "React")
+      );
     }
 
-    function getCallExpressionSymbol(node) {
-      const { callee, arguments: args } = node;
-      const values = args.filter(arg => arg.value).map(arg => arg.value);
-      if (lib$3.isMemberExpression(callee)) {
-        const {
-          property: { name, loc },
-        } = callee;
-        return {
-          name,
-          values,
-          location: loc,
-        };
-      }
-      const { start, end, identifierName } = callee.loc;
-      return {
-        name: identifierName,
-        values,
-        location: { start, end },
-      };
+    function isReactRequire(node) {
+      const { callee } = node;
+      const name = lib$3.isMemberExpression(callee)
+        ? callee.property.name
+        : callee.loc.identifierName;
+      return name == "require" && node.arguments.some(arg => arg.value == "react");
     }
 
     function getClassParentName(superClass) {
@@ -42105,37 +42035,48 @@
     /**
      * Get a list of identifiers that are part of the given path.
      *
+     * @param {Array.<Object>} identifiers
+     *        the current list of identifiers where to push the new identifiers
+     *        related to this path.
+     * @param {Set<String>} identifiersKeys
+     *        List of currently registered identifier location key.
      * @param {Object} path
-     * @returns {Array.<Object>} a list of identifiers
      */
-    function getIdentifierSymbols(path) {
+    function getIdentifierSymbols(identifiers, identifiersKeys, path) {
       if (lib$3.isStringLiteral(path) && lib$3.isProperty(path.parentPath)) {
-        const { start, end } = path.node.loc;
-        return [
-          {
+        if (!identifiersKeys.has(nodeLocationKey(path.node.loc))) {
+          identifiers.push({
             name: path.node.value,
-            expression: getObjectExpressionValue(path.parent),
-            location: { start, end },
-          },
-        ];
+            get expression() {
+              delete this.expression;
+              this.expression = getObjectExpressionValue(path.parent);
+              return this.expression;
+            },
+            location: path.node.loc,
+          });
+        }
+        return;
       }
 
-      const identifiers = [];
       if (lib$3.isIdentifier(path) && !lib$3.isGenericTypeAnnotation(path.parent)) {
         // We want to include function params, but exclude the function name
         if (lib$3.isClassMethod(path.parent) && !path.inList) {
-          return [];
+          return;
         }
 
         if (lib$3.isProperty(path.parentPath) && !isObjectShorthand(path.parent)) {
-          const { start, end } = path.node.loc;
-          return [
-            {
+          if (!identifiersKeys.has(nodeLocationKey(path.node.loc))) {
+            identifiers.push({
               name: path.node.name,
-              expression: getObjectExpressionValue(path.parent),
-              location: { start, end },
-            },
-          ];
+              get expression() {
+                delete this.expression;
+                this.expression = getObjectExpressionValue(path.parent);
+                return this.expression;
+              },
+              location: path.node.loc,
+            });
+          }
+          return;
         }
 
         let { start, end } = path.node.loc;
@@ -42144,29 +42085,30 @@
           end = { ...end, column };
         }
 
-        identifiers.push({
-          name: path.node.name,
-          expression: path.node.name,
-          location: { start, end },
-        });
+        if (!identifiersKeys.has(nodeLocationKey({ start, end }))) {
+          identifiers.push({
+            name: path.node.name,
+            expression: path.node.name,
+            location: { start, end },
+          });
+        }
       }
 
       if (lib$3.isThisExpression(path.node)) {
-        const { start, end } = path.node.loc;
-        identifiers.push({
-          name: "this",
-          location: { start, end },
-          expression: "this",
-        });
+        if (!identifiersKeys.has(nodeLocationKey(path.node.loc))) {
+          identifiers.push({
+            name: "this",
+            location: path.node.loc,
+            expression: "this",
+          });
+        }
       }
 
       if (lib$3.isVariableDeclarator(path)) {
         const nodeId = path.node.id;
 
-        identifiers.push(...getPatternIdentifiers(nodeId));
+        addPatternIdentifiers(identifiers, identifiersKeys, nodeId);
       }
-
-      return identifiers;
     }
 
     /**

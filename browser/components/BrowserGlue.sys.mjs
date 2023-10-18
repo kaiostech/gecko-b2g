@@ -90,6 +90,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UIState: "resource://services-sync/UIState.sys.mjs",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.sys.mjs",
   WebChannel: "resource://gre/modules/WebChannel.sys.mjs",
+  WindowsLaunchOnLogin: "resource://gre/modules/WindowsLaunchOnLogin.sys.mjs",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.sys.mjs",
   WindowsGPOParser: "resource://gre/modules/policies/WindowsGPOParser.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -771,6 +772,8 @@ let JSWINDOWACTORS = {
         // methods available to the page js on load.
         DOMDocElementInserted: {},
         ReportProductAvailable: { wantUntrusted: true },
+        AdClicked: { wantUntrusted: true },
+        AdImpression: { wantUntrusted: true },
       },
     },
     matches: ["about:shoppingsidebar"],
@@ -1238,6 +1241,26 @@ BrowserGlue.prototype = {
           "os-autostart",
           false
         );
+        let launchOnLoginPref = "browser.startup.windowsLaunchOnLogin.enabled";
+        let profileSvc = Cc[
+          "@mozilla.org/toolkit/profile-service;1"
+        ].getService(Ci.nsIToolkitProfileService);
+        if (
+          AppConstants.platform == "win" &&
+          Services.prefs.getBoolPref(launchOnLoginPref) &&
+          !profileSvc.startWithLastProfile
+        ) {
+          // If we don't start with last profile, the user
+          // likely sees the profile selector on launch.
+          Services.prefs.setBoolPref(launchOnLoginPref, false);
+          Services.telemetry.setEventRecordingEnabled("launch_on_login", true);
+          Services.telemetry.recordEvent(
+            "launch_on_login",
+            "last_profile_disable:",
+            "startup"
+          );
+          await lazy.WindowsLaunchOnLogin.removeLaunchOnLoginRegistryKey();
+        }
         break;
     }
   },

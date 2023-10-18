@@ -939,9 +939,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
   //
   // See JitFrames.h, and TraceJitExitFrame in JitFrames.cpp.
 
-  // Push stub code and the VMFunctionData pointer.
-  inline void enterExitFrame(Register cxreg, Register scratch,
-                             const VMFunctionData* f);
+  // Links the exit frame and pushes the ExitFooterFrame.
+  inline void enterExitFrame(Register cxreg, Register scratch, VMFunctionId f);
 
   // Push an exit frame token to identify which fake exit frame this footer
   // corresponds to.
@@ -3843,9 +3842,10 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   void wasmCheckSlowCallsite(Register ra, Label* notSlow, Register temp1,
                              Register temp2)
-      DEFINED_ON(x86, x64, arm, arm64, loong64, mips64);
+      DEFINED_ON(x86, x64, arm, arm64, loong64, mips64, riscv64);
 
-  void wasmMarkSlowCall() DEFINED_ON(x86, x64, arm, arm64, loong64, mips64);
+  void wasmMarkSlowCall()
+      DEFINED_ON(x86, x64, arm, arm64, loong64, mips64, riscv64);
 #endif
 
   // WasmTableCallIndexReg must contain the index of the indirect call.  This is

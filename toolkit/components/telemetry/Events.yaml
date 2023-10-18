@@ -417,7 +417,7 @@ form_autocomplete:
       insecureWarning: The number of insecure login field warning rows shown (should be 0 or 1).
       login: The number of login rows shown (with or without the domain line).
       importableLogin: The number of import suggestion rows shown.
-      loginsFooter: The number of "View Saved Logins" footer row shown.
+      loginsFooter: The number of "Manage Passwords" footer row shown.
       stringLength: Length of the text in the field that triggered these results.
     notification_emails: ["passwords-dev@mozilla.org"]
     products:
@@ -2980,6 +2980,23 @@ pictureinpicture.settings:
       - main
     bug_numbers:
       - 1639774
+    expiry_version: "never"
+    release_channel_collection: opt-out
+
+launch_on_login:
+  last_profile_disable:
+    objects: ["startup"]
+    description: >
+      Recorded when Launch on login is disabled because the
+      start with last profile setting has been disabled.
+    notification_emails:
+      - nalexander@mozilla.com
+    products:
+      - "firefox"
+    record_in_processes:
+      - main
+    bug_numbers:
+      - 1858223
     expiry_version: "never"
     release_channel_collection: opt-out
 

@@ -1878,8 +1878,9 @@ void ChromeUtils::GetAllPossibleUtilityActorNames(GlobalObject& aGlobal,
 }
 
 /* static */
-bool ChromeUtils::ShouldResistFingerprinting(GlobalObject& aGlobal,
-                                             JSRFPTarget aTarget) {
+bool ChromeUtils::ShouldResistFingerprinting(
+    GlobalObject& aGlobal, JSRFPTarget aTarget,
+    const Nullable<uint64_t>& aOverriddenFingerprintingSettings) {
   RFPTarget target;
   switch (aTarget) {
     case JSRFPTarget::RoundWindowSize:
@@ -1892,7 +1893,14 @@ bool ChromeUtils::ShouldResistFingerprinting(GlobalObject& aGlobal,
       MOZ_CRASH("Unhandled JSRFPTarget enum value");
   }
 
-  return nsRFPService::IsRFPEnabledFor(target);
+  Maybe<RFPTarget> overriddenFingerprintingSettings;
+  if (!aOverriddenFingerprintingSettings.IsNull()) {
+    overriddenFingerprintingSettings.emplace(
+        RFPTarget(aOverriddenFingerprintingSettings.Value()));
+  }
+
+  return nsRFPService::IsRFPEnabledFor(target,
+                                       overriddenFingerprintingSettings);
 }
 
 std::atomic<uint32_t> ChromeUtils::sDevToolsOpenedCount = 0;

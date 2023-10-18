@@ -25,6 +25,7 @@ XPIDL_MODULE = "dom_system_gonk"
 EXPORTS += [
     "AudioChannelManager.h",
     "AudioManager.h",
+    "GonkAudioTypes.h",
     "RndisController.h",
     "SystemProperty.h",
     "SystemWorkerManager.h",

@@ -16,6 +16,7 @@
 #ifndef mozilla_dom_system_b2g_audiomanager_h__
 #define mozilla_dom_system_b2g_audiomanager_h__
 
+#include "GonkAudioTypes.h"
 #include "mozilla/HalTypes.h"
 #include "mozilla/Observer.h"
 #include "mozilla/UniquePtr.h"
@@ -96,7 +97,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   };
 
  protected:
-  int32_t mPhoneState = PHONE_STATE_CURRENT;
+  audio_mode_t mPhoneState = AUDIO_MODE_CURRENT;
 
   bool mIsVolumeInited = false;
 

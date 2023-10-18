@@ -300,7 +300,7 @@ void AudioManager::HandleAudioFlingerDied() {
   SetAllDeviceConnectionStates();
 
   // Restore call state
-  GonkAudioSystem::setPhoneState(static_cast<audio_mode_t>(mPhoneState));
+  GonkAudioSystem::setPhoneState(mPhoneState);
 
   // Restore master volume/mono/balance
   GonkAudioSystem::setMasterVolume(1.0);
@@ -1001,7 +1001,8 @@ AudioManager::GetPhoneState(int32_t* aState) {
 
 NS_IMETHODIMP
 AudioManager::SetPhoneState(int32_t aState) {
-  if (mPhoneState == aState) {
+  auto state = static_cast<audio_mode_t>(aState);
+  if (mPhoneState == state) {
     return NS_OK;
   }
 
@@ -1011,12 +1012,12 @@ AudioManager::SetPhoneState(int32_t aState) {
                          IntToString<int32_t>(aState).get());
   }
 
-  if (GonkAudioSystem::setPhoneState(static_cast<audio_mode_t>(aState))) {
+  if (GonkAudioSystem::setPhoneState(state)) {
     return NS_ERROR_FAILURE;
   }
 
   MaybeWriteVolumeSettings();
-  mPhoneState = aState;
+  mPhoneState = state;
   return NS_OK;
 }
 

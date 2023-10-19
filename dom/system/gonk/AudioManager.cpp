@@ -561,22 +561,21 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
           hfp->IsWbsEnabled() ? kBtWideBandSampleRate : kBtSampleRate;
       SetParameters("bt_samplerate=%d", btSampleRate);
       SetParameters("BT_SCO=on");
-      SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
-                     nsIAudioManager::FORCE_BT_SCO);
-      SetForceForUse(nsIAudioManager::USE_RECORD,
-                     nsIAudioManager::FORCE_BT_SCO);
+      GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_COMMUNICATION,
+                                   AUDIO_POLICY_FORCE_BT_SCO);
+      GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_RECORD,
+                                   AUDIO_POLICY_FORCE_BT_SCO);
     } else {
       SetParameters("BT_SCO=off");
-      int32_t force;
-      GetForceForUse(nsIAudioManager::USE_COMMUNICATION, &force);
-      if (force == nsIAudioManager::FORCE_BT_SCO) {
-        SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
-                       nsIAudioManager::FORCE_NONE);
+      if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_COMMUNICATION) ==
+          AUDIO_POLICY_FORCE_BT_SCO) {
+        GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_COMMUNICATION,
+                                     AUDIO_POLICY_FORCE_NONE);
       }
-      GetForceForUse(nsIAudioManager::USE_RECORD, &force);
-      if (force == nsIAudioManager::FORCE_BT_SCO) {
-        SetForceForUse(nsIAudioManager::USE_RECORD,
-                       nsIAudioManager::FORCE_NONE);
+      if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_RECORD) ==
+          AUDIO_POLICY_FORCE_BT_SCO) {
+        GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_RECORD,
+                                     AUDIO_POLICY_FORCE_NONE);
       }
     }
   } else if (!strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID)) {
@@ -605,7 +604,8 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
       mA2dpSwitchDone = true;
       if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
           AUDIO_POLICY_FORCE_NO_BT_A2DP) {
-        SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
+        GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA,
+                                     AUDIO_POLICY_FORCE_NONE);
       }
     }
     mBluetoothA2dpEnabled = isConnected;
@@ -726,12 +726,13 @@ void AudioManager::HandleHeadphoneSwitchEvent(const hal::SwitchEvent& aEvent) {
     mSwitchDone = true;
   }
   // Handle the coexistence of a2dp / headset device, latest one wins.
-  int32_t forceUse = 0;
-  GetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, &forceUse);
   if (aEvent.status() != hal::SWITCH_STATE_OFF && mBluetoothA2dpEnabled) {
-    SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NO_BT_A2DP);
-  } else if (forceUse == AUDIO_POLICY_FORCE_NO_BT_A2DP) {
-    SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
+    GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA,
+                                 AUDIO_POLICY_FORCE_NO_BT_A2DP);
+  } else if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
+             AUDIO_POLICY_FORCE_NO_BT_A2DP) {
+    GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA,
+                                 AUDIO_POLICY_FORCE_NONE);
   }
   if (aEvent.status() != hal::SWITCH_STATE_OFF) {
     ReleaseWakeLock();
@@ -1053,22 +1054,24 @@ AudioManager::SetTtyMode(uint16_t aTtyMode) {
 
 NS_IMETHODIMP
 AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
-  status_t status = GonkAudioSystem::setForceUse(
-      (audio_policy_force_use_t)aUsage, (audio_policy_forced_cfg_t)aForce);
+  auto usage = static_cast<audio_policy_force_use_t>(aUsage);
+  auto config = static_cast<audio_policy_forced_cfg_t>(aForce);
+  status_t err = GonkAudioSystem::setForceUse(usage, config);
 
   // AudioPortListUpdate may not be triggered after setting force use, so
   // manually update volume settings here.
   MaybeWriteVolumeSettings();
 
-  if (aUsage == USE_MEDIA) {
+  if (usage == AUDIO_POLICY_FORCE_FOR_MEDIA) {
     SetFmRouting();
   }
-  return status == android::OK ? NS_OK : NS_ERROR_FAILURE;
+  return err == android::OK ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
 AudioManager::GetForceForUse(int32_t aUsage, int32_t* aForce) {
-  *aForce = GonkAudioSystem::getForceUse((audio_policy_force_use_t)aUsage);
+  auto usage = static_cast<audio_policy_force_use_t>(aUsage);
+  *aForce = GonkAudioSystem::getForceUse(usage);
   return NS_OK;
 }
 
@@ -1476,9 +1479,8 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
   uint32_t device = aOutDevices;
 
   // Consider force use speaker case.
-  int32_t force = GonkAudioSystem::getForceUse(
-      (audio_policy_force_use_t)nsIAudioManager::USE_MEDIA);
-  if (force == nsIAudioManager::FORCE_SPEAKER) {
+  if (GonkAudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
+      AUDIO_POLICY_FORCE_SPEAKER) {
     device = AUDIO_DEVICE_OUT_SPEAKER;
   }
 

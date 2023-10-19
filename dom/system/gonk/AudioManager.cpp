@@ -49,14 +49,13 @@
 #  include "nsITelephonyService.h"
 #endif
 
-using namespace mozilla;
-using namespace mozilla::dom;
-using namespace mozilla::dom::gonk;
-using namespace mozilla::dom::bluetooth;
 using android::AudioSystem;
-
-#define BLUETOOTH_HFP_STATUS_CHANGED "bluetooth-hfp-status-changed"
-#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
+using android::status_t;
+using android::String16;
+using android::String8;
+using mozilla::dom::AudioChannel;
+using mozilla::dom::bluetooth::BluetoothHfpManagerBase;
+using mozilla::dom::bluetooth::BluetoothProfileManagerBase;
 
 #undef ANDLOG
 #define ANDLOG(args...) \
@@ -73,6 +72,8 @@ mozilla::LazyLogModule gAudioManagerLog("AudioManager");
   MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Error, \
           ("%p " x, this, ##__VA_ARGS__))
 
+#define BLUETOOTH_HFP_STATUS_CHANGED "bluetooth-hfp-status-changed"
+#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
 #define HEADPHONES_STATUS_HEADSET u"headset"
 #define HEADPHONES_STATUS_HEADPHONE u"headphone"
 #define HEADPHONES_STATUS_LINEOUT u"lineout"
@@ -82,6 +83,10 @@ mozilla::LazyLogModule gAudioManagerLog("AudioManager");
 #define SCREEN_STATE_CHANGED "screen-state-changed"
 #define AUDIO_POLICY_SERVICE_NAME "media.audio_policy"
 #define SETTINGS_MANAGER "@mozilla.org/sidl-native/settings;1"
+
+namespace mozilla {
+namespace dom {
+namespace gonk {
 
 // Refer AudioService.java from Android
 static const uint32_t sMaxStreamVolumeTbl[AUDIO_STREAM_PUBLIC_CNT] = {
@@ -171,12 +176,6 @@ static const AudioDeviceInfo kAudioDeviceInfos[] = {
 static const int kBtSampleRate = 8000;
 static const int kBtWideBandSampleRate = 16000;
 
-typedef MozPromise<bool, const char*, true> VolumeInitPromise;
-
-namespace mozilla {
-namespace dom {
-namespace gonk {
-
 /**
  * We have five sound volume settings from UX spec,
  * You can see more informations in Bug1068219.
@@ -231,7 +230,8 @@ class VolumeCurves {
 
   float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
     float decibel = AudioSystem::getStreamVolumeDB(
-        static_cast<audio_stream_type_t>(mStreamType), aIndex, static_cast<audio_devices_t>(aDevice));
+        static_cast<audio_stream_type_t>(mStreamType), aIndex,
+        static_cast<audio_devices_t>(aDevice));
     // decibel to amplitude
     return exp(decibel * 0.115129f);
   }
@@ -283,7 +283,7 @@ void AudioManager::HandleAudioFlingerDied() {
   uint32_t attempt;
   for (attempt = 0; attempt < 50; attempt++) {
     if (android::defaultServiceManager()->checkService(
-            android::String16(AUDIO_POLICY_SERVICE_NAME)) != 0) {
+            String16(AUDIO_POLICY_SERVICE_NAME)) != 0) {
       break;
     }
     LOG("AudioPolicyService is dead! attempt=%d", attempt);
@@ -324,7 +324,7 @@ void AudioManager::HandleAudioFlingerDied() {
   mIsVolumeInited = true;
   MaybeWriteVolumeSettings(true);
 
-#if ANDROID_VERSION < 33 // FIXME
+#if ANDROID_VERSION < 33  // FIXME
   AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
 #endif
 
@@ -455,7 +455,7 @@ class GenericSidlCallback final : public nsISidlDefaultResponse {
 
 NS_IMPL_ISUPPORTS(GenericSidlCallback, nsISidlDefaultResponse)
 
-static void BinderDeadCallback(android::status_t aErr) {
+static void BinderDeadCallback(status_t aErr) {
   if (aErr != android::DEAD_OBJECT) {
     return;
   }
@@ -521,7 +521,7 @@ static void SetDeviceConnectionStateInternal(bool aIsConnected,
   auto device = static_cast<audio_devices_t>(aDevice);
   auto state = aIsConnected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
                             : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
-#if ANDROID_VERSION < 33 // FIXME
+#if ANDROID_VERSION < 33  // FIXME
   AudioSystem::setDeviceConnectionState(device, state, aDeviceAddress.get(), "",
                                         AUDIO_FORMAT_DEFAULT);
 #endif
@@ -814,7 +814,7 @@ void AudioManager::Init() {
   AudioSystem::setErrorCallback(BinderDeadCallback);
 #endif
 
-#if ANDROID_VERSION < 33 // FIXME: Android 13 port: workaround crash
+#if ANDROID_VERSION < 33  // FIXME: Android 13 port: workaround crash
   AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 #endif
   // Gecko only control stream volume not master so set to default value
@@ -825,7 +825,7 @@ void AudioManager::Init() {
   // prevent AudioPolicyService from treating us as assistant app and
   // incorrectly muting our audio input because we don't meet some criteria of
   // assistant app.
-#if ANDROID_VERSION < 33 // FIXME: Android 13 port
+#if ANDROID_VERSION < 33  // FIXME: Android 13 port
   AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
 #endif
 
@@ -1088,8 +1088,8 @@ AudioManager::SetTtyMode(uint16_t aTtyMode) {
 
 NS_IMETHODIMP
 AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
-  android::status_t status = AudioSystem::setForceUse(
-      (audio_policy_force_use_t)aUsage, (audio_policy_forced_cfg_t)aForce);
+  status_t status = AudioSystem::setForceUse((audio_policy_force_use_t)aUsage,
+                                             (audio_policy_forced_cfg_t)aForce);
 
   // AudioPortListUpdate may not be triggered after setting force use, so
   // manually update volume settings here.
@@ -1491,7 +1491,7 @@ nsTArray<nsString> AudioManager::AudioSettingNames(bool aInitializing) {
 }
 
 uint32_t AudioManager::GetDevicesForStream(int32_t aStream) {
-#if ANDROID_VERSION < 33 // FIXME
+#if ANDROID_VERSION < 33  // FIXME
   audio_devices_t devices = AudioSystem::getDevicesForStream(
       static_cast<audio_stream_type_t>(aStream));
 
@@ -1628,7 +1628,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndexToActiveDevices(
     return NS_OK;
   }
 
-#if ANDROID_VERSION < 33 // FIXME
+#if ANDROID_VERSION < 33  // FIXME
   // AudioPolicyManager::setStreamVolumeIndex() set volumes of all active
   // devices for stream.
   nsresult rv;
@@ -1700,13 +1700,13 @@ AudioManager::VolumeStreamState::SetVolumeIndexToConsistentDeviceIfNeeded(
 nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
                                                          uint32_t aDevice,
                                                          bool aUpdateCache) {
-  android::status_t rv;
+  status_t rv;
   if (aUpdateCache) {
     mVolumeIndexes.InsertOrUpdate(aDevice, aIndex);
     mDevicesWithVolumeChange |= aDevice;
   }
 
-#if ANDROID_VERSION < 33 // FIXME
+#if ANDROID_VERSION < 33  // FIXME
   rv = AudioSystem::setStreamVolumeIndex(
       static_cast<audio_stream_type_t>(mStreamType), aIndex, aDevice);
 #endif
@@ -1737,11 +1737,10 @@ AudioManager::SetHacMode(bool aHacMode) {
   return NS_OK;
 }
 
-static nsresult SetAudioSystemParameters(
-    audio_io_handle_t aIoHandle, const android::String8& aKeyValuePairs) {
+static nsresult SetAudioSystemParameters(audio_io_handle_t aIoHandle,
+                                         const String8& aKeyValuePairs) {
   ANDLOG("Set audio system parameter: %s", aKeyValuePairs.string());
-  android::status_t status =
-      AudioSystem::setParameters(aIoHandle, aKeyValuePairs);
+  status_t status = AudioSystem::setParameters(aIoHandle, aKeyValuePairs);
   if (status != android::OK) {
     ANDLOG("Failed to set parameter: %s, error status: %d",
            aKeyValuePairs.string(), status);
@@ -1752,15 +1751,15 @@ static nsresult SetAudioSystemParameters(
 
 NS_IMETHODIMP
 AudioManager::SetParameters(const nsACString& aKeyValuePairs) {
-  android::String8 cmd(aKeyValuePairs.Data(), aKeyValuePairs.Length());
+  String8 cmd(aKeyValuePairs.Data(), aKeyValuePairs.Length());
   return SetAudioSystemParameters(0, cmd);
 }
 
 nsresult AudioManager::SetParameters(const char* aFormat, ...) {
   va_list args;
   va_start(args, aFormat);
-  android::String8 cmd;
-  android::status_t status = cmd.appendFormatV(aFormat, args);
+  String8 cmd;
+  status_t status = cmd.appendFormatV(aFormat, args);
   va_end(args);
 
   if (status != android::OK) {
@@ -1771,7 +1770,7 @@ nsresult AudioManager::SetParameters(const char* aFormat, ...) {
 }
 
 nsAutoCString AudioManager::GetParameters(const char* aKeys) {
-  auto keyValuePairs = AudioSystem::getParameters(0, android::String8(aKeys));
+  auto keyValuePairs = AudioSystem::getParameters(0, String8(aKeys));
   return nsAutoCString(keyValuePairs.string());
 }
 

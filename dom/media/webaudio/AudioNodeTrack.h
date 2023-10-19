@@ -174,9 +174,6 @@ class AudioNodeTrack : public ProcessedMediaTrack {
   void ScheduleCheckForInactive();
 
  protected:
-  class AdvanceAndResumeMessage;
-  class CheckForInactiveMessage;
-
   void OnGraphThreadDone() override;
   void DestroyImpl() override;
 

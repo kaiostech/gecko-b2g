@@ -71,14 +71,14 @@ struct TrackUpdate {
 /**
  * This represents a message run on the graph thread to modify track or graph
  * state.  These are passed from main thread to graph thread through
- * AppendMessage(), or scheduled on the graph thread with
- * RunMessageAfterProcessing().  A ControlMessage often has
- * a weak reference to a particular affected track.
+ * AppendMessage().  A ControlMessage often has a weak reference to a
+ * particular affected track.
  */
 class ControlMessage : public MediaTrack::ControlMessageInterface {
  public:
   explicit ControlMessage(MediaTrack* aTrack) : mTrack(aTrack) {
-    MOZ_RELEASE_ASSERT(!aTrack || !NS_IsMainThread() || !aTrack->IsDestroyed());
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_RELEASE_ASSERT(!aTrack || !aTrack->IsDestroyed());
   }
 
   MediaTrack* GetTrack() { return mTrack; }
@@ -418,17 +418,6 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   };
   TrackTime PlayAudio(AudioMixer* aMixer, const TrackKeyAndVolume& aTkv,
                       GraphTime aPlayedTime);
-
-  /* Do not call this directly. For users who need to get a DeviceInputTrack,
-   * use DeviceInputTrack::OpenAudio() instead. This should only be used in
-   * DeviceInputTrack to get the existing DeviceInputTrack paired with the given
-   * device in this graph. Main thread only.*/
-  DeviceInputTrack* GetDeviceInputTrackMainThread(
-      CubebUtils::AudioDeviceID aID);
-
-  /* Do not call this directly. This should only be used in DeviceInputTrack to
-   * get the existing NativeInputTrackMain thread only.*/
-  NativeInputTrack* GetNativeInputTrackMainThread();
 
   /* Runs off a message on the graph thread when something requests audio from
    * an input audio device of ID aID, and delivers the input audio frames to
@@ -1050,11 +1039,13 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    */
   uint32_t mMaxOutputChannelCount;
 
+ public:
   /**
    * Manage the native or non-native input device in graph. Main thread only.
    */
   DeviceInputTrackManager mDeviceInputTrackManagerMainThread;
 
+ private:
   /**
    * Manage the native or non-native input device in graph. Graph thread only.
    */

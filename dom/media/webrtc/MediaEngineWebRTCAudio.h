@@ -113,12 +113,12 @@ class MediaEngineWebRTCMicrophoneSource : public MediaEngineSource {
 class AudioInputProcessing : public AudioDataListener {
  public:
   explicit AudioInputProcessing(uint32_t aMaxChannelCount);
-  void Process(MediaTrackGraphImpl* aGraph, GraphTime aFrom, GraphTime aTo,
+  void Process(MediaTrackGraph* aGraph, GraphTime aFrom, GraphTime aTo,
                AudioSegment* aInput, AudioSegment* aOutput);
 
-  void ProcessOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
+  void ProcessOutputData(MediaTrackGraph* aGraph, AudioDataValue* aBuffer,
                          size_t aFrames, TrackRate aRate, uint32_t aChannels);
-  bool IsVoiceInput(MediaTrackGraphImpl* aGraph) const override {
+  bool IsVoiceInput(MediaTrackGraph* aGraph) const override {
 #ifdef B2G_VOICE_PROCESSING
     // If platform voice processing is available, we should not use
     // PassThrough() to check if it's voice input, because PassThrough() only
@@ -132,16 +132,16 @@ class AudioInputProcessing : public AudioDataListener {
 #endif
   }
 
-  void Start(MediaTrackGraphImpl* aGraph);
-  void Stop(MediaTrackGraphImpl* aGraph);
+  void Start(MediaTrackGraph* aGraph);
+  void Stop(MediaTrackGraph* aGraph);
 
-  void DeviceChanged(MediaTrackGraphImpl* aGraph) override;
+  void DeviceChanged(MediaTrackGraph* aGraph) override;
 
-  uint32_t RequestedInputChannelCount(MediaTrackGraphImpl*) override {
+  uint32_t RequestedInputChannelCount(MediaTrackGraph*) override {
     return GetRequestedInputChannelCount();
   }
 
-  void Disconnect(MediaTrackGraphImpl* aGraph) override;
+  void Disconnect(MediaTrackGraph* aGraph) override;
 
 #ifdef B2G_VOICE_PROCESSING
   void GetVoiceInputSettings(bool* aEnableAec, bool* aEnableAgc,
@@ -152,27 +152,27 @@ class AudioInputProcessing : public AudioDataListener {
   }
 #endif
 
-  void PacketizeAndProcess(MediaTrackGraphImpl* aGraph,
+  void PacketizeAndProcess(MediaTrackGraph* aGraph,
                            const AudioSegment& aSegment);
 
-  void SetPassThrough(MediaTrackGraphImpl* aGraph, bool aPassThrough);
+  void SetPassThrough(MediaTrackGraph* aGraph, bool aPassThrough);
   uint32_t GetRequestedInputChannelCount();
-  void SetRequestedInputChannelCount(MediaTrackGraphImpl* aGraph,
+  void SetRequestedInputChannelCount(MediaTrackGraph* aGraph,
                                      CubebUtils::AudioDeviceID aDeviceId,
                                      uint32_t aRequestedInputChannelCount);
   // This is true when all processing is disabled, we can skip
   // packetization, resampling and other processing passes.
-  bool PassThrough(MediaTrackGraphImpl* aGraphImpl) const;
+  bool PassThrough(MediaTrackGraph* aGraph) const;
 
   // This allow changing the APM options, enabling or disabling processing
   // steps. The config gets applied the next time we're about to process input
   // data.
-  void ApplyConfig(MediaTrackGraphImpl* aGraph,
+  void ApplyConfig(MediaTrackGraph* aGraph,
                    const webrtc::AudioProcessing::Config& aConfig);
 
   void End();
 
-  TrackTime NumBufferedFrames(MediaTrackGraphImpl* aGraph) const;
+  TrackTime NumBufferedFrames(MediaTrackGraph* aGraph) const;
 
   // The packet size contains samples in 10ms. The unit of aRate is hz.
   constexpr static uint32_t GetPacketSize(TrackRate aRate) {
@@ -183,8 +183,8 @@ class AudioInputProcessing : public AudioDataListener {
 
  private:
   ~AudioInputProcessing() = default;
-  void EnsureAudioProcessing(MediaTrackGraphImpl* aGraph, uint32_t aChannels);
-  void ResetAudioProcessing(MediaTrackGraphImpl* aGraph);
+  void EnsureAudioProcessing(MediaTrackGraph* aGraph, uint32_t aChannels);
+  void ResetAudioProcessing(MediaTrackGraph* aGraph);
   PrincipalHandle GetCheckedPrincipal(const AudioSegment& aSegment);
   // This implements the processing algoritm to apply to the input (e.g. a
   // microphone). If all algorithms are disabled, this class in not used. This
@@ -270,7 +270,7 @@ class AudioProcessingTrack : public DeviceInputConsumerTrack {
   }
   // Pass the graph's mixed audio output to mInputProcessing for processing as
   // the reverse stream.
-  void NotifyOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
+  void NotifyOutputData(MediaTrackGraph* aGraph, AudioDataValue* aBuffer,
                         size_t aFrames, TrackRate aRate, uint32_t aChannels);
 
   // Any thread

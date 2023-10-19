@@ -31,6 +31,7 @@ class AsyncLogger;
 class AudioCaptureTrack;
 class CrossGraphTransmitter;
 class CrossGraphReceiver;
+class NativeInputTrack;
 };  // namespace mozilla
 
 extern mozilla::AsyncLogger gMTGTraceLogger;
@@ -113,21 +114,21 @@ class AudioDataListenerInterface {
   /**
    * Number of audio input channels.
    */
-  virtual uint32_t RequestedInputChannelCount(MediaTrackGraphImpl* aGraph) = 0;
+  virtual uint32_t RequestedInputChannelCount(MediaTrackGraph* aGraph) = 0;
 
   /**
    * Whether the underlying audio device is used for voice input.
    */
-  virtual bool IsVoiceInput(MediaTrackGraphImpl* aGraph) const = 0;
+  virtual bool IsVoiceInput(MediaTrackGraph* aGraph) const = 0;
   /**
    * Called when the underlying audio device has changed.
    */
-  virtual void DeviceChanged(MediaTrackGraphImpl* aGraph) = 0;
+  virtual void DeviceChanged(MediaTrackGraph* aGraph) = 0;
 
   /**
    * Called when the underlying audio device is being closed.
    */
-  virtual void Disconnect(MediaTrackGraphImpl* aGraph) = 0;
+  virtual void Disconnect(MediaTrackGraph* aGraph) = 0;
 
 #ifdef B2G_VOICE_PROCESSING
   virtual void GetVoiceInputSettings(bool* aEnableAec, bool* aEnableAgc,
@@ -536,6 +537,24 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
    */
   virtual void DecrementSuspendCount();
 
+  void AssertOnGraphThread() const;
+  void AssertOnGraphThreadOrNotRunning() const;
+
+  /**
+   * For use during ProcessedMediaTrack::ProcessInput() or
+   * MediaTrackListener callbacks, when graph state cannot be changed.
+   * Queues a control message to execute a given lambda function with no
+   * parameters after processing, at a time when graph state can be changed.
+   * The lambda will always be executed before handing control of the graph
+   * to the main thread for shutdown.
+   * Graph thread.
+   */
+  template <typename Function>
+  void RunAfterProcessing(Function&& aFunction) {
+    RunMessageAfterProcessing(WrapUnique(
+        new ControlMessageWithNoShutdown(std::forward<Function>(aFunction))));
+  }
+
   class ControlMessageInterface;
 
  protected:
@@ -555,6 +574,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   class ControlOrShutdownMessage;
 
   void QueueMessage(UniquePtr<ControlMessageInterface> aMessage);
+  void RunMessageAfterProcessing(UniquePtr<ControlMessageInterface> aMessage);
 
   void NotifyMainThreadListeners() {
     NS_ASSERTION(NS_IsMainThread(), "Call only on main thread");
@@ -1205,6 +1225,10 @@ class MediaTrackGraph {
    * released on main thread.
    */
   void DispatchToMainThreadStableState(already_AddRefed<nsIRunnable> aRunnable);
+  /* Called on the graph thread when the input device settings should be
+   * reevaluated, for example, if the channel count of the input track should
+   * be changed. */
+  void ReevaluateInputDevice(CubebUtils::AudioDeviceID aID);
 
   /**
    * Returns graph sample rate in Hz.
@@ -1219,6 +1243,7 @@ class MediaTrackGraph {
   already_AddRefed<MediaInputPort> ConnectToCaptureTrack(
       uint64_t aWindowId, MediaTrack* aMediaTrack);
 
+  void AssertOnGraphThread() const { MOZ_ASSERT(OnGraphThread()); }
   void AssertOnGraphThreadOrNotRunning() const {
     MOZ_ASSERT(OnGraphThreadOrNotRunning());
   }
@@ -1234,6 +1259,21 @@ class MediaTrackGraph {
    * completed.  Some tracks may have performed processing beyond this time.
    */
   GraphTime ProcessedTime() const;
+  /**
+   * For Graph thread logging.
+   */
+  void* CurrentDriver() const;
+
+  /* Do not call this directly. For users who need to get a DeviceInputTrack,
+   * use DeviceInputTrack::OpenAudio() instead. This should only be used in
+   * DeviceInputTrack to get the existing DeviceInputTrack paired with the given
+   * device in this graph. Main thread only.*/
+  DeviceInputTrack* GetDeviceInputTrackMainThread(
+      CubebUtils::AudioDeviceID aID);
+
+  /* Do not call this directly. This should only be used in DeviceInputTrack to
+   * get the existing NativeInputTrackMain thread only.*/
+  NativeInputTrack* GetNativeInputTrackMainThread();
 
  protected:
   explicit MediaTrackGraph(TrackRate aSampleRate) : mSampleRate(aSampleRate) {
@@ -1257,12 +1297,19 @@ class MediaTrackGraph {
   const TrackRate mSampleRate;
 };
 
+inline void MediaTrack::AssertOnGraphThread() const {
+  Graph()->AssertOnGraphThread();
+}
+inline void MediaTrack::AssertOnGraphThreadOrNotRunning() const {
+  Graph()->AssertOnGraphThreadOrNotRunning();
+}
+
 /**
  * This represents a message run on the graph thread to modify track or graph
  * state.  These are passed from main thread to graph thread by
  * QueueControlMessageWithNoShutdown() or QueueControlOrShutdownMessage()
  * through AppendMessage(), or scheduled on the graph thread with
- * RunMessageAfterProcessing().
+ * RunAfterProcessing().
  */
 class MediaTrack::ControlMessageInterface {
  public:

@@ -124,10 +124,12 @@ export class ShoppingSidebarChild extends RemotePageChild {
       case "AdClicked":
         aid = event.detail.aid;
         this.#product.sendAttributionEvent("click", aid);
+        Glean.shopping.surfaceAdsClicked.record();
         break;
       case "AdImpression":
         aid = event.detail.aid;
         this.#product.sendAttributionEvent("impression", aid);
+        Glean.shopping.surfaceAdsImpression.record();
         break;
     }
   }

@@ -505,3 +505,37 @@ shopping:
         description: >
           Message id for the version of the feature callout shown.
         type: string
+
+  surface_ads_clicked:
+    type: event
+    description: |
+      An ad shown in the sidebar was clicked.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1855812
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1855812
+    data_sensitivity:
+      - interaction
+    expires: 122
+    notification_emails:
+      - betling@mozilla.com
+      - fx-desktop-shopping-eng@mozilla.com
+    send_in_pings:
+      - events
+
+  surface_ads_impression:
+    type: event
+    description: |
+      An ad was shown and visible in the sidebar for 1.5 seconds.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1855810
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1855810
+    data_sensitivity:
+      - interaction
+    expires: 122
+    notification_emails:
+      - betling@mozilla.com
+      - fx-desktop-shopping-eng@mozilla.com
+    send_in_pings:
+      - events

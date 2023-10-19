@@ -36,9 +36,6 @@ skip-if = [
 
 ["browser_fathom_cc.js"]
 
-["browser_first_time_use_doorhanger.js"]
-skip-if = ["verify"]
-
 ["browser_manageAddressesDialog.js"]
 
 ["browser_privacyPreferences.js"]
@@ -51,6 +48,3 @@ skip-if = [
 ["browser_remoteiframe.js"]
 
 ["browser_submission_in_private_mode.js"]
-
-["browser_update_doorhanger.js"]
-skip-if = ["true"] # bug 1426981 # Bug 1445538

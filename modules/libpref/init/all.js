@@ -189,12 +189,7 @@ pref("pdfjs.enableScripting", true);
 pref("pdfjs.enableXfa", true);
 
 // Enable adding an image in a pdf.
-#ifdef RELEASE_OR_BETA
-  // It'll be enabled through Nimbus.
-  pref("pdfjs.enableStampEditor", false);
-#else
-  pref("pdfjs.enableStampEditor", true);
-#endif
+pref("pdfjs.enableStampEditor", true);
 
 // Disable support for MathML
 pref("mathml.disabled",    false);
@@ -3993,7 +3988,6 @@ pref("extensions.formautofill.creditCards.heuristics.fathom.highConfidenceThresh
 // This is Only for testing! Set the confidence value (> 0 && <= 1) after a field is identified by fathom
 pref("extensions.formautofill.creditCards.heuristics.fathom.testConfidence", "0");
 
-pref("extensions.formautofill.firstTimeUse", true);
 pref("extensions.formautofill.loglevel", "Warn");
 // The interactivityCheckMode pref is only temporary.
 // It will be removed when we decide to only support the `focusability` mode

@@ -28,6 +28,8 @@ add_setup(async function () {
  * user profiles.
  */
 add_task(async function test_permissions() {
+  Services.telemetry.clearEvents();
+
   let sandbox = sinon.createSandbox();
   registerCleanupFunction(() => {
     sandbox.restore();
@@ -69,6 +71,10 @@ add_task(async function test_permissions() {
     let dialogBody = prefsWin.document.body;
     let wizard = dialogBody.querySelector("migration-wizard");
     let shadow = wizard.openOrClosedShadowRoot;
+
+    // Clear out any pre-existing events events have been logged
+    Services.telemetry.clearEvents();
+    TelemetryTestUtils.assertNumberOfEvents(0);
 
     let panelItem = shadow.querySelector(
       `panel-item[key="${InternalTestingProfileMigrator.key}"]`
@@ -141,4 +147,23 @@ add_task(async function test_permissions() {
     doneButton.click();
     await dialogClosed;
   });
+
+  TelemetryTestUtils.assertEvents(
+    [
+      {
+        category: "browser.migration",
+        method: "linux_perms",
+        object: "wizard",
+        value: null,
+        extra: {
+          migrator_key: InternalTestingProfileMigrator.key,
+        },
+      },
+    ],
+    {
+      category: "browser.migration",
+      method: "linux_perms",
+      object: "wizard",
+    }
+  );
 });

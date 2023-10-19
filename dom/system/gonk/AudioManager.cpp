@@ -556,19 +556,16 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
 #ifdef MOZ_B2G_BT
   bool isConnected = false;
   if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED)) {
-    BluetoothHfpManagerBase* hfp =
-        static_cast<BluetoothHfpManagerBase*>(aSubject);
+    auto* hfp = static_cast<BluetoothHfpManagerBase*>(aSubject);
     isConnected = hfp->IsScoConnected();
   } else {
-    BluetoothProfileManagerBase* profile =
-        static_cast<BluetoothProfileManagerBase*>(aSubject);
+    auto* profile = static_cast<BluetoothProfileManagerBase*>(aSubject);
     isConnected = profile->IsConnected();
   }
 
   if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED)) {
     if (isConnected) {
-      BluetoothHfpManagerBase* hfp =
-          static_cast<BluetoothHfpManagerBase*>(aSubject);
+      auto* hfp = static_cast<BluetoothHfpManagerBase*>(aSubject);
       int btSampleRate =
           hfp->IsWbsEnabled() ? kBtWideBandSampleRate : kBtSampleRate;
       SetParameters("bt_samplerate=%d", btSampleRate);
@@ -627,22 +624,14 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
     UpdateDeviceConnectionState(
         isConnected, AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET, aAddress);
   } else if (!strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID)) {
-    BluetoothHfpManagerBase* hfp =
-        static_cast<BluetoothHfpManagerBase*>(aSubject);
-    if (hfp->IsNrecEnabled()) {
-      // TODO: (Bug 880785) Replace <unknown> with remote Bluetooth device name
-      SetParameters("bt_headset_name=<unknown>;bt_headset_nrec=on");
-    } else {
-      SetParameters("bt_headset_name=<unknown>;bt_headset_nrec=off");
-    }
+    // TODO: (Bug 880785) Replace <unknown> with remote Bluetooth device name
+    auto* hfp = static_cast<BluetoothHfpManagerBase*>(aSubject);
+    const char* state = hfp->IsNrecEnabled() ? "on" : "off";
+    SetParameters("bt_headset_name=<unknown>;bt_headset_nrec=%s", state);
   } else if (!strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID)) {
-    BluetoothHfpManagerBase* hfp =
-        static_cast<BluetoothHfpManagerBase*>(aSubject);
-    if (hfp->IsWbsEnabled()) {
-      SetParameters("bt_wbs=on");
-    } else {
-      SetParameters("bt_wbs=off");
-    }
+    auto* hfp = static_cast<BluetoothHfpManagerBase*>(aSubject);
+    const char* state = hfp->IsWbsEnabled() ? "on" : "off";
+    SetParameters("bt_wbs=%s", state);
   }
 #endif
 }

@@ -58,10 +58,6 @@ using mozilla::dom::AudioChannel;
 using mozilla::dom::bluetooth::BluetoothHfpManagerBase;
 using mozilla::dom::bluetooth::BluetoothProfileManagerBase;
 
-#undef ANDLOG
-#define ANDLOG(args...) \
-  __android_log_print(ANDROID_LOG_INFO, "AudioManager", ##args)
-
 mozilla::LazyLogModule gAudioManagerLog("AudioManager");
 #undef LOG
 #undef LOGE
@@ -175,6 +171,14 @@ static const AudioDeviceInfo kAudioDeviceInfos[] = {
 
 static const int kBtSampleRate = 8000;
 static const int kBtWideBandSampleRate = 16000;
+
+static inline nsresult ToNsresult(status_t aErr) {
+  return aErr == android::OK ? NS_OK : NS_ERROR_FAILURE;
+}
+
+static inline String8 ToString8(const nsACString& aStr) {
+  return String8(aStr.Data(), aStr.Length());
+}
 
 /**
  * We have five sound volume settings from UX spec,
@@ -508,15 +512,6 @@ void AudioManager::UpdateHeadsetConnectionState(hal::SwitchState aState) {
   }
 }
 
-static void SetDeviceConnectionStateInternal(bool aIsConnected,
-                                             audio_devices_t aDevice,
-                                             const nsCString& aDeviceAddress) {
-  auto state = aIsConnected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
-                            : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
-  GonkAudioSystem::setDeviceConnectionState(aDevice, state,
-                                            aDeviceAddress.get());
-}
-
 void AudioManager::UpdateDeviceConnectionState(
     bool aIsConnected, audio_devices_t aDevice,
     const nsCString& aDeviceAddress) {
@@ -530,12 +525,13 @@ void AudioManager::UpdateDeviceConnectionState(
   } else {
     mConnectedDevices.erase(aDevice);
   }
-  SetDeviceConnectionStateInternal(aIsConnected, aDevice, aDeviceAddress);
+  GonkAudioSystem::setDeviceConnected(aDevice, aIsConnected,
+                                      ToString8(aDeviceAddress));
 }
 
 void AudioManager::SetAllDeviceConnectionStates() {
   for (const auto& [device, deviceAddress] : mConnectedDevices) {
-    SetDeviceConnectionStateInternal(true, device, deviceAddress);
+    GonkAudioSystem::setDeviceConnected(device, true, ToString8(deviceAddress));
   }
 }
 
@@ -956,10 +952,8 @@ AudioManager::GetMicrophoneMuted(bool* aMicrophoneMuted) {
   }
 #endif
 
-  if (GonkAudioSystem::isMicrophoneMuted(aMicrophoneMuted)) {
-    return NS_ERROR_FAILURE;
-  }
-  return NS_OK;
+  status_t err = GonkAudioSystem::isMicrophoneMuted(aMicrophoneMuted);
+  return ToNsresult(err);
 }
 
 NS_IMETHODIMP
@@ -975,14 +969,8 @@ AudioManager::SetMicrophoneMuted(bool aMicrophoneMuted) {
   }
 #endif
 
-  GonkAudioSystem::muteMicrophone(aMicrophoneMuted);
-
-  bool micMuted;
-  GonkAudioSystem::isMicrophoneMuted(&micMuted);
-  if (micMuted != aMicrophoneMuted) {
-    return NS_ERROR_FAILURE;
-  }
-  return NS_OK;
+  status_t err = GonkAudioSystem::muteMicrophone(aMicrophoneMuted);
+  return ToNsresult(err);
 }
 
 NS_IMETHODIMP
@@ -1006,8 +994,9 @@ AudioManager::SetPhoneState(int32_t aState) {
     LOGE("Failed to get observer service when notifying phone state");
   }
 
-  if (GonkAudioSystem::setPhoneState(state)) {
-    return NS_ERROR_FAILURE;
+  status_t err = GonkAudioSystem::setPhoneState(state);
+  if (err != android::OK) {
+    return ToNsresult(err);
   }
 
   MaybeWriteVolumeSettings();
@@ -1060,7 +1049,7 @@ AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
   if (usage == AUDIO_POLICY_FORCE_FOR_MEDIA) {
     SetFmRouting();
   }
-  return err == android::OK ? NS_OK : NS_ERROR_FAILURE;
+  return ToNsresult(err);
 }
 
 NS_IMETHODIMP
@@ -1640,20 +1629,20 @@ AudioManager::VolumeStreamState::SetVolumeIndexToConsistentDeviceIfNeeded(
 
 nsresult AudioManager::VolumeStreamState::SetVolumeIndex(
     uint32_t aIndex, audio_devices_t aDevice, bool aUpdateCache) {
-  status_t rv;
   if (aUpdateCache) {
     mVolumeIndexes[aDevice] = aIndex;
     mDevicesWithVolumeChange.insert(aDevice);
   }
 
-  rv = GonkAudioSystem::setStreamVolumeIndex(mStreamType, aIndex, aDevice);
+  status_t err =
+      GonkAudioSystem::setStreamVolumeIndex(mStreamType, aIndex, aDevice);
 
   // when changing music volume,  also set FMradio volume.Just for SPRD FMradio.
   if ((AUDIO_STREAM_MUSIC == mStreamType) && mManager.IsFmOutConnected()) {
     mManager.UpdateFmVolume();
   }
 
-  return rv ? NS_ERROR_FAILURE : NS_OK;
+  return ToNsresult(err);
 }
 
 void AudioManager::VolumeStreamState::RestoreVolumeIndexToAllDevices() {
@@ -1672,39 +1661,29 @@ AudioManager::SetHacMode(bool aHacMode) {
   return NS_OK;
 }
 
-static nsresult SetAudioSystemParameters(const String8& aKeyValuePairs) {
-  ANDLOG("Set audio system parameter: %s", aKeyValuePairs.string());
-  status_t status = GonkAudioSystem::setParameters(aKeyValuePairs);
-  if (status != android::OK) {
-    ANDLOG("Failed to set parameter: %s, error status: %d",
-           aKeyValuePairs.string(), status);
-    return NS_ERROR_FAILURE;
-  }
-  return NS_OK;
-}
-
 NS_IMETHODIMP
 AudioManager::SetParameters(const nsACString& aKeyValuePairs) {
-  String8 cmd(aKeyValuePairs.Data(), aKeyValuePairs.Length());
-  return SetAudioSystemParameters(cmd);
+  status_t err = GonkAudioSystem::setParameters(ToString8(aKeyValuePairs));
+  return ToNsresult(err);
 }
 
 nsresult AudioManager::SetParameters(const char* aFormat, ...) {
   va_list args;
   va_start(args, aFormat);
   String8 cmd;
-  status_t status = cmd.appendFormatV(aFormat, args);
+  status_t err = cmd.appendFormatV(aFormat, args);
   va_end(args);
-
-  if (status != android::OK) {
-    LOGE("Invalid parameter, error status: %d", status);
-    return NS_ERROR_FAILURE;
+  if (err != android::OK) {
+    LOGE("Invalid parameter, error status: %d", err);
+    return ToNsresult(err);
   }
-  return SetAudioSystemParameters(cmd);
+
+  err = GonkAudioSystem::setParameters(cmd);
+  return ToNsresult(err);
 }
 
 nsAutoCString AudioManager::GetParameters(const char* aKeys) {
-  auto keyValuePairs = GonkAudioSystem::getParameters(0, String8(aKeys));
+  auto keyValuePairs = GonkAudioSystem::getParameters(String8(aKeys));
   return nsAutoCString(keyValuePairs.string());
 }
 

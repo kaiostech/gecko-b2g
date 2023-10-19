@@ -52,6 +52,11 @@ class GonkAudioSystem : private AudioSystem {
       const char* deviceAddress, const char* deviceName = "",
       audio_format_t encodedFormat = AUDIO_FORMAT_DEFAULT);
 
+  static status_t setDeviceConnected(
+      audio_devices_t device, bool connected, const char* deviceAddress,
+      const char* deviceName = "",
+      audio_format_t encodedFormat = AUDIO_FORMAT_DEFAULT);
+
   static DeviceTypeSet getDeviceTypesForStream(audio_stream_type_t stream);
 
   // Deprecated.

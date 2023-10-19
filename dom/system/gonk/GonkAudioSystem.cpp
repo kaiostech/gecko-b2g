@@ -110,6 +110,17 @@ status_t GonkAudioSystem::setDeviceConnectionState(
 #endif
 }
 
+status_t GonkAudioSystem::setDeviceConnected(audio_devices_t device,
+                                             bool connected,
+                                             const char* deviceAddress,
+                                             const char* deviceName,
+                                             audio_format_t encodedFormat) {
+  auto state = connected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
+                         : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
+  return setDeviceConnectionState(device, state, deviceAddress, deviceName,
+                                  encodedFormat);
+}
+
 DeviceTypeSet GonkAudioSystem::deviceBitMaskToTypeSet(audio_devices_t devices) {
   DeviceTypeSet typeSet;
   uint32_t dir = devices & AUDIO_DEVICE_BIT_IN;

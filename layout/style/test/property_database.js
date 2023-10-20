@@ -10094,48 +10094,6 @@ var gCSSProperties = {
     alias_for: "tab-size",
     subproperties: ["tab-size"],
   },
-  "-moz-transform": {
-    domProp: "MozTransform",
-    inherited: false,
-    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "transform",
-    subproperties: ["transform"],
-  },
-  "-moz-transform-origin": {
-    domProp: "MozTransformOrigin",
-    inherited: false,
-    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "transform-origin",
-    subproperties: ["transform-origin"],
-  },
-  "-moz-perspective-origin": {
-    domProp: "MozPerspectiveOrigin",
-    inherited: false,
-    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "perspective-origin",
-    subproperties: ["perspective-origin"],
-  },
-  "-moz-perspective": {
-    domProp: "MozPerspective",
-    inherited: false,
-    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "perspective",
-    subproperties: ["perspective"],
-  },
-  "-moz-backface-visibility": {
-    domProp: "MozBackfaceVisibility",
-    inherited: false,
-    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "backface-visibility",
-    subproperties: ["backface-visibility"],
-  },
-  "-moz-transform-style": {
-    domProp: "MozTransformStyle",
-    inherited: false,
-    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "transform-style",
-    subproperties: ["transform-style"],
-  },
   "-moz-border-image": {
     domProp: "MozBorderImage",
     inherited: false,
@@ -14003,6 +13961,66 @@ if (IsCSSPropertyPrefEnabled("layout.css.text-wrap-balance.enabled")) {
     other_values: ["stable", "balance"],
     invalid_values: ["wrap", "nowrap", "normal"],
   };
+}
+
+if (IsCSSPropertyPrefEnabled("layout.css.prefixes.transforms")) {
+  Object.assign(gCSSProperties, {
+    "-moz-transform": {
+      domProp: "MozTransform",
+      inherited: false,
+      type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+      alias_for: "transform",
+      subproperties: ["transform"],
+    },
+    "-moz-transform-origin": {
+      domProp: "MozTransformOrigin",
+      inherited: false,
+      type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+      alias_for: "transform-origin",
+      subproperties: ["transform-origin"],
+    },
+    "-moz-perspective-origin": {
+      domProp: "MozPerspectiveOrigin",
+      inherited: false,
+      type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+      alias_for: "perspective-origin",
+      subproperties: ["perspective-origin"],
+    },
+    "-moz-perspective": {
+      domProp: "MozPerspective",
+      inherited: false,
+      type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+      alias_for: "perspective",
+      subproperties: ["perspective"],
+    },
+    "-moz-backface-visibility": {
+      domProp: "MozBackfaceVisibility",
+      inherited: false,
+      type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+      alias_for: "backface-visibility",
+      subproperties: ["backface-visibility"],
+    },
+    "-moz-transform-style": {
+      domProp: "MozTransformStyle",
+      inherited: false,
+      type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+      alias_for: "transform-style",
+      subproperties: ["transform-style"],
+    },
+  });
+}
+
+if (IsCSSPropertyPrefEnabled("layout.css.zoom.enabled")) {
+  Object.assign(gCSSProperties, {
+    zoom: {
+      domProp: "zoom",
+      inherited: false,
+      type: CSS_TYPE_LONGHAND,
+      initial_values: ["normal", "1", "100%", "0", "0%"],
+      other_values: ["1.5", "2", "150%", "200%"],
+      invalid_values: ["-1", "-40%"],
+    },
+  });
 }
 
 // Copy aliased properties' fields from their alias targets. Keep this logic

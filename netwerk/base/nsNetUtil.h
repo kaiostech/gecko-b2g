@@ -1051,6 +1051,9 @@ struct LinkHeader {
   nsresult NewResolveHref(nsIURI** aOutURI, nsIURI* aBaseURI) const;
 
   bool operator==(const LinkHeader& rhs) const;
+
+  void MaybeUpdateAttribute(const nsAString& aAttribute,
+                            const char16_t* aValue);
 };
 
 // Implements roughly step 2 to 4 of

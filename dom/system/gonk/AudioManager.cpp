@@ -307,22 +307,22 @@ void AudioManager::HandleAudioFlingerDied() {
   GonkAudioSystem::setMasterMono(mMasterMono);
   GonkAudioSystem::setMasterBalance(mMasterBalance);
 
+  GonkAudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+  GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
+                               AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
+
   // Restore stream volumes
   for (auto& streamState : mStreamStates) {
     streamState->InitStreamVolume();
     streamState->RestoreVolumeIndexToAllDevices();
   }
 
-  // Indicate the end of reconfiguration phase to audio HAL
-  SetParameters("restarting=true");
-
   // Enable volume change notification
   mIsVolumeInited = true;
   MaybeWriteVolumeSettings(true);
 
-  GonkAudioSystem::setAssistantUid(AUDIO_UID_INVALID);
-  GonkAudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
-                               AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
+  // Indicate the end of reconfiguration phase to audio HAL
+  SetParameters("restarting=false");
 }
 
 class SettingInfo final : public nsISettingInfo {

@@ -66,12 +66,10 @@ mozilla::LazyLogModule gAudioManagerLog("AudioManager");
 #undef LOG
 #undef LOGE
 
-#define LOG(x, ...)                                   \
-  MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Debug, \
-          ("%p " x, this, ##__VA_ARGS__))
-#define LOGE(x, ...)                                  \
-  MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Error, \
-          ("%p " x, this, ##__VA_ARGS__))
+#define LOG(fmt, ...) \
+  MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Debug, (fmt, ##__VA_ARGS__))
+#define LOGE(fmt, ...) \
+  MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Error, (fmt, ##__VA_ARGS__))
 
 #define BLUETOOTH_HFP_STATUS_CHANGED "bluetooth-hfp-status-changed"
 #define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
@@ -660,24 +658,30 @@ nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
 }
 
 static void NotifyHeadphonesStatus(hal::SwitchState aState) {
+  const char16_t* status;
+  switch (aState) {
+    case hal::SWITCH_STATE_OFF:
+      status = HEADPHONES_STATUS_OFF;
+      break;
+    case hal::SWITCH_STATE_HEADSET:
+      status = HEADPHONES_STATUS_HEADSET;
+      break;
+    case hal::SWITCH_STATE_HEADPHONE:
+      status = HEADPHONES_STATUS_HEADPHONE;
+      break;
+    case hal::SWITCH_STATE_LINEOUT:
+      status = HEADPHONES_STATUS_LINEOUT;
+      break;
+    default:
+      status = HEADPHONES_STATUS_UNKNOWN;
+      break;
+  }
+
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
-    if (aState == hal::SWITCH_STATE_HEADSET) {
-      obs->NotifyObservers(nullptr, HEADPHONES_STATUS_CHANGED,
-                           HEADPHONES_STATUS_HEADSET);
-    } else if (aState == hal::SWITCH_STATE_HEADPHONE) {
-      obs->NotifyObservers(nullptr, HEADPHONES_STATUS_CHANGED,
-                           HEADPHONES_STATUS_HEADPHONE);
-    } else if (aState == hal::SWITCH_STATE_OFF) {
-      obs->NotifyObservers(nullptr, HEADPHONES_STATUS_CHANGED,
-                           HEADPHONES_STATUS_OFF);
-    } else if (aState == hal::SWITCH_STATE_LINEOUT) {
-      obs->NotifyObservers(nullptr, HEADPHONES_STATUS_CHANGED,
-                           HEADPHONES_STATUS_LINEOUT);
-    } else {
-      obs->NotifyObservers(nullptr, HEADPHONES_STATUS_CHANGED,
-                           HEADPHONES_STATUS_UNKNOWN);
-    }
+    obs->NotifyObservers(nullptr, HEADPHONES_STATUS_CHANGED, status);
+  } else {
+    LOGE("Failed to get observer service when notifying headpnone status");
   }
 }
 
@@ -843,30 +847,23 @@ void AudioManager::Init() {
 
   // Register to observer service.
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-  NS_ENSURE_TRUE_VOID(obs);
-  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_SCO_STATUS_CHANGED, false))) {
-    NS_WARNING("Failed to add bluetooth sco status changed observer!");
-  }
-  if (NS_FAILED(
-          obs->AddObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID, false))) {
-    NS_WARNING("Failed to add bluetooth a2dp status changed observer!");
-  }
-  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_STATUS_CHANGED, false))) {
-    NS_WARNING("Failed to add bluetooth hfp status changed observer!");
-  }
-  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID,
-                                 false))) {
-    NS_WARNING("Failed to add bluetooth hfp NREC status changed observer!");
-  }
-  if (NS_FAILED(
-          obs->AddObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID, false))) {
-    NS_WARNING("Failed to add bluetooth hfp WBS status changed observer!");
-  }
+  if (obs) {
+    auto addObserver = [this, &obs](const char* aTopic) {
+      if (NS_FAILED(obs->AddObserver(this, aTopic, false))) {
+        LOGE("Failed to add %s observer", aTopic);
+      }
+    };
+    addObserver(BLUETOOTH_SCO_STATUS_CHANGED);
+    addObserver(BLUETOOTH_A2DP_STATUS_CHANGED_ID);
+    addObserver(BLUETOOTH_HFP_STATUS_CHANGED);
+    addObserver(BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID);
+    addObserver(BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID);
 #ifdef PRODUCT_MANUFACTURER_MTK
-  if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
-    NS_WARNING("Failed to add screen-state-changed observer!");
-  }
+    addObserver(SCREEN_STATE_CHANGED);
 #endif
+  } else {
+    LOGE("Failed to get observer service when adding observer");
+  }
 
   // Add volume change observer.
   nsCOMPtr<nsISettingsManager> settingsManager =
@@ -878,7 +875,7 @@ void AudioManager::Init() {
       settingsManager->AddObserver(name, mAudioSettingsObserver, callback);
     }
   } else {
-    LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
+    LOGE("Failed to get settings manager when adding observer");
   }
 
 #ifdef MOZ_B2G_RIL
@@ -900,24 +897,24 @@ AudioManager::~AudioManager() {
   hal::UnregisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver.get());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-  NS_ENSURE_TRUE_VOID(obs);
-  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED))) {
-    NS_WARNING("Failed to remove bluetooth sco status changed observer!");
+  if (obs) {
+    auto removeObserver = [this, &obs](const char* aTopic) {
+      if (NS_FAILED(obs->RemoveObserver(this, aTopic))) {
+        LOGE("Failed to remove %s observer", aTopic);
+      }
+    };
+    removeObserver(BLUETOOTH_SCO_STATUS_CHANGED);
+    removeObserver(BLUETOOTH_A2DP_STATUS_CHANGED_ID);
+    removeObserver(BLUETOOTH_HFP_STATUS_CHANGED);
+    removeObserver(BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID);
+    removeObserver(BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID);
+#ifdef PRODUCT_MANUFACTURER_MTK
+    removeObserver(SCREEN_STATE_CHANGED);
+#endif
+  } else {
+    LOGE("Failed to get observer service when removing observer");
   }
-  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID))) {
-    NS_WARNING("Failed to remove bluetooth a2dp status changed observer!");
-  }
-  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_HFP_STATUS_CHANGED))) {
-    NS_WARNING("Failed to remove bluetooth hfp status changed observer!");
-  }
-  if (NS_FAILED(
-          obs->RemoveObserver(this, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID))) {
-    NS_WARNING("Failed to remove bluetooth hfp NREC status changed observer!");
-  }
-  if (NS_FAILED(
-          obs->RemoveObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID))) {
-    NS_WARNING("Failed to remove bluetooth hfp WBS status changed observer!");
-  }
+
   // Remove volume change observer.
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
@@ -927,13 +924,8 @@ AudioManager::~AudioManager() {
       settingsManager->RemoveObserver(name, mAudioSettingsObserver, callback);
     }
   } else {
-    LOGE("Failed to Get SETTINGS MANAGER to RemoveObserver!");
+    LOGE("Failed to get settings manager when removing observer");
   }
-#ifdef PRODUCT_MANUFACTURER_MTK
-  if (NS_FAILED(obs->RemoveObserver(this, SCREEN_STATE_CHANGED))) {
-    NS_WARNING("Failed to remove screen-state-changed observer!");
-  }
-#endif
 }
 
 already_AddRefed<AudioManager> AudioManager::GetInstance() {
@@ -1010,6 +1002,8 @@ AudioManager::SetPhoneState(int32_t aState) {
   if (obs) {
     obs->NotifyObservers(nullptr, "phone-state-changed",
                          IntToString<int32_t>(aState).get());
+  } else {
+    LOGE("Failed to get observer service when notifying phone state");
   }
 
   if (GonkAudioSystem::setPhoneState(state)) {

@@ -377,10 +377,9 @@ impl AnimationValue {
                     );
                     declaration.value.substitute_variables(
                         declaration.id,
-                        context.builder.writing_mode,
                         custom_properties,
-                        context.quirks_mode,
                         context.builder.stylist.unwrap(),
+                        context,
                         &mut cache,
                     )
                 };

@@ -7926,13 +7926,7 @@ bool nsDisplayMasksAndClipPaths::IsValidMask() {
     return false;
   }
 
-  nsIFrame* firstFrame =
-      nsLayoutUtils::FirstContinuationOrIBSplitSibling(mFrame);
-
-  return !(SVGObserverUtils::GetAndObserveClipPath(firstFrame, nullptr) ==
-               SVGObserverUtils::eHasRefsSomeInvalid ||
-           SVGObserverUtils::GetAndObserveMasks(firstFrame, nullptr) ==
-               SVGObserverUtils::eHasRefsSomeInvalid);
+  return SVGUtils::DetermineMaskUsage(mFrame, false).UsingMaskOrClipPath();
 }
 
 bool nsDisplayMasksAndClipPaths::PaintMask(nsDisplayListBuilder* aBuilder,
@@ -8019,7 +8013,7 @@ static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
   nsIFrame* frame = aDisplayItem.Frame();
   const auto* style = frame->StyleSVGReset();
   MOZ_ASSERT(style->HasClipPath() || style->HasMask());
-  if (!SVGIntegrationUtils::UsingSimpleClipPathForFrame(frame)) {
+  if (!SVGUtils::DetermineMaskUsage(frame, false).IsSimpleClipShape()) {
     return Nothing();
   }
 
@@ -8085,7 +8079,7 @@ static Maybe<wr::WrClipChainId> CreateSimpleClipRegion(
       // without using a mask image.
       //
       // And if you _really really_ need to add an exception, add it to
-      // SVGIntegrationUtils::UsingSimpleClipPathForFrame
+      // SVGUtils::DetermineMaskUsage
       MOZ_ASSERT_UNREACHABLE("Unhandled shape id?");
       return Nothing();
   }
@@ -8186,7 +8180,7 @@ bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
     bounds.MoveTo(0, 0);
 
     Maybe<float> opacity =
-        (SVGIntegrationUtils::UsingSimpleClipPathForFrame(mFrame) &&
+        (SVGUtils::DetermineMaskUsage(mFrame, false).IsSimpleClipShape() &&
          aBuilder.GetInheritedOpacity() != 1.0f)
             ? Some(aBuilder.GetInheritedOpacity())
             : Nothing();

@@ -485,9 +485,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                     const TimeStamp& aCompositeStart,
                     const TimeStamp& aCompositeEnd);
 
-  void DidRequestComposite(const TimeStamp& aCompositeReqStart,
-                           const TimeStamp& aCompositeReqEnd);
-
   void ClearCachedResources();
   void SchedulePaint();
   void ReinitRendering();

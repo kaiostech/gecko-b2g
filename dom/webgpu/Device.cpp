@@ -105,6 +105,7 @@ void Device::GetLabel(nsAString& aValue) const { aValue = mLabel; }
 void Device::SetLabel(const nsAString& aLabel) { mLabel = aLabel; }
 
 dom::Promise* Device::GetLost(ErrorResult& aRv) {
+  aRv = NS_OK;
   if (!mLostPromise) {
     mLostPromise = dom::Promise::Create(GetParentObject(), aRv);
     if (mLostPromise && !mBridge->CanSend()) {
@@ -118,7 +119,7 @@ dom::Promise* Device::GetLost(ErrorResult& aRv) {
 
 void Device::ResolveLost(Maybe<dom::GPUDeviceLostReason> aReason,
                          const nsAString& aMessage) {
-  ErrorResult rv;
+  IgnoredErrorResult rv;
   dom::Promise* lostPromise = GetLost(rv);
   if (!lostPromise) {
     // Promise doesn't exist? Maybe out of memory.
@@ -145,6 +146,26 @@ void Device::ResolveLost(Maybe<dom::GPUDeviceLostReason> aReason,
 already_AddRefed<Buffer> Device::CreateBuffer(
     const dom::GPUBufferDescriptor& aDesc, ErrorResult& aRv) {
   return Buffer::Create(this, mId, aDesc, aRv);
+}
+
+already_AddRefed<Texture> Device::CreateTextureForSwapChain(
+    const dom::GPUCanvasConfiguration* const aConfig,
+    const gfx::IntSize& aCanvasSize, layers::RemoteTextureOwnerId aOwnerId) {
+  MOZ_ASSERT(aConfig);
+
+  dom::GPUTextureDescriptor desc;
+  desc.mDimension = dom::GPUTextureDimension::_2d;
+  auto& sizeDict = desc.mSize.SetAsGPUExtent3DDict();
+  sizeDict.mWidth = aCanvasSize.width;
+  sizeDict.mHeight = aCanvasSize.height;
+  sizeDict.mDepthOrArrayLayers = 1;
+  desc.mFormat = aConfig->mFormat;
+  desc.mMipLevelCount = 1;
+  desc.mSampleCount = 1;
+  desc.mUsage = aConfig->mUsage | dom::GPUTextureUsage_Binding::COPY_SRC;
+  desc.mViewFormats = aConfig->mViewFormats;
+
+  return CreateTexture(desc, Some(aOwnerId));
 }
 
 already_AddRefed<Texture> Device::CreateTexture(
@@ -327,10 +348,12 @@ already_AddRefed<dom::Promise> Device::CreateRenderPipelineAsync(
 }
 
 already_AddRefed<Texture> Device::InitSwapChain(
-    const dom::GPUCanvasConfiguration& aDesc,
+    const dom::GPUCanvasConfiguration* const aConfig,
     const layers::RemoteTextureOwnerId aOwnerId,
     bool aUseExternalTextureInSwapChain, gfx::SurfaceFormat aFormat,
     gfx::IntSize aCanvasSize) {
+  MOZ_ASSERT(aConfig);
+
   if (!mBridge->CanSend()) {
     return nullptr;
   }
@@ -341,20 +364,9 @@ already_AddRefed<Texture> Device::InitSwapChain(
   mBridge->DeviceCreateSwapChain(mId, rgbDesc, maxBufferCount, aOwnerId,
                                  aUseExternalTextureInSwapChain);
 
-  dom::GPUTextureDescriptor desc;
-  desc.mDimension = dom::GPUTextureDimension::_2d;
-  auto& sizeDict = desc.mSize.SetAsGPUExtent3DDict();
-  sizeDict.mWidth = aCanvasSize.width;
-  sizeDict.mHeight = aCanvasSize.height;
-  sizeDict.mDepthOrArrayLayers = 1;
-  desc.mFormat = aDesc.mFormat;
-  desc.mMipLevelCount = 1;
-  desc.mSampleCount = 1;
-  desc.mUsage = aDesc.mUsage | dom::GPUTextureUsage_Binding::COPY_SRC;
-  desc.mViewFormats = aDesc.mViewFormats;
   // TODO: `mColorSpace`: <https://bugzilla.mozilla.org/show_bug.cgi?id=1846608>
   // TODO: `mAlphaMode`: <https://bugzilla.mozilla.org/show_bug.cgi?id=1846605>
-  return CreateTexture(desc, Some(aOwnerId));
+  return CreateTextureForSwapChain(aConfig, aCanvasSize, aOwnerId);
 }
 
 bool Device::CheckNewWarning(const nsACString& aMessage) {
@@ -374,6 +386,8 @@ void Device::Destroy() {
     for (const auto& buffer : mTrackedBuffers) {
       buffer->Unmap(jsapi.cx(), rv);
     }
+
+    mTrackedBuffers.Clear();
   }
 
   mBridge->SendDeviceDestroy(mId);

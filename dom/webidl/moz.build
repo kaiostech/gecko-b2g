@@ -277,9 +277,6 @@ with Files("PowerSupplyManager.webidl"):
 with Files("GeolocationPosition*"):
     BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
-with Files("ProfileTimelineMarker.webidl"):
-    BUG_COMPONENT = ("DevTools", "Performance Tools (Profiler/Timeline)")
-
 with Files("PopoverInvokerElement.webidl"):
     BUG_COMPONENT = ("Core", "DOM: Core & HTML")
 
@@ -833,7 +830,6 @@ WEBIDL_FILES = [
     "PopoverInvokerElement.webidl",
     "PowerSupplyManager.webidl",
     "ProcessingInstruction.webidl",
-    "ProfileTimelineMarker.webidl",
     "Promise.webidl",
     "PushEvent.webidl",
     "PushManager.webidl",

@@ -13,6 +13,7 @@ use crate::properties_and_values::registry::PropertyRegistration;
 use crate::properties_and_values::value::SpecifiedValue as SpecifiedRegisteredValue;
 use crate::selector_map::{PrecomputedHashMap, PrecomputedHashSet, PrecomputedHasher};
 use crate::stylist::Stylist;
+use crate::values::computed;
 use crate::Atom;
 use cssparser::{
     CowRcStr, Delimiter, Parser, ParserInput, SourcePosition, Token, TokenSerializationType,
@@ -725,6 +726,7 @@ fn parse_and_substitute_fallback<'i>(
     input: &mut Parser<'i, '_>,
     custom_properties: &ComputedCustomProperties,
     stylist: &Stylist,
+    computed_context: &computed::Context,
 ) -> Result<ComputedValue, ParseError<'i>> {
     input.skip_whitespace();
     let after_comma = input.state();
@@ -742,6 +744,7 @@ fn parse_and_substitute_fallback<'i>(
         &mut fallback,
         custom_properties,
         stylist,
+        computed_context,
     )?;
     fallback.push_from(input, position, last_token_type)?;
     Ok(fallback)
@@ -783,24 +786,21 @@ fn parse_env_function<'i, 't>(
 
 /// A struct that takes care of encapsulating the cascade process for custom
 /// properties.
-pub struct CustomPropertiesBuilder<'a> {
+pub struct CustomPropertiesBuilder<'a, 'b: 'a> {
     seen: PrecomputedHashSet<&'a Name>,
     may_have_cycles: bool,
     custom_properties: ComputedCustomProperties,
-    inherited: &'a ComputedCustomProperties,
     reverted: PrecomputedHashMap<&'a Name, (CascadePriority, bool)>,
     stylist: &'a Stylist,
-    is_root_element: bool,
+    computed_context: &'a computed::Context<'b>,
 }
 
-impl<'a> CustomPropertiesBuilder<'a> {
+impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
     /// Create a new builder, inheriting from a given custom properties map.
-    pub fn new(
-        inherited: &'a ComputedCustomProperties,
-        stylist: &'a Stylist,
-        is_root_element: bool,
-    ) -> Self {
+    pub fn new(stylist: &'a Stylist, computed_context: &'a computed::Context<'b>) -> Self {
+        let inherited = computed_context.inherited_custom_properties();
         let initial_values = stylist.get_custom_property_initial_values();
+        let is_root_element = computed_context.is_root_element();
         Self {
             seen: PrecomputedHashSet::default(),
             reverted: Default::default(),
@@ -814,9 +814,8 @@ impl<'a> CustomPropertiesBuilder<'a> {
                 },
                 non_inherited: initial_values.non_inherited.clone(),
             },
-            inherited,
             stylist,
-            is_root_element,
+            computed_context,
         }
     }
 
@@ -859,9 +858,8 @@ impl<'a> CustomPropertiesBuilder<'a> {
                             name,
                             unparsed_value,
                             map,
-                            self.inherited,
                             self.stylist,
-                            self.is_root_element,
+                            self.computed_context,
                         );
                         return;
                     }
@@ -871,7 +869,7 @@ impl<'a> CustomPropertiesBuilder<'a> {
                         if let Ok(value) = SpecifiedRegisteredValue::compute(
                             &mut input,
                             registration,
-                            self.stylist,
+                            self.computed_context,
                         ) {
                             map.insert(custom_registration, name.clone(), value);
                         } else {
@@ -912,7 +910,8 @@ impl<'a> CustomPropertiesBuilder<'a> {
                         "Should've been handled earlier"
                     );
                     if let Some(inherited_value) = self
-                        .inherited
+                        .computed_context
+                        .inherited_custom_properties()
                         .non_inherited
                         .as_ref()
                         .and_then(|m| m.get(name))
@@ -953,7 +952,7 @@ impl<'a> CustomPropertiesBuilder<'a> {
             _ => {},
         }
 
-        let existing_value = self.custom_properties.get(&self.stylist, &name);
+        let existing_value = self.custom_properties.get(self.stylist, &name);
         match (existing_value, value) {
             (None, &CustomDeclarationValue::CSSWideKeyword(CSSWideKeyword::Initial)) => {
                 debug_assert!(
@@ -992,7 +991,8 @@ impl<'a> CustomPropertiesBuilder<'a> {
                 // Don't bother adding it to self.custom_properties.non_inherited
                 // if the key is also absent from self.inherited.non_inherited.
                 if self
-                    .inherited
+                    .computed_context
+                    .inherited_custom_properties()
                     .non_inherited
                     .as_ref()
                     .map_or(true, |m| !m.contains_key(name))
@@ -1024,10 +1024,9 @@ impl<'a> CustomPropertiesBuilder<'a> {
         if self.may_have_cycles {
             substitute_all(
                 &mut self.custom_properties,
-                self.inherited,
                 &self.seen,
                 self.stylist,
-                self.is_root_element,
+                self.computed_context,
             );
         }
 
@@ -1039,8 +1038,15 @@ impl<'a> CustomPropertiesBuilder<'a> {
         // map in that case.
         let initial_values = self.stylist.get_custom_property_initial_values();
         ComputedCustomProperties {
-            inherited: if self.inherited.inherited_equal(&self.custom_properties) {
-                self.inherited.inherited.clone()
+            inherited: if self
+                .computed_context
+                .inherited_custom_properties()
+                .inherited_equal(&self.custom_properties)
+            {
+                self.computed_context
+                    .inherited_custom_properties()
+                    .inherited
+                    .clone()
             } else {
                 self.custom_properties.inherited.take()
             },
@@ -1059,10 +1065,9 @@ impl<'a> CustomPropertiesBuilder<'a> {
 /// It does cycle dependencies removal at the same time as substitution.
 fn substitute_all(
     custom_properties_map: &mut ComputedCustomProperties,
-    inherited: &ComputedCustomProperties,
     seen: &PrecomputedHashSet<&Name>,
     stylist: &Stylist,
-    is_root_element: bool,
+    computed_context: &computed::Context,
 ) {
     // The cycle dependencies removal in this function is a variant
     // of Tarjan's algorithm. It is mostly based on the pseudo-code
@@ -1086,7 +1091,7 @@ fn substitute_all(
     }
     /// Context struct for traversing the variable graph, so that we can
     /// avoid referencing all the fields multiple times.
-    struct Context<'a> {
+    struct Context<'a, 'b: 'a> {
         /// Number of variables visited. This is used as the order index
         /// when we visit a new unresolved variable.
         count: usize,
@@ -1098,13 +1103,12 @@ fn substitute_all(
         /// all unfinished strong connected components.
         stack: SmallVec<[usize; 5]>,
         map: &'a mut ComputedCustomProperties,
-        /// The inherited custom properties to handle wide keywords.
-        inherited: &'a ComputedCustomProperties,
         /// The stylist is used to get registered properties, and to resolve the environment to
         /// substitute `env()` variables.
         stylist: &'a Stylist,
-        /// Whether this is the root element.
-        is_root_element: bool,
+        /// The computed context is used to get inherited custom
+        /// properties  and compute registered custom properties.
+        computed_context: &'a computed::Context<'b>,
     }
 
     /// This function combines the traversal for cycle removal and value
@@ -1125,7 +1129,7 @@ fn substitute_all(
     ///   doesn't have reference at all in specified value, or it has
     ///   been completely resolved.
     /// * There is no such variable at all.
-    fn traverse<'a>(name: &Name, context: &mut Context<'a>) -> Option<usize> {
+    fn traverse<'a, 'b>(name: &Name, context: &mut Context<'a, 'b>) -> Option<usize> {
         // Some shortcut checks.
         let (name, value) = {
             let value = context.map.get(context.stylist, name)?;
@@ -1248,9 +1252,8 @@ fn substitute_all(
             &name,
             &value,
             &mut context.map,
-            context.inherited,
             context.stylist,
-            context.is_root_element,
+            context.computed_context,
         );
 
         // All resolved, so return the signal value.
@@ -1267,9 +1270,8 @@ fn substitute_all(
             stack: SmallVec::new(),
             var_info: SmallVec::new(),
             map: custom_properties_map,
-            inherited,
             stylist,
-            is_root_element,
+            computed_context,
         };
         traverse(name, &mut context);
     }
@@ -1313,12 +1315,13 @@ fn substitute_references_in_value_and_apply(
     name: &Name,
     value: &VariableValue,
     custom_properties: &mut ComputedCustomProperties,
-    inherited: &ComputedCustomProperties,
     stylist: &Stylist,
-    is_root_element: bool,
+    computed_context: &computed::Context,
 ) {
     debug_assert!(value.has_references());
 
+    let inherited = computed_context.inherited_custom_properties();
+    let is_root_element = computed_context.is_root_element();
     let custom_registration = stylist.get_custom_property_registration(&name);
     let mut computed_value = ComputedValue::empty();
 
@@ -1333,6 +1336,7 @@ fn substitute_references_in_value_and_apply(
             &mut computed_value,
             custom_properties,
             stylist,
+            computed_context,
         );
 
         let last_token_type = match last_token_type {
@@ -1417,7 +1421,7 @@ fn substitute_references_in_value_and_apply(
         } else {
             if let Some(registration) = custom_registration {
                 if let Ok(value) =
-                    SpecifiedRegisteredValue::compute(&mut input, registration, stylist)
+                    SpecifiedRegisteredValue::compute(&mut input, registration, computed_context)
                 {
                     custom_properties.insert(custom_registration, name.clone(), value);
                 } else {
@@ -1456,6 +1460,7 @@ fn substitute_block<'i>(
     partial_computed_value: &mut ComputedValue,
     custom_properties: &ComputedCustomProperties,
     stylist: &Stylist,
+    computed_context: &computed::Context,
 ) -> Result<TokenSerializationType, ParseError<'i>> {
     let mut last_token_type = TokenSerializationType::nothing();
     let mut set_position_at_next_iteration = false;
@@ -1525,13 +1530,14 @@ fn substitute_block<'i>(
                                     input,
                                     custom_properties,
                                     stylist,
+                                    computed_context,
                                 )?;
                                 let mut fallback_input = ParserInput::new(&fallback.css);
                                 let mut fallback_input = Parser::new(&mut fallback_input);
                                 if let Err(_) = SpecifiedRegisteredValue::compute(
                                     &mut fallback_input,
                                     registration,
-                                    stylist,
+                                    computed_context,
                                 ) {
                                     return Err(input
                                         .new_custom_error(StyleParseErrorKind::UnspecifiedError));
@@ -1546,8 +1552,12 @@ fn substitute_block<'i>(
                         partial_computed_value.push_variable(input, v)?;
                     } else {
                         input.expect_comma()?;
-                        let fallback =
-                            parse_and_substitute_fallback(input, custom_properties, stylist)?;
+                        let fallback = parse_and_substitute_fallback(
+                            input,
+                            custom_properties,
+                            stylist,
+                            computed_context,
+                        )?;
                         last_token_type = fallback.last_token_type;
 
                         if let Some(registration) = registration {
@@ -1556,7 +1566,7 @@ fn substitute_block<'i>(
                             if let Ok(fallback) = SpecifiedRegisteredValue::compute(
                                 &mut fallback_input,
                                 registration,
-                                stylist,
+                                computed_context,
                             ) {
                                 partial_computed_value.push_variable(input, &fallback)?;
                             } else {
@@ -1583,6 +1593,7 @@ fn substitute_block<'i>(
                         partial_computed_value,
                         custom_properties,
                         stylist,
+                        computed_context,
                     )
                 })?;
                 // It's the same type for CloseCurlyBracket and CloseSquareBracket.
@@ -1609,6 +1620,7 @@ pub fn substitute<'i>(
     first_token_type: TokenSerializationType,
     custom_properties: &ComputedCustomProperties,
     stylist: &Stylist,
+    computed_context: &computed::Context,
 ) -> Result<String, ParseError<'i>> {
     let mut substituted = ComputedValue::empty();
     let mut input = ParserInput::new(input);
@@ -1620,6 +1632,7 @@ pub fn substitute<'i>(
         &mut substituted,
         custom_properties,
         stylist,
+        computed_context,
     )?;
     substituted.push_from(&input, position, last_token_type)?;
     Ok(substituted.css)

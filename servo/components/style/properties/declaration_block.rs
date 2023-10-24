@@ -13,15 +13,20 @@ use super::generated::{
 };
 use crate::applicable_declarations::CascadePriority;
 use crate::context::QuirksMode;
-use crate::custom_properties::{self, CustomPropertiesBuilder};
+use crate::custom_properties::{self, ComputedCustomProperties, CustomPropertiesBuilder};
 use crate::error_reporting::{ContextualParseError, ParseErrorReporter};
 use crate::parser::ParserContext;
-use crate::properties::animated_properties::{AnimationValue, AnimationValueMap};
+use crate::properties::{
+    animated_properties::{AnimationValue, AnimationValueMap},
+    StyleBuilder,
+};
+use crate::rule_cache::RuleCacheConditions;
 use crate::rule_tree::CascadeLevel;
 use crate::selector_map::PrecomputedHashSet;
 use crate::selector_parser::SelectorImpl;
 use crate::shared_lock::Locked;
 use crate::str::{CssString, CssStringWriter};
+use crate::stylesheets::container_rule::ContainerSizeQuery;
 use crate::stylesheets::{layer_rule::LayerOrder, CssRuleType, Origin, UrlExtraData};
 use crate::stylist::Stylist;
 use crate::values::computed::Context;
@@ -858,18 +863,32 @@ impl PropertyDeclarationBlock {
             None => return Err(fmt::Error),
         };
 
-        let custom_properties = if let Some(cv) = computed_values {
+        let mut rule_cache_conditions = RuleCacheConditions::default();
+        let mut context = Context::new(
+            StyleBuilder::new(
+                stylist.device(),
+                Some(stylist),
+                computed_values,
+                None,
+                None,
+                false,
+            ),
+            stylist.quirks_mode(),
+            &mut rule_cache_conditions,
+            ContainerSizeQuery::none(),
+        );
+
+        if let Some(cv) = computed_values {
+            context.builder.custom_properties = cv.custom_properties.clone();
+
             // If there are extra custom properties for this declaration block,
             // factor them in too.
             if let Some(block) = custom_properties_block {
                 // FIXME(emilio): This is not super-efficient here, and all this
                 // feels like a hack anyway...
-                block.cascade_custom_properties(cv.custom_properties(), stylist)
-            } else {
-                cv.custom_properties().clone()
+                context.builder.custom_properties =
+                    block.cascade_custom_properties(stylist, &context);
             }
-        } else {
-            crate::custom_properties::ComputedCustomProperties::default()
         };
 
         match (declaration, computed_values) {
@@ -880,19 +899,16 @@ impl PropertyDeclarationBlock {
             // getKeyframes() implementation for CSS animations, if
             // |computed_values| is supplied, we use it to expand such variable
             // declarations. This will be fixed properly in Gecko bug 1391537.
-            (&PropertyDeclaration::WithVariables(ref declaration), Some(ref computed_values)) => {
-                declaration
-                    .value
-                    .substitute_variables(
-                        declaration.id,
-                        computed_values.writing_mode,
-                        &custom_properties,
-                        QuirksMode::NoQuirks,
-                        stylist,
-                        &mut Default::default(),
-                    )
-                    .to_css(dest)
-            },
+            (&PropertyDeclaration::WithVariables(ref declaration), Some(_)) => declaration
+                .value
+                .substitute_variables(
+                    declaration.id,
+                    &context.builder.custom_properties,
+                    stylist,
+                    &context,
+                    &mut Default::default(),
+                )
+                .to_css(dest),
             (ref d, _) => d.to_css(dest),
         }
     }
@@ -931,22 +947,12 @@ impl PropertyDeclarationBlock {
     /// Returns a custom properties map which is the result of cascading custom
     /// properties in this declaration block along with context's custom
     /// properties.
-    pub fn cascade_custom_properties_with_context(
+    pub fn cascade_custom_properties(
         &self,
-        context: &Context,
-    ) -> crate::custom_properties::ComputedCustomProperties {
-        self.cascade_custom_properties(context.style().custom_properties(), context.style().stylist.unwrap())
-    }
-
-    /// Returns a custom properties map which is the result of cascading custom
-    /// properties in this declaration block along with the given custom
-    /// properties.
-    fn cascade_custom_properties(
-        &self,
-        inherited_custom_properties: &crate::custom_properties::ComputedCustomProperties,
         stylist: &Stylist,
-    ) -> crate::custom_properties::ComputedCustomProperties {
-        let mut builder = CustomPropertiesBuilder::new(inherited_custom_properties, stylist, false);
+        context: &Context,
+    ) -> ComputedCustomProperties {
+        let mut builder = CustomPropertiesBuilder::new(stylist, context);
 
         for declaration in self.normal_declaration_iter() {
             if let PropertyDeclaration::Custom(ref declaration) = *declaration {

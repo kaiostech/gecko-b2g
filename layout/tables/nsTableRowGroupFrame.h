@@ -307,7 +307,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
   explicit nsTableRowGroupFrame(ComputedStyle* aStyle,
                                 nsPresContext* aPresContext);
 
-  void InitChildReflowInput(nsPresContext& aPresContext, bool aBorderCollapse,
+  void InitChildReflowInput(nsPresContext* aPresContext, bool aBorderCollapse,
                             ReflowInput& aReflowInput);
 
   LogicalSides GetLogicalSkipSides() const override;
@@ -342,14 +342,15 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
                      const ReflowInput& aReflowInput, nsTableFrame* aTableFrame,
                      nsReflowStatus& aStatus, bool aRowForcedPageBreak);
 
-  void SplitSpanningCells(nsPresContext& aPresContext,
+  void SplitSpanningCells(nsPresContext* aPresContext,
                           const ReflowInput& aReflowInput,
-                          nsTableFrame& aTableFrame, nsTableRowFrame& aFirstRow,
-                          nsTableRowFrame& aLastRow, bool aFirstRowIsTopOfPage,
-                          nscoord aSpanningRowBottom,
+                          nsTableFrame* aTableFrame, nsTableRowFrame* aFirstRow,
+                          nsTableRowFrame* aLastRow, bool aFirstRowIsTopOfPage,
+                          nscoord aSpanningRowBEnd,
+                          const nsSize& aContainerSize,
                           nsTableRowFrame*& aContRowFrame,
                           nsTableRowFrame*& aFirstTruncatedRow,
-                          nscoord& aDesiredHeight);
+                          nscoord& aDesiredBSize);
 
   /**
    * Create a continuing table row frame, add it to the child list, and then

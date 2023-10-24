@@ -2139,13 +2139,14 @@ void MediaTrack::IncrementSuspendCount() {
     return;
   }
   AssertOnGraphThreadOrNotRunning();
+  auto* graph = GraphImpl();
   for (uint32_t i = 0; i < mConsumers.Length(); ++i) {
     mConsumers[i]->Suspended();
   }
-  MOZ_ASSERT(mGraph->mTracks.Contains(this));
-  mGraph->mTracks.RemoveElement(this);
-  mGraph->mSuspendedTracks.AppendElement(this);
-  mGraph->SetTrackOrderDirty();
+  MOZ_ASSERT(graph->mTracks.Contains(this));
+  graph->mTracks.RemoveElement(this);
+  graph->mSuspendedTracks.AppendElement(this);
+  graph->SetTrackOrderDirty();
 }
 
 void MediaTrack::DecrementSuspendCount() {
@@ -2156,13 +2157,14 @@ void MediaTrack::DecrementSuspendCount() {
     return;
   }
   AssertOnGraphThreadOrNotRunning();
+  auto* graph = GraphImpl();
   for (uint32_t i = 0; i < mConsumers.Length(); ++i) {
     mConsumers[i]->Resumed();
   }
-  MOZ_ASSERT(mGraph->mSuspendedTracks.Contains(this));
-  mGraph->mSuspendedTracks.RemoveElement(this);
-  mGraph->mTracks.AppendElement(this);
-  mGraph->SetTrackOrderDirty();
+  MOZ_ASSERT(graph->mSuspendedTracks.Contains(this));
+  graph->mSuspendedTracks.RemoveElement(this);
+  graph->mTracks.AppendElement(this);
+  graph->SetTrackOrderDirty();
 }
 
 void ProcessedMediaTrack::DecrementSuspendCount() {
@@ -2170,13 +2172,13 @@ void ProcessedMediaTrack::DecrementSuspendCount() {
   MediaTrack::DecrementSuspendCount();
 }
 
-MediaTrackGraphImpl* MediaTrack::GraphImpl() { return mGraph; }
+MediaTrackGraphImpl* MediaTrack::GraphImpl() {
+  return static_cast<MediaTrackGraphImpl*>(mGraph);
+}
 
-const MediaTrackGraphImpl* MediaTrack::GraphImpl() const { return mGraph; }
-
-MediaTrackGraph* MediaTrack::Graph() { return mGraph; }
-
-const MediaTrackGraph* MediaTrack::Graph() const { return mGraph; }
+const MediaTrackGraphImpl* MediaTrack::GraphImpl() const {
+  return static_cast<MediaTrackGraphImpl*>(mGraph);
+}
 
 void MediaTrack::SetGraphImpl(MediaTrackGraphImpl* aGraph) {
   MOZ_ASSERT(!mGraph, "Should only be called once");

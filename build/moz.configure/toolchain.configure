@@ -96,7 +96,7 @@ with only_when(host_is_osx | target_is_osx):
         return Version(obj["Version"])
 
     def sdk_min_version():
-        return "13.3"
+        return "14.0"
 
     @depends(
         "--with-macos-sdk",
@@ -2344,6 +2344,7 @@ def ub_unsigned_overflow_san():
 
 add_old_configure_assignment("MOZ_UNSIGNED_OVERFLOW_SANITIZE", ub_unsigned_overflow_san)
 
+
 # Security Hardening
 # ==============================================================
 
@@ -2545,6 +2546,15 @@ def frame_pointer_flags(enable, flags):
 
 
 set_config("MOZ_FRAMEPTR_FLAGS", frame_pointer_flags)
+
+
+# Stack unwinding without frame pointers
+# ==============================================================
+
+
+have_unwind = check_symbol(
+    "_Unwind_Backtrace", when=check_header("unwind.h", when=target_is_unix)
+)
 
 
 # Code Coverage

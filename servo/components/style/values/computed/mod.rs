@@ -16,6 +16,7 @@ use super::specified;
 use super::{CSSFloat, CSSInteger};
 use crate::computed_value_flags::ComputedValueFlags;
 use crate::context::QuirksMode;
+use crate::custom_properties::ComputedCustomProperties;
 use crate::font_metrics::{FontMetrics, FontMetricsOrientation};
 use crate::media_queries::Device;
 #[cfg(feature = "gecko")]
@@ -96,7 +97,7 @@ pub use self::svg::{SVGLength, SVGOpacity, SVGPaint, SVGPaintKind};
 pub use self::svg::{SVGPaintOrder, SVGStrokeDashArray, SVGWidth};
 pub use self::text::HyphenateCharacter;
 pub use self::text::TextUnderlinePosition;
-pub use self::text::{InitialLetter, LetterSpacing, LineBreak};
+pub use self::text::{InitialLetter, LetterSpacing, LineBreak, TextIndent};
 pub use self::text::{OverflowWrap, RubyPosition, TextOverflow, WordBreak, WordSpacing};
 pub use self::text::{TextAlign, TextAlignLast, TextEmphasisPosition, TextEmphasisStyle};
 pub use self::text::{TextDecorationLength, TextDecorationSkipInk, TextJustify};
@@ -313,6 +314,16 @@ impl<'a> Context<'a> {
     /// The current device.
     pub fn device(&self) -> &Device {
         self.builder.device
+    }
+
+    /// Get the inherited custom properties map.
+    pub fn inherited_custom_properties(&self) -> &ComputedCustomProperties {
+        &self.builder.inherited_custom_properties()
+    }
+
+    /// Whether the style is for the root element.
+    pub fn is_root_element(&self) -> bool {
+        self.builder.is_root_element
     }
 
     /// Queries font metrics.

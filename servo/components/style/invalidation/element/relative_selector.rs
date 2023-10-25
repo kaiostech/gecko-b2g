@@ -9,7 +9,8 @@ use crate::dom::{TElement, TNode};
 use crate::gecko_bindings::structs::ServoElementSnapshotTable;
 use crate::invalidation::element::element_wrapper::ElementWrapper;
 use crate::invalidation::element::invalidation_map::{
-    Dependency, DependencyInvalidationKind, RelativeDependencyInvalidationKind, NormalDependencyInvalidationKind, RelativeSelectorInvalidationMap,
+    Dependency, DependencyInvalidationKind, NormalDependencyInvalidationKind,
+    RelativeDependencyInvalidationKind, RelativeSelectorInvalidationMap,
 };
 use crate::invalidation::element::invalidator::{
     DescendantInvalidationLists, Invalidation, InvalidationProcessor, InvalidationResult,
@@ -24,13 +25,214 @@ use crate::stylist::{CascadeData, Stylist};
 use dom::ElementState;
 use fxhash::FxHashMap;
 use selectors::matching::{
+    matches_compound_selector_from, matches_selector, CompoundSelectorMatchingResult,
     ElementSelectorFlags, MatchingContext, MatchingForInvalidation, MatchingMode,
     NeedsSelectorFlags, QuirksMode, SelectorCaches, VisitedHandlingMode,
 };
-use selectors::parser::{Component, SelectorKey};
+use selectors::parser::{Combinator, Component, SelectorKey};
 use selectors::OpaqueElement;
 use smallvec::SmallVec;
 use std::ops::DerefMut;
+
+/// Kind of DOM mutation this relative selector invalidation is being carried out in.
+#[derive(Clone, Copy)]
+pub enum DomMutationOperation {
+    /// Insertion operation, can cause side effect, but presumed already happened.
+    Insert,
+    /// Append operation, cannot cause side effect.
+    Append,
+    /// Removal operation, can cause side effect, but presumed already happened. Sibling relationships are destroyed.
+    Remove,
+    /// Invalidating for side effect of a DOM operation, for the previous sibling.
+    SideEffectPrevSibling,
+    /// Invalidating for side effect of a DOM operation, for the next sibling.
+    SideEffectNextSibling,
+}
+
+impl DomMutationOperation {
+    fn accept(&self, d: &Dependency) -> bool {
+        match self {
+            Self::Insert | Self::Append | Self::Remove => true,
+            Self::SideEffectPrevSibling => d.right_combinator_is_next_sibling(),
+            Self::SideEffectNextSibling => d.dependency_is_relative_with_single_next_sibling(),
+        }
+    }
+
+    fn is_side_effect(&self) -> bool {
+        match self {
+            Self::Insert | Self::Append | Self::Remove => false,
+            Self::SideEffectPrevSibling | Self::SideEffectNextSibling => true,
+        }
+    }
+}
+
+/// Context required to try and optimize away relative dependencies.
+struct OptimizationContext<'a, E: TElement> {
+    sibling_traversal_map: &'a SiblingTraversalMap<E>,
+    quirks_mode: QuirksMode,
+    operation: DomMutationOperation,
+}
+
+impl<'a, E: TElement> OptimizationContext<'a, E> {
+    fn can_be_ignored(
+        &self,
+        is_subtree: bool,
+        element: E,
+        host: Option<OpaqueElement>,
+        dependency: &Dependency,
+    ) -> bool {
+        if is_subtree {
+            // Subtree elements don't have unaffected sibling to look at.
+            return false;
+        }
+        debug_assert!(
+            matches!(
+                dependency.invalidation_kind(),
+                DependencyInvalidationKind::Relative(..)
+            ),
+            "Non-relative selector being evaluated for optimization"
+        );
+        // This optimization predecates on the fact that there may be a sibling that can readily
+        // "take over" this element.
+        let sibling = match self.sibling_traversal_map.prev_sibling_for(&element) {
+            None => {
+                if matches!(self.operation, DomMutationOperation::Append) {
+                    return false;
+                }
+                match self.sibling_traversal_map.next_sibling_for(&element) {
+                    Some(s) => s,
+                    None => return false,
+                }
+            },
+            Some(s) => s,
+        };
+        {
+            // Run through the affected compund.
+            let mut iter = dependency.selector.iter_from(dependency.selector_offset);
+            while let Some(c) = iter.next() {
+                if c.has_indexed_selector_in_subject() {
+                    // We do not calculate indices during invalidation as they're wasteful - as a side effect,
+                    // such selectors always return true, breaking this optimization. Note that we only check
+                    // this compound only because the check to skip compares against this element's sibling.
+                    // i.e. Given `:has(:nth-child(2) .foo)`, we'd try to find `.foo`'s sibling, which
+                    // shares `:nth-child` up the selector.
+                    return false;
+                }
+            }
+        }
+        let is_rightmost = dependency.selector_offset == 0;
+        if !is_rightmost {
+            let combinator = dependency
+                .selector
+                .combinator_at_match_order(dependency.selector_offset - 1);
+            if combinator.is_ancestor() {
+                // We can safely ignore these, since we're about to traverse the
+                // rest of the affected tree anyway to find the rightmost invalidated element.
+                return true;
+            }
+            if combinator.is_sibling() && matches!(self.operation, DomMutationOperation::Append) {
+                // If we're in the subtree, same argument applies as ancestor combinator case.
+                // If we're at the top of the DOM tree being mutated, we can ignore it if the
+                // operation is append - we know we'll cover all the later siblings and their descendants.
+                return true;
+            }
+        }
+        let mut caches = SelectorCaches::default();
+        let mut matching_context = MatchingContext::new(
+            MatchingMode::Normal,
+            None,
+            &mut caches,
+            self.quirks_mode,
+            NeedsSelectorFlags::No,
+            MatchingForInvalidation::Yes,
+        );
+        matching_context.current_host = host;
+        let sibling_matches = matches_selector(
+            &dependency.selector,
+            dependency.selector_offset,
+            None,
+            &sibling,
+            &mut matching_context,
+        );
+        if sibling_matches {
+            // Remember that at this point, we know that the combinator to the right of this
+            // compound is a sibling combinator. Effectively, we've found a standin for the
+            // element we're mutating.
+            // e.g. Given `:has(... .a ~ .b ...)`, we're the mutating element matching `... .a`,
+            // if we find a sibling that matches the `... .a`, it can stand in for us.
+            return true;
+        }
+        // Ok, there's no standin element - but would this element have matched the upstream
+        // selector anyway? If we don't, either the match exists somewhere far from us
+        // (In which case our mutation doesn't really matter), or it doesn't exist at all,
+        // so we can just skip the invalidation.
+        let (combinator, prev_offset) = {
+            let mut iter = dependency.selector.iter_from(dependency.selector_offset);
+            let mut o = dependency.selector_offset;
+            while iter.next().is_some() {
+                o += 1;
+            }
+            let combinator = iter.next_sequence();
+            o += 1;
+            debug_assert!(
+                combinator.is_some(),
+                "Should at least see a relative combinator"
+            );
+            (combinator.unwrap(), o)
+        };
+        if combinator.is_sibling() {
+            if prev_offset >= dependency.selector.len() - 1 {
+                // Hit the relative combinator - we don't have enough information to
+                // see if there's going to be a downstream match.
+                return false;
+            }
+            if matches!(self.operation, DomMutationOperation::Remove) {
+                // This is sad :( The sibling relation of a removed element is lost, and we don't
+                // propagate sibling traversal map to selector matching context, so we need to do
+                // manual matching here. TODO(dshin): Worth changing selector matching for this?
+
+                // Try matching this compound, then...
+                if matches!(
+                    matches_compound_selector_from(
+                        &dependency.selector,
+                        dependency.selector_offset,
+                        &mut matching_context,
+                        &element
+                    ),
+                    CompoundSelectorMatchingResult::NotMatched
+                ) {
+                    return true;
+                }
+
+                // ... Match the rest of the selector, manually traversing.
+                let mut prev_sibling = self.sibling_traversal_map.prev_sibling_for(&element);
+                while let Some(sib) = prev_sibling {
+                    if matches_selector(
+                        &dependency.selector,
+                        prev_offset,
+                        None,
+                        &sib,
+                        &mut matching_context,
+                    ) {
+                        return false;
+                    }
+                    if matches!(combinator, Combinator::NextSibling) {
+                        break;
+                    }
+                    prev_sibling = self.sibling_traversal_map.prev_sibling_for(&sib);
+                }
+                return true;
+            }
+        }
+        !matches_selector(
+            &dependency.selector,
+            dependency.selector_offset,
+            None,
+            &element,
+            &mut matching_context,
+        )
+    }
+}
 
 /// Overall invalidator for handling relative selector invalidations.
 pub struct RelativeSelectorInvalidator<'a, 'b, E>
@@ -73,10 +275,13 @@ where
     /// a relative selector invalidation.
     dependencies: FxHashMap<E, ElementDependencies<'a>>,
     /// Dependencies that created an invalidation right away.
-    /// Maps an invalidation into its scope, selector offset, and its outer dependency.
-    invalidations: FxHashMap<InvalidationKey, (Option<OpaqueElement>, usize, &'a Dependency)>,
+    /// Maps an invalidation into the affected element, and its scope & dependency.
+    invalidations: FxHashMap<InvalidationKey, (E, Option<OpaqueElement>, &'a Dependency)>,
     /// The top element in the subtree being invalidated.
     top: E,
+    /// Optional context that will be used to try and skip invalidations
+    /// by running selector matches.
+    optimization_context: Option<OptimizationContext<'a, E>>,
 }
 
 type Invalidations<'a> = SmallVec<[RelativeSelectorInvalidation<'a>; 1]>;
@@ -102,31 +307,32 @@ impl<'a, E> RelativeSelectorDependencyCollector<'a, E>
 where
     E: TElement,
 {
-    fn new(top: E) -> Self {
+    fn new(top: E, optimization_context: Option<OptimizationContext<'a, E>>) -> Self {
         Self {
             dependencies: FxHashMap::default(),
             invalidations: FxHashMap::default(),
             top,
+            optimization_context,
         }
     }
 
     fn insert_invalidation(
         &mut self,
         key: InvalidationKey,
-        offset: usize,
-        outer: &'a Dependency,
+        element: E,
+        dependency: &'a Dependency,
         host: Option<OpaqueElement>,
     ) {
         self.invalidations
             .entry(key)
-            .and_modify(|(h, o, d)| {
+            .and_modify(|(e, h, d)| {
                 // Just keep one.
-                if *o <= offset {
+                if d.selector_offset <= dependency.selector_offset {
                     return;
                 }
-                (*h, *o, *d) = (host, offset, outer);
+                (*e, *h, *d) = (element, host, dependency);
             })
-            .or_insert_with(|| (host, offset, outer));
+            .or_insert_with(|| (element, host, dependency));
     }
 
     /// Add this dependency, if it is unique (i.e. Different outer dependency or same outer dependency
@@ -142,43 +348,36 @@ where
                 self.dependencies
                     .entry(element)
                     .and_modify(|v| v.push((host, dependency)))
-                    .or_default().push((host, dependency));
+                    .or_default()
+                    .push((host, dependency));
             },
             DependencyInvalidationKind::Relative(kind) => {
-                debug_assert!(dependency.parent.is_some(), "Orphaned inner relative selector?");
+                debug_assert!(
+                    dependency.parent.is_some(),
+                    "Orphaned inner relative selector?"
+                );
                 if element.relative_selector_search_direction().is_none() {
                     return;
                 }
-                if element != self.top && matches!(kind, RelativeDependencyInvalidationKind::Parent |
-                    RelativeDependencyInvalidationKind::PrevSibling |
-                    RelativeDependencyInvalidationKind::EarlierSibling)
+                if element != self.top &&
+                    matches!(
+                        kind,
+                        RelativeDependencyInvalidationKind::Parent |
+                            RelativeDependencyInvalidationKind::PrevSibling |
+                            RelativeDependencyInvalidationKind::EarlierSibling
+                    )
                 {
                     return;
                 }
                 self.insert_invalidation(
-                    InvalidationKey(SelectorKey::new(&dependency.selector), dependency.invalidation_kind()),
-                    dependency.selector_offset,
-                    dependency.parent.as_ref().unwrap(),
-                    host);
-                // We move the invalidation up to the top of the subtree to avoid unnecessary traveral, but
-                // this means that we need to take ancestor-earlier sibling invalidations into account, as
-                // they'd look into earlier siblings of the top of the subtree as well.
-                if element != self.top && matches!(kind, RelativeDependencyInvalidationKind::AncestorEarlierSibling |
-                    RelativeDependencyInvalidationKind::AncestorPrevSibling)
-                {
-                    self.insert_invalidation(
-                        InvalidationKey(
-                            SelectorKey::new(&dependency.selector),
-                            if matches!(kind, RelativeDependencyInvalidationKind::AncestorPrevSibling) {
-                                DependencyInvalidationKind::Relative(RelativeDependencyInvalidationKind::PrevSibling)
-                            } else {
-                                DependencyInvalidationKind::Relative(RelativeDependencyInvalidationKind::EarlierSibling)
-                            }
-                        ),
-                        dependency.selector_offset,
-                        dependency.parent.as_ref().unwrap(),
-                        host);
-                }
+                    InvalidationKey(
+                        SelectorKey::new(&dependency.selector),
+                        dependency.invalidation_kind(),
+                    ),
+                    element,
+                    dependency,
+                    host,
+                );
             },
         };
     }
@@ -186,14 +385,56 @@ where
     /// Get the dependencies in a list format.
     fn get(self) -> ToInvalidate<'a, E> {
         let mut result = ToInvalidate::default();
-        for (key, (host, _offset, dependency)) in self.invalidations {
+        for (key, (element, host, relative_dependency)) in self.invalidations {
             match key.1 {
-                DependencyInvalidationKind::Normal(_) => unreachable!("Inner selector in invalidation?"),
-                DependencyInvalidationKind::Relative(kind) =>
-                    result.invalidations.push(RelativeSelectorInvalidation { kind, host, dependency }),
+                DependencyInvalidationKind::Normal(_) => {
+                    unreachable!("Inner selector in invalidation?")
+                },
+                DependencyInvalidationKind::Relative(kind) => {
+                    if let Some(context) = self.optimization_context.as_ref() {
+                        if context.can_be_ignored(
+                            element != self.top,
+                            element,
+                            host,
+                            relative_dependency,
+                        ) {
+                            continue;
+                        }
+                    }
+                    let dependency = relative_dependency.parent.as_ref().unwrap();
+                    result.invalidations.push(RelativeSelectorInvalidation {
+                        kind,
+                        host,
+                        dependency,
+                    });
+                    // We move the invalidation up to the top of the subtree to avoid unnecessary traveral, but
+                    // this means that we need to take ancestor-earlier sibling invalidations into account, as
+                    // they'd look into earlier siblings of the top of the subtree as well.
+                    if element != self.top &&
+                        matches!(
+                            kind,
+                            RelativeDependencyInvalidationKind::AncestorEarlierSibling |
+                                RelativeDependencyInvalidationKind::AncestorPrevSibling
+                        )
+                    {
+                        result.invalidations.push(RelativeSelectorInvalidation {
+                            kind: if matches!(
+                                kind,
+                                RelativeDependencyInvalidationKind::AncestorPrevSibling
+                            ) {
+                                RelativeDependencyInvalidationKind::PrevSibling
+                            } else {
+                                RelativeDependencyInvalidationKind::EarlierSibling
+                            },
+                            host,
+                            dependency,
+                        });
+                    }
+                },
             };
         }
         for (key, element_dependencies) in self.dependencies {
+            // At least for now, we don't try to optimize away dependencies emitted from nested selectors.
             result.dependencies.push((key, element_dependencies));
         }
         result
@@ -205,14 +446,14 @@ where
         scope: Option<OpaqueElement>,
         quirks_mode: QuirksMode,
         map: &'a RelativeSelectorInvalidationMap,
-        accept: fn(&Dependency) -> bool,
+        operation: DomMutationOperation,
     ) {
         element
             .id()
             .map(|v| match map.map.id_to_selector.get(v, quirks_mode) {
                 Some(v) => {
                     for dependency in v {
-                        if !accept(dependency) {
+                        if !operation.accept(dependency) {
                             continue;
                         }
                         self.add_dependency(dependency, element, scope);
@@ -223,7 +464,7 @@ where
         element.each_class(|v| match map.map.class_to_selector.get(v, quirks_mode) {
             Some(v) => {
                 for dependency in v {
-                    if !accept(dependency) {
+                    if !operation.accept(dependency) {
                         continue;
                     }
                     self.add_dependency(dependency, element, scope);
@@ -235,7 +476,7 @@ where
             |v| match map.map.other_attribute_affecting_selectors.get(v) {
                 Some(v) => {
                     for dependency in v {
-                        if !accept(dependency) {
+                        if !operation.accept(dependency) {
                             continue;
                         }
                         self.add_dependency(dependency, element, scope);
@@ -255,7 +496,7 @@ where
                 if !dependency.state.intersects(state) {
                     return true;
                 }
-                if !accept(&dependency.dep) {
+                if !operation.accept(&dependency.dep) {
                     return true;
                 }
                 self.add_dependency(&dependency.dep, element, scope);
@@ -265,7 +506,7 @@ where
 
         if let Some(v) = map.type_to_selector.get(element.local_name()) {
             for dependency in v {
-                if !accept(dependency) {
+                if !operation.accept(dependency) {
                     continue;
                 }
                 self.add_dependency(dependency, element, scope);
@@ -273,7 +514,7 @@ where
         }
 
         for dependency in &map.any_to_selector {
-            if !accept(dependency) {
+            if !operation.accept(dependency) {
                 continue;
             }
             self.add_dependency(dependency, element, scope);
@@ -304,7 +545,7 @@ where
             &mut RelativeSelectorDependencyCollector<'a, E>,
         ),
     {
-        let mut collector = RelativeSelectorDependencyCollector::new(self.element);
+        let mut collector = RelativeSelectorDependencyCollector::new(self.element, None);
         stylist.for_each_cascade_data_with_scope(self.element, |data, scope| {
             let map = data.relative_selector_invalidation_map();
             if !map.used {
@@ -331,9 +572,20 @@ where
         subtree: bool,
         stylist: &'a Stylist,
         inherited_search_path: ElementSelectorFlags,
-        accept: fn(&Dependency) -> bool,
+        operation: DomMutationOperation,
     ) {
-        let mut collector = RelativeSelectorDependencyCollector::<'a, E>::new(self.element);
+        let mut collector = RelativeSelectorDependencyCollector::new(
+            self.element,
+            if operation.is_side_effect() {
+                None
+            } else {
+                Some(OptimizationContext {
+                    sibling_traversal_map: &self.sibling_traversal_map,
+                    quirks_mode: self.quirks_mode,
+                    operation,
+                })
+            },
+        );
         let mut traverse_subtree = false;
         self.element.apply_selector_flags(inherited_search_path);
         stylist.for_each_cascade_data_with_scope(self.element, |data, scope| {
@@ -342,7 +594,13 @@ where
                 return;
             }
             traverse_subtree |= map.needs_ancestors_traversal;
-            collector.collect_all_dependencies_for_element(self.element, scope.map(|e| e.opaque()), self.quirks_mode, map, accept);
+            collector.collect_all_dependencies_for_element(
+                self.element,
+                scope.map(|e| e.opaque()),
+                self.quirks_mode,
+                map,
+                operation,
+            );
         });
 
         if subtree && traverse_subtree {
@@ -357,7 +615,13 @@ where
                     if !map.used {
                         return;
                     }
-                    collector.collect_all_dependencies_for_element(descendant, scope.map(|e| e.opaque()), self.quirks_mode, map, accept);
+                    collector.collect_all_dependencies_for_element(
+                        descendant,
+                        scope.map(|e| e.opaque()),
+                        self.quirks_mode,
+                        map,
+                        operation,
+                    );
                 });
             }
         }
@@ -506,8 +770,12 @@ where
         host: Option<OpaqueElement>,
     ) {
         let is_rightmost = Self::is_subject(outer_dependency);
-        if (is_rightmost && !element.has_selector_flags(ElementSelectorFlags::ANCHORS_RELATIVE_SELECTOR)) ||
-            (!is_rightmost && !element.has_selector_flags(ElementSelectorFlags::ANCHORS_RELATIVE_SELECTOR_NON_SUBJECT))
+        if (is_rightmost &&
+            !element.has_selector_flags(ElementSelectorFlags::ANCHORS_RELATIVE_SELECTOR)) ||
+            (!is_rightmost &&
+                !element.has_selector_flags(
+                    ElementSelectorFlags::ANCHORS_RELATIVE_SELECTOR_NON_SUBJECT,
+                ))
         {
             // If it was never a relative selector anchor, don't bother.
             return;
@@ -541,8 +809,12 @@ where
     /// Does this relative selector dependency have its relative selector in the subject position?
     fn is_subject(outer_dependency: &Dependency) -> bool {
         debug_assert!(
-            matches!(outer_dependency.invalidation_kind(), DependencyInvalidationKind::Normal(_)),
-            "Outer selector of relative selector is relative?");
+            matches!(
+                outer_dependency.invalidation_kind(),
+                DependencyInvalidationKind::Normal(_)
+            ),
+            "Outer selector of relative selector is relative?"
+        );
 
         if let Some(p) = outer_dependency.parent.as_ref() {
             if !Self::is_subject(p.as_ref()) {
@@ -679,7 +951,10 @@ fn add_blind_invalidation<'a, E: TElement>(
     sibling_invalidations: &mut InvalidationVector<'a>,
 ) -> bool {
     debug_assert!(
-        matches!(dependency.invalidation_kind(), DependencyInvalidationKind::Normal(_)),
+        matches!(
+            dependency.invalidation_kind(),
+            DependencyInvalidationKind::Normal(_)
+        ),
         "Unexpected relative dependency"
     );
     if !dependency_may_be_relevant(dependency, element, false) {
@@ -771,7 +1046,7 @@ where
             DependencyInvalidationKind::Relative(kind) => {
                 self.found_relative_selector_invalidation(element, kind, dependency);
                 return;
-            }
+            },
         }
         if matches!(
             dependency.normal_invalidation_kind(),
@@ -860,7 +1135,12 @@ where
     fn invalidated_sibling(&mut self, _sibling: E, _of: E) {}
     fn invalidated_descendants(&mut self, _element: E, _child: E) {}
 
-    fn found_relative_selector_invalidation(&mut self, element: E, kind: RelativeDependencyInvalidationKind, dep: &'a Dependency) {
+    fn found_relative_selector_invalidation(
+        &mut self,
+        element: E,
+        kind: RelativeDependencyInvalidationKind,
+        dep: &'a Dependency,
+    ) {
         debug_assert!(dep.parent.is_some(), "Orphaned inners selector?");
         if element.relative_selector_search_direction().is_none() {
             return;

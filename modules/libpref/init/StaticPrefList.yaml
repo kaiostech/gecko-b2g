@@ -4077,7 +4077,7 @@
 
 - name: dom.storage_access.frame_only
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Only grant storage access to secure contexts.
@@ -9376,6 +9376,12 @@
   value: true
   mirror: always
 
+# Handle scroll-anchoring adjustments as absolute scroll position updates.
+- name: layout.css.scroll-anchoring.absolute-update
+  type: bool
+  value: true
+  mirror: always
+
 # Are shared memory User Agent style sheets enabled?
 - name: layout.css.shared-memory-ua-sheets.enabled
   type: bool
@@ -10436,6 +10442,12 @@
 #else
     value: 0
 #endif
+    mirror: always
+
+# Enable Widevine experiment DRM for EME
+-   name: media.eme.widevine.experiment.enabled
+    type: RelaxedAtomicBool
+    value: false
     mirror: always
 
 #endif  # MOZ_WMF
@@ -11544,7 +11556,7 @@
 # whether to redirect the channel for auth redirects. See Bug 1820807
 - name: network.auth.use_redirect_for_retries
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether to allow truncated brotli with empty output. This also fixes
@@ -12050,24 +12062,6 @@
 - name: network.send_ODA_to_content_directly
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-
-# Whether we can send OnDataFinished to html5parser in content process directly
-- name: network.send_OnDataFinished.html5parser
-  type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
-# Whether we can send OnDataFinished in the content process
-- name: network.send_OnDataFinished
-  type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
-  mirror: always
-
-# Whether we can send OnDataAvailable to content process directly.
-- name: network.send_OnDataFinished.nsInputStreamPump
-  type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Perform all network access on the socket process.
@@ -15364,6 +15358,15 @@
 - name: webgl.force-index-validation
   type: RelaxedAtomicInt32
   value: 0
+  mirror: always
+
+- name: webgl.gl_khr_no_error
+  type: RelaxedAtomicBool
+#ifdef XP_WIN
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 
 - name: webgl.lose-context-on-memory-pressure

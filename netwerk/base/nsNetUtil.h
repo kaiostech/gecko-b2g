@@ -1044,6 +1044,7 @@ struct LinkHeader {
   nsString mCrossOrigin;
   nsString mReferrerPolicy;
   nsString mAs;
+  nsString mFetchPriority;
 
   LinkHeader();
   void Reset();

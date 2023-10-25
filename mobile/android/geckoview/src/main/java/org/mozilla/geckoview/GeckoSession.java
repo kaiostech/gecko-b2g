@@ -2037,11 +2037,7 @@ public class GeckoSession {
     }
 
     private static boolean equals(final Object a, final Object b) {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-        return Objects.equals(a, b);
-      }
-
-      return (a == b) || (a != null && a.equals(b));
+      return Objects.equals(a, b);
     }
 
     @Override
@@ -6917,8 +6913,8 @@ public class GeckoSession {
     int PERMISSION_TRACKING = 7;
 
     /**
-     * Permission for third party frames to access first party cookies and storage. May be granted
-     * heuristically in some cases.
+     * Permission for third party frames to access first party cookies. May be granted heuristically
+     * in some cases.
      */
     int PERMISSION_STORAGE_ACCESS = 8;
 
@@ -6990,6 +6986,11 @@ public class GeckoSession {
           // Storage access permissions are stored with the key "3rdPartyStorage^https://foo.com"
           // where the third party origin is "https://foo.com".
           this.thirdPartyOrigin = permission.substring(16);
+        } else if (permission.startsWith("3rdPartyFrameStorage^")) {
+          // Storage access permissions may also be stored with the key
+          // "3rdPartyFrameStorage^https://foo.com" where the third party
+          // origin is "https://foo.com".
+          this.thirdPartyOrigin = permission.substring(21);
         } else {
           this.thirdPartyOrigin = bundle.getString("thirdPartyOrigin");
         }
@@ -7047,7 +7048,9 @@ public class GeckoSession {
           return PERMISSION_MEDIA_KEY_SYSTEM_ACCESS;
         } else if ("trackingprotection".equals(type) || "trackingprotection-pb".equals(type)) {
           return PERMISSION_TRACKING;
-        } else if ("storage-access".equals(type) || type.startsWith("3rdPartyStorage^")) {
+        } else if ("storage-access".equals(type)
+            || type.startsWith("3rdPartyStorage^")
+            || type.startsWith("3rdPartyFrameStorage^")) {
           return PERMISSION_STORAGE_ACCESS;
         } else {
           return -1;

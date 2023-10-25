@@ -8113,10 +8113,21 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
 
   if (mAuthRetryPending &&
       StaticPrefs::network_auth_use_redirect_for_retries()) {
-    MOZ_ASSERT(mRedirectChannel);
     nsresult rv = OpenRedirectChannel(aStatus);
     LOG(("Opening redirect channel for auth retry %x",
          static_cast<uint32_t>(rv)));
+    if (NS_FAILED(rv)) {
+      if (mListener) {
+        MOZ_ASSERT(!LoadOnStartRequestCalled(),
+                   "We should not call OnStartRequest twice.");
+        nsCOMPtr<nsIStreamListener> listener(mListener);
+        StoreOnStartRequestCalled(true);
+        listener->OnStartRequest(this);
+      } else {
+        StoreOnStartRequestCalled(true);
+        NS_WARNING("OnStartRequest skipped because of null listener");
+      }
+    }
     mRedirectChannel = nullptr;
   }
 
@@ -8403,18 +8414,6 @@ nsHttpChannel::CheckListenerChain() {
     rv = retargetableListener->CheckListenerChain();
   }
   return rv;
-}
-
-NS_IMETHODIMP
-nsHttpChannel::OnDataFinished(nsresult aStatus) {
-  nsCOMPtr<nsIThreadRetargetableStreamListener> listener =
-      do_QueryInterface(mListener);
-
-  if (listener) {
-    return listener->OnDataFinished(aStatus);
-  }
-
-  return NS_OK;
 }
 
 //-----------------------------------------------------------------------------

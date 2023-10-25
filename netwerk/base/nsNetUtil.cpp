@@ -3601,6 +3601,7 @@ void LinkHeader::Reset() {
   mReferrerPolicy.Truncate();
   mAs.Truncate();
   mCrossOrigin.SetIsVoid(true);
+  mFetchPriority.Truncate();
 }
 
 nsresult LinkHeader::NewResolveHref(nsIURI** aOutURI, nsIURI* aBaseURI) const {
@@ -3624,7 +3625,8 @@ bool LinkHeader::operator==(const LinkHeader& rhs) const {
          mSrcset == rhs.mSrcset && mSizes == rhs.mSizes && mType == rhs.mType &&
          mMedia == rhs.mMedia && mAnchor == rhs.mAnchor &&
          mCrossOrigin == rhs.mCrossOrigin &&
-         mReferrerPolicy == rhs.mReferrerPolicy && mAs == rhs.mAs;
+         mReferrerPolicy == rhs.mReferrerPolicy && mAs == rhs.mAs &&
+         mFetchPriority == rhs.mFetchPriority;
 }
 
 constexpr auto kTitleStar = "title*"_ns;
@@ -3891,6 +3893,12 @@ void LinkHeader::MaybeUpdateAttribute(const nsAString& aAttribute,
   } else if (aAttribute.LowerCaseEqualsLiteral("imagesizes")) {
     if (mSizes.IsEmpty()) {
       mSizes = aValue;
+    }
+  } else if (aAttribute.LowerCaseEqualsLiteral("fetchpriority")) {
+    if (mFetchPriority.IsEmpty()) {
+      LOG(("Update fetchPriority to \"%s\"",
+           NS_ConvertUTF16toUTF8(aValue).get()));
+      mFetchPriority = aValue;
     }
   }
 }

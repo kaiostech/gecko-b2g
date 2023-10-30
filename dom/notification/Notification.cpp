@@ -871,12 +871,13 @@ Notification::ConstructFromFields(
   options.mRequireInteraction = aRequireInteraction;
   options.mSilent = aSilent;
 
-  JSContext* cx = nsContentUtils::GetCurrentJSContext();
-  nsresult rv =
-      NotificationActionsStringToArray(cx, aActions, options.mActions);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    aRv.Throw(rv);
-    return nullptr;
+  {  // Prevent redefinition of 'rv'.
+    JSContext* cx = nsContentUtils::GetCurrentJSContext();
+    nsresult rv =
+        NotificationActionsStringToArray(cx, aActions, options.mActions);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return Err(ToQMResult(rv));
+    }
   }
 
   IgnoredErrorResult rv;

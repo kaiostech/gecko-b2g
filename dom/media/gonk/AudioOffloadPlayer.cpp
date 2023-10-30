@@ -84,7 +84,7 @@ void AudioOffloadPlayer::InitInternal() {
     LOG("AudioOffloadPlayer::InitInternal, initializing MediaFormatReader");
     nsresult rv = mReaderProxy->Init();
     if (NS_FAILED(rv)) {
-      LOG("AudioOffloadPlayer::InitInternal, error: 0x%x", rv);
+      LOG("AudioOffloadPlayer::InitInternal, error: 0x%x", unsigned(rv));
       NotifyPlaybackError(MediaResult(rv, __func__));
       return;
     }
@@ -239,6 +239,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
     mInitDone = true;
     VolumeChanged();
     PlaybackSettingsChanged();
+    PlayStateChanged();
     if (!FirePendingSeekIfExists()) {
       MaybeStartDemuxing();
       MaybeStartDecoding();
@@ -735,8 +736,13 @@ void AudioOffloadPlayer::PlayStateChanged() {
   if (mInitDone) {
     if (mPlayState == MediaDecoder::PLAY_STATE_PLAYING && !mIsPlaying) {
       LOG("AudioOffloadPlayer::PlayStateChanged, start sink");
+      status_t err = mAudioSink->Start();
+      if (err != OK) {
+        LOG("Cannot start AudioSink, err %d", err);
+        NotifyAudioTearDown();
+        return;
+      }
       mIsPlaying = true;
-      mAudioSink->Start();
       UpdateCurrentPositionPeriodically();
     } else if (mPlayState == MediaDecoder::PLAY_STATE_PAUSED && mIsPlaying) {
       LOG("AudioOffloadPlayer::PlayStateChanged, pause sink");

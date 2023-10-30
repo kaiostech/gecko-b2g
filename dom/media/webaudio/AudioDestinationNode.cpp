@@ -404,31 +404,7 @@ AudioNodeTrack* AudioDestinationNode::Track() {
 
 void AudioDestinationNode::DestroyAudioChannelAgentIfExists() {
   if (mAudioChannelAgent) {
-    uint32_t delayMs = StaticPrefs::dom_audiochannel_release_delay_ms();
-    if (delayMs > 0) {
-      // When closing or suspending AudioContext, it may take hundreds of
-      // microseconds to actually stop our audio output. If other window's audio
-      // channel is also resumed at the same time, its audio output may start
-      // before our audio output is stopped and causes problems.
-      // Workaround:
-      // Add extra delay when calling AudioChannelAgent::NotifyStoppedPlaying().
-      // This can delay the resuming of other window's audio channel (if any).
-      // Note that mAudioChannelAgent should not be used again to avoid race
-      // condition, so mAudioChannelAgent's ownership is transferred to the
-      // runnable and will be destroyed when the runnable finishes.
-      AUDIO_CHANNEL_LOG(
-          "AudioDestinationNode %p delay releasing channel by %u ms\n", this,
-          delayMs);
-      NS_DelayedDispatchToCurrentThread(
-          NS_NewRunnableFunction(
-              "AudioDestinationNode::DestroyAudioChannelAgentIfExists",
-              [agent = mAudioChannelAgent]() {
-                agent->NotifyStoppedPlaying();
-              }),
-          delayMs);
-    } else {
-      mAudioChannelAgent->NotifyStoppedPlaying();
-    }
+    mAudioChannelAgent->NotifyStoppedPlaying();
     mAudioChannelAgent = nullptr;
     if (IsCapturingAudio()) {
       StopAudioCapturingTrack();

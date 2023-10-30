@@ -324,8 +324,8 @@ topsites:
         type: string
       tile_id: &tile_id
         description: >
-          The tile id of the advertiser provided by Contile
-        type: string
+          The tile id of the advertiser provided by Contile. Like `74357`.
+        type: quantity
       newtab_visit_id: *newtab_visit_id
       is_sponsored: &is_sponsored
         description: Whether the topsite tile was sponsored.
@@ -369,6 +369,94 @@ topsites:
       newtab_visit_id: *newtab_visit_id
       is_sponsored: *is_sponsored
       position: *topsite_position
+    send_in_pings:
+      - newtab
+
+  show_privacy_click:
+    type: event
+    description: >
+      Recorded when the "Our Sponsors and Your Privacy" menu item in the three-
+      dots menu of a sponsored topsite is clicked.
+      Corresponds to the receipt of a dispatched `ABOUT_SPONSORED_TOP_SITES`
+      action by `TelemetryFeed`.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/DENG-1364
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1857324
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1857324
+    data_sensitivity: [interaction]
+    notification_emails:
+      - chutten@mozilla.com
+      - mmccorquodale@mozilla.com
+      - sbetancourt@mozilla.com
+    expires: never
+    extra_keys:
+      advertiser_name: *advertiser_name
+      tile_id: *tile_id
+      newtab_visit_id: *newtab_visit_id
+      position: *topsite_position
+    send_in_pings:
+      - newtab
+
+  dismiss:
+    type: event
+    description: >
+      Recorded when the "Dismiss" menu item in the three-dots menu of a topsite
+      is clicked.
+      Corresponds to the receipt of a dispatched `BLOCK_URL` action by
+      `TelemetryFeed`.
+      Applies to both sponsored and non-sponsored topsites.
+      `advertiser_name` is only provided for sponsored topsites.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/DENG-1363
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1857324
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1857324
+    data_sensitivity: [interaction]
+    notification_emails:
+      - chutten@mozilla.com
+      - mmccorquodale@mozilla.com
+      - sbetancourt@mozilla.com
+      - kdemtchouk@mozilla.com
+      - mbowerman@mozilla.com
+    expires: never
+    extra_keys:
+      advertiser_name: *advertiser_name
+      tile_id: *tile_id
+      newtab_visit_id: *newtab_visit_id
+      is_sponsored: *is_sponsored
+      position: *topsite_position
+    send_in_pings:
+      - newtab
+
+  pref_changed:
+    type: event
+    description: >
+      Recorded when specific topsites prefs have changed.
+
+      The list of possible prefs is presently:
+       * browser.newtabpage.activity-stream.feeds.topsites
+       * browser.newtabpage.activity-stream.showSponsoredTopSites
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/D0-1293
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1857324
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1857324
+    data_sensitivity: [interaction]
+    notification_emails:
+      - chutten@mozilla.com
+      - mmccorquodale@mozilla.com
+      - sbetancourt@mozilla.com
+      - kdemtchouk@mozilla.com
+      - mbowerman@mozilla.com
+    expires: never
+    extra_keys:
+      pref_name:
+        description: The full name of the pref whose value just changed.
+        type: string
+      new_value:
+        description: The new (current) value the pref just changed to.
+        type: boolean
     send_in_pings:
       - newtab
 
@@ -484,9 +572,11 @@ pocket:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105#c11
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_sensitivity:
       - interaction
     notification_emails:
@@ -504,6 +594,11 @@ pocket:
       position: &pocket_position
         description: The position (0-index) of the pocket tile.
         type: quantity
+      recommendation_id: &recommendation_id
+        description: >
+          The id from the Pocket API response that returned the recommendation.
+          Like "{61934fe5-fbb0-4f4e-b9dd-7eab5f6ee9cd}".
+        type: string
     send_in_pings:
       - newtab
 
@@ -516,9 +611,11 @@ pocket:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105#c11
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_sensitivity:
       - interaction
     notification_emails:
@@ -532,6 +629,7 @@ pocket:
       newtab_visit_id: *newtab_visit_id
       is_sponsored: *is_sponsored_pocket
       position: *pocket_position
+      recommendation_id: *recommendation_id
     send_in_pings:
       - newtab
 
@@ -545,9 +643,11 @@ pocket:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105#c11
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_sensitivity:
       - interaction
     notification_emails:
@@ -561,6 +661,7 @@ pocket:
       newtab_visit_id: *newtab_visit_id
       is_sponsored: *is_sponsored_pocket
       position: *pocket_position
+      recommendation_id: *recommendation_id
     send_in_pings:
       - newtab
 
@@ -573,9 +674,11 @@ pocket:
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1786612
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1817105#c11
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1854245
     data_sensitivity:
       - interaction
     notification_emails:

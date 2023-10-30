@@ -115,7 +115,6 @@
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_docshell.h"
 #include "mozilla/StaticPrefs_dom.h"
-#include "mozilla/StaticPrefs_editor.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_full_screen_api.h"
 #include "mozilla/StaticPrefs_layout.h"
@@ -4912,10 +4911,10 @@ void Document::EnsureInitializeInternalCommandDataHashtable() {
   sInternalCommandDataHashtable->InsertOrUpdate(
       u"formatblock"_ns,
       InternalCommandData(
-          "cmd_paragraphState",
+          "cmd_formatBlock",
           Command::FormatBlock,
           ExecCommandParam::String,
-          ParagraphStateCommand::GetInstance,
+          FormatBlockStateCommand::GetInstance,
           CommandOnTextEditor::Disabled));
   sInternalCommandDataHashtable->InsertOrUpdate(
       u"styleWithCSS"_ns,
@@ -5114,19 +5113,27 @@ Document::InternalCommandData Document::ConvertToInternalCommand(
           static const nsStaticAtom* kFormattableBlockTags[] = {
               // clang-format off
             nsGkAtoms::address,
+            nsGkAtoms::article,
+            nsGkAtoms::aside,
             nsGkAtoms::blockquote,
             nsGkAtoms::dd,
             nsGkAtoms::div,
             nsGkAtoms::dl,
             nsGkAtoms::dt,
+            nsGkAtoms::footer,
             nsGkAtoms::h1,
             nsGkAtoms::h2,
             nsGkAtoms::h3,
             nsGkAtoms::h4,
             nsGkAtoms::h5,
             nsGkAtoms::h6,
+            nsGkAtoms::header,
+            nsGkAtoms::hgroup,
+            nsGkAtoms::main,
+            nsGkAtoms::nav,
             nsGkAtoms::p,
             nsGkAtoms::pre,
+            nsGkAtoms::section,
               // clang-format on
           };
           nsAutoString value(nsDependentSubstring(start, end));
@@ -5378,12 +5385,13 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
       SetUseCounter(eUseCounter_custom_DocumentExecCommandContentReadOnly);
       break;
     case Command::EnableCompatibleJoinSplitNodeDirection:
-      // We don't allow to take the legacy behavior back if the new one is
-      // enabled by default.
-      if (StaticPrefs::
-              editor_join_split_direction_compatible_with_the_other_browsers() &&
-          !adjustedValue.EqualsLiteral("true") &&
-          !aSubjectPrincipal.IsSystemPrincipal()) {
+      // We didn't allow to enable the legacy behavior once we've enabled the
+      // new behavior by default.  For keeping the behavior at supporting both
+      // mode, we should keep returning `false` if the web app to enable the
+      // legacy mode.  Additionally, we don't support the legacy direction
+      // anymore.  Therefore, we can return `false` here even if the caller is
+      // an addon or chrome script.
+      if (!adjustedValue.EqualsLiteral("true")) {
         return false;
       }
       break;
@@ -16306,7 +16314,13 @@ bool Document::RecomputeResistFingerprinting() {
           ("Finished RecomputeResistFingerprinting with result %x",
            mShouldResistFingerprinting));
 
-  return previous != mShouldResistFingerprinting;
+  bool changed = previous != mShouldResistFingerprinting;
+  if (changed) {
+    if (auto win = nsGlobalWindowInner::Cast(GetInnerWindow())) {
+      win->RefreshReduceTimerPrecisionCallerType();
+    }
+  }
+  return changed;
 }
 
 bool Document::ShouldResistFingerprinting(RFPTarget aTarget) const {

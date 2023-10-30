@@ -4990,14 +4990,6 @@
   value: true
   mirror: always
 
-# Whether use Blink/WebKit compatbile joining nodes and split a node direction.
-# false: Left node will be created (at splitting) and deleted (at joining)
-# true:  Right node will be created (at splitting) and deleted (at joinining)
-- name: editor.join_split_direction.compatible_with_the_other_browsers
-  type: bool
-  value: true
-  mirror: always
-
 # Delay to mask last input character in password fields.
 # If negative value, to use platform's default behavior.
 # If 0, no delay to mask password.
@@ -9394,13 +9386,6 @@
   value: false
   mirror: always
 
-# Is support for -webkit-slider* pseudos enabled?
-- name: layout.css.webkit-range-pseudos.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
 # Is 'content:none' supported on (non-pseudo) elements?
 - name: layout.css.element-content-none.enabled
   type: RelaxedAtomicBool
@@ -12060,6 +12045,31 @@
 
 # Whether we can send OnDataAvailable to content process directly.
 - name: network.send_ODA_to_content_directly
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Whether we can send OnDataFinished to html5parser in content process directly
+- name: network.send_OnDataFinished.html5parser
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether we can send OnDataFinished in the content process
+- name: network.send_OnDataFinished
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether we can send OnDataAvailable to content process directly.
+- name: network.send_OnDataFinished.nsInputStreamPump
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether we can send send OnDataFinished only after dispatching
+# all the progress events on the main thread
+- name: network.send_OnDataFinished_after_progress_updates
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -15641,13 +15651,7 @@
 # Whether we should try to use WebRender to render widgets.
 - name: widget.non-native-theme.webrender
   type: bool
-#if defined(XP_MACOSX)
-  # Disabled on macOS release / beta because of a suspected AMD driver bug (see
-  # bug 1715452).
-  value: @IS_NIGHTLY_BUILD@
-#else
   value: true
-#endif
   mirror: always
 
 # Whether the outline style should be one big stroke or two contrasting strokes
@@ -15963,6 +15967,19 @@
 - name: widget.windows.fullscreen_remind_taskbar
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Whether to open the Windows file and folder pickers "remotely" (in a utility
+# process) or "locally" (in the main process).
+#
+# Valid values:
+#  *  0: auto (possibly release-channel-dependent)
+#  *  1: remotely, falling back to locally
+#  *  2: remotely, no fallback
+#  * -1: locally, no fallback
+- name: widget.windows.utility_process_file_picker
+  type: RelaxedAtomicInt32
+  value: -1
   mirror: always
 
 # The number of messages of each type to keep for display in

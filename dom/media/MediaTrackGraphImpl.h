@@ -107,6 +107,7 @@ class MessageBlock {
 class MediaTrackGraphImpl : public MediaTrackGraph,
                             public GraphInterface,
                             public nsIMemoryReporter,
+                            public nsIObserver,
                             public nsIThreadObserver,
                             public nsITimerCallback,
                             public nsINamed {
@@ -115,6 +116,7 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIMEMORYREPORTER
+  NS_DECL_NSIOBSERVER
   NS_DECL_NSITHREADOBSERVER
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
@@ -129,19 +131,22 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    */
   explicit MediaTrackGraphImpl(GraphDriverType aGraphDriverRequested,
                                GraphRunType aRunTypeRequested,
-                               TrackRate aSampleRate, uint32_t aChannelCount,
+                               uint64_t aWindowID, TrackRate aSampleRate,
+                               uint32_t aChannelCount,
                                CubebUtils::AudioDeviceID aOutputDeviceID,
                                dom::AudioChannel aAudioChannel,
                                nsISerialEventTarget* aMainThread);
   static MediaTrackGraphImpl* GetInstance(
       GraphDriverType aGraphDriverRequested, uint64_t aWindowID,
-      bool aShouldResistFingerprinting, TrackRate aSampleRate,
-      CubebUtils::AudioDeviceID aOutputDeviceID,
+      TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID,
       dom::AudioChannel aAudioChannel, nsISerialEventTarget* aMainThread);
   static MediaTrackGraphImpl* GetInstanceIfExists(
-      uint64_t aWindowID, bool aShouldResistFingerprinting,
-      TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID,
+      uint64_t aWindowID, TrackRate aSampleRate,
+      CubebUtils::AudioDeviceID aOutputDeviceID,
       dom::AudioChannel aAudioChannel);
+  // For GraphHashSet:
+  struct Lookup;
+  operator Lookup() const;
 
   // Intended only for assertions, either on graph thread or not running (in
   // which case we must be on the main thread).
@@ -188,6 +193,17 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    * during RunInStableState; the messages will run on the graph thread.
    */
   virtual void AppendMessage(UniquePtr<ControlMessageInterface> aMessage);
+  /**
+   * Append to the message queue a control message to execute a given lambda
+   * function with no parameters.  The lambda will be executed on the graph
+   * thread.  The lambda will not be executed if the graph has been forced to
+   * shut down.
+   **/
+  template <typename Function>
+  void QueueControlMessageWithNoShutdown(Function&& aFunction) {
+    AppendMessage(WrapUnique(new MediaTrack::ControlMessageWithNoShutdown(
+        std::forward<Function>(aFunction))));
+  }
 
   /**
    * Dispatches a runnable from any thread to the correct main thread for this
@@ -527,7 +543,7 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
                              bool* aEnableNs) override {
     MOZ_ASSERT(OnGraphThreadOrNotRunning());
     NativeInputTrack* native =
-      mDeviceInputTrackManagerGraphThread.GetNativeInputTrack();
+        mDeviceInputTrackManagerGraphThread.GetNativeInputTrack();
     if (native) {
       native->GetVoiceInputSettings(aEnableAec, aEnableAgc, aEnableNs);
     } else {
@@ -752,12 +768,17 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   nsTArray<nsCOMPtr<nsIRunnable>> mPendingUpdateRunnables;
 
   /**
+   * The ID of the inner Window which uses this graph, or zero for offline
+   * graphs.
+   */
+  const uint64_t mWindowID;
+  /**
    * Devices to use for cubeb output, or nullptr for default device.
    * A MediaTrackGraph always has an output (even if silent).
    *
    * All mOutputDeviceID access is on the graph thread.
    */
-  CubebUtils::AudioDeviceID mOutputDeviceID;
+  const CubebUtils::AudioDeviceID mOutputDeviceID;
 
   /**
    * List of resume operations waiting for a switch to an AudioCallbackDriver.

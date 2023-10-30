@@ -9,6 +9,7 @@
 #define mozilla_net_HttpChannelChild_h
 
 #include "mozilla/Mutex.h"
+#include "mozilla/StaticPrefsBase.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/extensions/StreamFilterParent.h"
@@ -333,7 +334,7 @@ class HttpChannelChild final : public PHttpChannelChild,
       false};
   // True if we need to tell the parent the size of unreported received data
   Atomic<bool, SequentiallyConsistent> mNeedToReportBytesRead{true};
-
+  Atomic<uint32_t, mozilla::Relaxed> mOnProgressEventSent{false};
   // Attached StreamFilterParents
   // Using raw pointer here since StreamFilterParent owns the channel.
   // Should be only accessed on the main thread.
@@ -435,6 +436,7 @@ class HttpChannelChild final : public PHttpChannelChild,
   void OnAfterLastPart(const nsresult& aStatus);
   void MaybeConnectToSocketProcess();
   void OnDetachStreamFilters();
+  void SendOnDataFinished(const nsresult& aChannelStatus);
 
   // Create a a new channel to be used in a redirection, based on the provided
   // response headers.

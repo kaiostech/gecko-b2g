@@ -338,12 +338,17 @@ ARCHIVE_FILES = {
         },
         {
             "source": buildconfig.topsrcdir,
+            "base": "testing/mozbase/mozsystemmonitor",
+            "pattern": "mozsystemmonitor/**",
+        },
+        {
+            "source": buildconfig.topsrcdir,
             "base": "third_party/python/six",
             "pattern": "six.py",
         },
         {
             "source": buildconfig.topsrcdir,
-            "base": "third_party/python/tomlkit",
+            "base": "third_party/python/toml",
             "pattern": "**",
         },
         {

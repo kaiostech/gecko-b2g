@@ -16,7 +16,6 @@
 #include "TableArea.h"
 
 struct BCPaintBorderAction;
-struct BCPropertyData;
 class nsTableCellFrame;
 class nsTableCellMap;
 class nsTableColFrame;
@@ -30,6 +29,7 @@ namespace mozilla {
 class LogicalMargin;
 class PresShell;
 class WritingMode;
+struct TableBCData;
 struct TableReflowInput;
 
 namespace layers {
@@ -211,10 +211,6 @@ class nsTableFrame : public nsContainerFrame {
   nsMargin GetUsedBorder() const override;
   nsMargin GetUsedPadding() const override;
   nsMargin GetUsedMargin() const override;
-
-  // Get the offset from the border box to the area where the row groups fit
-  LogicalMargin GetChildAreaOffset(const WritingMode aWM,
-                                   const ReflowInput* aReflowInput) const;
 
   /** helper method to find the table parent of any table frame object */
   static nsTableFrame* GetTableFrame(nsIFrame* aSourceFrame);
@@ -751,11 +747,12 @@ class nsTableFrame : public nsContainerFrame {
 
   nsTArray<nsTableColFrame*>& GetColCache();
 
+  mozilla::TableBCData* GetTableBCData() const;
+
  protected:
   void SetBorderCollapse(bool aValue);
 
-  BCPropertyData* GetBCProperty() const;
-  BCPropertyData* GetOrCreateBCProperty();
+  mozilla::TableBCData* GetOrCreateTableBCData();
   void SetFullBCDamageArea();
   void CalcBCBorders();
 

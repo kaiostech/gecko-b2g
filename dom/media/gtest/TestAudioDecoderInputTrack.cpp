@@ -30,7 +30,7 @@ constexpr uint32_t kChannels = 2;
 class MockTestGraph : public MediaTrackGraphImpl {
  public:
   MockTestGraph(TrackRate aRate, uint32_t aChannels)
-      : MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aRate,
+      : MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, 0, aRate,
                             aChannels, nullptr, dom::AudioChannel::Normal,
                             NS_GetCurrentThread()) {
     ON_CALL(*this, OnGraphThread).WillByDefault(Return(true));

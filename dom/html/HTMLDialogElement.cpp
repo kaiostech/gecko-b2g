@@ -149,7 +149,7 @@ void HTMLDialogElement::FocusDialog() {
     control = this;
   }
 
-  FocusCandidate(*control, IsInTopLayer());
+  FocusCandidate(control, IsInTopLayer());
 }
 
 int32_t HTMLDialogElement::TabIndexDefault() { return 0; }

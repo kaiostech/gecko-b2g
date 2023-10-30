@@ -28,7 +28,7 @@ namespace {
 class MockGraphImpl : public MediaTrackGraphImpl {
  public:
   MockGraphImpl(TrackRate aRate, uint32_t aChannels)
-      : MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aRate,
+      : MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, 0, aRate,
                             aChannels, nullptr, dom::AudioChannel::Normal,
                             NS_GetCurrentThread()) {
     ON_CALL(*this, OnGraphThread).WillByDefault(Return(true));

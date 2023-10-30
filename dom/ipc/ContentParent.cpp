@@ -918,10 +918,6 @@ bool IsWebCoopCoepRemoteType(const nsACString& aContentProcessType) {
                           WITH_COOP_COEP_REMOTE_TYPE_PREFIX);
 }
 
-bool IsPrivilegedMozillaRemoteType(const nsACString& aContentProcessType) {
-  return aContentProcessType == PRIVILEGEDMOZILLA_REMOTE_TYPE;
-}
-
 bool IsExtensionRemoteType(const nsACString& aContentProcessType) {
   return aContentProcessType == EXTENSION_REMOTE_TYPE;
 }
@@ -1845,8 +1841,12 @@ void ContentParent::BroadcastMediaCodecsSupportedUpdate(
 
   // Generate + save support string for display in about:support
   nsCString supportString;
-  media::MCSInfo::GetMediaCodecsSupportedString(supportString, aSupported);
+  media::MCSInfo::GetMediaCodecsSupportedString(supportString, support);
   gfx::gfxVars::SetCodecSupportInfo(supportString);
+
+  // Print the support info only from the given location for debug purpose.
+  supportString.Truncate();
+  media::MCSInfo::GetMediaCodecsSupportedString(supportString, aSupported);
   supportString.ReplaceSubstring("\n"_ns, ", "_ns);
   LOGPDM("Broadcast support from '%s', support=%s",
          RemoteDecodeInToStr(aLocation), supportString.get());

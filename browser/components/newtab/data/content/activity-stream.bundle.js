@@ -574,6 +574,9 @@ const MESSAGE_TYPE_LIST = [
   "RESET_PROVIDER_PREF",
   "SET_PROVIDER_USER_PREF",
   "RESET_GROUPS_STATE",
+  "RESET_MESSAGE_STATE",
+  "RESET_SCREEN_IMPRESSIONS",
+  "EDIT_STATE",
 ];
 
 const MESSAGE_TYPE_HASH = MESSAGE_TYPE_LIST.reduce((hash, value) => {
@@ -666,6 +669,15 @@ const ASRouterUtils = {
       type: MESSAGE_TYPE_HASH.OVERRIDE_MESSAGE,
       data: {
         id
+      }
+    });
+  },
+
+  editState(key, value) {
+    return ASRouterUtils.sendMessage({
+      type: MESSAGE_TYPE_HASH.EDIT_STATE,
+      data: {
+        [key]: value
       }
     });
   },
@@ -779,12 +791,140 @@ const CopyButton = ({
     onClick: e => onClick()
   }, props), copied && copiedLabel || label);
 };
+;// CONCATENATED MODULE: ./content-src/components/ASRouterAdmin/ImpressionsSection.jsx
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+
+const stringify = json => JSON.stringify(json, null, 2);
+
+const ImpressionsSection = ({
+  messageImpressions,
+  groupImpressions,
+  screenImpressions
+}) => {
+  const handleSaveMessageImpressions = (0,external_React_namespaceObject.useCallback)(newImpressions => {
+    ASRouterUtils.editState("messageImpressions", newImpressions);
+  }, []);
+  const handleSaveGroupImpressions = (0,external_React_namespaceObject.useCallback)(newImpressions => {
+    ASRouterUtils.editState("groupImpressions", newImpressions);
+  }, []);
+  const handleSaveScreenImpressions = (0,external_React_namespaceObject.useCallback)(newImpressions => {
+    ASRouterUtils.editState("screenImpressions", newImpressions);
+  }, []);
+  const handleResetMessageImpressions = (0,external_React_namespaceObject.useCallback)(() => {
+    ASRouterUtils.sendMessage({
+      type: "RESET_MESSAGE_STATE"
+    });
+  }, []);
+  const handleResetGroupImpressions = (0,external_React_namespaceObject.useCallback)(() => {
+    ASRouterUtils.sendMessage({
+      type: "RESET_GROUPS_STATE"
+    });
+  }, []);
+  const handleResetScreenImpressions = (0,external_React_namespaceObject.useCallback)(() => {
+    ASRouterUtils.sendMessage({
+      type: "RESET_SCREEN_IMPRESSIONS"
+    });
+  }, []);
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: "impressions-section"
+  }, /*#__PURE__*/external_React_default().createElement(ImpressionsItem, {
+    impressions: messageImpressions,
+    label: "Message Impressions",
+    description: "Message impressions are stored in an object, where each key is a message ID and each value is an array of timestamps. They are cleaned up when a message with that ID stops existing in ASRouter state (such as at the end of an experiment).",
+    onSave: handleSaveMessageImpressions,
+    onReset: handleResetMessageImpressions
+  }), /*#__PURE__*/external_React_default().createElement(ImpressionsItem, {
+    impressions: groupImpressions,
+    label: "Group Impressions",
+    description: "Group impressions are stored in an object, where each key is a group ID and each value is an array of timestamps. They are never cleaned up.",
+    onSave: handleSaveGroupImpressions,
+    onReset: handleResetGroupImpressions
+  }), /*#__PURE__*/external_React_default().createElement(ImpressionsItem, {
+    impressions: screenImpressions,
+    label: "Screen Impressions",
+    description: "Screen impressions are stored in an object, where each key is a screen ID and each value is the most recent timestamp that screen was shown. They are never cleaned up.",
+    onSave: handleSaveScreenImpressions,
+    onReset: handleResetScreenImpressions
+  }));
+};
+
+const ImpressionsItem = ({
+  impressions,
+  label,
+  description,
+  validator,
+  onSave,
+  onReset
+}) => {
+  const [json, setJson] = (0,external_React_namespaceObject.useState)(stringify(impressions));
+  const modified = (0,external_React_namespaceObject.useRef)(false);
+  const isValidJson = (0,external_React_namespaceObject.useCallback)(text => {
+    try {
+      JSON.parse(text);
+      return validator ? validator(text) : true;
+    } catch (e) {
+      return false;
+    }
+  }, [validator]);
+  const jsonIsInvalid = (0,external_React_namespaceObject.useMemo)(() => !isValidJson(json), [json, isValidJson]);
+  const handleChange = (0,external_React_namespaceObject.useCallback)(e => {
+    setJson(e.target.value);
+    modified.current = true;
+  }, []);
+  const handleSave = (0,external_React_namespaceObject.useCallback)(() => {
+    if (jsonIsInvalid) {
+      return;
+    }
+
+    const newImpressions = JSON.parse(json);
+    modified.current = false;
+    onSave(newImpressions);
+  }, [json, jsonIsInvalid, onSave]);
+  const handleReset = (0,external_React_namespaceObject.useCallback)(() => {
+    modified.current = false;
+    onReset();
+  }, [onReset]);
+  (0,external_React_namespaceObject.useEffect)(() => {
+    if (!modified.current) {
+      setJson(stringify(impressions));
+    }
+  }, [impressions]);
+  return /*#__PURE__*/external_React_default().createElement("div", {
+    className: "impressions-item"
+  }, /*#__PURE__*/external_React_default().createElement("span", {
+    className: "impressions-category"
+  }, label), description ? /*#__PURE__*/external_React_default().createElement("p", {
+    className: "impressions-description"
+  }, description) : null, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "impressions-inner-box"
+  }, /*#__PURE__*/external_React_default().createElement("div", {
+    className: "impressions-buttons"
+  }, /*#__PURE__*/external_React_default().createElement("button", {
+    className: "button primary",
+    disabled: jsonIsInvalid,
+    onClick: handleSave
+  }, "Save"), /*#__PURE__*/external_React_default().createElement("button", {
+    className: "button reset",
+    onClick: handleReset
+  }, "Reset")), /*#__PURE__*/external_React_default().createElement("div", {
+    className: "impressions-editor"
+  }, /*#__PURE__*/external_React_default().createElement("textarea", {
+    className: "general-textarea",
+    value: json,
+    onChange: handleChange
+  }))));
+};
 ;// CONCATENATED MODULE: ./content-src/components/ASRouterAdmin/ASRouterAdmin.jsx
 function ASRouterAdmin_extends() { ASRouterAdmin_extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return ASRouterAdmin_extends.apply(this, arguments); }
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -2009,6 +2149,13 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
           disabled: true
         })), /*#__PURE__*/external_React_default().createElement("td", null, this._getGroupImpressionsCount(id, frequency)), /*#__PURE__*/external_React_default().createElement("td", null, JSON.stringify(frequency, null, 2)), /*#__PURE__*/external_React_default().createElement("td", null, userPreferences.join(", ")))))), this.renderMessageGroupsFilter(), this.renderMessagesByGroup());
 
+      case "impressions":
+        return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h2", null, "Impressions"), /*#__PURE__*/external_React_default().createElement(ImpressionsSection, {
+          messageImpressions: this.state.messageImpressions,
+          groupImpressions: this.state.groupImpressions,
+          screenImpressions: this.state.screenImpressions
+        }));
+
       case "ds":
         return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("h2", null, "Discovery Stream"), /*#__PURE__*/external_React_default().createElement(DiscoveryStreamAdmin, {
           state: {
@@ -2045,6 +2192,8 @@ class ASRouterAdminInner extends (external_React_default()).PureComponent {
     }, "Targeting")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
       href: "#devtools-groups"
     }, "Message Groups")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
+      href: "#devtools-impressions"
+    }, "Impressions")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
       href: "#devtools-ds"
     }, "Discovery Stream")), /*#__PURE__*/external_React_default().createElement("li", null, /*#__PURE__*/external_React_default().createElement("a", {
       href: "#devtools-errors"
@@ -6617,7 +6766,12 @@ const LinkMenuOptions = {
     id: "newtab-menu-show-privacy-info",
     icon: "info",
     action: actionCreators.AlsoToMain({
-      type: actionTypes.ABOUT_SPONSORED_TOP_SITES
+      type: actionTypes.ABOUT_SPONSORED_TOP_SITES,
+      data: {
+        advertiser_name: (site.label || site.hostname).toLocaleLowerCase(),
+        position: site.sponsored_position,
+        tile_id: site.sponsored_tile_id
+      }
     }),
     userEvent: "TOPSITE_SPONSOR_INFO"
   }),
@@ -6670,16 +6824,30 @@ const LinkMenuOptions = {
     icon: "dismiss",
     action: actionCreators.AlsoToMain({
       type: actionTypes.BLOCK_URL,
-      data: tiles.map(site => ({
-        url: site.original_url || site.open_url || site.url,
-        // pocket_id is only for pocket stories being in highlights, and then dismissed.
-        pocket_id: site.pocket_id,
-        // used by PlacesFeed and TopSitesFeed for sponsored top sites blocking.
-        isSponsoredTopSite: site.sponsored_position,
-        ...(site.flight_id ? {
-          flight_id: site.flight_id
-        } : {})
-      }))
+      data: tiles.map(site => {
+        var _ref;
+
+        return {
+          url: site.original_url || site.open_url || site.url,
+          // pocket_id is only for pocket stories being in highlights, and then dismissed.
+          pocket_id: site.pocket_id,
+          // used by PlacesFeed and TopSitesFeed for sponsored top sites blocking.
+          isSponsoredTopSite: site.sponsored_position,
+          ...(site.flight_id ? {
+            flight_id: site.flight_id
+          } : {}),
+          // If not sponsored, hostname could be anything (Cat3 Data!).
+          // So only put in advertiser_name for sponsored topsites.
+          ...(site.sponsored_position ? {
+            advertiser_name: (_ref = site.label || site.hostname) === null || _ref === void 0 ? void 0 : _ref.toLocaleLowerCase()
+          } : {}),
+          position: pos,
+          ...(site.sponsored_tile_id ? {
+            tile_id: site.sponsored_tile_id
+          } : {}),
+          is_pocket_card: site.type === "CardGrid"
+        };
+      })
     }),
     impression: actionCreators.ImpressionStats({
       source: eventSource,
@@ -7216,7 +7384,8 @@ class ImpressionStats_ImpressionStats extends (external_React_default()).PureCom
           type: this.props.flightId ? "spoc" : "organic",
           ...(link.shim ? {
             shim: link.shim
-          } : {})
+          } : {}),
+          recommendation_id: link.recommendation_id
         }))
       }));
       this.impressionCardGuids = cards.map(link => link.id);
@@ -7794,7 +7963,8 @@ class _DSCard extends (external_React_default()).PureComponent {
         source: this.props.type.toUpperCase(),
         action_position: this.props.pos,
         value: {
-          card_type: this.props.flightId ? "spoc" : "organic"
+          card_type: this.props.flightId ? "spoc" : "organic",
+          recommendation_id: this.props.recommendation_id
         }
       }));
       this.props.dispatch(actionCreators.ImpressionStats({
@@ -7808,7 +7978,8 @@ class _DSCard extends (external_React_default()).PureComponent {
           ...(this.props.shim && this.props.shim.click ? {
             shim: this.props.shim.click
           } : {}),
-          type: this.props.flightId ? "spoc" : "organic"
+          type: this.props.flightId ? "spoc" : "organic",
+          recommendation_id: this.props.recommendation_id
         }]
       }));
     }
@@ -7830,7 +8001,8 @@ class _DSCard extends (external_React_default()).PureComponent {
         source: "CARDGRID_HOVER",
         action_position: this.props.pos,
         value: {
-          card_type: this.props.flightId ? "spoc" : "organic"
+          card_type: this.props.flightId ? "spoc" : "organic",
+          recommendation_id: this.props.recommendation_id
         }
       }));
       this.props.dispatch(actionCreators.ImpressionStats({
@@ -7841,7 +8013,8 @@ class _DSCard extends (external_React_default()).PureComponent {
           pos: this.props.pos,
           ...(this.props.shim && this.props.shim.save ? {
             shim: this.props.shim.save
-          } : {})
+          } : {}),
+          recommendation_id: this.props.recommendation_id
         }]
       }));
     }
@@ -8015,7 +8188,8 @@ class _DSCard extends (external_React_default()).PureComponent {
         pos: this.props.pos,
         ...(this.props.shim && this.props.shim.impression ? {
           shim: this.props.shim.impression
-        } : {})
+        } : {}),
+        recommendation_id: this.props.recommendation_id
       }],
       dispatch: this.props.dispatch,
       source: this.props.type
@@ -8685,7 +8859,8 @@ class _CardGrid extends (external_React_default()).PureComponent {
         context_type: rec.context_type,
         bookmarkGuid: rec.bookmarkGuid,
         is_collection: this.props.is_collection,
-        saveToPocketCard: saveToPocketCard
+        saveToPocketCard: saveToPocketCard,
+        recommendation_id: rec.recommendation_id
       }));
     }
 

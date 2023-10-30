@@ -92,7 +92,10 @@ struct TableReflowInput {
     nsTableFrame* table =
         static_cast<nsTableFrame*>(mReflowInput.mFrame->FirstInFlow());
     WritingMode wm = aReflowInput.GetWritingMode();
-    LogicalMargin borderPadding = table->GetChildAreaOffset(wm, &mReflowInput);
+
+    // XXX: We need to call ApplySkipSides() for borderPadding. Otherwise,
+    // mAvailSize will be wrong in a continuation.
+    LogicalMargin borderPadding = mReflowInput.ComputedLogicalBorderPadding(wm);
 
     mICoord = borderPadding.IStart(wm) + table->GetColSpacing(-1);
     mBCoord = borderPadding.BStart(wm);  // cellspacing added during reflow
@@ -123,28 +126,21 @@ struct TableReflowInput {
   }
 };
 
+struct TableBCData final {
+  TableArea mDamageArea;
+  BCPixelSize mBStartBorderWidth = 0;
+  BCPixelSize mIEndBorderWidth = 0;
+  BCPixelSize mBEndBorderWidth = 0;
+  BCPixelSize mIStartBorderWidth = 0;
+  BCPixelSize mIStartCellBorderWidth = 0;
+  BCPixelSize mIEndCellBorderWidth = 0;
+};
+
 }  // namespace mozilla
 
 /********************************************************************************
  ** nsTableFrame **
  ********************************************************************************/
-
-struct BCPropertyData {
-  BCPropertyData()
-      : mBStartBorderWidth(0),
-        mIEndBorderWidth(0),
-        mBEndBorderWidth(0),
-        mIStartBorderWidth(0),
-        mIStartCellBorderWidth(0),
-        mIEndCellBorderWidth(0) {}
-  TableArea mDamageArea;
-  BCPixelSize mBStartBorderWidth;
-  BCPixelSize mIEndBorderWidth;
-  BCPixelSize mBEndBorderWidth;
-  BCPixelSize mIStartBorderWidth;
-  BCPixelSize mIStartCellBorderWidth;
-  BCPixelSize mIEndCellBorderWidth;
-};
 
 ComputedStyle* nsTableFrame::GetParentComputedStyle(
     nsIFrame** aProviderFrame) const {
@@ -1652,8 +1648,6 @@ void nsTableFrame::Reflow(nsPresContext* aPresContext,
     CalcBCBorders();
   }
 
-  aDesiredSize.ISize(wm) = aReflowInput.AvailableISize();
-
   // Check for an overflow list, and append any row group frames being pushed
   MoveOverflowToChildList();
 
@@ -1700,7 +1694,7 @@ void nsTableFrame::Reflow(nsPresContext* aPresContext,
       // when there is a specified table bsize
       if (!GetPrevInFlow() &&
           NS_UNCONSTRAINEDSIZE != aReflowInput.AvailableBSize()) {
-        LogicalMargin bp = GetChildAreaOffset(wm, &aReflowInput);
+        LogicalMargin bp = aReflowInput.ComputedLogicalBorderPadding(wm);
         nscoord tableSpecifiedBSize =
             CalcBorderBoxBSize(aReflowInput, bp, NS_UNCONSTRAINEDSIZE);
         if (tableSpecifiedBSize > 0 &&
@@ -1771,7 +1765,8 @@ void nsTableFrame::Reflow(nsPresContext* aPresContext,
       if (lastChildReflowed && aStatus.IsIncomplete()) {
         // if there is an incomplete child, then set the desired bsize
         // to include it but not the next one
-        LogicalMargin borderPadding = GetChildAreaOffset(wm, &aReflowInput);
+        LogicalMargin borderPadding =
+            aReflowInput.ComputedLogicalBorderPadding(wm);
         aDesiredSize.BSize(wm) =
             borderPadding.BEnd(wm) + GetRowSpacing(GetRowCount()) +
             lastChildReflowed->GetNormalRect()
@@ -1815,7 +1810,7 @@ void nsTableFrame::Reflow(nsPresContext* aPresContext,
     ConsiderChildOverflow(aDesiredSize.mOverflowAreas, kid);
   }
 
-  LogicalMargin borderPadding = GetChildAreaOffset(wm, &aReflowInput);
+  LogicalMargin borderPadding = aReflowInput.ComputedLogicalBorderPadding(wm);
   SetColumnDimensions(aDesiredSize.BSize(wm), wm, borderPadding,
                       aDesiredSize.PhysicalSize());
   NS_WARNING_ASSERTION(NS_UNCONSTRAINEDSIZE != aReflowInput.AvailableISize(),
@@ -1934,11 +1929,12 @@ void nsTableFrame::ReflowTable(ReflowOutput& aDesiredSize,
   // flow). and our reflow bsize to our avail bsize minus border, padding,
   // cellspacing
   WritingMode wm = aReflowInput.GetWritingMode();
-  aDesiredSize.ISize(wm) =
+  LogicalSize availSize(
+      wm,
       aReflowInput.ComputedISize() +
-      aReflowInput.ComputedLogicalBorderPadding(wm).IStartEnd(wm);
-  TableReflowInput reflowInput(
-      aReflowInput, LogicalSize(wm, aDesiredSize.ISize(wm), aAvailBSize));
+          aReflowInput.ComputedLogicalBorderPadding(wm).IStartEnd(wm),
+      aAvailBSize);
+  TableReflowInput reflowInput(aReflowInput, availSize);
   ReflowChildren(reflowInput, aStatus, aLastChildReflowed,
                  aDesiredSize.mOverflowAreas);
 
@@ -2469,19 +2465,23 @@ nsMargin nsTableFrame::GetUsedMargin() const {
   return nsMargin(0, 0, 0, 0);
 }
 
-NS_DECLARE_FRAME_PROPERTY_DELETABLE(TableBCProperty, BCPropertyData)
+// This property is only set on the first-in-flow of nsTableFrame.
+NS_DECLARE_FRAME_PROPERTY_DELETABLE(TableBCDataProperty, TableBCData)
 
-BCPropertyData* nsTableFrame::GetBCProperty() const {
-  return GetProperty(TableBCProperty());
+TableBCData* nsTableFrame::GetTableBCData() const {
+  return FirstInFlow()->GetProperty(TableBCDataProperty());
 }
 
-BCPropertyData* nsTableFrame::GetOrCreateBCProperty() {
-  BCPropertyData* value = GetProperty(TableBCProperty());
+TableBCData* nsTableFrame::GetOrCreateTableBCData() {
+  MOZ_ASSERT(!GetPrevInFlow(),
+             "TableBCProperty should only be set on the first-in-flow!");
+  TableBCData* value = GetProperty(TableBCDataProperty());
   if (!value) {
-    value = new BCPropertyData();
-    SetProperty(TableBCProperty(), value);
+    value = new TableBCData();
+    SetProperty(TableBCDataProperty(), value);
   }
 
+  MOZ_ASSERT(value, "TableBCData must exist!");
   return value;
 }
 
@@ -2496,7 +2496,7 @@ LogicalMargin nsTableFrame::GetOuterBCBorder(const WritingMode aWM) const {
     const_cast<nsTableFrame*>(this)->CalcBCBorders();
   }
   int32_t d2a = PresContext()->AppUnitsPerDevPixel();
-  BCPropertyData* propData = GetBCProperty();
+  TableBCData* propData = GetTableBCData();
   if (propData) {
     return LogicalMargin(
         aWM, BC_BORDER_START_HALF_COORD(d2a, propData->mBStartBorderWidth),
@@ -2514,7 +2514,7 @@ LogicalMargin nsTableFrame::GetIncludedOuterBCBorder(
   }
 
   int32_t d2a = PresContext()->AppUnitsPerDevPixel();
-  BCPropertyData* propData = GetBCProperty();
+  TableBCData* propData = GetTableBCData();
   if (propData) {
     return LogicalMargin(
         aWM, BC_BORDER_START_HALF_COORD(d2a, propData->mBStartBorderWidth),
@@ -2530,20 +2530,6 @@ LogicalMargin nsTableFrame::GetExcludedOuterBCBorder(
   return GetOuterBCBorder(aWM) - GetIncludedOuterBCBorder(aWM);
 }
 
-static LogicalMargin GetSeparateModelBorderPadding(
-    const WritingMode aWM, const ReflowInput* aReflowInput,
-    ComputedStyle* aComputedStyle) {
-  // XXXbz Either we _do_ have a reflow input and then we can use its
-  // mComputedBorderPadding or we don't and then we get the padding
-  // wrong!
-  const nsStyleBorder* border = aComputedStyle->StyleBorder();
-  LogicalMargin borderPadding(aWM, border->GetComputedBorder());
-  if (aReflowInput) {
-    borderPadding += aReflowInput->ComputedLogicalPadding(aWM);
-  }
-  return borderPadding;
-}
-
 void nsTableFrame::GetCollapsedBorderPadding(
     Maybe<LogicalMargin>& aBorder, Maybe<LogicalMargin>& aPadding) const {
   if (IsBorderCollapse()) {
@@ -2553,13 +2539,6 @@ void nsTableFrame::GetCollapsedBorderPadding(
     aBorder.emplace(GetIncludedOuterBCBorder(wm));
     aPadding.emplace(wm);
   }
-}
-
-LogicalMargin nsTableFrame::GetChildAreaOffset(
-    const WritingMode aWM, const ReflowInput* aReflowInput) const {
-  return IsBorderCollapse()
-             ? GetIncludedOuterBCBorder(aWM)
-             : GetSeparateModelBorderPadding(aWM, aReflowInput, mComputedStyle);
 }
 
 void nsTableFrame::InitChildReflowInput(ReflowInput& aReflowInput) {
@@ -2835,9 +2814,7 @@ void nsTableFrame::ReflowChildren(TableReflowInput& aReflowInput,
       LogicalSize kidAvailSize(aReflowInput.mAvailSize);
       allowRepeatedFooter = false;
       if (isPaginated && (NS_UNCONSTRAINEDSIZE != kidAvailSize.BSize(wm))) {
-        nsTableRowGroupFrame* kidRG =
-            static_cast<nsTableRowGroupFrame*>(kidFrame);
-        if (kidRG != thead && kidRG != tfoot && tfoot &&
+        if (kidFrame != thead && kidFrame != tfoot && tfoot &&
             tfoot->IsRepeatable()) {
           // the child is a tbody and there is a repeatable footer
           NS_ASSERTION(tfoot == rowGroups[rowGroups.Length() - 1],
@@ -3096,7 +3073,7 @@ void nsTableFrame::CalcDesiredBSize(const ReflowInput& aReflowInput,
     aDesiredSize.BSize(wm) = 0;
     return;
   }
-  LogicalMargin borderPadding = GetChildAreaOffset(wm, &aReflowInput);
+  LogicalMargin borderPadding = aReflowInput.ComputedLogicalBorderPadding(wm);
 
   // get the natural bsize based on the last child's (row group) rect
   RowGroupArray rowGroups;
@@ -3179,7 +3156,7 @@ static void ResizeCells(nsTableFrame& aTableFrame) {
 void nsTableFrame::DistributeBSizeToRows(const ReflowInput& aReflowInput,
                                          nscoord aAmount) {
   WritingMode wm = aReflowInput.GetWritingMode();
-  LogicalMargin borderPadding = GetChildAreaOffset(wm, &aReflowInput);
+  LogicalMargin borderPadding = aReflowInput.ComputedLogicalBorderPadding(wm);
 
   nsSize containerSize = aReflowInput.ComputedSizeAsContainerIfConstrained();
 
@@ -3819,7 +3796,8 @@ bool nsTableFrame::ColumnHasCellSpacingBefore(int32_t aColIndex) const {
 #endif
 
 void nsTableFrame::AddBCDamageArea(const TableArea& aValue) {
-  NS_ASSERTION(IsBorderCollapse(), "invalid AddBCDamageArea call");
+  MOZ_ASSERT(IsBorderCollapse(),
+             "Why call this if we are not border-collapsed?");
 #ifdef DEBUG
   VerifyDamageRect(aValue);
 #endif
@@ -3827,46 +3805,44 @@ void nsTableFrame::AddBCDamageArea(const TableArea& aValue) {
   SetNeedToCalcBCBorders(true);
   SetNeedToCalcHasBCBorders(true);
   // Get the property
-  BCPropertyData* value = GetOrCreateBCProperty();
-  if (value) {
-#ifdef DEBUG
-    VerifyNonNegativeDamageRect(value->mDamageArea);
-#endif
-    // Clamp the old damage area to the current table area in case it shrunk.
-    int32_t cols = GetColCount();
-    if (value->mDamageArea.EndCol() > cols) {
-      if (value->mDamageArea.StartCol() > cols) {
-        value->mDamageArea.StartCol() = cols;
-        value->mDamageArea.ColCount() = 0;
-      } else {
-        value->mDamageArea.ColCount() = cols - value->mDamageArea.StartCol();
-      }
-    }
-    int32_t rows = GetRowCount();
-    if (value->mDamageArea.EndRow() > rows) {
-      if (value->mDamageArea.StartRow() > rows) {
-        value->mDamageArea.StartRow() = rows;
-        value->mDamageArea.RowCount() = 0;
-      } else {
-        value->mDamageArea.RowCount() = rows - value->mDamageArea.StartRow();
-      }
-    }
+  TableBCData* value = GetOrCreateTableBCData();
 
-    // Construct a union of the new and old damage areas.
-    value->mDamageArea.UnionArea(value->mDamageArea, aValue);
+#ifdef DEBUG
+  VerifyNonNegativeDamageRect(value->mDamageArea);
+#endif
+  // Clamp the old damage area to the current table area in case it shrunk.
+  int32_t cols = GetColCount();
+  if (value->mDamageArea.EndCol() > cols) {
+    if (value->mDamageArea.StartCol() > cols) {
+      value->mDamageArea.StartCol() = cols;
+      value->mDamageArea.ColCount() = 0;
+    } else {
+      value->mDamageArea.ColCount() = cols - value->mDamageArea.StartCol();
+    }
   }
+  int32_t rows = GetRowCount();
+  if (value->mDamageArea.EndRow() > rows) {
+    if (value->mDamageArea.StartRow() > rows) {
+      value->mDamageArea.StartRow() = rows;
+      value->mDamageArea.RowCount() = 0;
+    } else {
+      value->mDamageArea.RowCount() = rows - value->mDamageArea.StartRow();
+    }
+  }
+
+  // Construct a union of the new and old damage areas.
+  value->mDamageArea.UnionArea(value->mDamageArea, aValue);
 }
 
 void nsTableFrame::SetFullBCDamageArea() {
-  NS_ASSERTION(IsBorderCollapse(), "invalid SetFullBCDamageArea call");
+  MOZ_ASSERT(IsBorderCollapse(),
+             "Why call this if we are not border-collapsed?");
 
   SetNeedToCalcBCBorders(true);
   SetNeedToCalcHasBCBorders(true);
 
-  BCPropertyData* value = GetOrCreateBCProperty();
-  if (value) {
-    value->mDamageArea = TableArea(0, 0, GetColCount(), GetRowCount());
-  }
+  TableBCData* value = GetOrCreateTableBCData();
+  value->mDamageArea = TableArea(0, 0, GetColCount(), GetRowCount());
 }
 
 /* BCCellBorder represents a border segment which can be either an inline-dir
@@ -3979,7 +3955,7 @@ struct BCMapCellInfo {
   nsTableFrame* mTableFirstInFlow;
   int32_t mNumTableRows;
   int32_t mNumTableCols;
-  BCPropertyData* mTableBCData;
+  TableBCData* mTableBCData;
   WritingMode mTableWM;
 
   // a cell can only belong to one rowgroup
@@ -4022,7 +3998,7 @@ BCMapCellInfo::BCMapCellInfo(nsTableFrame* aTableFrame)
       mTableFirstInFlow(static_cast<nsTableFrame*>(aTableFrame->FirstInFlow())),
       mNumTableRows(aTableFrame->GetRowCount()),
       mNumTableCols(aTableFrame->GetColCount()),
-      mTableBCData(mTableFrame->GetProperty(TableBCProperty())),
+      mTableBCData(mTableFirstInFlow->GetTableBCData()),
       mTableWM(aTableFrame->Style()),
       mCurrentRowFrame(nullptr),
       mCurrentColGroupFrame(nullptr),
@@ -5329,7 +5305,7 @@ void nsTableFrame::CalcBCBorders() {
   if (!numRows || !numCols) return;  // nothing to do
 
   // Get the property holding the table damage area and border widths
-  BCPropertyData* propData = GetBCProperty();
+  TableBCData* propData = GetTableBCData();
   if (!propData) ABORT0();
 
   // calculate an expanded damage area
@@ -6103,10 +6079,12 @@ BCPaintBorderIterator::BCPaintBorderIterator(nsTableFrame* aTable)
       mInitialOffsetI(0),
       mNextOffsetB(0),
       mPrevInlineSegBSize(0) {
-  LogicalMargin childAreaOffset = mTable->GetChildAreaOffset(mTableWM, nullptr);
-  // y position of first row in damage area
-  mInitialOffsetB =
-      mTable->GetPrevInFlow() ? 0 : childAreaOffset.BStart(mTableWM);
+  MOZ_ASSERT(mTable->IsBorderCollapse(),
+             "Why are we here if the table is not border-collapsed?");
+
+  const LogicalMargin bp = mTable->GetIncludedOuterBCBorder(mTableWM);
+  // block position of first row in damage area
+  mInitialOffsetB = mTable->GetPrevInFlow() ? 0 : bp.BStart(mTableWM);
   mNumTableRows = mTable->GetRowCount();
   mNumTableCols = mTable->GetColCount();
 
@@ -6177,10 +6155,10 @@ bool BCPaintBorderIterator::SetDamageArea(const nsRect& aDirtyRect) {
   haveIntersect = false;
   if (0 == mNumTableCols) return false;
 
-  LogicalMargin childAreaOffset = mTable->GetChildAreaOffset(mTableWM, nullptr);
+  LogicalMargin bp = mTable->GetIncludedOuterBCBorder(mTableWM);
 
   // inline position of first col in damage area
-  mInitialOffsetI = childAreaOffset.IStart(mTableWM);
+  mInitialOffsetI = bp.IStart(mTableWM);
 
   nscoord x = 0;
   int32_t colIdx;

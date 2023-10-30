@@ -100,8 +100,7 @@ bool ShouldCheckSRI(const InternalRequest& aRequest,
 // AlternativeDataStreamListener
 //-----------------------------------------------------------------------------
 class AlternativeDataStreamListener final
-    : public nsIStreamListener,
-      public nsIThreadRetargetableStreamListener {
+    : public nsIThreadRetargetableStreamListener {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
@@ -319,6 +318,12 @@ AlternativeDataStreamListener::OnStopRequest(nsIRequest* aRequest,
 
 NS_IMETHODIMP
 AlternativeDataStreamListener::CheckListenerChain() { return NS_OK; }
+
+NS_IMETHODIMP
+AlternativeDataStreamListener::OnDataFinished(nsresult aStatus) {
+  return NS_OK;
+}
+
 //-----------------------------------------------------------------------------
 // FetchDriver
 //-----------------------------------------------------------------------------
@@ -1679,6 +1684,9 @@ FetchDriver::AsyncOnChannelRedirect(nsIChannel* aOldChannel,
 
 NS_IMETHODIMP
 FetchDriver::CheckListenerChain() { return NS_OK; }
+
+NS_IMETHODIMP
+FetchDriver::OnDataFinished(nsresult) { return NS_OK; }
 
 NS_IMETHODIMP
 FetchDriver::GetInterface(const nsIID& aIID, void** aResult) {

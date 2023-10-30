@@ -42,6 +42,9 @@ class PsutilStub(object):
             ],
         )
 
+    def cpu_count(self, logical=True):
+        return 0
+
     def cpu_percent(self, a, b):
         return [0]
 
@@ -169,7 +172,7 @@ def _collect(pipe, poll_interval):
 
             collection_overhead = time.monotonic() - last_time - sleep_interval
             last_time = measured_end_time
-            sleep_interval = max(0, poll_interval - collection_overhead)
+            sleep_interval = max(poll_interval / 2, poll_interval - collection_overhead)
 
     except Exception as e:
         warnings.warn("_collect failed: %s" % e)
@@ -256,6 +259,8 @@ class SystemResourceMonitor(object):
     # collection stops, it flushes all that data to a pipe to be read by
     # the parent process.
 
+    instance = None
+
     def __init__(self, poll_interval=1.0, metadata={}):
         """Instantiate a system resource monitor instance.
 
@@ -331,6 +336,8 @@ class SystemResourceMonitor(object):
 
         self._process.start()
         self._running = True
+        self.start_time = time.monotonic()
+        SystemResourceMonitor.instance = self
 
     def stop(self):
         """Stop measuring system-wide CPU resource utilization.
@@ -370,8 +377,9 @@ class SystemResourceMonitor(object):
                     virt_mem,
                     swap_mem,
                 ) = self._pipe.recv()
-            except Exception:
-                # Let's assume we're done here
+            except Exception as e:
+                warnings.warn("failed to receive data: %s" % e)
+                # Assume we can't recover
                 break
 
             # There should be nothing after the "done" message so
@@ -379,16 +387,35 @@ class SystemResourceMonitor(object):
             if start_time == "done":
                 break
 
-            io = self._io_type(*io_diff)
-            virt = self._virt_type(*virt_mem)
-            swap = self._swap_type(*swap_mem)
-            cpu_times = [self._cpu_times_type(*v) for v in cpu_diff]
+            try:
+                io = self._io_type(*io_diff)
+                virt = self._virt_type(*virt_mem)
+                swap = self._swap_type(*swap_mem)
+                cpu_times = [self._cpu_times_type(*v) for v in cpu_diff]
 
-            self.measurements.append(
-                SystemResourceUsage(
-                    start_time, end_time, cpu_times, cpu_percent, io, virt, swap
+                self.measurements.append(
+                    SystemResourceUsage(
+                        start_time, end_time, cpu_times, cpu_percent, io, virt, swap
+                    )
                 )
-            )
+            except Exception:
+                # We also can't recover, but output the data that caused the exception
+                warnings.warn(
+                    "failed to read the received data: %s"
+                    % str(
+                        (
+                            start_time,
+                            end_time,
+                            io_diff,
+                            cpu_diff,
+                            cpu_percent,
+                            virt_mem,
+                            swap_mem,
+                        )
+                    )
+                )
+
+                break
 
         # We establish a timeout so we don't hang forever if the child
         # process has crashed.
@@ -399,40 +426,52 @@ class SystemResourceMonitor(object):
                 self._process.join(10)
 
         self._running = False
-
-        if len(self.measurements):
-            self.start_time = self.measurements[0].start
-            self.end_time = self.measurements[-1].end
+        self.end_time = time.monotonic()
+        SystemResourceUsage.instance = None
 
     # Methods to record events alongside the monitored data.
 
-    def record_event(self, name):
+    @staticmethod
+    def record_event(name):
         """Record an event as occuring now.
 
         Events are actions that occur at a specific point in time. If you are
         looking for an action that has a duration, see the phase API below.
         """
-        self.events.append((time.monotonic(), name))
+        if SystemResourceMonitor.instance:
+            SystemResourceMonitor.instance.events.append((time.monotonic(), name))
 
-    def record_marker(self, name, start, end, text):
+    @staticmethod
+    def record_marker(name, start, end, text):
         """Record a marker with a duration and an optional text
 
         Markers are typically used to record when a single command happened.
         For actions with a longer duration that justifies tracking resource use
         see the phase API below.
         """
-        self.markers.append((name, start, end, text))
+        if SystemResourceMonitor.instance:
+            SystemResourceMonitor.instance.markers.append((name, start, end, text))
 
-    def begin_marker(self, name, text):
-        self._active_markers[name + ":" + text] = time.monotonic()
+    @staticmethod
+    def begin_marker(name, text, disambiguator=None):
+        if SystemResourceMonitor.instance:
+            id = name + ":" + text
+            if disambiguator:
+                id += ":" + disambiguator
+            SystemResourceMonitor.instance._active_markers[id] = time.monotonic()
 
-    def end_marker(self, name, text):
+    @staticmethod
+    def end_marker(name, text, disambiguator=None):
+        if not SystemResourceMonitor.instance:
+            return
         end = time.monotonic()
         id = name + ":" + text
-        if not id in self._active_markers:
+        if disambiguator:
+            id += ":" + disambiguator
+        if not id in SystemResourceMonitor.instance._active_markers:
             return
-        start = self._active_markers.pop(id)
-        self.record_marker(name, start, end, text)
+        start = SystemResourceMonitor.instance._active_markers.pop(id)
+        SystemResourceMonitor.instance.record_marker(name, start, end, text)
 
     @contextmanager
     def phase(self, name):
@@ -779,6 +818,10 @@ class SystemResourceMonitor(object):
                 "symbolicationNotSupported": True,
                 "interval": self.poll_interval * 1000,
                 "startTime": self.start_timestamp * 1000,
+                "profilingStartTime": 0,
+                "profilingEndTime": round(
+                    (self.end_time - self.start_time) * 1000 + 0.0005, 3
+                ),
                 "logicalCPUs": psutil.cpu_count(logical=True),
                 "physicalCPUs": psutil.cpu_count(logical=False),
                 "mainMemory": psutil.virtual_memory()[0],
@@ -969,10 +1012,15 @@ class SystemResourceMonitor(object):
             # For short duration markers, the profiler front-end may show up to
             # 3 digits after the decimal point (ie. µs precision).
             markers["startTime"].append(round((start - start_time) * 1000, precision))
-            markers["endTime"].append(round((end - start_time) * 1000, precision))
+            if end is None:
+                markers["endTime"].append(None)
+                # 0 = Instant marker
+                markers["phase"].append(0)
+            else:
+                markers["endTime"].append(round((end - start_time) * 1000, precision))
+                # 1 = marker with start and end times, 2 = start but no end.
+                markers["phase"].append(1)
             markers["category"].append(0)
-            # 1 = marker with start and end times, 2 = start but no end.
-            markers["phase"].append(1)
             markers["name"].append(name_index)
             markers["data"].append(data)
             markers["length"] = markers["length"] + 1
@@ -1103,5 +1151,16 @@ class SystemResourceMonitor(object):
             if text:
                 markerData["text"] = text
             add_marker(get_string_index(name), start, end, markerData, 3)
+        if self.events:
+            event_string_index = get_string_index("Event")
+            for event_time, text in self.events:
+                if text:
+                    add_marker(
+                        event_string_index,
+                        event_time,
+                        None,
+                        {"type": "Text", "text": text},
+                        3,
+                    )
 
         return profile

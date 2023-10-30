@@ -221,7 +221,7 @@ def record_cargo_timings(resource_monitor, timings_path):
 
     for name, start, duration in data:
         resource_monitor.record_marker(
-            "Rust", cargo_start + start, cargo_start + start + duration, name
+            "RustCrate", cargo_start + start, cargo_start + start + duration, name
         )
 
 
@@ -309,8 +309,9 @@ class BuildMonitor(MozbuildObject):
         # does not interfere with our parsing of the line.
         plain_line = self._terminal.strip(line) if self._terminal else line.strip()
         if plain_line.startswith("BUILDSTATUS"):
-            args = plain_line.split()[1:]
+            args = plain_line.split()
 
+            _, _, disambiguator = args.pop(0).partition("@")
             action = args.pop(0)
             update_needed = True
 
@@ -325,13 +326,17 @@ class BuildMonitor(MozbuildObject):
                 self.tiers.finish_tier(tier)
             elif action == "OBJECT_FILE":
                 self.build_objects.append(args[0])
-                self.resources.begin_marker("Object", args[0])
+                self.resources.begin_marker("Object", args[0], disambiguator)
                 update_needed = False
             elif action.startswith("START_"):
-                self.resources.begin_marker(action[len("START_") :], " ".join(args))
+                self.resources.begin_marker(
+                    action[len("START_") :], " ".join(args), disambiguator
+                )
                 update_needed = False
             elif action.startswith("END_"):
-                self.resources.end_marker(action[len("END_") :], " ".join(args))
+                self.resources.end_marker(
+                    action[len("END_") :], " ".join(args), disambiguator
+                )
                 update_needed = False
             elif action == "BUILD_VERBOSE":
                 build_dir = args[0]
@@ -350,10 +355,10 @@ class BuildMonitor(MozbuildObject):
             return BuildOutputResult(None, False, None)
 
         warning = None
+        message = line
 
         try:
             warning = self._warnings_collector.process_line(line)
-            message = line
         except Exception:
             pass
 
@@ -379,6 +384,7 @@ class BuildMonitor(MozbuildObject):
         if not record_usage:
             return
 
+        build_resources_profile_path = None
         try:
             usage = self.get_resource_usage()
             if not usage:
@@ -410,6 +416,14 @@ class BuildMonitor(MozbuildObject):
                 {"msg": str(e)},
                 "Exception when writing resource usage file: {msg}",
             )
+            try:
+                if build_resources_profile_path and os.path.exists(
+                    build_resources_profile_path
+                ):
+                    os.remove(build_resources_profile_path)
+            except Exception:
+                # In case there's an exception for some reason, ignore it.
+                pass
 
     def _get_finder_cpu_usage(self):
         """Obtain the CPU usage of the Finder app on OS X.
@@ -1668,6 +1682,7 @@ class BuildDriver(MozbuildObject):
             command.extend(options)
 
         if buildstatus_messages:
+            append_env["MOZ_CONFIGURE_BUILDSTATUS"] = "1"
             line_handler("BUILDSTATUS TIERS configure")
             line_handler("BUILDSTATUS TIER_START configure")
 

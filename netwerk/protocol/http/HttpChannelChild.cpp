@@ -33,6 +33,7 @@
 #include "nsCOMPtr.h"
 #include "nsContentPolicyUtils.h"
 #include "nsDOMNavigationTiming.h"
+#include "nsIThreadRetargetableStreamListener.h"
 #include "nsStringStream.h"
 #include "nsHttpChannel.h"
 #include "nsHttpHandler.h"
@@ -783,6 +784,14 @@ void HttpChannelChild::DoOnProgress(nsIRequest* aRequest, int64_t progress,
       mProgressSink->OnProgress(aRequest, progress, progressMax);
     }
   }
+
+  // mOnProgressEventSent indicates we have flushed all the
+  // progress events on the main thread. It is needed if
+  // we do not want to dispatch OnDataFinished before sending
+  // all of the progress updates.
+  if (progress == progressMax) {
+    mOnProgressEventSent = true;
+  }
 }
 
 void HttpChannelChild::DoOnDataAvailable(nsIRequest* aRequest,
@@ -801,6 +810,36 @@ void HttpChannelChild::DoOnDataAvailable(nsIRequest* aRequest,
   }
 }
 
+void HttpChannelChild::SendOnDataFinished(const nsresult& aChannelStatus) {
+  LOG(("HttpChannelChild::SendOnDataFinished [this=%p]\n", this));
+  if (mCanceled) return;
+
+  // we need to ensure we OnDataFinished only after all the progress
+  // updates are dispatched on the main thread
+  if (StaticPrefs::network_send_OnDataFinished_after_progress_updates() &&
+      !mOnProgressEventSent) {
+    return;
+  }
+
+  if (mListener) {
+    nsCOMPtr<nsIThreadRetargetableStreamListener> omtEventListener =
+        do_QueryInterface(mListener);
+    if (omtEventListener) {
+      LOG(
+          ("HttpChannelChild::SendOnDataFinished sending data end "
+           "notification[this=%p]\n",
+           this));
+      omtEventListener->OnDataFinished(aChannelStatus);
+    } else {
+      LOG(
+          ("HttpChannelChild::SendOnDataFinished missing "
+           "nsIThreadRetargetableStreamListener "
+           "implementation [this=%p]\n",
+           this));
+    }
+  }
+}
+
 void HttpChannelChild::ProcessOnStopRequest(
     const nsresult& aChannelStatus, const ResourceTimingStructArgs& aTiming,
     const nsHttpHeaderArray& aResponseTrailers,
@@ -811,7 +850,21 @@ void HttpChannelChild::ProcessOnStopRequest(
        "aFromSocketProcess=%d]\n",
        this, aFromSocketProcess));
   MOZ_ASSERT(OnSocketThread());
-
+  {  // assign some of the members that would be accessed by the listeners
+     // upon getting OnDataFinished notications
+    MutexAutoLock lock(mOnDataFinishedMutex);
+    mTransferSize = aTiming.transferSize();
+    mEncodedBodySize = aTiming.encodedBodySize();
+  }
+  if (StaticPrefs::network_send_OnDataFinished()) {
+    mEventQ->RunOrEnqueue(new ChannelFunctionEvent(
+        [self = UnsafePtr<HttpChannelChild>(this)]() {
+          return self->GetODATarget();
+        },
+        [self = UnsafePtr<HttpChannelChild>(this), status = aChannelStatus]() {
+          self->SendOnDataFinished(status);
+        }));
+  }
   mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
       this, [self = UnsafePtr<HttpChannelChild>(this), aChannelStatus, aTiming,
              aResponseTrailers,
@@ -925,8 +978,9 @@ void HttpChannelChild::OnStopRequest(
 
   mRedirectStartTimeStamp = aTiming.redirectStart();
   mRedirectEndTimeStamp = aTiming.redirectEnd();
-  mTransferSize = aTiming.transferSize();
-  mEncodedBodySize = aTiming.encodedBodySize();
+  // mTransferSize and mEncodedBodySize are set in ProcessOnStopRequest
+  // TODO: check if we need to move assignments of other members to
+  // ProcessOnStopRequest
 
   mCacheReadStart = aTiming.cacheReadStart();
   mCacheReadEnd = aTiming.cacheReadEnd();
@@ -2855,7 +2909,6 @@ NS_IMETHODIMP
 HttpChannelChild::RetargetDeliveryTo(nsISerialEventTarget* aNewTarget) {
   LOG(("HttpChannelChild::RetargetDeliveryTo [this=%p, aNewTarget=%p]", this,
        aNewTarget));
-
   MOZ_ASSERT(NS_IsMainThread(), "Should be called on main thread only");
   MOZ_ASSERT(aNewTarget);
 

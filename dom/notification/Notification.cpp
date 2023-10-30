@@ -18,29 +18,24 @@
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_dom.h"
-#include "mozilla/Telemetry.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/AppNotificationServiceOptionsBinding.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/Document.h"
-#include "mozilla/dom/NotificationEvent.h"
-#include "mozilla/dom/PermissionMessageUtils.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseWorkerProxy.h"
+#include "mozilla/dom/QMResult.h"
 #include "mozilla/dom/RootedDictionary.h"
 #include "mozilla/dom/ServiceWorkerGlobalScopeBinding.h"
-#include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerScope.h"
+#include "mozilla/dom/quota/ResultExtensions.h"
 #include "Navigator.h"
-#include "nsAlertsUtils.h"
-#include "nsCRTGlue.h"
 #include "nsComponentManagerUtils.h"
 #include "nsContentPermissionHelper.h"
 #include "nsContentUtils.h"
-#include "nsDOMJSUtils.h"
 #include "nsFocusManager.h"
 #include "nsIAlertsService.h"
 #include "nsIContentPermissionPrompt.h"
@@ -51,7 +46,6 @@
 #include "nsIPushService.h"
 #include "nsIScriptError.h"
 #include "nsIServiceWorkerManager.h"
-#include "nsISimpleEnumerator.h"
 #include "nsIUUIDGenerator.h"
 #include "nsNetUtil.h"
 #include "nsProxyRelease.h"
@@ -147,24 +141,23 @@ class NotificationStorageCallback final : public ScopeCheckingGetCallback {
   }
 
   NS_IMETHOD Done() final {
-    ErrorResult result;
     AutoTArray<RefPtr<Notification>, 5> notifications;
 
     for (uint32_t i = 0; i < mFields.Length(); ++i) {
-      RefPtr<Notification> n = Notification::ConstructFromFields(
+      auto result = Notification::ConstructFromFields(
           mWindow, mFields[i].mID, mFields[i].mTitle, mFields[i].mDir,
           mFields[i].mLang, mFields[i].mBody, mFields[i].mTag, mFields[i].mIcon,
           mFields[i].mImage, mFields[i].mData, mFields[i].mRequireInteraction,
           mFields[i].mActions, mFields[i].mSilent,
           /* mFields[i].mBehavior, not
            * supported */
-          mFields[i].mServiceWorkerRegistrationScope, result);
-
-      n->SetStoredState(true);
-      Unused << NS_WARN_IF(result.Failed());
-      if (!result.Failed()) {
-        notifications.AppendElement(n.forget());
+          mFields[i].mServiceWorkerRegistrationScope);
+      if (result.isErr()) {
+        continue;
       }
+      RefPtr<Notification> n = result.unwrap();
+      n->SetStoredState(true);
+      notifications.AppendElement(n.forget());
     }
 
     mPromise->MaybeResolve(notifications);
@@ -859,13 +852,13 @@ nsresult NotificationActionsStringToArray(
 }
 
 // static
-already_AddRefed<Notification> Notification::ConstructFromFields(
+Result<already_AddRefed<Notification>, QMResult>
+Notification::ConstructFromFields(
     nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aImage,
     const nsAString& aData, bool aRequireInteraction, const nsAString& aActions,
-    bool aSilent, const nsAString& aServiceWorkerRegistrationScope,
-    ErrorResult& aRv) {
+    bool aSilent, const nsAString& aServiceWorkerRegistrationScope) {
   MOZ_ASSERT(aGlobal);
 
   RootedDictionary<NotificationOptions> options(RootingCx());
@@ -886,13 +879,14 @@ already_AddRefed<Notification> Notification::ConstructFromFields(
     return nullptr;
   }
 
+  IgnoredErrorResult rv;
   RefPtr<Notification> notification =
-      CreateInternal(aGlobal, aID, aTitle, options, aRv);
-
-  notification->InitFromBase64(aData, aRv);
-  if (NS_WARN_IF(aRv.Failed())) {
-    return nullptr;
+      CreateInternal(aGlobal, aID, aTitle, options, rv);
+  if (NS_WARN_IF(rv.Failed())) {
+    return Err(ToQMResult(NS_ERROR_FAILURE));
   }
+
+  QM_TRY(notification->InitFromBase64(aData));
 
   notification->SetScope(aServiceWorkerRegistrationScope);
 
@@ -1898,10 +1892,9 @@ class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
   void WorkerRunInternal(WorkerPrivate* aWorkerPrivate) override {
     RefPtr<Promise> workerPromise = mPromiseProxy->WorkerPromise();
 
-    ErrorResult result;
     AutoTArray<RefPtr<Notification>, 5> notifications;
     for (uint32_t i = 0; i < mFields.Length(); ++i) {
-      RefPtr<Notification> n = Notification::ConstructFromFields(
+      auto result = Notification::ConstructFromFields(
           aWorkerPrivate->GlobalScope(), mFields[i].mID, mFields[i].mTitle,
           mFields[i].mDir, mFields[i].mLang, mFields[i].mBody, mFields[i].mTag,
           mFields[i].mIcon, mFields[i].mImage, mFields[i].mData,
@@ -1909,13 +1902,13 @@ class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
           mFields[i].mSilent,
           /* mFields[i].mBehavior, not
            * supported */
-          mFields[i].mServiceWorkerRegistrationScope, result);
-
-      n->SetStoredState(true);
-      Unused << NS_WARN_IF(result.Failed());
-      if (!result.Failed()) {
-        notifications.AppendElement(n.forget());
+          mFields[i].mServiceWorkerRegistrationScope);
+      if (result.isErr()) {
+        continue;
       }
+      RefPtr<Notification> n = result.unwrap();
+      n->SetStoredState(true);
+      notifications.AppendElement(n.forget());
     }
 
     workerPromise->MaybeResolve(notifications);
@@ -2168,23 +2161,21 @@ void Notification::InitFromJSVal(JSContext* aCx, JS::Handle<JS::Value> aData,
   }
 }
 
-void Notification::InitFromBase64(const nsAString& aData, ErrorResult& aRv) {
-  if (!mDataAsBase64.IsEmpty() || aData.IsEmpty()) {
-    return;
+Result<Ok, QMResult> Notification::InitFromBase64(const nsAString& aData) {
+  MOZ_ASSERT(mDataAsBase64.IsEmpty());
+  if (aData.IsEmpty()) {
+    // No data; skipping
+    return Ok();
   }
 
   // To and fro to ensure it is valid base64.
   RefPtr<nsStructuredCloneContainer> container =
       new nsStructuredCloneContainer();
-  aRv = container->InitFromBase64(aData, JS_STRUCTURED_CLONE_VERSION);
-  if (NS_WARN_IF(aRv.Failed())) {
-    return;
-  }
+  QM_TRY(QM_TO_RESULT(
+      container->InitFromBase64(aData, JS_STRUCTURED_CLONE_VERSION)));
+  QM_TRY(QM_TO_RESULT(container->GetDataAsBase64(mDataAsBase64)));
 
-  aRv = container->GetDataAsBase64(mDataAsBase64);
-  if (NS_WARN_IF(aRv.Failed())) {
-    return;
-  }
+  return Ok();
 }
 
 bool Notification::AddRefObject() {

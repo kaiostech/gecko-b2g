@@ -30,14 +30,14 @@ git = "https://github.com/gfx-rs/metal-rs/"
 rev = "d24f1a4"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/naga?rev=33b75a27d93c6574b11b4dd4492b85b5783d6c52"]
+[source."git+https://github.com/gfx-rs/naga?rev=e25280df9316434ef7752970016d01a3aede3f17"]
 git = "https://github.com/gfx-rs/naga"
-rev = "33b75a27d93c6574b11b4dd4492b85b5783d6c52"
+rev = "e25280df9316434ef7752970016d01a3aede3f17"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=858d7d590ef9ebfe1b91f6f0925aacde15cce714"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=75989192a9c8f70893882ce0f4373ac217d380c3"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "858d7d590ef9ebfe1b91f6f0925aacde15cce714"
+rev = "75989192a9c8f70893882ce0f4373ac217d380c3"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/warp?rev=4af45fae95bc98b0eba1ef0db17e1dac471bb23d"]
@@ -65,14 +65,14 @@ git = "https://github.com/mozilla-spidermonkey/jsparagus"
 rev = "64ba08e24749616de2344112f226d1ef4ba893ae"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/application-services?rev=04f012eab55b080a17c92cf54ad83668276ac365"]
+[source."git+https://github.com/mozilla/application-services?rev=c82bccfa500813f273f4db0ead64fc73bfa2b34c"]
 git = "https://github.com/mozilla/application-services"
-rev = "04f012eab55b080a17c92cf54ad83668276ac365"
+rev = "c82bccfa500813f273f4db0ead64fc73bfa2b34c"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/audioipc?rev=0b51291d2483a17dce3e300c7784b369e02bee73"]
+[source."git+https://github.com/mozilla/audioipc?rev=ec6af6ecf8ba50b51f13d18f417de8cfb8460543"]
 git = "https://github.com/mozilla/audioipc"
-rev = "0b51291d2483a17dce3e300c7784b369e02bee73"
+rev = "ec6af6ecf8ba50b51f13d18f417de8cfb8460543"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=93b5c01a131f65c83c11aeb317f4583405c5eb79"]
@@ -95,9 +95,9 @@ git = "https://github.com/mozilla/mp4parse-rust"
 rev = "d262e40e7b80f949dcdb4db21caa6dbf1a8b2043"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/neqo?tag=v0.6.5"]
+[source."git+https://github.com/mozilla/neqo?tag=v0.6.6"]
 git = "https://github.com/mozilla/neqo"
-tag = "v0.6.5"
+tag = "v0.6.6"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/uniffi-rs.git?rev=c0e64b839018728d8153ce1758d391b7782e2e21"]

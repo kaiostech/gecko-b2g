@@ -1294,7 +1294,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'android/hardware/radio/1.1/IRadioResponse.h',
         'android/hardware/radio/1.1/ISap.h',
         'android/hardware/vibrator/1.0/IVibrator.h',
-        'android/hardware/vibrator/IVibrator.h',
         'android/hardware/sensors/1.0/ISensors.h',
         'android/hardware/sensors/2.0/ISensors.h',
         'android/hardware/wifi/1.0/IWifiApIface.h',
@@ -1518,8 +1517,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'android/net/wifi/nl80211/IClientInterface.h',
             'android/net/wifi/nl80211/IWificond.h',
             'android/net/wifi/nl80211/IWifiScannerImpl.h',
-            'mediadrm/ICrypto.h',
-            'utils/StrongPointer.h',
         ]
 
     if CONFIG['ANDROID_VERSION'] >= '33':
@@ -1548,7 +1545,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'hardware_legacy/AudioPolicyInterface.h',
             'hardware_legacy/AudioPolicyManagerBase.h',
             'input/PropertyMap.h',
-            'media/DataSource.h',
             'sensor/SensorManager.h',
             'utils.h',
         ]

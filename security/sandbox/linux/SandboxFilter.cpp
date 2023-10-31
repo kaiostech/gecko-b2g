@@ -921,7 +921,7 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
 
       CASES_FOR_clock_gettime:
       CASES_FOR_clock_getres:
-      CASES_FOR_clock_nanosleep : {
+      CASES_FOR_clock_nanosleep: {
         // clockid_t can encode a pid or tid to monitor another
         // process or thread's CPU usage (see CPUCLOCK_PID and related
         // definitions in include/linux/posix-timers.h in the kernel
@@ -976,7 +976,7 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
       CASES_FOR_fstat:
         return Allow();
 
-      CASES_FOR_fcntl : {
+      CASES_FOR_fcntl: {
         Arg<int> cmd(1);
         Arg<int> flags(2);
         // Typical use of F_SETFL is to modify the flags returned by
@@ -1041,6 +1041,13 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
         // that might use brk.
       case __NR_brk:
         return Allow();
+
+        // Similarly, mremap (bugs: 1047620, 1286119, 1860267)
+      case __NR_mremap: {
+        Arg<int> flags(3);
+        return If((flags & ~MREMAP_MAYMOVE) == 0, Allow())
+            .Else(SandboxPolicyBase::EvaluateSyscall(sysno));
+      }
 #endif
 
         // madvise hints used by malloc; see bug 1303813 and bug 1364533
@@ -1527,7 +1534,7 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
       }
 
 #ifndef MOZ_WIDGET_GONK
-      CASES_FOR_fcntl : {
+      CASES_FOR_fcntl: {
         Arg<int> cmd(1);
         return Switch(cmd)
             // Nvidia GL and fontconfig (newer versions) use fcntl file locking.
@@ -2142,7 +2149,7 @@ class SocketProcessSandboxPolicy final : public SandboxPolicyCommon {
             .Else(SandboxPolicyCommon::EvaluateSyscall(sysno));
       }
 
-      CASES_FOR_fcntl : {
+      CASES_FOR_fcntl: {
         Arg<int> cmd(1);
         return Switch(cmd)
             .Case(F_DUPFD_CLOEXEC, Allow())

@@ -366,7 +366,7 @@ class AudioCallbackDriver::FallbackWrapper : public GraphInterface {
   }
 #ifdef DEBUG
   bool InDriverIteration(const GraphDriver* aDriver) const override {
-    return !mOwner->ThreadRunning() && mOwner->InIteration();
+    return mGraph->InDriverIteration(mOwner) && mOwner->OnFallback();
   }
 #endif
   dom::AudioChannel AudioChannel() const override {
@@ -910,7 +910,7 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
     return aFrames - 1;
   }
 
-  MOZ_ASSERT(ThreadRunning());
+  MOZ_ASSERT(mAudioStreamState == AudioStreamState::Running);
   TRACE_AUDIO_CALLBACK_BUDGET("AudioCallbackDriver real-time budget", aFrames,
                               mSampleRate);
   TRACE("AudioCallbackDriver::DataCallback");
@@ -1102,7 +1102,6 @@ void AudioCallbackDriver::StateCallback(cubeb_state aState) {
     // StateCallback() receives an error for this stream while the main thread
     // or another driver has control of the graph.
     if (streamState == AudioStreamState::Running) {
-      MOZ_ASSERT(!ThreadRunning());
       if (mFallbackDriverState == FallbackDriverState::None) {
         // Only switch to fallback if it's not already running. It could be
         // running with the callback driver having started but not seen a single

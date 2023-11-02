@@ -972,9 +972,6 @@ inline const StyleImage& StyleImage::FinalImage() const {
 }
 
 template <>
-Maybe<CSSIntSize> StyleImage::GetIntrinsicSize() const;
-
-template <>
 inline bool StyleImage::IsImageRequestType() const {
   const auto& finalImage = FinalImage();
   return finalImage.IsUrl();
@@ -1129,6 +1126,20 @@ inline bool StyleDisplay::IsInlineInside() const {
 
 inline bool StyleDisplay::IsInlineOutside() const {
   return Outside() == StyleDisplayOutside::Inline || IsInternalRuby();
+}
+
+inline float StyleZoom::Zoom(float aValue) const {
+  if (*this == ONE) {
+    return aValue;
+  }
+  return ToFloat() * aValue;
+}
+
+inline float StyleZoom::Unzoom(float aValue) const {
+  if (*this == ONE) {
+    return aValue;
+  }
+  return aValue / ToFloat();
 }
 
 }  // namespace mozilla

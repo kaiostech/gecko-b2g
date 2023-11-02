@@ -6289,6 +6289,12 @@
   value: false
   mirror: always
 
+# whether to do font fallback for codepoints with General Category = Unassigned
+- name: gfx.font_rendering.fallback.unassigned_chars
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #ifdef MOZ_WIDGET_GTK
 -   name: gfx.font_rendering.fontconfig.max_generic_substitutions
     type: RelaxedAtomicUint32
@@ -12100,7 +12106,7 @@
 # all the progress events on the main thread
 - name: network.send_OnDataFinished_after_progress_updates
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 # Perform all network access on the socket process.

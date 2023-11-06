@@ -62,6 +62,8 @@ for patch in \
  bug-1814862-ICU-22260.diff \
  double-conversion.diff \
  bug-1856428-ICU-22541.diff \
+ bug-1856290-ICU-20548-dateinterval-timezone.diff \
+ bug-1856291-ICU-22526-calendar-timezone-offset-limit.diff \
 ; do
   echo "Applying local patch $patch"
   patch -d ${icu_dir}/../../ -p1 --no-backup-if-mismatch < ${icu_dir}/../icu-patches/$patch

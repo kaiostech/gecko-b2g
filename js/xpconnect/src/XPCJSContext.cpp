@@ -783,6 +783,7 @@ static mozilla::Atomic<bool> sArrayGroupingEnabled(false);
 #ifdef NIGHTLY_BUILD
 static mozilla::Atomic<bool> sNewSetMethodsEnabled(false);
 static mozilla::Atomic<bool> sArrayBufferTransferEnabled(false);
+static mozilla::Atomic<bool> sSymbolsAsWeakMapKeysEnabled(false);
 #endif
 
 static JS::WeakRefSpecifier GetWeakRefsEnabled() {
@@ -813,6 +814,7 @@ void xpc::SetPrefableRealmOptions(JS::RealmOptions& options) {
       .setArrayFromAsyncEnabled(sArrayFromAsyncEnabled)
       .setNewSetMethodsEnabled(sNewSetMethodsEnabled)
       .setArrayBufferTransferEnabled(sArrayBufferTransferEnabled)
+      .setSymbolsAsWeakMapKeysEnabled(sSymbolsAsWeakMapKeysEnabled)
 #endif
       ;
 }
@@ -1020,6 +1022,8 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
       Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.new_set_methods");
   sArrayBufferTransferEnabled = Preferences::GetBool(
       JS_OPTIONS_DOT_STR "experimental.arraybuffer_transfer");
+  sSymbolsAsWeakMapKeysEnabled = Preferences::GetBool(
+      JS_OPTIONS_DOT_STR "experimental.symbols_as_weakmap_keys");
 #endif
 
 #ifdef JS_GC_ZEAL

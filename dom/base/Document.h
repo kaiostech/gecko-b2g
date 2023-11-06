@@ -53,6 +53,7 @@
 #include "mozilla/dom/RadioGroupContainer.h"
 #include "mozilla/dom/TreeOrderedArray.h"
 #include "mozilla/dom/ViewportMetaData.h"
+#include "mozilla/dom/LargestContentfulPaint.h"
 #include "mozilla/glean/GleanMetrics.h"
 #include "nsAtom.h"
 #include "nsCOMArray.h"
@@ -1170,9 +1171,6 @@ class Document : public nsINode,
     if (aParent) {
       RecomputeResistFingerprinting();
       mIgnoreDocGroupMismatches = aParent->mIgnoreDocGroupMismatches;
-      if (!mIsDevToolsDocument) {
-        mIsDevToolsDocument = mParentDocument->IsDevToolsDocument();
-      }
     }
   }
 
@@ -2429,6 +2427,10 @@ class Document : public nsINode,
 
   LinkedList<MediaQueryList>& MediaQueryLists() { return mDOMMediaQueryLists; }
 
+  nsTHashtable<LCPEntryHashEntry>& ContentIdentifiersForLCP() {
+    return mContentIdentifiersForLCP;
+  }
+
   /**
    * Get the compatibility mode for this document
    */
@@ -2525,8 +2527,6 @@ class Document : public nsINode,
     }
     return root->mInChromeDocShell;
   }
-
-  bool IsDevToolsDocument() const { return mIsDevToolsDocument; }
 
   bool IsBeingUsedAsImage() const { return mIsBeingUsedAsImage; }
 
@@ -4622,13 +4622,6 @@ class Document : public nsINode,
   // True if we're loaded in a chrome docshell.
   bool mInChromeDocShell : 1;
 
-  // True if our current document is a DevTools document. Either the url is
-  // about:devtools-toolbox or the parent document already has
-  // mIsDevToolsDocument set to true.
-  // This is used to avoid applying High Contrast mode to DevTools documents.
-  // See Bug 1575766.
-  bool mIsDevToolsDocument : 1;
-
   // True is this document is synthetic : stand alone image, video, audio
   // file, etc.
   bool mIsSyntheticDocument : 1;
@@ -5043,6 +5036,11 @@ class Document : public nsINode,
 
   // Our live MediaQueryLists
   LinkedList<MediaQueryList> mDOMMediaQueryLists;
+
+  // A hashset to keep track of which {element, imgRequestProxy}
+  // combination has been processed to avoid considering the same
+  // element twice for LargestContentfulPaint.
+  nsTHashtable<LCPEntryHashEntry> mContentIdentifiersForLCP;
 
   // Array of observers
   nsTObserverArray<nsIDocumentObserver*> mObservers;

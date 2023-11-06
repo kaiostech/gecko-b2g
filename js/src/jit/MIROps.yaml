@@ -1194,6 +1194,7 @@
   result_type: String
   congruent_to: if_operands_equal
   alias_set: none
+  movable: true
   can_recover: true
 
 - name: ModuleMetadata
@@ -2307,6 +2308,7 @@
   folds_to: custom
   congruent_to: if_operands_equal
   alias_set: none
+  type_policy: none
 
 - name: HasClass
   gen_boilerplate: false

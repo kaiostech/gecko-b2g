@@ -388,9 +388,6 @@ with Files("XR*"):
 with Files("WheelEvent.webidl"):
     BUG_COMPONENT = ("Core", "DOM: UI Events & Focus Handling")
 
-with Files("WidevineCDMManifest.webidl"):
-    BUG_COMPONENT = ("Core", "Audio/Video: Playback")
-
 with Files("WindowOrWorkerGlobalScope.webidl"):
     BUG_COMPONENT = ("Core", "DOM: Workers")
 
@@ -1047,7 +1044,6 @@ WEBIDL_FILES = [
     "WebTransportSendReceiveStream.webidl",
     "WebXR.webidl",
     "WheelEvent.webidl",
-    "WidevineCDMManifest.webidl",
     "WindowOrWorkerGlobalScope.webidl",
     "WindowRoot.webidl",
     "Worker.webidl",

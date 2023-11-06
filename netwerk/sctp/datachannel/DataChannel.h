@@ -55,6 +55,14 @@ namespace dom {
 struct RTCStatsCollection;
 };
 
+enum class DataChannelState { Connecting, Open, Closing, Closed };
+enum class DataChannelConnectionState { Connecting, Open, Closed };
+enum class DataChannelReliabilityPolicy {
+  Reliable,
+  LimitedRetransmissions,
+  LimitedLifetime
+};
+
 // For sending outgoing messages.
 // This class only holds a reference to the data and the info structure but does
 // not copy it.
@@ -120,10 +128,10 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   virtual ~DataChannelConnection();
 
  public:
-  enum {
-    PENDING_NONE = 0U,  // No outgoing messages are pending
-    PENDING_DCEP = 1U,  // Outgoing DCEP messages are pending
-    PENDING_DATA = 2U,  // Outgoing data channel messages are pending
+  enum class PendingType {
+    None,  // No outgoing messages are pending.
+    Dcep,  // Outgoing DCEP messages are pending.
+    Data,  // Outgoing data channel messages are pending.
   };
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DataChannelConnection)
@@ -184,16 +192,11 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   void SetSignals(const std::string& aTransportId);
 #endif
 
-  typedef enum {
-    RELIABLE = 0,
-    PARTIAL_RELIABLE_REXMIT = 1,
-    PARTIAL_RELIABLE_TIMED = 2
-  } Type;
-
   [[nodiscard]] already_AddRefed<DataChannel> Open(
-      const nsACString& label, const nsACString& protocol, Type type,
-      bool inOrder, uint32_t prValue, DataChannelListener* aListener,
-      nsISupports* aContext, bool aExternalNegotiated, uint16_t aStream);
+      const nsACString& label, const nsACString& protocol,
+      DataChannelReliabilityPolicy prPolicy, bool inOrder, uint32_t prValue,
+      DataChannelListener* aListener, nsISupports* aContext,
+      bool aExternalNegotiated, uint16_t aStream);
 
   void Stop();
   void Close(DataChannel* aChannel);
@@ -218,9 +221,6 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   // May be called with (STS thread) or without the lock
   int ReceiveCallback(struct socket* sock, void* data, size_t datalen,
                       struct sctp_rcvinfo rcv, int flags);
-
-  // Find out state
-  enum { CONNECTING = 0U, OPEN = 1U, CLOSING = 2U, CLOSED = 3U };
 
   Mutex mLock;
 
@@ -255,15 +255,13 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   bool Init(const uint16_t aLocalPort, const uint16_t aNumStreams,
             const Maybe<uint64_t>& aMaxMessageSize);
 
-  // Caller must hold mLock
-  uint16_t GetReadyState() const MOZ_REQUIRES(mLock) {
+  DataChannelConnectionState GetState() const MOZ_REQUIRES(mLock) {
     mLock.AssertCurrentThreadOwns();
 
     return mState;
   }
 
-  // Caller must hold mLock
-  void SetReadyState(const uint16_t aState) MOZ_REQUIRES(mLock);
+  void SetState(DataChannelConnectionState aState) MOZ_REQUIRES(mLock);
 
 #ifdef SCTP_DTLS_SUPPORTED
   static void DTLSConnectThread(void* data);
@@ -281,7 +279,8 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   int SendOpenAckMessage(uint16_t stream) MOZ_REQUIRES(mLock);
   int SendOpenRequestMessage(const nsACString& label,
                              const nsACString& protocol, uint16_t stream,
-                             bool unordered, uint16_t prPolicy,
+                             bool unordered,
+                             DataChannelReliabilityPolicy prPolicy,
                              uint32_t prValue) MOZ_REQUIRES(mLock);
   bool SendBufferedMessages(nsTArray<UniquePtr<BufferedOutgoingMsg>>& buffer,
                             size_t* aWritten);
@@ -394,7 +393,7 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   nsRefPtrDeque<DataChannel> mPending;
   // STS and main
   size_t mNegotiatedIdLimit MOZ_GUARDED_BY(mLock) = 0;
-  uint8_t mPendingType MOZ_GUARDED_BY(mLock) = PENDING_NONE;
+  PendingType mPendingType MOZ_GUARDED_BY(mLock) = PendingType::None;
   // holds data that's come in before a channel is open
   nsTArray<UniquePtr<QueuedDataMessage>> mQueuedData MOZ_GUARDED_BY(mLock);
   // holds outgoing control messages
@@ -407,7 +406,8 @@ class DataChannelConnection final : public net::NeckoTargetHolder
   struct socket* mMasterSocket = nullptr;
   // cloned from mMasterSocket on successful Connect on STS thread
   struct socket* mSocket = nullptr;
-  uint16_t mState MOZ_GUARDED_BY(mLock) = CLOSED;  // Protected with mLock
+  DataChannelConnectionState mState MOZ_GUARDED_BY(mLock) =
+      DataChannelConnectionState::Closed;
 
 #ifdef SCTP_DTLS_SUPPORTED
   std::string mTransportId;
@@ -445,13 +445,11 @@ class DataChannel {
   friend class DataChannelConnection;
 
  public:
-  enum { CONNECTING = 0U, OPEN = 1U, CLOSING = 2U, CLOSED = 3U };
-
   DataChannel(DataChannelConnection* connection, uint16_t stream,
-              uint16_t state, const nsACString& label,
-              const nsACString& protocol, uint16_t policy, uint32_t value,
-              bool ordered, bool negotiated, DataChannelListener* aListener,
-              nsISupports* aContext)
+              DataChannelState state, const nsACString& label,
+              const nsACString& protocol, DataChannelReliabilityPolicy policy,
+              uint32_t value, bool ordered, bool negotiated,
+              DataChannelListener* aListener, nsISupports* aContext)
       : mListener(aListener),
         mContext(aContext),
         mConnection(connection),
@@ -506,7 +504,7 @@ class DataChannel {
   // Send a binary blob
   void SendBinaryBlob(dom::Blob& aBlob, ErrorResult& aRv);
 
-  uint16_t GetType() const { return mPrPolicy; }
+  DataChannelReliabilityPolicy GetType() const { return mPrPolicy; }
 
   dom::Nullable<uint16_t> GetMaxPacketLifeTime() const;
 
@@ -534,13 +532,13 @@ class DataChannel {
   void AnnounceClosed();
 
   // Find out state
-  uint16_t GetReadyState() const {
+  DataChannelState GetReadyState() const {
     MOZ_ASSERT(NS_IsMainThread());
     return mReadyState;
   }
 
   // Set ready state
-  void SetReadyState(const uint16_t aState);
+  void SetReadyState(DataChannelState aState);
 
   void GetLabel(nsAString& aLabel) { CopyUTF8toUTF16(mLabel, aLabel); }
   void GetProtocol(nsAString& aProtocol) {
@@ -575,9 +573,9 @@ class DataChannel {
   nsCString mLabel;
   nsCString mProtocol;
   // This is mainthread only
-  uint16_t mReadyState;
+  DataChannelState mReadyState;
   uint16_t mStream;
-  uint16_t mPrPolicy;
+  DataChannelReliabilityPolicy mPrPolicy;
   uint32_t mPrValue;
   // Accessed on main and STS
   const bool mNegotiated;
@@ -601,16 +599,17 @@ class DataChannel {
 // Also used to proxy other items to MainThread
 class DataChannelOnMessageAvailable : public Runnable {
  public:
-  enum {
-    ON_CONNECTION,
-    ON_DISCONNECTED,
-    ON_CHANNEL_CREATED,
-    ON_DATA_STRING,
-    ON_DATA_BINARY,
-  }; /* types */
+  enum class EventType {
+    OnConnection,
+    OnDisconnected,
+    OnChannelCreated,
+    OnDataString,
+    OnDataBinary,
+  };
 
   DataChannelOnMessageAvailable(
-      int32_t aType, DataChannelConnection* aConnection, DataChannel* aChannel,
+      EventType aType, DataChannelConnection* aConnection,
+      DataChannel* aChannel,
       nsCString& aData)  // XXX this causes inefficiency
       : Runnable("DataChannelOnMessageAvailable"),
         mType(aType),
@@ -618,7 +617,7 @@ class DataChannelOnMessageAvailable : public Runnable {
         mConnection(aConnection),
         mData(aData) {}
 
-  DataChannelOnMessageAvailable(int32_t aType, DataChannel* aChannel)
+  DataChannelOnMessageAvailable(EventType aType, DataChannel* aChannel)
       : Runnable("DataChannelOnMessageAvailable"),
         mType(aType),
         mChannel(aChannel) {}
@@ -626,7 +625,7 @@ class DataChannelOnMessageAvailable : public Runnable {
   // used for notifications that don't use them, but I'd like more
   // bulletproof compile-time checking.
 
-  DataChannelOnMessageAvailable(int32_t aType,
+  DataChannelOnMessageAvailable(EventType aType,
                                 DataChannelConnection* aConnection,
                                 DataChannel* aChannel)
       : Runnable("DataChannelOnMessageAvailable"),
@@ -635,72 +634,18 @@ class DataChannelOnMessageAvailable : public Runnable {
         mConnection(aConnection) {}
 
   // for ON_CONNECTION/ON_DISCONNECTED
-  DataChannelOnMessageAvailable(int32_t aType,
+  DataChannelOnMessageAvailable(EventType aType,
                                 DataChannelConnection* aConnection)
       : Runnable("DataChannelOnMessageAvailable"),
         mType(aType),
         mConnection(aConnection) {}
 
-  NS_IMETHOD Run() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    // Note: calling the listeners can indirectly cause the listeners to be
-    // made available for GC (by removing event listeners), especially for
-    // OnChannelClosed().  We hold a ref to the Channel and the listener
-    // while calling this.
-    switch (mType) {
-      case ON_DATA_STRING:
-      case ON_DATA_BINARY:
-        if (!mChannel->mListener) {
-          DC_ERROR(("DataChannelOnMessageAvailable (%d) with null Listener!",
-                    mType));
-          return NS_OK;
-        }
-
-        if (mChannel->GetReadyState() == DataChannel::CLOSED ||
-            mChannel->GetReadyState() == DataChannel::CLOSING) {
-          // Closed by JS, probably
-          return NS_OK;
-        }
-
-        if (mType == ON_DATA_STRING) {
-          mChannel->mListener->OnMessageAvailable(mChannel->mContext, mData);
-        } else {
-          mChannel->mListener->OnBinaryMessageAvailable(mChannel->mContext,
-                                                        mData);
-        }
-        break;
-      case ON_DISCONNECTED:
-        // If we've disconnected, make sure we close all the streams - from
-        // mainthread!
-        if (mConnection->mListener) {
-          mConnection->mListener->NotifySctpClosed();
-        }
-        mConnection->CloseAll();
-        break;
-      case ON_CHANNEL_CREATED:
-        if (!mConnection->mListener) {
-          DC_ERROR(("DataChannelOnMessageAvailable (%d) with null Listener!",
-                    mType));
-          return NS_OK;
-        }
-
-        // important to give it an already_AddRefed pointer!
-        mConnection->mListener->NotifyDataChannel(mChannel.forget());
-        break;
-      case ON_CONNECTION:
-        if (mConnection->mListener) {
-          mConnection->mListener->NotifySctpConnected();
-        }
-        break;
-    }
-    return NS_OK;
-  }
+  NS_IMETHOD Run() override;
 
  private:
   ~DataChannelOnMessageAvailable() = default;
 
-  int32_t mType;
+  EventType mType;
   // XXX should use union
   RefPtr<DataChannel> mChannel;
   RefPtr<DataChannelConnection> mConnection;

@@ -3403,8 +3403,9 @@ dependencies = [
 
 [[package]]
 name = "metal"
-version = "0.26.0"
-source = "git+https://github.com/gfx-rs/metal-rs/?rev=d24f1a4#d24f1a4ae92470bf87a0c65ecfe78c9299835505"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c43f73953f8cbe511f021b58f18c3ce1c3d1ae13fe953293e13345bf83217f25"
 dependencies = [
  "bitflags 2.4.0",
  "block",
@@ -3779,8 +3780,8 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 
 [[package]]
 name = "naga"
-version = "0.13.0"
-source = "git+https://github.com/gfx-rs/naga?rev=e25280df9316434ef7752970016d01a3aede3f17#e25280df9316434ef7752970016d01a3aede3f17"
+version = "0.14.0"
+source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
 dependencies = [
  "bit-set",
  "bitflags 2.4.0",
@@ -6367,8 +6368,8 @@ dependencies = [
 
 [[package]]
 name = "wgpu-core"
-version = "0.17.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=75989192a9c8f70893882ce0f4373ac217d380c3#75989192a9c8f70893882ce0f4373ac217d380c3"
+version = "0.18.0"
+source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
 dependencies = [
  "arrayvec",
  "bit-vec",
@@ -6390,8 +6391,8 @@ dependencies = [
 
 [[package]]
 name = "wgpu-hal"
-version = "0.17.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=75989192a9c8f70893882ce0f4373ac217d380c3#75989192a9c8f70893882ce0f4373ac217d380c3"
+version = "0.18.0"
+source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -6427,8 +6428,8 @@ dependencies = [
 
 [[package]]
 name = "wgpu-types"
-version = "0.17.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=75989192a9c8f70893882ce0f4373ac217d380c3#75989192a9c8f70893882ce0f4373ac217d380c3"
+version = "0.18.0"
+source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
 dependencies = [
  "bitflags 2.4.0",
  "js-sys",

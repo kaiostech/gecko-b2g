@@ -732,6 +732,13 @@ pref("browser.shopping.experience2023.optedIn", 0);
 // to auto-activate the sidebar for non-opted-in users up to 2 times.
 pref("browser.shopping.experience2023.active", true);
 
+// Enables ad exposure telemetry for users opted in to the shopping experience:
+// when this pref is true, each time a product is analyzed, we record if an ad
+// was available for that product. This value will be toggled via a nimbus
+// experiment, so that we can pause collection if the ads server struggles
+// under load.
+pref("browser.shopping.experience2023.ads.exposure", false);
+
 // Enables the ad / recommended product feature for the shopping sidebar.
 // If enabled, users can disable the ad card using the separate pref
 // `browser.shopping.experience2023.ads.userEnabled` and visible toggle
@@ -1852,6 +1859,11 @@ pref("identity.fxaccounts.commands.missed.fetch_interval", 86400);
 #ifdef MOZ_WIDEVINE_EME
   pref("media.gmp-widevinecdm.visible", true);
   pref("media.gmp-widevinecdm.enabled", true);
+#ifdef MOZ_WMF_CDM
+  pref("media.gmp-widevinecdm-l1.visible", false);
+  pref("media.gmp-widevinecdm-l1.enabled", false);
+  pref("media.gmp-widevinecdm-l1.forceInstall", false);
+#endif
 #endif
 
 pref("media.gmp-gmpopenh264.visible", true);

@@ -85,6 +85,7 @@ struct RangePaintInfo;
 class ReflowCountMgr;
 #endif
 class WeakFrame;
+class nsTextFrame;
 class ZoomConstraintsClient;
 
 struct nsCallbackEventRequest;
@@ -113,6 +114,7 @@ class Element;
 class Event;
 class HTMLSlotElement;
 class Selection;
+class PerformanceMainThread;
 }  // namespace dom
 
 namespace gfx {
@@ -1734,6 +1736,8 @@ class PresShell final : public nsStubDocumentObserver,
 
   bool GetZoomableByAPZ() const;
 
+  bool ReflowForHiddenContentIfNeeded();
+  void UpdateHiddenContentInForcedLayout(nsIFrame*);
   /**
    * If this frame has content hidden via `content-visibilty` that has a pending
    * reflow, force the content to reflow immediately.
@@ -1752,6 +1756,7 @@ class PresShell final : public nsStubDocumentObserver,
 
   void UpdateRelevancyOfContentVisibilityAutoFrames();
   void ScheduleContentRelevancyUpdate(ContentRelevancyReason aReason);
+  void UpdateContentRelevancyImmediately(ContentRelevancyReason aReason);
 
  private:
   ~PresShell();

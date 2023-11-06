@@ -3221,6 +3221,14 @@ class nsIFrame : public nsQueryFrame {
   bool HidesContentForLayout() const;
 
   /**
+   * returns the closest ancestor with `content-visibility` property.
+   * @param aInclude specifies what kind of `content-visibility` to include.
+   */
+  nsIFrame* GetClosestContentVisibilityAncestor(
+      const mozilla::EnumSet<IncludeContentVisibility>& =
+          IncludeAllContentVisibility()) const;
+
+  /**
    * Returns true if this frame is entirely hidden due the `content-visibility`
    * property on an ancestor.
    * @param aInclude specifies what kind of `content-visibility` to include.
@@ -5581,6 +5589,8 @@ class MOZ_HEAP_CLASS WeakFrame {
 
   nsIFrame* operator->() { return mFrame; }
   operator nsIFrame*() { return mFrame; }
+
+  bool operator==(nsIFrame* const aOther) const { return mFrame == aOther; }
 
   void Clear(mozilla::PresShell* aPresShell);
 

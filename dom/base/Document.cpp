@@ -1326,7 +1326,6 @@ Document::Document(const char* aContentType)
       mIsBeingUsedAsImage(false),
       mChromeRulesEnabled(false),
       mInChromeDocShell(false),
-      mIsDevToolsDocument(false),
       mIsSyntheticDocument(false),
       mHasLinksToUpdateRunnable(false),
       mFlushingPendingLinkUpdates(false),
@@ -2539,6 +2538,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAll)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocGroup)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameRequestManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mContentIdentifiersForLCP)
 
   // Traverse all our nsCOMArrays.
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPreloadingImages)
@@ -2664,6 +2664,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mAll)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReferrerInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadReferrerInfo)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mContentIdentifiersForLCP);
 
   if (tmp->mDocGroup && tmp->mDocGroup->GetBrowsingContextGroup()) {
     tmp->mDocGroup->GetBrowsingContextGroup()->RemoveDocument(tmp,
@@ -2929,14 +2930,6 @@ void Document::ResetToURI(nsIURI* aURI, nsILoadGroup* aLoadGroup,
   // mDocumentURI.
   mDocumentBaseURI = nullptr;
   mChromeXHRDocBaseURI = nullptr;
-
-  // Check if the current document is the top-level DevTools document.
-  // For inner DevTools frames, mIsDevToolsDocument will be set when
-  // calling SetDocumentParent.
-  if (aURI && aURI->SchemeIs("about") &&
-      aURI->GetSpecOrDefault().EqualsLiteral("about:devtools-toolbox")) {
-    mIsDevToolsDocument = true;
-  }
 
   if (aLoadGroup) {
     mDocumentLoadGroup = do_GetWeakReference(aLoadGroup);

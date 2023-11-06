@@ -130,6 +130,7 @@ FEDORA_DISTROS = (
     "centos",
     "fedora",
     "rocky",
+    "nobara",
     "oracle",
 )
 

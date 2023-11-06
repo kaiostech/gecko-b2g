@@ -2129,11 +2129,6 @@
   value: false
   mirror: always
 
-- name: devtools.toolbox.force-chrome-prefs
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 #---------------------------------------------------------------------------
 # Prefs starting with "docshell."
 #---------------------------------------------------------------------------
@@ -2467,7 +2462,7 @@
 # Whether the LargestContentfulPaint API will be gathered and returned by performance observer*
 - name: dom.enable_largest_contentful_paint
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether performance.GetEntries* will contain an entry for the active document
@@ -3941,7 +3936,7 @@
 
 - name: dom.select.showPicker.enabled
   type: bool
-  value: true
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.separate_event_queue_for_post_message.enabled
@@ -7695,6 +7690,12 @@
     type: bool
     value: false
     mirror: always
+
+  # Experimental support for Symbols as WeakMap keys in JavaScript.
+-   name: javascript.options.experimental.symbols_as_weakmap_keys
+    type: bool
+    value: false
+    mirror: always
 #endif  // NIGHTLY_BUILD
 
 #ifdef NIGHTLY_BUILD
@@ -9076,6 +9077,11 @@
   mirror: always
 
 - name: layout.css.text-wrap-balance-after-clamp.enabled
+  type: bool
+  value: true
+  mirror: always
+
+- name: layout.css.text-align.justify-only-after-last-tab
   type: bool
   value: true
   mirror: always
@@ -16027,7 +16033,7 @@
 #  * -1: locally, no fallback
 - name: widget.windows.utility_process_file_picker
   type: RelaxedAtomicInt32
-  value: -1
+  value: 0
   mirror: always
 
 # The number of messages of each type to keep for display in

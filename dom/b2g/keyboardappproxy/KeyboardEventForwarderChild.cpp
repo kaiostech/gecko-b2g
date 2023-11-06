@@ -8,6 +8,7 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/dom/KeyboardEvent.h"
 #include "mozilla/dom/BrowserChild.h"
+#include "mozilla/dom/Document.h"
 #include <string.h>
 #include "mozilla/dom/CustomEvent.h"
 extern mozilla::LazyLogModule gKeyboardAppProxyLog;

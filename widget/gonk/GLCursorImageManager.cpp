@@ -19,6 +19,7 @@
 #include "GLCursorImageManager.h"
 #include "imgIContainer.h"
 #include "mozilla/dom/AnonymousContent.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "nsDOMTokenList.h"
 #include "nsIFrame.h"

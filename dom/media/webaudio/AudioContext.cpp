@@ -28,6 +28,7 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/ConvolverNodeBinding.h"
 #include "mozilla/dom/DelayNodeBinding.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/DynamicsCompressorNodeBinding.h"
 #include "mozilla/dom/GainNodeBinding.h"
 #include "mozilla/dom/IIRFilterNodeBinding.h"

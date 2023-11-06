@@ -10,6 +10,7 @@
 #include "nsFrameLoader.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/Document.h"
 #include "KeyboardEventForwarderParent.h"
 
 mozilla::LazyLogModule gKeyboardAppProxyLog("KeyboardAppProxy");

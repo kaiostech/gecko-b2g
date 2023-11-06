@@ -19,8 +19,13 @@ enum EventQueueFlagBitsInternal : uint32_t {
   INTERNAL_WAKE = 1 << 16,
 };
 
-SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
+#ifdef HAL_HIDL_V21
+hal::SensorType getSensorType(V2_1::SensorType aHidlSensorType) {
+  using V2_1::SensorType;
+#else
+hal::SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
   using V1_0::SensorType;
+#endif
   switch (aHidlSensorType) {
     case SensorType::ORIENTATION:
       return SENSOR_ORIENTATION;
@@ -51,7 +56,7 @@ namespace hal_impl {
 struct SensorsCallback : public ISensorsCallback {
   // TODO: to support dynamic sensors connection if there is requirement
   Return<void> onDynamicSensorsConnected(
-      const hidl_vec<SensorInfo>& aDynamicSensorsAdded) override {
+      const hidl_vec<V1_0::SensorInfo>& aDynamicSensorsAdded) override {
     return Void();
   }
 
@@ -59,6 +64,13 @@ struct SensorsCallback : public ISensorsCallback {
       const hidl_vec<int32_t>& aDynamicSensorHandlesRemoved) override {
     return Void();
   }
+
+#ifdef HAL_HIDL_V21
+  Return<void> onDynamicSensorsConnected_2_1(
+      const hidl_vec<V2_1::SensorInfo>& dynamicSensorsAdded) override {
+    return Void();
+  }
+#endif
 };
 
 void SensorsHalDeathRecipient::serviceDied(
@@ -94,7 +106,7 @@ class GonkSensorsHal::SensorDataNotifier : public Runnable {
 SensorData GonkSensorsHal::CreateSensorData(const Event aEvent) {
   AutoTArray<float, 4> values;
 
-  SensorType sensorType = getSensorType(aEvent.sensorType);
+  hal::SensorType sensorType = getSensorType(aEvent.sensorType);
 
   if (sensorType == SENSOR_UNKNOWN) {
     return SensorData(sensorType, aEvent.timestamp, values);
@@ -205,15 +217,19 @@ size_t GonkSensorsHal::PollHal() {
   hidl_vec<Event> events;
   size_t eventsRead = 0;
 
-  auto ret =
-      mSensors->poll(mEventBuffer.size(),
-                     [&events](auto result, const auto& data, const auto&) {
-                       if (result == V1_0::Result::OK) {
-                         events = data;
-                       } else {
-                         HAL_ERR("polling sensors event result failed");
-                       }
-                     });
+  auto ret = mSensors->poll(
+      mEventBuffer.size(),
+      [&events](auto result, const auto& data, const auto&) {
+        if (result == V1_0::Result::OK) {
+#ifdef HAL_HIDL_V21
+          events = reinterpret_cast<const hidl_vec<V2_1::Event>&>(data);
+#else
+          events = data;
+#endif
+        } else {
+          HAL_ERR("polling sensors event result failed");
+        }
+      });
 
   if (ret.isOk()) {
     eventsRead = events.size();
@@ -230,13 +246,13 @@ size_t GonkSensorsHal::PollHal() {
 size_t GonkSensorsHal::PollFmq() {
   size_t eventsRead = 0;
 
-  size_t availableEvents = mEventQueue->availableToRead();
+  size_t availableEvents = mSensors->getEventQueue()->availableToRead();
   if (availableEvents == 0) {
     uint32_t eventFlagState = 0;
     mEventQueueFlag->wait(asBaseType(EventQueueFlagBits::READ_AND_PROCESS) |
                               asBaseType(INTERNAL_WAKE),
                           &eventFlagState);
-    availableEvents = mEventQueue->availableToRead();
+    availableEvents = mSensors->getEventQueue()->availableToRead();
 
     if ((eventFlagState & asBaseType(INTERNAL_WAKE)) && mToReconnect) {
       HAL_LOG("sensors poll thread is awaken up by internal wake");
@@ -246,7 +262,7 @@ size_t GonkSensorsHal::PollFmq() {
 
   size_t eventsToRead = std::min(availableEvents, mEventBuffer.size());
   if (eventsToRead > 0) {
-    if (mEventQueue->read(mEventBuffer.data(), eventsToRead)) {
+    if (mSensors->getEventQueue()->read(mEventBuffer.data(), eventsToRead)) {
       mEventQueueFlag->wake(asBaseType(EventQueueFlagBits::EVENTS_READ));
 
       eventsRead = eventsToRead;
@@ -281,6 +297,14 @@ void GonkSensorsHal::Init() {
 
 bool GonkSensorsHal::InitHidlService() {
   // TODO: consider to move out initialization stuff from main thread
+#ifdef HAL_HIDL_V21
+  android::sp<V2_1::ISensors> serviceV2_1 = V2_1::ISensors::getService();
+  if (serviceV2_1) {
+    HAL_LOG("sensors v2.1 hidl service is detected");
+    return InitHidlServiceV2_1(serviceV2_1);
+  }
+#endif
+
   android::sp<V2_0::ISensors> serviceV2_0 = V2_0::ISensors::getService();
   if (serviceV2_0) {
     HAL_LOG("sensors v2.0 hidl service is detected");
@@ -329,22 +353,20 @@ bool GonkSensorsHal::InitHidlServiceV2_0(
     android::sp<V2_0::ISensors> aServiceV2_0) {
   mSensors = new SensorsWrapperV2_0(aServiceV2_0);
 
-  mEventQueue =
-      std::make_unique<EventMessageQueue>(MAX_EVENT_BUFFER_SIZE, true);
   mWakeLockQueue = std::make_unique<WakeLockQueue>(MAX_EVENT_BUFFER_SIZE, true);
 
   EventFlag::deleteEventFlag(&mEventQueueFlag);
-  EventFlag::createEventFlag(mEventQueue->getEventFlagWord(), &mEventQueueFlag);
+  EventFlag::createEventFlag(mSensors->getEventQueue()->getEventFlagWord(),
+                             &mEventQueueFlag);
 
-  if (mEventQueue == nullptr || mWakeLockQueue == nullptr ||
+  if (mSensors->getEventQueue() == nullptr || mWakeLockQueue == nullptr ||
       mEventQueueFlag == nullptr) {
     HAL_ERR("create sensors event queue failed");
     return false;
   }
 
   auto ret =
-      mSensors->initialize(*mEventQueue->getDesc(), *mWakeLockQueue->getDesc(),
-                           new SensorsCallback());
+      mSensors->initialize(*mWakeLockQueue->getDesc(), new SensorsCallback());
   if (!ret.isOk() || ret != V1_0::Result::OK) {
     HAL_ERR("sensors v2.0 hidl service initialize failed");
     return false;
@@ -354,6 +376,36 @@ bool GonkSensorsHal::InitHidlServiceV2_0(
   aServiceV2_0->linkToDeath(mSensorsHalDeathRecipient, 0);
   return true;
 }
+
+#ifdef HAL_HIDL_V21
+bool GonkSensorsHal::InitHidlServiceV2_1(
+    android::sp<V2_1::ISensors> aServiceV2_1) {
+  mSensors = new SensorsWrapperV2_1(aServiceV2_1);
+
+  mWakeLockQueue = std::make_unique<WakeLockQueue>(MAX_EVENT_BUFFER_SIZE, true);
+
+  EventFlag::deleteEventFlag(&mEventQueueFlag);
+  EventFlag::createEventFlag(mSensors->getEventQueue()->getEventFlagWord(),
+                             &mEventQueueFlag);
+
+  if (mSensors->getEventQueue() == nullptr || mWakeLockQueue == nullptr ||
+      mEventQueueFlag == nullptr) {
+    HAL_ERR("create sensors event queue failed");
+    return false;
+  }
+
+  auto ret =
+      mSensors->initialize(*mWakeLockQueue->getDesc(), new SensorsCallback());
+  if (!ret.isOk() || ret != V1_0::Result::OK) {
+    HAL_ERR("sensors v2.1 hidl service initialize failed");
+    return false;
+  }
+
+  mSensorsHalDeathRecipient = new SensorsHalDeathRecipient();
+  aServiceV2_1->linkToDeath(mSensorsHalDeathRecipient, 0);
+  return true;
+}
+#endif
 
 bool GonkSensorsHal::InitSensorsList() {
   if (mSensors == nullptr) {
@@ -374,7 +426,7 @@ bool GonkSensorsHal::InitSensorsList() {
   for (size_t i = 0; i < count; i++) {
     const SensorInfo sensorInfo = list[i];
 
-    SensorType sensorType = getSensorType(sensorInfo.type);
+    hal::SensorType sensorType = getSensorType(sensorInfo.type);
     SensorFlagBits mode = (SensorFlagBits)(sensorInfo.flags &
                                            SensorFlagBits::MASK_REPORTING_MODE);
     bool canWakeUp = sensorInfo.flags & SensorFlagBits::WAKE_UP;
@@ -423,7 +475,7 @@ bool GonkSensorsHal::RegisterSensorDataCallback(
   return true;
 };
 
-bool GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
+bool GonkSensorsHal::ActivateSensor(const hal::SensorType aSensorType) {
   MutexAutoLock lock(mLock);
 
   if (mSensors == nullptr) {
@@ -485,7 +537,7 @@ bool GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
   return true;
 }
 
-bool GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
+bool GonkSensorsHal::DeactivateSensor(const hal::SensorType aSensorType) {
   MutexAutoLock lock(mLock);
 
   if (mSensors == nullptr) {
@@ -512,13 +564,13 @@ bool GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
   return true;
 }
 
-void GonkSensorsHal::GetSensorVendor(const SensorType aSensorType,
+void GonkSensorsHal::GetSensorVendor(const hal::SensorType aSensorType,
                                      nsACString& aRetval) {
   SensorInfo& sensorInfo = mSensorInfoList[aSensorType];
   aRetval.AssignASCII(sensorInfo.vendor.c_str(), sensorInfo.vendor.size());
 }
 
-void GonkSensorsHal::GetSensorName(const SensorType aSensorType,
+void GonkSensorsHal::GetSensorName(const hal::SensorType aSensorType,
                                    nsACString& aRetval) {
   SensorInfo& sensorInfo = mSensorInfoList[aSensorType];
   aRetval.AssignASCII(sensorInfo.name.c_str(), sensorInfo.name.size());

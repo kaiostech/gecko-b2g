@@ -9,35 +9,12 @@
 #include "mozilla/Mutex.h"
 #include "nsThreadUtils.h"
 
-#include "android/hardware/sensors/1.0/types.h"
-#include "android/hardware/sensors/2.0/types.h"
 #include "gonk/ISensorsWrapper.h"
 #include "fmq/MessageQueue.h"
 
 using namespace mozilla::hal;
-using namespace android::hardware::sensors;
 using namespace android::SensorServiceUtil;
-using android::hardware::EventFlag;
-using android::hardware::hidl_vec;
-using android::hardware::kSynchronizedReadWrite;
-using android::hardware::MessageQueue;
 using android::hardware::Void;
-using android::hardware::sensors::V1_0::Event;
-using android::hardware::sensors::V1_0::SensorFlagBits;
-using android::hardware::sensors::V1_0::SensorInfo;
-using android::hardware::sensors::V2_0::EventQueueFlagBits;
-
-#define MAX_EVENT_BUFFER_SIZE 16
-
-#ifdef PRODUCT_MANUFACTURER_MTK
-// mtk custom hal sends 128 events at most at a time in case data flooding. To
-// avoid fmq blocking, the buffer size is enlarged to 128 here specifically for
-// mtk hal as a temporary workaround before mtk fix it.
-// TODO: to remove this workaround once mtk fix the issue. Track it by Bug
-// 124274.
-#  undef MAX_EVENT_BUFFER_SIZE
-#  define MAX_EVENT_BUFFER_SIZE 128
-#endif
 
 namespace mozilla {
 namespace hal_impl {
@@ -62,10 +39,10 @@ class GonkSensorsHal {
   };
 
   bool RegisterSensorDataCallback(const SensorDataCallback aCallback);
-  bool ActivateSensor(const SensorType aSensorType);
-  bool DeactivateSensor(const SensorType aSensorType);
-  void GetSensorVendor(const SensorType aSensorType, nsACString& aRetval);
-  void GetSensorName(const SensorType aSensorType, nsACString& aRetval);
+  bool ActivateSensor(const hal::SensorType aSensorType);
+  bool DeactivateSensor(const hal::SensorType aSensorType);
+  void GetSensorVendor(const hal::SensorType aSensorType, nsACString& aRetval);
+  void GetSensorName(const hal::SensorType aSensorType, nsACString& aRetval);
   void PrepareForReconnect();
   void Reconnect();
 
@@ -90,6 +67,9 @@ class GonkSensorsHal {
   bool InitHidlService();
   bool InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0);
   bool InitHidlServiceV2_0(android::sp<V2_0::ISensors> aServiceV2_0);
+#ifdef HAL_HIDL_V21
+  bool InitHidlServiceV2_1(android::sp<V2_1::ISensors> aServiceV2_1);
+#endif
   bool InitSensorsList();
   void StartPollingThread();
   size_t PollHal();
@@ -103,8 +83,6 @@ class GonkSensorsHal {
   SensorDataCallback mSensorDataCallback;
 
   std::array<Event, MAX_EVENT_BUFFER_SIZE> mEventBuffer;
-  typedef MessageQueue<Event, kSynchronizedReadWrite> EventMessageQueue;
-  std::unique_ptr<EventMessageQueue> mEventQueue;
   typedef MessageQueue<uint32_t, kSynchronizedReadWrite> WakeLockQueue;
   std::unique_ptr<WakeLockQueue> mWakeLockQueue;
   EventFlag* mEventQueueFlag;

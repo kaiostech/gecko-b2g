@@ -1549,12 +1549,6 @@
   value: true
   mirror: always
 
-# Password protection
-- name: browser.safebrowsing.passwords.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Phishing protection
 - name: browser.safebrowsing.phishing.enabled
   type: bool
@@ -4981,7 +4975,7 @@
 # <iframe loading="lazy">
 - name: dom.iframe_lazy_loading.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -14083,7 +14077,7 @@
 #if defined(MOZ_WMF_MEDIA_ENGINE)
 -   name: security.sandbox.utility-wmf-cdm.lpac.enabled
     type: RelaxedAtomicBool
-    value: false
+    value: true
     mirror: always
 #endif
 

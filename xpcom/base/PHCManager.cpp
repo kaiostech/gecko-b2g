@@ -9,6 +9,7 @@
 #include "PHC.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_memory.h"
+#include "mozilla/Telemetry.h"
 
 namespace mozilla {
 
@@ -30,6 +31,21 @@ void InitPHCState() {
   SetPHCState(GetPHCStateFromPref());
 
   Preferences::RegisterCallback(PrefChangeCallback, kPHCPref);
+}
+
+void ReportPHCTelemetry() {
+  MemoryUsage usage;
+  PHCMemoryUsage(usage);
+
+  Accumulate(Telemetry::MEMORY_PHC_SLOP, usage.mFragmentationBytes);
+
+  PHCStats stats;
+  GetPHCStats(stats);
+
+  Accumulate(Telemetry::MEMORY_PHC_SLOTS_ALLOCATED, stats.mSlotsAllocated);
+  Accumulate(Telemetry::MEMORY_PHC_SLOTS_FREED, stats.mSlotsFreed);
+  // There are also slots that are unused (neither free nor allocated) they
+  // can be calculated by knowing the total number of slots.
 }
 
 };  // namespace mozilla

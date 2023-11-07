@@ -212,13 +212,13 @@ addonsManager:
           - site_warning, site_blocked, install_disabled_warning
           - download_started, download_completed, download_failed
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
       - "fennec"
       - "thunderbird"
     record_in_processes: ["main"]
-    bug_numbers: [1433335, 1515697, 1523641, 1549770, 1590736, 1630596, 1672570, 1714251, 1749878, 1781974, 1817100]
+    bug_numbers: [1433335, 1515697, 1523641, 1549770, 1590736, 1630596, 1672570, 1714251, 1749878, 1781974, 1817100, 1861295]
     release_channel_collection: opt-out
   install_stats:
     description: >
@@ -284,13 +284,13 @@ addonsManager:
         e.g. install events with source "about:addons" may have "install-from-file" or "url" as method).
       num_strings: The number of permission description strings in the extension permission doorhanger
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
       - "fennec"
       - "thunderbird"
     record_in_processes: ["main"]
-    bug_numbers: [1433335, 1515697, 1523641, 1549770, 1590736, 1630596, 1672570, 1714251, 1749878, 1781974, 1817100]
+    bug_numbers: [1433335, 1515697, 1523641, 1549770, 1590736, 1630596, 1672570, 1714251, 1749878, 1781974, 1817100, 1861295]
     release_channel_collection: opt-out
   report:
     description: >
@@ -311,13 +311,13 @@ addonsManager:
         ERROR_ABORTED_SUBMIT, ERROR_ADDON_NOT_FOUND, ERROR_CLIENT, ERROR_NETWORK, ERROR_UNKNOWN,
         ERROR_RECENT_SUBMIT, ERROR_SERVER, ERROR_AMODETAILS_NOTFOUND, ERROR_AMODETAILS_FAILURE.
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
       - "fennec"
       - "thunderbird"
     record_in_processes: ["main"]
-    bug_numbers: [1544927, 1580561, 1590736, 1630596, 1672570, 1714251, 1749878, 1780746, 1781974, 1817100]
+    bug_numbers: [1544927, 1580561, 1590736, 1630596, 1672570, 1714251, 1749878, 1780746, 1781974, 1817100, 1861295]
     release_channel_collection: opt-out
   reportSuspiciousSite:
     description: >
@@ -327,11 +327,11 @@ addonsManager:
     objects:
       - suspiciousSite
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
     record_in_processes: ["main"]
-    bug_numbers: [1806056, 1817100]
+    bug_numbers: [1806056, 1817100, 1861295]
     release_channel_collection: opt-out
 
 blocklist:
@@ -353,7 +353,7 @@ blocklist:
     extra_keys:
       blocklistState: >
         The blocklistState of the add-on. 0 is unblocked, 2 is blocked.
-        1 is soft blocked (only if blocklist v3 was disabled in favor of v2).
+        1 is soft blocked (this state does not exist in blocklist v3).
       addon_version: >
         Version of the add-on. Used together with an add-on's ID (value) to identify
         add-ons to block.
@@ -379,11 +379,11 @@ blocklist:
         This field is documented in more detail in the definition of the blocklist.mlbf_source scalar.
         Possible values are "dump_match", "cache_match", "remote_match", "dump_fallback", "cache_fallback", "unknown".
     notification_emails: ["addons-dev-internal@mozilla.com", "rwu@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
     record_in_processes: ["main"]
-    bug_numbers: [1662857, 1730037, 1763529, 1811159]
+    bug_numbers: [1662857, 1730037, 1763529, 1811159, 1861296]
     release_channel_collection: opt-out
 
 downloads:
@@ -637,9 +637,9 @@ creditcard:
 extensions.data:
   migrateResult:
     objects: ["storageLocal"]
-    bug_numbers: [1470213, 1553297, 1590736, 1630596, 1672570, 1714251, 1749878, 1781974, 1817100]
+    bug_numbers: [1470213, 1553297, 1590736, 1630596, 1672570, 1714251, 1749878, 1781974, 1817100, 1861295]
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
       - "fennec"
@@ -660,9 +660,9 @@ extensions.data:
       the value of this event is the addon id.
   storageLocalError:
     objects: ["get", "set", "remove", "clear"]
-    bug_numbers: [1606903, 1649948, 1689255, 1730038, 1763523, 1811148]
+    bug_numbers: [1606903, 1649948, 1689255, 1730038, 1763523, 1811148, 1861297]
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "122"
+    expiry_version: "132"
     products:
       - "firefox"
     record_in_processes: ["main", "content"]

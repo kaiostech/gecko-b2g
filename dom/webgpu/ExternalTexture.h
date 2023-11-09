@@ -24,10 +24,12 @@ class ExternalTexture {
  public:
   static UniquePtr<ExternalTexture> Create(
       const uint32_t aWidth, const uint32_t aHeight,
-      const struct ffi::WGPUTextureFormat aFormat);
+      const struct ffi::WGPUTextureFormat aFormat,
+      const ffi::WGPUTextureUsages aUsage);
 
   ExternalTexture(const uint32_t aWidth, const uint32_t aHeight,
-                  const struct ffi::WGPUTextureFormat aFormat);
+                  const struct ffi::WGPUTextureFormat aFormat,
+                  const ffi::WGPUTextureUsages aUsage);
   virtual ~ExternalTexture();
 
   virtual void* GetExternalTextureHandle() { return nullptr; }
@@ -39,16 +41,10 @@ class ExternalTexture {
 
   gfx::IntSize GetSize() { return gfx::IntSize(mWidth, mHeight); }
 
-  void SetTextureRaw(ffi::WGPUTextureRaw* aTextureRaw);
-  ffi::WGPUTextureRaw* GetTextureRaw() { return mTextureRaw; }
-
   const uint32_t mWidth;
   const uint32_t mHeight;
   const struct ffi::WGPUTextureFormat mFormat;
-
- protected:
-  // Holds the raw object that could be used for creating wgpu Texture.
-  ffi::WGPUTextureRaw* mTextureRaw = nullptr;
+  const ffi::WGPUTextureUsages mUsage;
 };
 
 }  // namespace webgpu

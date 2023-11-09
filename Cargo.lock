@@ -1148,8 +1148,7 @@ dependencies = [
 [[package]]
 name = "d3d12"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16e44ab292b1dddfdaf7be62cfd8877df52f2f3fde5858d95bab606be259f20"
+source = "git+https://github.com/gfx-rs/wgpu?rev=ba3d6898f18c25bb5a2b8ba18790134b97758e83#ba3d6898f18c25bb5a2b8ba18790134b97758e83"
 dependencies = [
  "bitflags 2.4.0",
  "libloading",
@@ -3656,6 +3655,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec",
  "bindgen 0.68.1",
+ "bitflags 2.4.0",
  "bytes",
  "chrono",
  "env_logger",
@@ -3671,6 +3671,7 @@ dependencies = [
  "libc",
  "log",
  "memchr",
+ "mio 0.8.8",
  "nom",
  "num-integer",
  "num-traits",
@@ -3684,6 +3685,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "syn",
+ "time 0.3.23",
  "tokio",
  "tokio-util",
  "tracing",
@@ -3781,7 +3783,7 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 [[package]]
 name = "naga"
 version = "0.14.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
+source = "git+https://github.com/gfx-rs/wgpu?rev=ba3d6898f18c25bb5a2b8ba18790134b97758e83#ba3d6898f18c25bb5a2b8ba18790134b97758e83"
 dependencies = [
  "bit-set",
  "bitflags 2.4.0",
@@ -4387,9 +4389,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.66"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
+checksum = "134c189feb4956b20f6f547d2cf727d4c0fe06722b20a0eec87ed445a97f92da"
 dependencies = [
  "unicode-ident",
 ]
@@ -4561,9 +4563,9 @@ dependencies = [
 
 [[package]]
 name = "raw-window-handle"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
+checksum = "42a9830a0e1b9fb145ebb365b8bc4ccd75f290f98c0247deafbbe2c75cefb544"
 
 [[package]]
 name = "rayon"
@@ -4892,9 +4894,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.163"
+version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
+checksum = "bca2a08484b285dcb282d0f67b26cadc0df8b19f8c12502c13d966bf9482f001"
 dependencies = [
  "serde_derive",
 ]
@@ -4920,9 +4922,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.163"
+version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
+checksum = "d6c7207fbec9faa48073f3e3074cbe553af6ea512d7c21ba46e434e70ea9fbc1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5359,9 +5361,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.18"
+version = "2.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32d41677bcbe24c20c52e7c70b0d8db04134c5d1066bf98662e2871ad200ea3e"
+checksum = "23e78b90f2fcf45d3e842032ce32e3f2d1545ba6636271dcbf24fa306d87be7a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6369,7 +6371,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "0.18.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
+source = "git+https://github.com/gfx-rs/wgpu?rev=ba3d6898f18c25bb5a2b8ba18790134b97758e83#ba3d6898f18c25bb5a2b8ba18790134b97758e83"
 dependencies = [
  "arrayvec",
  "bit-vec",
@@ -6392,7 +6394,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "0.18.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
+source = "git+https://github.com/gfx-rs/wgpu?rev=ba3d6898f18c25bb5a2b8ba18790134b97758e83#ba3d6898f18c25bb5a2b8ba18790134b97758e83"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -6429,7 +6431,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "0.18.0"
-source = "git+https://github.com/gfx-rs/wgpu?rev=34e947de4b3e0b0d6b0e2f40cede926467ea9f1e#34e947de4b3e0b0d6b0e2f40cede926467ea9f1e"
+source = "git+https://github.com/gfx-rs/wgpu?rev=ba3d6898f18c25bb5a2b8ba18790134b97758e83#ba3d6898f18c25bb5a2b8ba18790134b97758e83"
 dependencies = [
  "bitflags 2.4.0",
  "js-sys",

@@ -67,7 +67,7 @@ pid_t gettid_pthread() {
 #include "jit/JitSpewer.h"
 #include "jit/LIR.h"
 #include "jit/MIR.h"
-#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberZeroOrigin, JS::ColumnNumberOffset
+#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin, JS::ColumnNumberOffset
 #include "js/JitCodeAPI.h"
 #include "js/Printf.h"
 #include "vm/BytecodeUtil.h"
@@ -156,7 +156,7 @@ static void WriteToJitDumpFile(const void* addr, uint32_t size,
 
 static void WriteJitDumpDebugEntry(uint64_t addr, const char* filename,
                                    uint32_t lineno,
-                                   JS::LimitedColumnNumberZeroOrigin colno,
+                                   JS::LimitedColumnNumberOneOrigin colno,
                                    AutoLockPerfSpewer& lock) {
   JitDumpDebugEntry entry = {addr, lineno, colno.zeroOriginValue()};
   WriteToJitDumpFile(&entry, sizeof(entry), lock);
@@ -799,7 +799,7 @@ void PerfSpewer::saveJitCodeIRInfo(JitCode* code,
       uint64_t addr = uint64_t(code->raw()) + entry.offset;
       uint64_t lineno = i + 1;
       WriteJitDumpDebugEntry(addr, scriptFilename.get(), lineno,
-                             JS::LimitedColumnNumberZeroOrigin::zero(), lock);
+                             JS::LimitedColumnNumberOneOrigin(), lock);
     }
 #endif
 
@@ -853,7 +853,7 @@ void PerfSpewer::saveJitCodeSourceInfo(JSScript* script, JitCode* code,
   }
 #endif
   uint32_t lineno = 0;
-  JS::LimitedColumnNumberZeroOrigin colno;
+  JS::LimitedColumnNumberOneOrigin colno;
 
   for (OpcodeEntry& entry : opcodes_) {
     jsbytecode* pc = entry.bytecodepc;
@@ -966,7 +966,7 @@ void IonICPerfSpewer::saveJitCodeSourceInfo(JSScript* script, JitCode* code,
   WriteToJitDumpFile(&debug_record, sizeof(debug_record), lock);
 
   uint32_t lineno;
-  JS::LimitedColumnNumberZeroOrigin colno;
+  JS::LimitedColumnNumberOneOrigin colno;
   lineno = PCToLineNumber(script, pc, &colno);
 
   WriteJitDumpDebugEntry(uint64_t(code->raw()), filename, lineno, colno, lock);

@@ -58,7 +58,7 @@
 #include "frontend/TDZCheckCache.h"                // TDZCheckCache
 #include "frontend/TryEmitter.h"                   // TryEmitter
 #include "frontend/WhileEmitter.h"                 // WhileEmitter
-#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberZeroOrigin, JS::ColumnNumberOffset
+#include "js/ColumnNumber.h"  // JS::LimitedColumnNumberOneOrigin, JS::ColumnNumberOffset
 #include "js/friend/ErrorMessages.h"  // JSMSG_*
 #include "js/friend/StackLimits.h"    // AutoCheckRecursionLimit
 #include "util/StringBuffer.h"        // StringBuffer
@@ -139,7 +139,8 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, FrontendContext* fc,
     : sc(sc),
       fc(fc),
       parent(parent),
-      bytecodeSection_(fc, sc->extent().lineno, sc->extent().column),
+      bytecodeSection_(fc, sc->extent().lineno,
+                       JS::LimitedColumnNumberOneOrigin(sc->extent().column)),
       perScriptData_(fc, compilationState),
       errorReporter_(errorReporter),
       compilationState(compilationState),
@@ -605,13 +606,13 @@ bool BytecodeEmitter::updateSourceCoordNotes(uint32_t offset) {
     return false;
   }
 
-  JS::LimitedColumnNumberZeroOrigin columnIndex =
+  JS::LimitedColumnNumberOneOrigin columnIndex =
       errorReporter().columnAt(offset);
 
   // Assert colspan is always representable.
-  static_assert((0 - ptrdiff_t(JS::LimitedColumnNumberZeroOrigin::Limit)) >=
+  static_assert((0 - ptrdiff_t(JS::LimitedColumnNumberOneOrigin::Limit)) >=
                 SrcNote::ColSpan::MinColSpan);
-  static_assert((ptrdiff_t(JS::LimitedColumnNumberZeroOrigin::Limit) - 0) <=
+  static_assert((ptrdiff_t(JS::LimitedColumnNumberOneOrigin::Limit) - 0) <=
                 SrcNote::ColSpan::MaxColSpan);
 
   JS::ColumnNumberOffset colspan = columnIndex - bytecodeSection().lastColumn();
@@ -619,7 +620,7 @@ bool BytecodeEmitter::updateSourceCoordNotes(uint32_t offset) {
   if (colspan != JS::ColumnNumberOffset::zero()) {
     if (lastLineOnlySrcNoteIndex != LastSrcNoteIsNotLineOnly) {
       MOZ_ASSERT(bytecodeSection().lastColumn() ==
-                 JS::LimitedColumnNumberZeroOrigin::zero());
+                 JS::LimitedColumnNumberOneOrigin());
 
       const SrcNotesVector& notes = bytecodeSection().notes();
       SrcNoteType type = notes[lastLineOnlySrcNoteIndex].type();
@@ -12650,7 +12651,7 @@ bool BytecodeEmitter::newSrcNote2(SrcNoteType type, ptrdiff_t offset,
 }
 
 bool BytecodeEmitter::convertLastNewLineToNewLineColumn(
-    JS::LimitedColumnNumberZeroOrigin column) {
+    JS::LimitedColumnNumberOneOrigin column) {
   SrcNotesVector& notes = bytecodeSection().notes();
   MOZ_ASSERT(lastLineOnlySrcNoteIndex == notes.length() - 1);
   SrcNote* sn = &notes[lastLineOnlySrcNoteIndex];
@@ -12666,7 +12667,7 @@ bool BytecodeEmitter::convertLastNewLineToNewLineColumn(
 }
 
 bool BytecodeEmitter::convertLastSetLineToSetLineColumn(
-    JS::LimitedColumnNumberZeroOrigin column) {
+    JS::LimitedColumnNumberOneOrigin column) {
   SrcNotesVector& notes = bytecodeSection().notes();
   // The Line operand is either 1 byte or 4 bytes.
   MOZ_ASSERT(lastLineOnlySrcNoteIndex == notes.length() - 1 - 1 ||

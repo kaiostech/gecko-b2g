@@ -18,6 +18,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   EventPromise: "chrome://remote/content/shared/Sync.sys.mjs",
   Log: "chrome://remote/content/shared/Log.sys.mjs",
   modal: "chrome://remote/content/shared/Prompt.sys.mjs",
+  registerNavigationId:
+    "chrome://remote/content/shared/NavigationManager.sys.mjs",
   NavigationListener:
     "chrome://remote/content/shared/listeners/NavigationListener.sys.mjs",
   pprint: "chrome://remote/content/shared/Format.sys.mjs",
@@ -45,7 +47,8 @@ const MAX_WINDOW_SIZE = 10000000;
  */
 
 /**
- * Enum of possible clip rectangle types.
+ * Enum of possible clip rectangle types supported by the
+ * browsingContext.captureScreenshot command.
  *
  * @readonly
  * @enum {ClipRectangleType}
@@ -68,6 +71,22 @@ export const ClipRectangleType = {
 const CreateType = {
   tab: "tab",
   window: "window",
+};
+
+/**
+ * @typedef {string} OriginType
+ */
+
+/**
+ * Enum of origin type supported by the
+ * browsingContext.captureScreenshot command.
+ *
+ * @readonly
+ * @enum {OriginType}
+ */
+export const OriginType = {
+  document: "document",
+  viewport: "viewport",
 };
 
 /**
@@ -239,18 +258,29 @@ class BrowsingContextModule extends Module {
    * @param {ClipRectangle=} options.clip
    *     A box or an element of which a screenshot should be taken.
    *     If not present, take a screenshot of the whole viewport.
+   * @param {OriginType=} options.origin
    *
    * @throws {NoSuchFrameError}
    *     If the browsing context cannot be found.
    */
   async captureScreenshot(options = {}) {
-    const { clip = null, context: contextId } = options;
+    const {
+      clip = null,
+      context: contextId,
+      origin = OriginType.viewport,
+    } = options;
 
     lazy.assert.string(
       contextId,
       `Expected "context" to be a string, got ${contextId}`
     );
     const context = this.#getBrowsingContext(contextId);
+
+    const originTypeValues = Object.values(OriginType);
+    lazy.assert.that(
+      value => originTypeValues.includes(value),
+      `Expected "origin" to be one of ${originTypeValues}, got ${origin}`
+    )(origin);
 
     if (clip !== null) {
       lazy.assert.object(clip, `Expected "clip" to be a object, got ${clip}`);
@@ -303,6 +333,7 @@ class BrowsingContextModule extends Module {
       },
       params: {
         clip,
+        origin,
       },
       retryOnAbort: true,
     });
@@ -1121,6 +1152,10 @@ class BrowsingContextModule extends Module {
       }
     });
 
+    const navigationId = lazy.registerNavigationId({
+      contextDetails: { context: webProgress.browsingContext },
+    });
+
     await startNavigationFn();
     await navigated;
 
@@ -1133,12 +1168,8 @@ class BrowsingContextModule extends Module {
       url = listener.currentURI.spec;
     }
 
-    const navigation =
-      this.messageHandler.navigationManager.getNavigationForBrowsingContext(
-        webProgress.browsingContext
-      );
     return {
-      navigation: navigation ? navigation.navigationId : null,
+      navigation: navigationId,
       url,
     };
   }

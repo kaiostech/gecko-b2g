@@ -857,9 +857,13 @@ class RecordStopRequestDelta final {
 
  private:
   ~RecordStopRequestDelta() {
-    if (!StaticPrefs::network_send_OnDataFinished()) {
+    MOZ_ASSERT_IF(StaticPrefs::network_send_OnDataFinished(),
+                  !mOnDataFinishedTime.IsNull());
+    MOZ_ASSERT(!mOnStopRequestTime.IsNull());
+    if (mOnDataFinishedTime.IsNull()) {
       return;
     }
+
     TimeDuration delta = (mOnStopRequestTime - mOnDataFinishedTime);
     if (delta.ToMilliseconds() < 0) {
       // Because Telemetry can't handle negatives
@@ -1105,6 +1109,8 @@ void HttpChannelChild::ContinueOnStopRequest() {
     return;
   }
 
+  CollectMixedContentTelemetry();
+
   CleanupBackgroundChannel();
 
   // If there is a possibility we might want to write alt data to the cache
@@ -1161,6 +1167,61 @@ void HttpChannelChild::CollectOMTTelemetry() {
       NS_CP_ContentTypeName(mLoadInfo->InternalContentPolicyType()));
 
   Telemetry::AccumulateCategoricalKeyed(key, mOMTResult);
+}
+
+void HttpChannelChild::CollectMixedContentTelemetry() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsContentPolicyType internalLoadType;
+  mLoadInfo->GetInternalContentPolicyType(&internalLoadType);
+  bool statusIsSuccess = NS_SUCCEEDED(mStatus);
+  RefPtr<Document> doc;
+  mLoadInfo->GetLoadingDocument(getter_AddRefs(doc));
+  if (!doc) {
+    return;
+  }
+  if (internalLoadType == nsIContentPolicy::TYPE_INTERNAL_IMAGE ||
+      internalLoadType == nsIContentPolicy::TYPE_INTERNAL_IMAGE_PRELOAD) {
+    if (mLoadInfo->GetBrowserUpgradeInsecureRequests()) {
+      doc->SetUseCounter(
+          statusIsSuccess
+              ? eUseCounter_custom_MixedContentUpgradedImageSuccess
+              : eUseCounter_custom_MixedContentUpgradedImageFailure);
+    } else if (mLoadInfo->GetBrowserWouldUpgradeInsecureRequests()) {
+      doc->SetUseCounter(
+          statusIsSuccess
+              ? eUseCounter_custom_MixedContentNotUpgradedImageSuccess
+              : eUseCounter_custom_MixedContentNotUpgradedImageFailure);
+    }
+    return;
+  }
+  if (internalLoadType == nsIContentPolicy::TYPE_INTERNAL_VIDEO) {
+    if (mLoadInfo->GetBrowserUpgradeInsecureRequests()) {
+      doc->SetUseCounter(
+          statusIsSuccess
+              ? eUseCounter_custom_MixedContentUpgradedVideoSuccess
+              : eUseCounter_custom_MixedContentUpgradedVideoFailure);
+    } else if (mLoadInfo->GetBrowserWouldUpgradeInsecureRequests()) {
+      doc->SetUseCounter(
+          statusIsSuccess
+              ? eUseCounter_custom_MixedContentNotUpgradedVideoSuccess
+              : eUseCounter_custom_MixedContentNotUpgradedVideoFailure);
+    }
+    return;
+  }
+  if (internalLoadType == nsIContentPolicy::TYPE_INTERNAL_AUDIO) {
+    if (mLoadInfo->GetBrowserUpgradeInsecureRequests()) {
+      doc->SetUseCounter(
+          statusIsSuccess
+              ? eUseCounter_custom_MixedContentUpgradedAudioSuccess
+              : eUseCounter_custom_MixedContentUpgradedAudioFailure);
+    } else if (mLoadInfo->GetBrowserWouldUpgradeInsecureRequests()) {
+      doc->SetUseCounter(
+          statusIsSuccess
+              ? eUseCounter_custom_MixedContentNotUpgradedAudioSuccess
+              : eUseCounter_custom_MixedContentNotUpgradedAudioFailure);
+    }
+  }
 }
 
 void HttpChannelChild::DoOnStopRequest(nsIRequest* aRequest,

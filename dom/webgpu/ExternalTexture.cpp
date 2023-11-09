@@ -14,28 +14,20 @@ namespace mozilla::webgpu {
 // static
 UniquePtr<ExternalTexture> ExternalTexture::Create(
     const uint32_t aWidth, const uint32_t aHeight,
-    const struct ffi::WGPUTextureFormat aFormat) {
+    const struct ffi::WGPUTextureFormat aFormat,
+    const ffi::WGPUTextureUsages aUsage) {
   UniquePtr<ExternalTexture> texture;
 #ifdef XP_WIN
-  texture = ExternalTextureD3D11::Create(aWidth, aHeight, aFormat);
+  texture = ExternalTextureD3D11::Create(aWidth, aHeight, aFormat, aUsage);
 #endif
   return texture;
 }
 
 ExternalTexture::ExternalTexture(const uint32_t aWidth, const uint32_t aHeight,
-                                 const struct ffi::WGPUTextureFormat aFormat)
-    : mWidth(aWidth), mHeight(aHeight), mFormat(aFormat) {}
+                                 const struct ffi::WGPUTextureFormat aFormat,
+                                 const ffi::WGPUTextureUsages aUsage)
+    : mWidth(aWidth), mHeight(aHeight), mFormat(aFormat), mUsage(aUsage) {}
 
-ExternalTexture::~ExternalTexture() {
-  if (mTextureRaw) {
-    wgpu_server_destroy_external_texture_raw(mTextureRaw);
-    mTextureRaw = nullptr;
-  }
-}
-
-void ExternalTexture::SetTextureRaw(ffi::WGPUTextureRaw* aTextureRaw) {
-  MOZ_ASSERT(!mTextureRaw);
-  mTextureRaw = aTextureRaw;
-}
+ExternalTexture::~ExternalTexture() {}
 
 }  // namespace mozilla::webgpu

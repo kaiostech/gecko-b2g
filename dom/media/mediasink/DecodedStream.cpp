@@ -887,6 +887,12 @@ void DecodedStream::ResetAudio() {
   if (const RefPtr<AudioData>& v = mAudioQueue.PeekFront()) {
     mData->mNextAudioTime = v->mTime;
     mData->mHaveSentFinishAudio = false;
+#ifdef MOZ_B2G
+    auto frames = TimeUnitToFrames(v->mTime, mInfo.mAudio.mRate);
+    if (frames.isValid()) {
+      mData->mAudioFramesWritten = frames.value();
+    }
+#endif
   }
 }
 

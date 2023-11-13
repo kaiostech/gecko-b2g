@@ -112,6 +112,7 @@ class TsBase(Test):
         "gecko_profile_entries",
         "gecko_profile_features",
         "gecko_profile_threads",
+        "gecko_profile_extra_threads",
         "gecko_profile_startup",
         "preferences",
         "xperf_counters",
@@ -341,6 +342,7 @@ class PageloaderTest(Test):
         "gecko_profile_entries",
         "gecko_profile_features",
         "gecko_profile_threads",
+        "gecko_profile_extra_threads",
         "tptimeout",
         "win_counters",
         "w7_counters",
@@ -574,6 +576,7 @@ class damp(PageloaderTest):
     tploadnocache = True
     tpmozafterpaint = False
     gecko_profile_interval = 10
+    gecko_profile_extra_threads = "DOM Worker"
     win_counters = w7_counters = linux_counters = mac_counters = None
     filters = filter.ignore_first.prepare(1) + filter.median.prepare()
     preferences = {"devtools.memory.enabled": True}

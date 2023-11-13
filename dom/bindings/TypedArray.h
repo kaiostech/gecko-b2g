@@ -517,7 +517,7 @@ struct TypedArray_base : public SpiderMonkeyInterfaceObjectStorage,
           if (!aResult.get()) {
             return false;
           }
-          memcpy(aResult.get(), aData.Elements(), aData.size_bytes());
+          memcpy(aResult.get(), aData.Elements(), aData.LengthBytes());
           return true;
         },
         std::forward<Calculator>(aCalculator)...);
@@ -653,13 +653,12 @@ struct TypedArray_base : public SpiderMonkeyInterfaceObjectStorage,
     // Intentionally return a pointer and length that escape from a nogc region.
     // Private so it can only be used in very limited situations.
     JS::AutoCheckCannotGC nogc;
-    size_t length;
     bool shared;
-    element_type* data =
-        ArrayT::fromObject(mImplObj).getLengthAndData(&length, &shared, nogc);
-    MOZ_RELEASE_ASSERT(length <= INT32_MAX,
+    Span<element_type> span =
+        ArrayT::fromObject(mImplObj).getData(&shared, nogc);
+    MOZ_RELEASE_ASSERT(span.Length() <= INT32_MAX,
                        "Bindings must have checked ArrayBuffer{View} length");
-    return Span(data, length);
+    return span;
   }
 
   template <typename T, typename F, typename... Calculator>
@@ -693,58 +692,74 @@ struct TypedArray : public TypedArray_base<ArrayT> {
   TypedArray(TypedArray&& aOther) = default;
 
   static inline JSObject* Create(JSContext* cx, nsWrapperCache* creator,
-                                 uint32_t length,
-                                 const element_type* data = nullptr) {
+                                 size_t length, ErrorResult& error) {
+    return CreateCommon(cx, creator, length, error).asObject();
+  }
+
+  static inline JSObject* Create(JSContext* cx, size_t length,
+                                 ErrorResult& error) {
+    return CreateCommon(cx, length, error).asObject();
+  }
+
+  static inline JSObject* Create(JSContext* cx, nsWrapperCache* creator,
+                                 Span<const element_type> data,
+                                 ErrorResult& error) {
+    ArrayT array = CreateCommon(cx, creator, data.Length(), error);
+    if (!error.Failed()) {
+      CopyFrom(cx, data, array);
+    }
+    return array.asObject();
+  }
+
+  static inline JSObject* Create(JSContext* cx, Span<const element_type> data,
+                                 ErrorResult& error) {
+    ArrayT array = CreateCommon(cx, data.Length(), error);
+    if (!error.Failed()) {
+      CopyFrom(cx, data, array);
+    }
+    return array.asObject();
+  }
+
+ private:
+  template <typename>
+  friend class TypedArrayCreator;
+
+  static inline ArrayT CreateCommon(JSContext* cx, nsWrapperCache* creator,
+                                    size_t length, ErrorResult& error) {
     JS::Rooted<JSObject*> creatorWrapper(cx);
     Maybe<JSAutoRealm> ar;
     if (creator && (creatorWrapper = creator->GetWrapperPreserveColor())) {
       ar.emplace(cx, creatorWrapper);
     }
 
-    return CreateCommon(cx, length, data);
+    return CreateCommon(cx, length, error);
   }
-
-  static inline JSObject* Create(JSContext* cx, uint32_t length,
-                                 const element_type* data = nullptr) {
-    return CreateCommon(cx, length, data);
+  static inline ArrayT CreateCommon(JSContext* cx, size_t length,
+                                    ErrorResult& error) {
+    ArrayT array = CreateCommon(cx, length);
+    if (array) {
+      return array;
+    }
+    error.StealExceptionFromJSContext(cx);
+    return ArrayT::fromObject(nullptr);
   }
-
-  static inline JSObject* Create(JSContext* cx, nsWrapperCache* creator,
-                                 Span<const element_type> data) {
-    // Span<> uses size_t as a length, and we use uint32_t instead.
-    if (MOZ_UNLIKELY(data.Length() > UINT32_MAX)) {
-      JS_ReportOutOfMemory(cx);
-      return nullptr;
-    }
-    return Create(cx, creator, data.Length(), data.Elements());
+  // NOTE: this leaves any exceptions on the JSContext, and the caller is
+  //       required to deal with them.
+  static inline ArrayT CreateCommon(JSContext* cx, size_t length) {
+    return ArrayT::create(cx, length);
   }
-
-  static inline JSObject* Create(JSContext* cx, Span<const element_type> data) {
-    // Span<> uses size_t as a length, and we use uint32_t instead.
-    if (MOZ_UNLIKELY(data.Length() > UINT32_MAX)) {
-      JS_ReportOutOfMemory(cx);
-      return nullptr;
-    }
-    return CreateCommon(cx, data.Length(), data.Elements());
-  }
-
- private:
-  static inline JSObject* CreateCommon(JSContext* cx, uint32_t length,
-                                       const element_type* data) {
-    auto array = ArrayT::create(cx, length);
-    if (!array) {
-      return nullptr;
-    }
-    if (data) {
-      JS::AutoCheckCannotGC nogc;
-      bool isShared;
-      element_type* buf = array.getData(&isShared, nogc);
-      // Data will not be shared, until a construction protocol exists
-      // for constructing shared data.
-      MOZ_ASSERT(!isShared);
-      memcpy(buf, data, length * sizeof(element_type));
-    }
-    return array.asObject();
+  static inline void CopyFrom(JSContext* cx,
+                              const Span<const element_type>& data,
+                              ArrayT& dest) {
+    JS::AutoCheckCannotGC nogc;
+    bool isShared;
+    mozilla::Span<element_type> span = dest.getData(&isShared, nogc);
+    MOZ_ASSERT(span.size() == data.size(),
+               "Didn't create a large enough typed array object?");
+    // Data will not be shared, until a construction protocol exists
+    // for constructing shared data.
+    MOZ_ASSERT(!isShared);
+    memcpy(span.Elements(), data.Elements(), data.LengthBytes());
   }
 
   TypedArray(const TypedArray&) = delete;
@@ -799,14 +814,20 @@ using ArrayBuffer = TypedArray<JS::ArrayBuffer>;
 //       So this is best used to pass from things that understand nsTArray to
 //       things that understand TypedArray, as with ToJSValue.
 template <typename TypedArrayType>
-class TypedArrayCreator {
+class MOZ_STACK_CLASS TypedArrayCreator {
   typedef nsTArray<typename TypedArrayType::element_type> ArrayType;
 
  public:
   explicit TypedArrayCreator(const ArrayType& aArray) : mArray(aArray) {}
 
+  // NOTE: this leaves any exceptions on the JSContext, and the caller is
+  //       required to deal with them.
   JSObject* Create(JSContext* aCx) const {
-    return TypedArrayType::Create(aCx, mArray.Length(), mArray.Elements());
+    auto array = TypedArrayType::CreateCommon(aCx, mArray.Length());
+    if (array) {
+      TypedArrayType::CopyFrom(aCx, mArray, array);
+    }
+    return array.asObject();
   }
 
  private:

@@ -449,14 +449,7 @@ gfxAndroidPlatform::CreateGlobalHardwareVsyncSource() {
   vsyncSource->DisableVsync();
   return vsyncSource.forget();
 #elif defined(MOZ_WIDGET_ANDROID)
-  // Vsync was introduced since JB (API 16~18) but inaccurate. Enable only for
-  // KK (API 19) and later.
-  if (jni::GetAPIVersion() >= 19) {
-    RefPtr<AndroidVsyncSource> vsyncSource = new AndroidVsyncSource();
-    return vsyncSource.forget();
-  }
+  RefPtr<AndroidVsyncSource> vsyncSource = new AndroidVsyncSource();
+  return vsyncSource.forget();
 #endif
-
-  NS_WARNING("Vsync not supported. Falling back to software vsync");
-  return GetSoftwareVsyncSource();
 }

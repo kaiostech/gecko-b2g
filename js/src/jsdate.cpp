@@ -801,21 +801,26 @@ static bool ParseDigits(size_t* result, const CharT* s, size_t* i,
 /*
  * Read and convert decimal digits to the right of a decimal point,
  * representing a fractional integer, from s[*i] into *result
- * while *i < limit.
+ * while *i < limit, up to 3 digits. Consumes any digits beyond 3
+ * without affecting the result.
  *
  * Succeed if any digits are converted. Advance *i only
  * as digits are consumed.
  */
 template <typename CharT>
-static bool ParseFractional(double* result, const CharT* s, size_t* i,
+static bool ParseFractional(int* result, const CharT* s, size_t* i,
                             size_t limit) {
-  double factor = 0.1;
+  int factor = 100;
   size_t init = *i;
-  *result = 0.0;
-  while (*i < limit && ('0' <= s[*i] && s[*i] <= '9')) {
+  *result = 0;
+  for (; *i < limit && ('0' <= s[*i] && s[*i] <= '9'); ++(*i)) {
+    if (*i - init >= 3) {
+      // If we're past 3 digits, do nothing with it, but continue to
+      // consume the remainder of the digits
+      continue;
+    }
     *result += (s[*i] - '0') * factor;
-    factor *= 0.1;
-    ++(*i);
+    factor /= 10;
   }
   return *i != init;
 }
@@ -934,7 +939,7 @@ static bool ParseISOStyleDate(DateTimeInfo::ForceUTC forceUTC, const CharT* s,
   size_t hour = 0;
   size_t min = 0;
   size_t sec = 0;
-  double frac = 0;
+  int msec = 0;
   bool isLocalTime = false;
   size_t tzHour = 0;
   size_t tzMin = 0;
@@ -1003,7 +1008,7 @@ done_date:
     NEED_NDIGITS(2, sec);
     if (PEEK('.')) {
       ++i;
-      if (!ParseFractional(&frac, s, &i, length)) {
+      if (!ParseFractional(&msec, s, &i, length)) {
         return false;
       }
     }
@@ -1033,7 +1038,7 @@ done:
   if (year > 275943  // ceil(1e8/365) + 1970
       || (month == 0 || month > 12) ||
       (day == 0 || day > size_t(DaysInMonth(year, month))) || hour > 24 ||
-      ((hour == 24) && (min > 0 || sec > 0 || frac > 0)) || min > 59 ||
+      ((hour == 24) && (min > 0 || sec > 0 || msec > 0)) || min > 59 ||
       sec > 59 || tzHour > 23 || tzMin > 59) {
     return false;
   }
@@ -1044,17 +1049,17 @@ done:
 
   month -= 1; /* convert month to 0-based */
 
-  double msec = MakeDate(MakeDay(dateMul * double(year), month, day),
-                         MakeTime(hour, min, sec, frac * 1000.0));
+  double date = MakeDate(MakeDay(dateMul * double(year), month, day),
+                         MakeTime(hour, min, sec, msec));
 
   if (isLocalTime) {
-    msec = UTC(forceUTC, msec);
+    date = UTC(forceUTC, date);
   } else {
-    msec -= tzMul * (tzHour * msPerHour + tzMin * msPerMinute);
+    date -= tzMul * (tzHour * msPerHour + tzMin * msPerMinute);
   }
 
-  *result = TimeClip(msec);
-  return NumbersAreIdentical(msec, result->toDouble());
+  *result = TimeClip(date);
+  return NumbersAreIdentical(date, result->toDouble());
 
 #undef PEEK
 #undef NEED
@@ -1099,6 +1104,8 @@ static constexpr size_t ShortestMonthNameLength = 3;
  * Try to parse the following date formats:
  *   dd-MMM-yyyy
  *   dd-MMM-yy
+ *   MMM-dd-yyyy
+ *   MMM-dd-yy
  *   yyyy-MMM-dd
  *   yy-MMM-dd
  *
@@ -1110,6 +1117,15 @@ static bool TryParseDashedDatePrefix(const CharT* s, size_t length,
                                      size_t* indexOut, int* yearOut,
                                      int* monOut, int* mdayOut) {
   size_t i = *indexOut;
+
+  if (*monOut != -1) {
+    // If the month has already been set by ParseDate, we'll be at a '-', we
+    // can skip it and start parsing the mday
+    if (i >= length || s[i] != '-') {
+      return false;
+    }
+    ++i;
+  }
 
   size_t pre = i;
   size_t mday;
@@ -1123,35 +1139,39 @@ static bool TryParseDashedDatePrefix(const CharT* s, size_t length,
   }
   ++i;
 
-  size_t start = i;
-  for (; i < length; i++) {
-    if (!IsAsciiAlpha(s[i])) {
-      break;
-    }
-  }
-
-  if (i - start < ShortestMonthNameLength) {
-    return false;
-  }
-
   size_t mon = 0;
-  for (size_t m = 0; m < std::size(months_names); ++m) {
-    // If the field isn't a prefix of the month (an exact match is *not*
-    // required), try the next one.
-    if (IsPrefixOfKeyword(s + start, i - start, months_names[m])) {
-      // Use numeric value.
-      mon = m + 1;
-      break;
+  if (*monOut == -1) {
+    // If month wasn't already set by ParseDate, it must be in the middle of
+    // this format, let's look for it
+    size_t start = i;
+    for (; i < length; i++) {
+      if (!IsAsciiAlpha(s[i])) {
+        break;
+      }
     }
-  }
-  if (mon == 0) {
-    return false;
-  }
 
-  if (i >= length || s[i] != '-') {
-    return false;
+    if (i - start < ShortestMonthNameLength) {
+      return false;
+    }
+
+    for (size_t m = 0; m < std::size(months_names); ++m) {
+      // If the field isn't a prefix of the month (an exact match is *not*
+      // required), try the next one.
+      if (IsPrefixOfKeyword(s + start, i - start, months_names[m])) {
+        // Use numeric value.
+        mon = m + 1;
+        break;
+      }
+    }
+    if (mon == 0) {
+      return false;
+    }
+
+    if (i >= length || s[i] != '-') {
+      return false;
+    }
+    ++i;
   }
-  ++i;
 
   pre = i;
   size_t year;
@@ -1180,7 +1200,9 @@ static bool TryParseDashedDatePrefix(const CharT* s, size_t length,
 
   *indexOut = i;
   *yearOut = year;
-  *monOut = mon;
+  if (*monOut == -1) {
+    *monOut = mon;
+  }
   *mdayOut = mday;
   return true;
 }
@@ -1397,7 +1419,7 @@ static bool ParseDate(DateTimeInfo::ForceUTC forceUTC, const CharT* s,
   int hour = -1;
   int min = -1;
   int sec = -1;
-  double frac = 0;
+  int msec = 0;
   int tzOffset = -1;
 
   // One of '+', '-', ':', '/', or 0 (the default value).
@@ -1601,7 +1623,7 @@ static bool ParseDate(DateTimeInfo::ForceUTC forceUTC, const CharT* s,
         sec = /*byte*/ n;
         if (c == '.') {
           index++;
-          if (!ParseFractional(&frac, s, &index, length)) {
+          if (!ParseFractional(&msec, s, &index, length)) {
             return false;
           }
         }
@@ -1814,15 +1836,16 @@ static bool ParseDate(DateTimeInfo::ForceUTC forceUTC, const CharT* s,
     hour = 0;
   }
 
-  double msec = MakeDate(MakeDay(year, mon, mday),
-                         MakeTime(hour, min, sec, frac * 1000.0));
+  double date =
+      MakeDate(MakeDay(year, mon, mday), MakeTime(hour, min, sec, msec));
+
   if (tzOffset == -1) { /* no time zone specified, have to use local */
-    msec = UTC(forceUTC, msec);
+    date = UTC(forceUTC, date);
   } else {
-    msec += tzOffset * msPerMinute;
+    date += tzOffset * msPerMinute;
   }
 
-  *result = TimeClip(msec);
+  *result = TimeClip(date);
   return true;
 }
 

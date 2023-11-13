@@ -87,7 +87,9 @@ already_AddRefed<BluetoothLeDeviceEvent> BluetoothLeDeviceEvent::Constructor(
     auto ctxt = aGlobal.Context();
     e->mScanRecord =
         scanRecord.ProcessFixedData([ctxt](const Span<uint8_t>& aData) {
-          return ArrayBuffer::Create(ctxt, aData);
+          ErrorResult rv;
+          auto buffer = ArrayBuffer::Create(ctxt, aData, rv);
+          return rv.Failed() ? nullptr : buffer;
         });
 
     if (!e->mScanRecord) {
@@ -106,9 +108,10 @@ int16_t BluetoothLeDeviceEvent::Rssi() const { return mRssi; }
 void BluetoothLeDeviceEvent::GetScanRecord(
     JSContext* cx, JS::MutableHandle<JSObject*> aScanRecord, ErrorResult& aRv) {
   if (!mScanRecord) {
-    mScanRecord = ArrayBuffer::Create(cx, this, mRawScanRecord.Length(),
-                                      mRawScanRecord.Elements());
-    if (!mScanRecord) {
+    ErrorResult rv;
+    mScanRecord = ArrayBuffer::Create(
+        cx, this, Span(mRawScanRecord.Elements(), mRawScanRecord.Length()), rv);
+    if (rv.Failed() || !mScanRecord) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
       return;
     }

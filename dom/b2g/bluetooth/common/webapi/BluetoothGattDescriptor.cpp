@@ -147,9 +147,14 @@ JSObject* BluetoothGattDescriptor::WrapObject(
 
 void BluetoothGattDescriptor::GetValue(
     JSContext* cx, JS::MutableHandle<JSObject*> aValue) const {
-  aValue.set(mValue.IsEmpty()
-                 ? nullptr
-                 : ArrayBuffer::Create(cx, mValue.Length(), mValue.Elements()));
+  if (mValue.IsEmpty()) {
+    aValue.set(nullptr);
+  } else {
+    ErrorResult rv;
+    auto buffer =
+        ArrayBuffer::Create(cx, Span(mValue.Elements(), mValue.Length()), rv);
+    aValue.set(rv.Failed() ? nullptr : buffer);
+  }
 }
 
 void BluetoothGattDescriptor::GetPermissions(

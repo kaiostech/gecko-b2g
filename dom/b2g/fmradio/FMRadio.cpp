@@ -406,7 +406,12 @@ void FMRadio::GetRdsgroup(JSContext* cx, JS::MutableHandle<JSObject*> retval) {
     return;
   }
 
-  JSObject* rdsgroup = Uint16Array::Create(cx, this, 4);
+  ErrorResult rv;
+  JSObject* rdsgroup = Uint16Array::Create(cx, this, 4, rv);
+  if (rv.Failed()) {
+    return;
+  }
+
   JS::AutoCheckCannotGC nogc;
   bool isShared = false;
   uint16_t* data = JS_GetUint16ArrayData(rdsgroup, &isShared, nogc);

@@ -101,7 +101,9 @@ BluetoothGattAttributeEvent::Constructor(
     const auto& value = aEventInitDict.mValue.Value();
     auto ctxt = aGlobal.Context();
     e->mValue = value.ProcessFixedData([ctxt](const Span<uint8_t>& aData) {
-      return ArrayBuffer::Create(ctxt, aData);
+      ErrorResult rv;
+      auto buffer = ArrayBuffer::Create(ctxt, aData, rv);
+      return rv.Failed() ? nullptr : buffer;
     });
 
     if (!e->mValue) {
@@ -131,10 +133,10 @@ void BluetoothGattAttributeEvent::GetValue(JSContext* cx,
                                            JS::MutableHandle<JSObject*> aValue,
                                            ErrorResult& aRv) {
   if (!mValue) {
-    mValue =
-        ArrayBuffer::Create(cx, this, mRawValue.Length(), mRawValue.Elements());
+    mValue = ArrayBuffer::Create(
+        cx, this, Span(mRawValue.Elements(), mRawValue.Length()), aRv);
 
-    if (!mValue) {
+    if (aRv.Failed() || !mValue) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
       return;
     }

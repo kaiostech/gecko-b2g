@@ -5,12 +5,10 @@
 /* CSS Variables specific to this panel that aren't defined by the themes */
 :root {
   --rule-highlight-background-color: var(--theme-highlight-yellow);
+  --rule-highlight-propertyname: var(--blue-60);
+  --rule-highlight-propertyvalue: var(--magenta-70);
+  --rule-highlight-unmatched-unused-color: var(--grey-55);
   --rule-header-background-color: var(--theme-toolbar-background);
-  --rule-pseudo-class-text-color: var(--yellow-70) ;
-  --rule-unused-name-text-color: var(--grey-50);
-  --rule-unused-value-text-color: var(--grey-45);
-  --rule-overridden-name-text-color: var(--grey-50);
-  --rule-overridden-value-text-color: var(--grey-45);
   --rule-computed-margin-inline-start: 35px;
   --rule-enableproperty-size: 12px;
   --rule-enableproperty-margin-inline-start: 3px;
@@ -26,13 +24,10 @@
 
 :root.theme-dark {
   --rule-highlight-background-color: #521C76;
+  --rule-highlight-propertyname: var(--theme-highlight-blue);
+  --rule-highlight-propertyvalue: var(--theme-highlight-red);
+  --rule-highlight-unmatched-unused-color: var(--grey-40);
   --rule-header-background-color: #222225;
-  --rule-pseudo-class-text-color: var(--yellow-50);
-
-  --rule-unused-name-text-color: var(--grey-45);
-  --rule-unused-value-text-color: #787878;
-  --rule-overridden-name-text-color: var(--grey-45);
-  --rule-overridden-value-text-color: #787878;
 }
 
 /* Rule View Tabpanel */
@@ -342,14 +337,6 @@
 .ruleview-rule[uneditable=true] .ruleview-propertyvaluecontainer >
 .ruleview-propertyvalue {
   border-bottom-color: transparent;
-}
-
-.ruleview-property.unused .ruleview-propertyname {
-  color: var(--rule-unused-name-text-color);
-}
-
-.ruleview-property.unused .ruleview-propertyvalue {
-  color: var(--rule-unused-value-text-color);
 }
 
 .ruleview-overridden-rule-filter {
@@ -692,14 +679,6 @@
   text-decoration: line-through solid var(--theme-text-color-alt);
 }
 
-.ruleview-property.ruleview-overridden .ruleview-propertyname {
-  color: var(--rule-overridden-name-text-color);
-}
-
-.ruleview-property.ruleview-overridden .ruleview-propertyvalue {
-  color: var(--rule-overridden-value-text-color);
-}
-
 /**
  * Hide swatches (tool icons) from properties that are overwritten by higher specificity * rules.
  * .ruleview-swatch is a base class for many tool swatches (shapes, color, bezier curves)
@@ -758,6 +737,23 @@
   background-color: var(--rule-highlight-background-color);
   /* Put the box-shadow inside the element so it's still visible when sibling elements are highlighted  */
   box-shadow: inset 0px -1px 0px 0px var(--theme-contrast-border);
+
+
+  /* property name and value and unmatched/inactive colors need to be adjusted
+     in order to have enough contrast against the highlighted background */
+  & .ruleview-propertyname {
+    color: var(--rule-highlight-propertyname);
+  }
+
+  & .ruleview-propertyvalue {
+    color: var(--rule-highlight-propertyvalue);
+  }
+
+  &.ruleview-selector.unmatched,
+  & .ruleview-unmatched-variable,
+  .ruleview-property:is(.unused, .ruleview-overridden) & :is(.ruleview-propertyname, .ruleview-propertyvalue) {
+    color: var(--rule-highlight-unmatched-unused-color);
+  }
 }
 
 .ruleview-namecontainer > .ruleview-propertyname,
@@ -799,27 +795,77 @@
   margin-inline: 1ch 0;
 }
 
-.ruleview-selectorcontainer {
+.ruleview-selectors-container {
   word-wrap: break-word;
   cursor: text;
 }
 
 .ruleview-selector-separator,
-.ruleview-selector-unmatched,
-.ruleview-unmatched-variable {
-  color: #888;
+.ruleview-selector.unmatched,
+.ruleview-unmatched-variable,
+.ruleview-property:is(.unused, .ruleview-overridden) :is(.ruleview-propertyname,.ruleview-propertyvalue) {
+  color: var(--theme-text-color-alt);
 }
 
-.ruleview-selector-matched > .ruleview-selector-attribute {
+/* We use a dimmer color for those unmatching element, but we can't convey state change
+    only with colors, so let's add a line-through line */
+:is(
+  .ruleview-selector.unmatched,
+  .ruleview-unmatched-variable
+):not(
+  /* don't show the strike through when the element is hovered so it's more legible */
+  :hover
+) {
+  text-decoration: line-through solid currentColor;
+}
+
+.ruleview-selector.matched > .ruleview-selector-attribute {
   /* TODO: Bug 1178535 Awaiting UX feedback on highlight colors */
 }
 
-.ruleview-selector-matched > .ruleview-selector-pseudo-class {
+.ruleview-selector.matched > .ruleview-selector-pseudo-class {
   /* TODO: Bug 1178535 Awaiting UX feedback on highlight colors */
 }
 
-.ruleview-selector-matched > .ruleview-selector-pseudo-class-lock {
-  color: var(--rule-pseudo-class-text-color);
+.ruleview-selector.matched > .ruleview-selector-pseudo-class-lock {
+  color: var(--pseudo-class-text-color);
+}
+
+.ruleview-selector-warnings {
+  display: inline-block;
+  width: 16px;
+  height: 12px;
+  margin-inline-start: 2px;
+  vertical-align: text-top;
+  border-radius: 2px;
+
+  border: 1px solid var(--theme-warning-border);
+  background-color: var(--theme-warning-background);
+  background-repeat: no-repeat;
+  background-position: center;
+  fill: var(--theme-warning-color);
+  -moz-context-properties: fill;
+
+  /* Default warning icon */
+  background-image: url(chrome://devtools/skin/images/alert-small.svg);
+  background-size: 10px;
+
+  &.slow {
+    background-image: url(chrome://devtools/content/netmonitor/src/assets/icons/turtle.svg);
+    background-size: 12px;
+  }
+}
+
+/* When hovering the selector warnings icon, highlight the selector it applies to */
+.ruleview-selector:has(.ruleview-selector-warnings:hover) {
+  background-color: var(--theme-warning-background);
+  /* We're not using --theme-warning-border to make it more visible */
+  outline: 1px solid var(--theme-warning-color);
+
+  & .ruleview-selector-warnings {
+    /* In such case, hide the icon border to make it cleaner */
+    border-color: transparent;
+  }
 }
 
 .ruleview-selectorhighlighter {

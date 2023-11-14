@@ -24,6 +24,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Casting.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/ContentBlockingNotifier.h"
 #include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/HashFunctions.h"
 #include "mozilla/HelperMacros.h"
@@ -40,6 +41,7 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/CanvasRenderingContextHelper.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
@@ -78,6 +80,7 @@
 #include "nsIObserverService.h"
 #include "nsIRandomGenerator.h"
 #include "nsIUserIdleService.h"
+#include "nsIWebProgressListener.h"
 #include "nsIXULAppInfo.h"
 
 #include "nscore.h"
@@ -1394,6 +1397,113 @@ nsresult nsRFPService::RandomizePixels(nsICookieJarSettings* aCookieJarSettings,
       .StopAndAccumulate(std::move(timerId));
 
   return NS_OK;
+}
+
+/* static */ void nsRFPService::MaybeReportCanvasFingerprinter(
+    nsTArray<CanvasUsage>& aUses, nsIChannel* aChannel,
+    nsACString& aOriginNoSuffix) {
+  if (!aChannel) {
+    return;
+  }
+
+  uint32_t extractedWebGL = 0;
+  bool seenExtractedWebGL_300x150 = false;
+
+  uint32_t extracted2D = 0;
+  bool seenExtracted2D_16x16 = false;
+  bool seenExtracted2D_122x110 = false;
+  bool seenExtracted2D_240x60 = false;
+  bool seenExtracted2D_280x60 = false;
+  bool seenExtracted2D_860x6 = false;
+  CanvasFeatureUsage featureUsage = CanvasFeatureUsage::None;
+
+  uint32_t extractedOther = 0;
+
+  for (const auto& usage : aUses) {
+    int32_t width = usage.mSize.width;
+    int32_t height = usage.mSize.height;
+
+    if (width > 2000 || height > 1000) {
+      // Canvases used for fingerprinting are usually relatively small.
+      continue;
+    }
+
+    if (usage.mType == dom::CanvasContextType::Canvas2D) {
+      featureUsage |= usage.mFeatureUsage;
+      extracted2D++;
+      if (width == 16 && height == 16) {
+        seenExtracted2D_16x16 = true;
+      } else if (width == 240 && height == 60) {
+        seenExtracted2D_240x60 = true;
+      } else if (width == 122 && height == 110) {
+        seenExtracted2D_122x110 = true;
+      } else if (width == 280 && height == 60) {
+        seenExtracted2D_280x60 = true;
+      } else if (width == 860 && height == 6) {
+        seenExtracted2D_860x6 = true;
+      }
+    } else if (usage.mType == dom::CanvasContextType::WebGL1) {
+      extractedWebGL++;
+      if (width == 300 && height == 150) {
+        seenExtractedWebGL_300x150 = true;
+      }
+    } else {
+      extractedOther++;
+    }
+  }
+
+  Maybe<ContentBlockingNotifier::CanvasFingerprinter> fingerprinter;
+  if (seenExtractedWebGL_300x150 && seenExtracted2D_240x60 &&
+      seenExtracted2D_122x110) {
+    fingerprinter =
+        Some(ContentBlockingNotifier::CanvasFingerprinter::eFingerprintJS);
+  } else if (seenExtractedWebGL_300x150 && seenExtracted2D_280x60 &&
+             seenExtracted2D_16x16) {
+    fingerprinter = Some(ContentBlockingNotifier::CanvasFingerprinter::eAkamai);
+  } else if (seenExtractedWebGL_300x150 && extracted2D > 0 &&
+             (featureUsage & CanvasFeatureUsage::SetFont)) {
+    fingerprinter =
+        Some(ContentBlockingNotifier::CanvasFingerprinter::eVariant1);
+  } else if (extractedWebGL > 0 && extracted2D > 1 && seenExtracted2D_860x6) {
+    fingerprinter =
+        Some(ContentBlockingNotifier::CanvasFingerprinter::eVariant2);
+  } else if (extractedOther > 0 && (extractedWebGL > 0 || extracted2D > 0)) {
+    fingerprinter =
+        Some(ContentBlockingNotifier::CanvasFingerprinter::eVariant3);
+  } else if (extracted2D > 0 && (featureUsage & CanvasFeatureUsage::SetFont) &&
+             (featureUsage &
+              (CanvasFeatureUsage::FillRect | CanvasFeatureUsage::LineTo |
+               CanvasFeatureUsage::Stroke))) {
+    fingerprinter =
+        Some(ContentBlockingNotifier::CanvasFingerprinter::eVariant4);
+  } else if (extractedOther + extractedWebGL + extracted2D > 1) {
+    // This I added primarily to not miss anything, but it can cause false
+    // positives.
+    fingerprinter = Some(ContentBlockingNotifier::CanvasFingerprinter::eMaybe);
+  }
+
+  if (!(featureUsage & CanvasFeatureUsage::KnownFingerprintText) &&
+      fingerprinter.isNothing()) {
+    return;
+  }
+
+  ContentBlockingNotifier::OnEvent(
+      aChannel, false,
+      nsIWebProgressListener::STATE_ALLOWED_CANVAS_FINGERPRINTING,
+      aOriginNoSuffix, Nothing(), fingerprinter,
+      Some(featureUsage & CanvasFeatureUsage::KnownFingerprintText));
+}
+
+/* static */ void nsRFPService::MaybeReportFontFingerprinter(
+    nsIChannel* aChannel, nsACString& aOriginNoSuffix) {
+  if (!aChannel) {
+    return;
+  }
+
+  ContentBlockingNotifier::OnEvent(
+      aChannel, false,
+      nsIWebProgressListener::STATE_ALLOWED_FONT_FINGERPRINTING,
+      aOriginNoSuffix);
 }
 
 /* static */

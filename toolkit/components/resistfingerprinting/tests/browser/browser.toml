@@ -1,6 +1,8 @@
 [DEFAULT]
 support-files = [
+  "canvas-fingerprinter.html",
   "empty.html",
+  "font-fingerprinter.html",
   "head.js",
   "scriptExecPage.html",
   "serviceWorker.js",
@@ -8,6 +10,8 @@ support-files = [
   "testPage.html",
   "worker.js",
 ]
+
+["browser_canvas_fingerprinter_telemetry.js"]
 
 ["browser_canvas_randomization.js"]
 
@@ -18,6 +22,8 @@ support-files = [
 ["browser_fingerprinting_randomization_key.js"]
 
 ["browser_fingerprintingWebCompat.js"]
+
+["browser_font_fingerprinter_telemetry.js"]
 
 ["browser_fpiServiceWorkers_fingerprinting.js"]
 

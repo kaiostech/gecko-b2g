@@ -39,11 +39,11 @@ using namespace mozilla::ipc;
 // fuzzing runtime for some reason.
 // #define MOZ_FUZZ_IPC_SYNC_INJECT 1
 
-// For debugging purposes, it can be helpful to synchronize after each message
-// rather than after each iteration, to see which messages are particularly
-// slow or cause a hang. Without this, synchronization will occur at the end
-// of each iteration as well as after each constructor message.
-// #define MOZ_FUZZ_IPC_SYNC_AFTER_EACH_MSG
+// Synchronize after each message rather than just after every constructor
+// or at the end of the iteration. Doing so costs us some performance because
+// we have to wait for each packet and process events on the main thread,
+// but it is necessary when using `OnMessageError` to release on early errors.
+#define MOZ_FUZZ_IPC_SYNC_AFTER_EACH_MSG 1
 
 namespace mozilla {
 namespace fuzzing {
@@ -51,7 +51,10 @@ namespace fuzzing {
 const uint32_t ipcDefaultTriggerMsg = dom::PContent::Msg_SignalFuzzingReady__ID;
 
 IPCFuzzController::IPCFuzzController()
-    : mMutex("IPCFuzzController"), mIPCTriggerMsg(ipcDefaultTriggerMsg) {
+    : useLastPortName(false),
+      useLastActor(0),
+      mMutex("IPCFuzzController"),
+      mIPCTriggerMsg(ipcDefaultTriggerMsg) {
   InitializeIPCTypes();
 
   // We use 6 bits for port index selection without wrapping, so we just
@@ -128,7 +131,10 @@ void IPCFuzzController::InitializeIPCTypes() {
       }
     }
 
-    validMsgTypes[(ProtocolId)start] = i - ((start << 16) + 1);
+    uint32_t msgCount = i - ((start << 16) + 1);
+    if (msgCount) {
+      validMsgTypes[(ProtocolId)start] = msgCount;
+    }
   }
 }
 
@@ -142,12 +148,37 @@ bool IPCFuzzController::GetRandomIPCMessageType(ProtocolId pId,
 
   *type =
       ((uint32_t)pIdEntry->first << 16) + 1 + (typeOffset % pIdEntry->second);
+
+  if (strstr(IPC::StringFromIPCMessageType(*type), "::Reply_")) {
+    *type = *type - 1;
+  }
+
   return true;
 }
 
 void IPCFuzzController::OnActorConnected(IProtocol* protocol) {
   if (!XRE_IsParentProcess()) {
     return;
+  }
+
+  MOZ_FUZZING_NYX_DEBUG(
+      "DEBUG: IPCFuzzController::OnActorConnected() Mutex try\n");
+
+  // Called on background threads and modifies `actorIds`.
+  MutexAutoLock lock(mMutex);
+
+  MOZ_FUZZING_NYX_DEBUG(
+      "DEBUG: IPCFuzzController::OnActorConnected() Mutex locked\n");
+
+  static bool protoIdFilterInitialized = false;
+  static bool allowNewActors = false;
+  static std::string protoIdFilter;
+  if (!protoIdFilterInitialized) {
+    const char* protoIdFilterStr = getenv("MOZ_FUZZ_PROTOID_FILTER");
+    if (protoIdFilterStr) {
+      protoIdFilter = std::string(protoIdFilterStr);
+    }
+    protoIdFilterInitialized = true;
   }
 
 #ifdef FUZZ_DEBUG
@@ -159,20 +190,37 @@ void IPCFuzzController::OnActorConnected(IProtocol* protocol) {
 
   Maybe<PortName> portName = channel->GetPortName();
   if (portName) {
-    MOZ_FUZZING_NYX_DEBUG(
-        "DEBUG: IPCFuzzController::OnActorConnected() Mutex try\n");
-    // Called on background threads and modifies `actorIds`.
-    MutexAutoLock lock(mMutex);
-    MOZ_FUZZING_NYX_DEBUG(
-        "DEBUG: IPCFuzzController::OnActorConnected() Mutex locked\n");
+    if (!protoIdFilter.empty() &&
+        (!Nyx::instance().started() || !allowNewActors) &&
+        strcmp(protocol->GetProtocolName(), protoIdFilter.c_str()) &&
+        !actorIds[*portName].empty()) {
+      MOZ_FUZZING_NYX_PRINTF(
+          "INFO: [OnActorConnected] ActorID %d Protocol: %s ignored due to "
+          "filter.\n",
+          protocol->Id(), protocol->GetProtocolName());
+      return;
+    } else if (!protoIdFilter.empty() &&
+               !strcmp(protocol->GetProtocolName(), protoIdFilter.c_str())) {
+      MOZ_FUZZING_NYX_PRINTF(
+          "INFO: [OnActorConnected] ActorID %d Protocol: %s matches target.\n",
+          protocol->Id(), protocol->GetProtocolName());
+    } else if (!protoIdFilter.empty() && actorIds[*portName].empty()) {
+      MOZ_FUZZING_NYX_PRINTF(
+          "INFO: [OnActorConnected] ActorID %d Protocol: %s is toplevel "
+          "actor.\n",
+          protocol->Id(), protocol->GetProtocolName());
+    }
+
     actorIds[*portName].emplace_back(protocol->Id(), protocol->GetProtocolId());
 
-    // Fix the port we will be using for at least the next 5 messages
-    useLastPortName = true;
-    lastActorPortName = *portName;
+    if (Nyx::instance().started() && protoIdFilter.empty()) {
+      // Fix the port we will be using for at least the next 5 messages
+      useLastPortName = true;
+      lastActorPortName = *portName;
 
-    // Use this actor for the next 5 messages
-    useLastActor = 5;
+      // Use this actor for the next 5 messages
+      useLastActor = 5;
+    }
   } else {
     MOZ_FUZZING_NYX_DEBUG("WARNING: No port name on actor?!\n");
   }
@@ -224,6 +272,7 @@ void IPCFuzzController::AddToplevelActor(PortName name, ProtocolId protocolId) {
   }
   uint8_t portIndex = result->second;
   portNames[portIndex].push_back(name);
+  portNameToProtocolName[name] = std::string(protocolName);
 }
 
 bool IPCFuzzController::ObserveIPCMessage(mozilla::ipc::NodeChannel* channel,
@@ -251,6 +300,31 @@ bool IPCFuzzController::ObserveIPCMessage(mozilla::ipc::NodeChannel* channel,
     return true;
   } else if (aMessage.type() == mIPCTriggerMsg) {
     MOZ_FUZZING_NYX_PRINT("DEBUG: Ready message detected.\n");
+
+    if (!haveTargetNodeName && !!getenv("MOZ_FUZZ_PROTOID_FILTER")) {
+      // With a protocol filter set, we want to pin to the actor that
+      // received the ready message and stay there. We should do this here
+      // because OnActorConnected can be called even after the ready message
+      // has been received and potentially override the correct actor.
+
+      // Get the port name associated with this message
+      Vector<char, 256, InfallibleAllocPolicy> footer;
+      if (!footer.initLengthUninitialized(aMessage.event_footer_size()) ||
+          !aMessage.ReadFooter(footer.begin(), footer.length(), false)) {
+        MOZ_FUZZING_NYX_ABORT("ERROR: Failed to read message footer.\n");
+      }
+
+      UniquePtr<Event> event =
+          Event::Deserialize(footer.begin(), footer.length());
+
+      if (!event || event->type() != Event::kUserMessage) {
+        MOZ_FUZZING_NYX_ABORT("ERROR: Trigger message is not kUserMessage?!\n");
+      }
+
+      lastActorPortName = event->port_name();
+      useLastPortName = true;
+      useLastActor = 1024;
+    }
 
     // TODO: This is specific to PContent fuzzing. If we later want to fuzz
     // a different process pair, we need additional signals here.
@@ -406,9 +480,43 @@ void IPCFuzzController::OnMessageError(
     return;
   }
 
-#if 0
-  Nyx::instance().release(IPCFuzzController::instance().getMessageStopCount());
+  switch (code) {
+    case ipc::HasResultCodes::MsgNotKnown:
+      // Seeing this error should be rare - one potential reason is if a sync
+      // message is sent as async and vice versa. Other than that, we shouldn't
+      // be generating this error at all.
+      Nyx::instance().handle_event("MOZ_IPC_UNKNOWN_TYPE", nullptr, 0, nullptr);
+#ifdef FUZZ_DEBUG
+      MOZ_FUZZING_NYX_PRINTF(
+          "WARNING: MOZ_IPC_UNKNOWN_TYPE for message type %s (%u) routed to "
+          "actor %d (sync %d)\n",
+          IPC::StringFromIPCMessageType(aMsg.type()), aMsg.type(),
+          aMsg.routing_id(), aMsg.is_sync());
 #endif
+      break;
+    case ipc::HasResultCodes::MsgNotAllowed:
+      Nyx::instance().handle_event("MOZ_IPC_NOTALLOWED_ERROR", nullptr, 0,
+                                   nullptr);
+      break;
+    case ipc::HasResultCodes::MsgPayloadError:
+    case ipc::HasResultCodes::MsgValueError:
+      Nyx::instance().handle_event("MOZ_IPC_DESERIALIZE_ERROR", nullptr, 0,
+                                   nullptr);
+      break;
+    case ipc::HasResultCodes::MsgProcessingError:
+      Nyx::instance().handle_event("MOZ_IPC_PROCESS_ERROR", nullptr, 0,
+                                   nullptr);
+      break;
+    case ipc::HasResultCodes::MsgRouteError:
+      Nyx::instance().handle_event("MOZ_IPC_ROUTE_ERROR", nullptr, 0, nullptr);
+      break;
+    default:
+      MOZ_FUZZING_NYX_ABORT("unknown Result code");
+  }
+
+  // Count this message as one iteration as well.
+  Nyx::instance().release(IPCFuzzController::instance().getMessageStopCount() +
+                          1);
 }
 
 bool IPCFuzzController::MakeTargetDecision(
@@ -471,13 +579,27 @@ bool IPCFuzzController::MakeTargetDecision(
   *seqno = seqNos.first - 1;
   *fseqno = seqNos.second + 1;
 
-  if (update) {
-    portSeqNos.insert_or_assign(*name,
-                                std::pair<int32_t, uint64_t>(*seqno, *fseqno));
-  }
+  // If a type is already specified, we must be in preserveHeaderMode.
+  bool isPreserveHeader = *type;
 
   if (useLastActor) {
     actorIndex = actors.size() - 1;
+  } else if (isPreserveHeader) {
+    // In preserveHeaderMode, we need to find an actor that matches the
+    // requested message type instead of any random actor.
+    ProtocolId wantedProtocolId = static_cast<ProtocolId>(*type >> 16);
+    std::vector<uint32_t> allowedIndices;
+    for (uint32_t i = 0; i < actors.size(); ++i) {
+      if (actors[i].second == wantedProtocolId) {
+        allowedIndices.push_back(i);
+      }
+    }
+
+    if (allowedIndices.empty()) {
+      return false;
+    }
+
+    actorIndex = allowedIndices[actorIndex % allowedIndices.size()];
   } else {
     actorIndex %= actors.size();
   }
@@ -491,21 +613,30 @@ bool IPCFuzzController::MakeTargetDecision(
     *actorId = MSG_ROUTING_CONTROL;
   }
 
-  if (!this->GetRandomIPCMessageType(ids.second, typeOffset, type)) {
-    MOZ_FUZZING_NYX_PRINT("ERROR: GetRandomIPCMessageType failed?!\n");
-    return false;
+  if (!isPreserveHeader) {
+    // If msgType is already set, then we are in preserveHeaderMode
+    if (!this->GetRandomIPCMessageType(ids.second, typeOffset, type)) {
+      MOZ_FUZZING_NYX_PRINT("ERROR: GetRandomIPCMessageType failed?!\n");
+      return false;
+    }
+
+    *is_cons = false;
+    if (constructorTypes.find(*type) != constructorTypes.end()) {
+      *is_cons = true;
+    }
   }
 
-  *is_cons = false;
-  if (constructorTypes.find(*type) != constructorTypes.end()) {
-    *is_cons = true;
-  }
-
-#ifdef FUZZ_DEBUG
   MOZ_FUZZING_NYX_PRINTF(
-      "DEBUG: MakeTargetDecision: Protocol: %s msgType: %s\n",
-      ProtocolIdToName(ids.second), IPC::StringFromIPCMessageType(*type));
-#endif
+      "DEBUG: MakeTargetDecision: Top-Level Protocol: %s Protocol: %s msgType: "
+      "%s (%u), Actor Instance %u of %zu, actor ID: %d, PreservedHeader: %d\n",
+      portNameToProtocolName[*name].c_str(), ProtocolIdToName(ids.second),
+      IPC::StringFromIPCMessageType(*type), *type, actorIndex, actors.size(),
+      *actorId, isPreserveHeader);
+
+  if (update) {
+    portSeqNos.insert_or_assign(*name,
+                                std::pair<int32_t, uint64_t>(*seqno, *fseqno));
+  }
 
   return true;
 }
@@ -697,14 +828,11 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
 
   uint32_t expected_messages = 0;
 
-  IPCFuzzController::instance().useLastActor = 0;
-  IPCFuzzController::instance().useLastPortName = false;
-
   if (!buffer.initLengthUninitialized(maxMsgSize)) {
     MOZ_FUZZING_NYX_ABORT("ERROR: Failed to initialize buffer!\n");
   }
 
-  for (int i = 0; i < 16; ++i) {
+  for (int i = 0; i < 3; ++i) {
     // Grab enough data to potentially fill our everything except the footer.
     uint32_t bufsize =
         Nyx::instance().get_data((uint8_t*)buffer.begin(), buffer.length());
@@ -729,9 +857,13 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
     char* ipcMsgData = buffer.begin() + controlLen;
     size_t ipcMsgLen = bufsize - controlLen;
 
-    // Copy the header of the original message
-    memcpy(ipcMsgData, IPCFuzzController::instance().sampleHeader.begin(),
-           sizeof(IPC::Message::Header));
+    bool preserveHeader = controlData[15] == 0xFF;
+
+    if (!preserveHeader) {
+      // Copy the header of the original message
+      memcpy(ipcMsgData, IPCFuzzController::instance().sampleHeader.begin(),
+             sizeof(IPC::Message::Header));
+    }
 
     IPC::Message::Header* ipchdr = (IPC::Message::Header*)ipcMsgData;
 
@@ -742,8 +874,8 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
     uint64_t new_fseqno;
 
     int32_t actorId;
-    uint32_t msgType;
-    bool isConstructor;
+    uint32_t msgType = 0;
+    bool isConstructor = false;
     // Control Data Layout (16 byte)
     // Byte  0 - Port Index (selects out of the valid ports seen)
     // Byte  1 - Actor Index (selects one of the actors for that port)
@@ -753,12 +885,32 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
     // Byte  5 - Optionally select a particular instance of the selected
     //           port type. Some toplevel protocols can have multiple
     //           instances running at the same time.
+    //
+    // Byte 15 - If set to 0xFF, skip overwriting the header, leave fields
+    //           like message type intact and only set target actor and
+    //           other fields that are dynamic.
 
     uint8_t portIndex = controlData[0];
     uint8_t actorIndex = controlData[1];
     uint16_t typeOffset = *(uint16_t*)(&controlData[2]);
     bool isSync = controlData[4] > 127;
     uint8_t portInstanceIndex = controlData[5];
+
+    UniquePtr<IPC::Message> msg(new IPC::Message(ipcMsgData, ipcMsgLen));
+
+    if (preserveHeader) {
+      isConstructor = msg->is_constructor();
+      isSync = msg->is_sync();
+      msgType = msg->header()->type;
+
+      if (!msgType) {
+        // msgType == 0 is used to indicate to MakeTargetDecision that we are
+        // not in preserve header mode. It's not a valid message type in any
+        // case and we can error out early.
+        Nyx::instance().release(
+            IPCFuzzController::instance().getMessageStopCount());
+      }
+    }
 
     if (!IPCFuzzController::instance().MakeTargetDecision(
             portIndex, portInstanceIndex, actorIndex, typeOffset,
@@ -782,8 +934,6 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
       MOZ_FUZZING_NYX_PRINT("\n");
     }
 
-    UniquePtr<IPC::Message> msg(new IPC::Message(ipcMsgData, ipcMsgLen));
-
     if (isConstructor) {
       MOZ_FUZZING_NYX_DEBUG("DEBUG: Sending constructor message...\n");
       msg->header()->flags.SetConstructor();
@@ -797,8 +947,10 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
     msg->set_seqno(new_seqno);
     msg->set_routing_id(actorId);
 
-    // TODO: There is no setter for this.
-    msg->header()->type = msgType;
+    if (!preserveHeader) {
+      // TODO: There is no setter for this.
+      msg->header()->type = msgType;
+    }
 
     // Create the footer
     auto messageEvent = MakeUnique<UserMessageEvent>(0);
@@ -855,6 +1007,15 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
     MOZ_FUZZING_NYX_DEBUG("DEBUG: Synchronizing after message...\n");
     IPCFuzzController::instance().SynchronizeOnMessageExecution(
         expected_messages);
+
+    SyncRunnable::DispatchToThread(
+        GetMainThreadSerialEventTarget(),
+        NS_NewRunnableFunction(
+            "IPCFuzzController::StartFuzzing", [&]() -> void {
+              MOZ_FUZZING_NYX_DEBUG("DEBUG: Main thread runnable start.\n");
+              NS_ProcessPendingEvents(NS_GetCurrentThread());
+              MOZ_FUZZING_NYX_DEBUG("DEBUG: Main thread runnable done.\n");
+            }));
 #else
 
     if (isConstructor) {
@@ -866,6 +1027,7 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
 #endif
   }
 
+#ifndef MOZ_FUZZ_IPC_SYNC_AFTER_EACH_MSG
   MOZ_FUZZING_NYX_DEBUG("DEBUG: Synchronizing due to end of iteration...\n");
   IPCFuzzController::instance().SynchronizeOnMessageExecution(
       expected_messages);
@@ -877,6 +1039,7 @@ NS_IMETHODIMP IPCFuzzController::IPCFuzzLoop::Run() {
         NS_ProcessPendingEvents(NS_GetCurrentThread());
         MOZ_FUZZING_NYX_DEBUG("DEBUG: Main thread runnable done.\n");
       }));
+#endif
 
   MOZ_FUZZING_NYX_DEBUG(
       "DEBUG: ======== END OF ITERATION (RELEASE) ========\n");
@@ -971,12 +1134,30 @@ UniquePtr<IPC::Message> IPCFuzzController::replaceIPCMessage(
     return aMsg;
   }
 
+  static bool dumpFilterInitialized = false;
+  static std::string dumpFilter;
+  if (!dumpFilterInitialized) {
+    const char* dumpFilterStr = getenv("MOZ_FUZZ_DUMP_FILTER");
+    if (dumpFilterStr) {
+      dumpFilter = std::string(dumpFilterStr);
+    }
+    dumpFilterInitialized = true;
+  }
+
   if (aMsg->type() != mIPCTriggerMsg) {
     if ((mIPCDumpMsg && aMsg->type() == mIPCDumpMsg.value()) ||
         (mIPCDumpAllMsgsSize.isSome() &&
          aMsg->Buffers().Size() >= mIPCDumpAllMsgsSize.value())) {
-      dumpIPCMessageToFile(aMsg, mIPCDumpCount);
-      mIPCDumpCount++;
+      if (!dumpFilter.empty()) {
+        std::string msgName(IPC::StringFromIPCMessageType(aMsg->type()));
+        if (msgName.find(dumpFilter) != std::string::npos) {
+          dumpIPCMessageToFile(aMsg, mIPCDumpCount);
+          mIPCDumpCount++;
+        }
+      } else {
+        dumpIPCMessageToFile(aMsg, mIPCDumpCount);
+        mIPCDumpCount++;
+      }
     }
 
     // Not the trigger message. Output additional information here for

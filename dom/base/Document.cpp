@@ -145,9 +145,10 @@
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/BrowsingContextGroup.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "mozilla/dom/CanvasRenderingContextHelper.h"
 #include "mozilla/dom/CDATASection.h"
 #include "mozilla/dom/CSPDictionariesBinding.h"
-#include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/ChromeObserver.h"
 #include "mozilla/dom/ClientInfo.h"
 #include "mozilla/dom/ClientState.h"
@@ -16220,6 +16221,12 @@ void Document::ReportLCP() {
 
   mozilla::glean::perf::largest_contentful_paint_from_response_start
       .AccumulateRawDuration(lcpTime - responseStart);
+
+  if (profiler_thread_is_being_profiled_for_markers()) {
+    MarkerInnerWindowId innerWindowID =
+        MarkerInnerWindowIdFromDocShell(GetDocShell());
+    GetNavigationTiming()->MaybeAddLCPProfilerMarker(innerWindowID);
+  }
 }
 
 void Document::SendPageUseCounters() {
@@ -16348,6 +16355,39 @@ bool Document::ShouldResistFingerprinting(RFPTarget aTarget) const {
   return mShouldResistFingerprinting &&
          nsRFPService::IsRFPEnabledFor(aTarget,
                                        mOverriddenFingerprintingSettings);
+}
+
+void Document::RecordCanvasUsage(CanvasUsage& aUsage) {
+  // Limit the number of recent canvas extraction uses that are tracked.
+  const size_t kTrackedCanvasLimit = 8;
+  // Timeout between different canvas extractions.
+  const uint64_t kTimeoutUsec = 3000 * 1000;
+
+  uint64_t now = PR_Now();
+  if ((mCanvasUsage.Length() > kTrackedCanvasLimit) ||
+      ((now - mLastCanvasUsage) > kTimeoutUsec)) {
+    mCanvasUsage.ClearAndRetainStorage();
+  }
+
+  mCanvasUsage.AppendElement(aUsage);
+  mLastCanvasUsage = now;
+
+  nsCString originNoSuffix;
+  if (NS_FAILED(NodePrincipal()->GetOriginNoSuffix(originNoSuffix))) {
+    return;
+  }
+
+  nsRFPService::MaybeReportCanvasFingerprinter(mCanvasUsage, GetChannel(),
+                                               originNoSuffix);
+}
+
+void Document::RecordFontFingerprinting() {
+  nsCString originNoSuffix;
+  if (NS_FAILED(NodePrincipal()->GetOriginNoSuffix(originNoSuffix))) {
+    return;
+  }
+
+  nsRFPService::MaybeReportFontFingerprinter(GetChannel(), originNoSuffix);
 }
 
 WindowContext* Document::GetWindowContextForPageUseCounters() const {

@@ -671,7 +671,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
       const nsTArray<nsCString>& aTrackingFullHashes,
       const Maybe<
           ContentBlockingNotifier::StorageAccessPermissionGrantedReason>&
-          aReason);
+          aReason,
+      const Maybe<ContentBlockingNotifier::CanvasFingerprinter>&
+          aCanvasFingerprinter,
+      const Maybe<bool> aCanvasFingerprinterKnownText);
 
   bool GetUpdateHitRegion() const { return mUpdateHitRegion; }
 

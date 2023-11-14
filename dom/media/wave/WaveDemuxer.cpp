@@ -15,13 +15,17 @@
 #include "BufferReader.h"
 #include "VideoUtils.h"
 #include "TimeUnits.h"
+#include "mozilla/Logging.h"
 
 using mozilla::media::TimeIntervals;
 using mozilla::media::TimeUnit;
 
+extern mozilla::LazyLogModule gMediaDemuxerLog;
+
 namespace mozilla {
 
-// WAVDemuxer
+#define LOG(msg, ...) \
+  MOZ_LOG(gMediaDemuxerLog, LogLevel::Debug, msg, ##__VA_ARGS__)
 
 WAVDemuxer::WAVDemuxer(MediaResource* aSource) : mSource(aSource) {
   DDLINKCHILD("source", aSource);
@@ -161,6 +165,8 @@ bool WAVTrackDemuxer::Init() {
   mInfo->mMimeType.AppendInt(mFmtChunk.WaveFormat());
   mInfo->mDuration = Duration();
   mInfo->mChannelMap = mFmtChunk.ChannelMap();
+
+  LOG(("WavDemuxer initialized: %s", mInfo->ToString().get()));
 
   return mInfo->mDuration.IsPositive();
 }
@@ -704,21 +710,25 @@ AudioConfig::ChannelLayout::ChannelMap FormatChunk::ChannelMap() const {
   // Regular mapping if file doesn't have channel mapping info. Alternatively,
   // if the chunk size doesn't have the field for the size of the extension
   // data, return a regular mapping.
-  if (WaveFormat() != 0xFFFE || mRaw.Length() < 18) {
+  constexpr size_t SIZE_WAVEFORMATEX = 18;
+  constexpr size_t MIN_SIZE_WAVEFORMATEXTENSIBLE = 22;
+  constexpr size_t OFFSET_CHANNEL_MAP = 20;
+  if (WaveFormat() != 0xFFFE || mRaw.Length() <= SIZE_WAVEFORMATEX) {
     return AudioConfig::ChannelLayout(Channels()).Map();
   }
   // The length of this chunk is at least 18, check if it's long enough to
-  // hold the WAVE_FORMAT_EXTENSIBLE struct, that is 22 bytes. If not, fall
-  // back to a common mapping. The channel mapping is four bytes, starting at
-  // offset 18.
-  if (ExtraFormatInfoSize() < 22 || mRaw.Length() < 22) {
+  // hold the WAVE_FORMAT_EXTENSIBLE struct, that is 22 more than the
+  // WAVEFORMATEX. If not, fall back to a common mapping. The channel
+  // mapping is four bytes, starting at offset 20.
+  if (ExtraFormatInfoSize() < MIN_SIZE_WAVEFORMATEXTENSIBLE ||
+      mRaw.Length() < SIZE_WAVEFORMATEX + MIN_SIZE_WAVEFORMATEXTENSIBLE) {
     return AudioConfig::ChannelLayout(Channels()).Map();
   }
   // ChannelLayout::ChannelMap is by design bit-per-bit compatible with
-  // WAVEFORMATEXTENSIBLE's dwChannelMask attribute, we can just cast here.
-  auto channelMap = static_cast<AudioConfig::ChannelLayout::ChannelMap>(
-      mRaw[21] | mRaw[20] | mRaw[19] | mRaw[18]);
-  return channelMap;
+  // WAVEFORMATEXTENSIBLE's dwChannelMask attribute.
+  BufferReader reader(mRaw.Elements() + OFFSET_CHANNEL_MAP, sizeof(uint32_t));
+  auto channelMap = reader.ReadLEU32();
+  return channelMap.unwrapOr(AudioConfig::ChannelLayout::UNKNOWN_MAP);
 }
 
 // DataParser

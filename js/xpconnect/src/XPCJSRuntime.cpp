@@ -1459,9 +1459,8 @@ static void ReportZoneStats(const JS::ZoneStats& zStats,
 
   ZRREPORT_BYTES(pathPrefix + "jit-zone"_ns, zStats.jitZone, "The JIT zone.");
 
-  ZRREPORT_BYTES(pathPrefix + "baseline/optimized-stubs"_ns,
-                 zStats.baselineStubsOptimized,
-                 "The Baseline JIT's optimized IC stubs (excluding code).");
+  ZRREPORT_BYTES(pathPrefix + "cacheir-stubs"_ns, zStats.cacheIRStubs,
+                 "The JIT's IC stubs (excluding code).");
 
   ZRREPORT_BYTES(pathPrefix + "script-counts-map"_ns, zStats.scriptCountsMap,
                  "Profiling-related information for scripts.");
@@ -1804,9 +1803,8 @@ static void ReportRealmStats(const JS::RealmStats& realmStats,
                  realmStats.baselineData,
                  "The Baseline JIT's compilation data (BaselineScripts).");
 
-  ZRREPORT_BYTES(realmJSPathPrefix + "baseline/fallback-stubs"_ns,
-                 realmStats.baselineStubsFallback,
-                 "The Baseline JIT's fallback IC stubs (excluding code).");
+  ZRREPORT_BYTES(realmJSPathPrefix + "alloc-sites"_ns, realmStats.allocSites,
+                 "GC allocation site data associated with IC stubs.");
 
   ZRREPORT_BYTES(realmJSPathPrefix + "ion-data"_ns, realmStats.ionData,
                  "The IonMonkey JIT's compilation data (IonScripts).");

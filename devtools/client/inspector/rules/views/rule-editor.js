@@ -250,9 +250,34 @@ RuleEditor.prototype = {
             this.doc.createTextNode(`@import ${ancestorData.value}`)
           );
         } else if (ancestorData.selectorText) {
+          // @backward-compat { version 121 } Newer server now send a `selectors` property
+          // (and no `selectorText` anymore), that we're using to display the selectors.
+          // This if block can be removed when 121 hits release.
           selectorContainer.append(
             this.doc.createTextNode(ancestorData.selectorText)
           );
+        } else if (ancestorData.selectors) {
+          ancestorData.selectors.forEach((selector, i) => {
+            if (i !== 0) {
+              createChild(selectorContainer, "span", {
+                class: "ruleview-selector-separator",
+                textContent: ", ",
+              });
+            }
+
+            const selectorEl = createChild(selectorContainer, "span", {
+              class: "ruleview-selector",
+              textContent: selector,
+            });
+
+            const warningsContainer = this._createWarningsElementForSelector(
+              i,
+              ancestorData.selectorWarnings
+            );
+            if (warningsContainer) {
+              selectorEl.append(warningsContainer);
+            }
+          });
         } else {
           // We shouldn't get here as `type` should only match to what can be set in
           // the StyleRuleActor form, but just in case, let's return an empty string.
@@ -287,7 +312,7 @@ RuleEditor.prototype = {
     });
 
     this.selectorText = createChild(header, "span", {
-      class: "ruleview-selectorcontainer",
+      class: "ruleview-selectors-container",
       tabindex: this.isSelectorEditable ? "0" : "-1",
     });
 
@@ -398,6 +423,52 @@ RuleEditor.prototype = {
         this.newProperty();
       });
     }
+  },
+
+  /**
+   * Returns the selector warnings element, or null if selector at selectorIndex
+   * does not have any warning.
+   *
+   * @param {Integer} selectorIndex: The index of the selector we want to create the
+   *        warnings for
+   * @param {Array<Object>} selectorWarnings: An array of object of the following shape:
+   *        - {Integer} index: The index of the selector this applies to
+   *        - {String} kind: Identifies the warning
+   * @returns {Element|null}
+   */
+  _createWarningsElementForSelector(selectorIndex, selectorWarnings) {
+    if (!selectorWarnings) {
+      return null;
+    }
+
+    const warningKinds = [];
+    for (const { index, kind } of selectorWarnings) {
+      if (index !== selectorIndex) {
+        continue;
+      }
+      warningKinds.push(kind);
+    }
+
+    if (!warningKinds.length) {
+      return null;
+    }
+
+    const warningsContainer = this.doc.createElement("div");
+    warningsContainer.classList.add(
+      "ruleview-selector-warnings",
+      "has-tooltip"
+    );
+
+    warningsContainer.setAttribute(
+      "data-selector-warning-kind",
+      warningKinds.join(",")
+    );
+
+    if (warningKinds.includes("UnconstrainedHas")) {
+      warningsContainer.classList.add("slow");
+    }
+
+    return warningsContainer;
   },
 
   /**
@@ -563,11 +634,11 @@ RuleEditor.prototype = {
         }
 
         const desugaredSelector = desugaredSelectors[i];
-        const containerClass = this.rule.matchedDesugaredSelectors.includes(
-          desugaredSelector
-        )
-          ? "ruleview-selector-matched"
-          : "ruleview-selector-unmatched";
+        const matchedSelector =
+          this.rule.matchedDesugaredSelectors.includes(desugaredSelector);
+        const containerClass =
+          "ruleview-selector " + (matchedSelector ? "matched" : "unmatched");
+
         const selectorContainer = createChild(this.selectorText, "span", {
           class: containerClass,
         });
@@ -582,7 +653,7 @@ RuleEditor.prototype = {
               selectorClass = "ruleview-selector-attribute";
               break;
             case SELECTOR_ELEMENT:
-              selectorClass = "ruleview-selector";
+              selectorClass = "ruleview-selector-element";
               break;
             case SELECTOR_PSEUDO_CLASS:
               selectorClass = PSEUDO_CLASSES.some(
@@ -599,6 +670,14 @@ RuleEditor.prototype = {
             textContent: selectorText.value,
             class: selectorClass,
           });
+        }
+
+        const warningsContainer = this._createWarningsElementForSelector(
+          i,
+          this.rule.domRule.selectorWarnings
+        );
+        if (warningsContainer) {
+          selectorContainer.append(warningsContainer);
         }
       });
     }

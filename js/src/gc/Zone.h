@@ -347,7 +347,6 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
 
   struct DiscardOptions {
     DiscardOptions() {}
-    bool discardBaselineCode = true;
     bool discardJitScripts = false;
     bool resetNurseryAllocSites = false;
     bool resetPretenuredAllocSites = false;
@@ -371,7 +370,7 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
 
   void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
                               JS::CodeSizes* code, size_t* regexpZone,
-                              size_t* jitZone, size_t* baselineStubsOptimized,
+                              size_t* jitZone, size_t* cacheIRStubs,
                               size_t* uniqueIdMap, size_t* initialPropMapTable,
                               size_t* shapeTables, size_t* atomsMarkBitmaps,
                               size_t* compartmentObjects,

@@ -2103,14 +2103,6 @@ static void ResetEnteredCounts(const ICEntry* icEntry) {
   }
 }
 
-static ICStubSpace* StubSpaceForStub(bool makesGCCalls, JSScript* script,
-                                     ICScript* icScript) {
-  if (makesGCCalls) {
-    return icScript->jitScriptStubSpace();
-  }
-  return script->zone()->jitZone()->optimizedStubSpace();
-}
-
 static const uint32_t MaxFoldedShapes = 16;
 
 const JSClass ShapeListObject::class_ = {"JIT ShapeList", 0, &classOps_};
@@ -2351,7 +2343,7 @@ bool js::jit::TryFoldingStubs(JSContext* cx, ICFallbackStub* fallback,
   }
 
   // Replace the existing stubs with the new folded stub.
-  fallback->discardStubs(cx, icEntry);
+  fallback->discardStubs(cx->zone(), icEntry);
 
   ICAttachResult result = AttachBaselineCacheIRStub(
       cx, writer, cacheKind, script, icScript, fallback, "StubFold");
@@ -2632,9 +2624,7 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
 
   size_t bytesNeeded = stubInfo->stubDataOffset() + stubInfo->stubDataSize();
 
-  ICStubSpace* stubSpace =
-      StubSpaceForStub(stubInfo->makesGCCalls(), outerScript, icScript);
-  void* newStubMem = stubSpace->alloc(bytesNeeded);
+  void* newStubMem = jitZone->stubSpace()->alloc(bytesNeeded);
   if (!newStubMem) {
     return ICAttachResult::OOM;
   }

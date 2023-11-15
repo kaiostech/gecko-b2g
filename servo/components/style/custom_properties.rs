@@ -383,9 +383,26 @@ impl VariableValue {
     fn empty(url_data: &UrlExtraData) -> Self {
         Self {
             css: String::new(),
-            last_token_type: TokenSerializationType::nothing(),
-            first_token_type: TokenSerializationType::nothing(),
+            last_token_type: Default::default(),
+            first_token_type: Default::default(),
             url_data: url_data.clone(),
+            references: Default::default(),
+        }
+    }
+
+    /// Create a new custom property without parsing if the CSS is known to be valid and contain no
+    /// references.
+    pub fn new(
+        css: String,
+        url_data: &UrlExtraData,
+        first_token_type: TokenSerializationType,
+        last_token_type: TokenSerializationType,
+    ) -> Self {
+        Self {
+            css,
+            url_data: url_data.clone(),
+            first_token_type,
+            last_token_type,
             references: Default::default(),
         }
     }
@@ -606,10 +623,7 @@ fn parse_declaration_value_block<'i, 't>(
     let mut token = match input.next_including_whitespace_and_comments() {
         Ok(token) => token,
         Err(_) => {
-            return Ok((
-                TokenSerializationType::nothing(),
-                TokenSerializationType::nothing(),
-            ));
+            return Ok(Default::default());
         },
     };
     let first_token_type = token.serialization_type();
@@ -763,7 +777,7 @@ fn parse_and_substitute_fallback<'i>(
     let first_token_type = input
         .next_including_whitespace_and_comments()
         .ok()
-        .map_or_else(TokenSerializationType::nothing, |t| t.serialization_type());
+        .map_or_else(TokenSerializationType::default, |t| t.serialization_type());
     input.reset(&after_comma);
     let mut position = (after_comma.position(), first_token_type);
 
@@ -1492,7 +1506,7 @@ fn substitute_block<'i>(
     stylist: &Stylist,
     computed_context: &computed::Context,
 ) -> Result<TokenSerializationType, ParseError<'i>> {
-    let mut last_token_type = TokenSerializationType::nothing();
+    let mut last_token_type = TokenSerializationType::default();
     let mut set_position_at_next_iteration = false;
     loop {
         let before_this_token = input.position();
@@ -1502,7 +1516,7 @@ fn substitute_block<'i>(
                 before_this_token,
                 match next {
                     Ok(token) => token.serialization_type(),
-                    Err(_) => TokenSerializationType::nothing(),
+                    Err(_) => TokenSerializationType::default(),
                 },
             );
             set_position_at_next_iteration = false;

@@ -2212,7 +2212,7 @@
 # main thread.
 - name: dom.animations.mainthread-synchronization-with-geometric-animations
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # dom.audiochannel.mutedByDefault actually means "suspended by default".
@@ -7883,7 +7883,7 @@
 #if defined(ENABLE_WASM_TAIL_CALLS)
 -   name: javascript.options.wasm_tail_calls
     type: bool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: always
 #endif  // defined(ENABLE_WASM_TAIL_CALLS)
 
@@ -14206,6 +14206,12 @@
 
 # residentKey support when using Android platform API
 - name: security.webauthn.webauthn_enable_android_fido2.residentkey
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Dispatch WebAuthn requests to the macOS platform API
+- name: security.webauthn.enable_macos_passkeys
   type: RelaxedAtomicBool
   value: false
   mirror: always

@@ -484,6 +484,10 @@ pref("browser.urlbar.quicksuggest.contextualOptIn", false);
 // contextual opt-in result.
 pref("browser.urlbar.quicksuggest.contextualOptIn.sayHello", false);
 
+// Controls whether the Firefox Suggest contextual opt-in result appears at
+// the top of results or at the bottom, after one-off buttons.
+pref("browser.urlbar.quicksuggest.contextualOptIn.topPosition", true);
+
 // Whether the quick suggest feature in the urlbar is enabled.
 pref("browser.urlbar.quicksuggest.enabled", false);
 
@@ -2908,3 +2912,11 @@ pref("browser.privatebrowsing.resetPBM.showConfirmationDialog", true);
 #ifdef XP_MACOSX
   pref("browser.attribution.macos.enabled", false);
 #endif
+
+// the preferences related to the Nimbus experiment, to activate and deactivate
+// the the entire rollout or deactivate only the OS prompt (see: bug 1864216)
+pref("browser.mailto.dualPrompt", false);
+pref("browser.mailto.dualPrompt.os", false);
+// When visiting a site which uses registerProtocolHandler: Ask the user to set Firefox as
+// default mailto handler.
+pref("browser.mailto.prompt.os", true);

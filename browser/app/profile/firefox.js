@@ -298,6 +298,9 @@ pref("browser.shell.checkDefaultPDF.silencedByUser", false);
 // URL to navigate to when launching Firefox after accepting the Windows Default
 // Browser Agent "Set Firefox as default" call to action.
 pref("browser.shell.defaultBrowserAgent.thanksURL", "https://www.mozilla.org/%LOCALE%/firefox/set-as-default/thanks/");
+// Whether or not we want to run through the early startup idle task
+// which registers the firefox and firefox-private registry keys.
+pref("browser.shell.customProtocolsRegistered", false);
 #endif
 
 
@@ -2853,7 +2856,6 @@ pref("browser.pdfjs.feature-tour", "{\"screen\":\"\",\"complete\":false}");
 // StaticPrefList.yaml for a description of the prefs.
 #ifdef NIGHTLY_BUILD
   pref("cookiebanners.service.mode.privateBrowsing", 1);
-  pref("cookiebanners.service.enableGlobalRules", true);
 #endif
 
 #if defined(EARLY_BETA_OR_EARLIER)

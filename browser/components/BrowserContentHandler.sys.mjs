@@ -61,6 +61,25 @@ function shouldLoadURI(aURI) {
 }
 
 function resolveURIInternal(aCmdLine, aArgument) {
+  // If using Firefox protocol handler remove it from URI
+  // at this stage. This is before we would otherwise
+  // record telemetry so do that here.
+  if (aArgument.startsWith("firefox:")) {
+    aArgument = aArgument.substring("firefox:".length);
+    Services.telemetry.keyedScalarAdd(
+      "os.environment.launched_to_handle",
+      "firefox",
+      1
+    );
+  }
+  if (aArgument.startsWith("firefox-private:")) {
+    aArgument = aArgument.substring("firefox-private:".length);
+    Services.telemetry.keyedScalarAdd(
+      "os.environment.launched_to_handle",
+      "firefox-private",
+      1
+    );
+  }
   var uri = aCmdLine.resolveURI(aArgument);
   var uriFixup = Services.uriFixup;
 
@@ -524,7 +543,15 @@ nsBrowserContentHandler.prototype = {
         "private-window",
         false
       );
-      if (privateWindowParam) {
+      // Check for Firefox private browsing protocol handler here.
+      let privateProtocolFound = false;
+      let urlFlagIdx = cmdLine.findFlag("url", false);
+      if (urlFlagIdx > -1 && cmdLine.length > 1) {
+        privateProtocolFound = cmdLine
+          .getArgument(urlFlagIdx + 1)
+          .startsWith("firefox-private:");
+      }
+      if (privateWindowParam || privateProtocolFound) {
         let forcePrivate = true;
         let resolvedURI;
         if (!lazy.PrivateBrowsingUtils.enabled) {
@@ -532,6 +559,10 @@ nsBrowserContentHandler.prototype = {
           // access to private browsing has been disabled.
           forcePrivate = false;
           resolvedURI = Services.io.newURI("about:privatebrowsing");
+        } else if (privateProtocolFound) {
+          // We can safely remove the flag and parameter now.
+          const privateProtocolURI = cmdLine.handleFlagWithParam("url", false);
+          resolvedURI = resolveURIInternal(cmdLine, privateProtocolURI);
         } else {
           resolvedURI = resolveURIInternal(cmdLine, privateWindowParam);
         }

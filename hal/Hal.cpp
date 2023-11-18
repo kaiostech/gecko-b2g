@@ -548,17 +548,10 @@ void SetNetworkType(int32_t aType) {
 MOZ_IMPL_HAL_OBSERVER(WakeLock)
 
 void ModifyWakeLock(const nsAString& aTopic, WakeLockControl aLockAdjust,
-                    WakeLockControl aHiddenAdjust,
-                    uint64_t aProcessID /* = CONTENT_PROCESS_ID_UNKNOWN */) {
+                    WakeLockControl aHiddenAdjust) {
   AssertMainThread();
 
-  if (aProcessID == CONTENT_PROCESS_ID_UNKNOWN) {
-    aProcessID = InSandbox() ? ContentChild::GetSingleton()->GetID()
-                             : CONTENT_PROCESS_ID_MAIN;
-  }
-
-  PROXY_IF_SANDBOXED(
-      ModifyWakeLock(aTopic, aLockAdjust, aHiddenAdjust, aProcessID));
+  PROXY_IF_SANDBOXED(ModifyWakeLock(aTopic, aLockAdjust, aHiddenAdjust));
 }
 
 void GetWakeLockInfo(const nsAString& aTopic,

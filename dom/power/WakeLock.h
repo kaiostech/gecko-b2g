@@ -9,7 +9,6 @@
 
 #include "nsCOMPtr.h"
 #include "nsIDOMEventListener.h"
-#include "nsIObserver.h"
 #include "nsIWakeLock.h"
 #include "nsString.h"
 #include "nsWeakReference.h"
@@ -24,13 +23,11 @@ namespace dom {
 class Document;
 
 class WakeLock final : public nsIDOMEventListener,
-                       public nsIObserver,
                        public nsWrapperCache,
                        public nsSupportsWeakReference,
                        public nsIWakeLock {
  public:
   NS_DECL_NSIDOMEVENTLISTENER
-  NS_DECL_NSIOBSERVER
   NS_DECL_NSIWAKELOCK
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -42,7 +39,7 @@ class WakeLock final : public nsIDOMEventListener,
   // |var foo = navigator.requestWakeLock('cpu'); foo = null;|
   // doesn't unlock the 'cpu' resource.
 
-  WakeLock();
+  WakeLock() = default;
 
   // Initialize this wake lock on behalf of the given window.  Null windows are
   // allowed; a lock without an associated window is always considered
@@ -71,10 +68,6 @@ class WakeLock final : public nsIDOMEventListener,
   bool mLocked = false;
   bool mHidden = true;
 
-  // The ID of the ContentParent on behalf of whom we acquired this lock, or
-  // CONTENT_PROCESS_UNKNOWN_ID if this lock was acquired on behalf of the
-  // current process.
-  uint64_t mContentParentID;
   nsString mTopic;
 
   // window that this was created for.  Weak reference.

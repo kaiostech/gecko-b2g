@@ -51,6 +51,7 @@ DIRS += [
     "prompts",
     "protections",
     "protocolhandler",
+    "reportbrokensite",
     "resistfingerprinting",
     "screenshots",
     "search",
@@ -108,4 +109,4 @@ if CONFIG["MOZ_UPDATER"]:
         "tests/browser/whats_new_page/browser.toml",
     ]
 
-XPCSHELL_TESTS_MANIFESTS += ["tests/unit/xpcshell.ini"]
+XPCSHELL_TESTS_MANIFESTS += ["tests/unit/xpcshell.toml"]

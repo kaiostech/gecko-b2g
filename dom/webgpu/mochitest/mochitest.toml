@@ -5,7 +5,6 @@ prefs = [
   "dom.webgpu.enabled=true",
   "dom.webgpu.workers.enabled=true",
   "gfx.offscreencanvas.enabled=true",
-  "gfx.webgpu.ignore-blocklist=true",
 ]
 support-files = [
   "worker_wrapper.js",
@@ -41,10 +40,20 @@ fail-if = [
   "os == 'mac'",
 ]
 
+["test_context_configure.html"]
+fail-if = [
+  "os == 'linux' && os_version == '18.04'",
+]
+
 ["test_device_creation.html"]
 fail-if = [
   "os == 'linux' && os_version == '18.04'",
   "os == 'mac'",
+]
+
+["test_double_encoder_finish.html"]
+fail-if = [
+  "os == 'linux' && os_version == '18.04'",
 ]
 
 ["test_enabled.html"]

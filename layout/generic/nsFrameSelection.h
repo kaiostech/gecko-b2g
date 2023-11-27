@@ -73,7 +73,7 @@ class PresShell;
 
 namespace mozilla {
 
-enum class PeekOffsetOption : uint8_t {
+enum class PeekOffsetOption : uint16_t {
   // Whether to allow jumping across line boundaries.
   //
   // Used with: eSelectCharacter, eSelectWord.
@@ -85,7 +85,10 @@ enum class PeekOffsetOption : uint8_t {
   // Whether to stop when reaching a scroll view boundary.
   //
   // Used with: eSelectCharacter, eSelectWord, eSelectLine.
-  ScrollViewStop,
+  StopAtScroller,
+
+  // Whether to stop when reaching a placeholder frame.
+  StopAtPlaceholder,
 
   // Whether the peeking is done in response to a keyboard action.
   //
@@ -1072,10 +1075,12 @@ class nsFrameSelection final {
         mozilla::dom::Selection& aNormalSelection) const;
 
     /**
-     * @param aScrollViewStop see `PeekOffsetOption::ScrollViewStop`.
+     * @param aStopAtScroller   If yes, this will
+     *                          set `PeekOffsetOption::StopAtScroller`.
      */
+    enum class StopAtScroller : bool { No, Yes };
     void AdjustContentOffsets(nsIFrame::ContentOffsets& aOffsets,
-                              bool aScrollViewStop) const;
+                              StopAtScroller aStopAtScroller) const;
 
     void MaintainAnchorFocusRange(
         const mozilla::dom::Selection& aNormalSelection,

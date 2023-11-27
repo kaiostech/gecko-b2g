@@ -13,6 +13,12 @@ add_task(async function () {
   await pushPref("devtools.debugger.threads-visible", true);
   await pushPref("dom.serviceWorkers.enabled", true);
   await pushPref("dom.serviceWorkers.testing.enabled", true);
+
+  // Speed up the destruction of the worker once the registration has been removed
+  // (There is a delay between calling registration's `unregister` method
+  // and the actually destruction of the worker thread)
+  await pushPref("dom.serviceWorkers.idle_timeout", 3000);
+
   const dbg = await initDebugger("doc-service-workers.html");
 
   invokeInTab("registerWorker");
@@ -41,7 +47,7 @@ add_task(async function () {
   );
   const dbg = createDebuggerContext(toolbox);
 
-  await checkWorkerThreads(dbg, 1);
+  await checkAdditionalThreadCount(dbg, 1);
 
   // The test page will immediately fetch from the service worker if registered.
   const onReloaded = reload(dbg);
@@ -51,7 +57,7 @@ add_task(async function () {
 
   await waitForPaused(dbg);
   assertPausedAtSourceAndLine(dbg, workerSource.id, 13);
-  await checkWorkerThreads(dbg, 1);
+  await checkAdditionalThreadCount(dbg, 1);
 
   await resume(dbg);
   await dbg.actions.removeAllBreakpoints();
@@ -61,7 +67,7 @@ add_task(async function () {
 
   invokeInTab("unregisterWorker");
 
-  await checkWorkerThreads(dbg, 0);
+  await checkAdditionalThreadCount(dbg, 0);
   await waitForRequestsToSettle(dbg);
   await removeTab(gBrowser.selectedTab);
 });
@@ -77,7 +83,7 @@ add_task(async function () {
   const dbg = createDebuggerContext(toolbox);
 
   invokeInTab("registerWorker");
-  await checkWorkerThreads(dbg, 1);
+  await checkAdditionalThreadCount(dbg, 1);
   await checkWorkerStatus(dbg, "activated");
 
   const firstTab = gBrowser.selectedTab;
@@ -88,7 +94,7 @@ add_task(async function () {
   const secondTab = await addTab(`${EXAMPLE_URL}doc-service-workers.html`);
 
   await gBrowser.selectTabAtIndex(gBrowser.tabs.indexOf(firstTab));
-  await checkWorkerThreads(dbg, 2);
+  await checkAdditionalThreadCount(dbg, 2);
 
   const sources = await waitFor(() => {
     const list = dbg.selectors
@@ -103,7 +109,7 @@ add_task(async function () {
 
   invokeInTab("unregisterWorker");
 
-  await checkWorkerThreads(dbg, 0);
+  await checkAdditionalThreadCount(dbg, 0);
   await waitForRequestsToSettle(dbg);
   await removeTab(firstTab);
   await removeTab(secondTab);
@@ -128,7 +134,7 @@ add_task(async function () {
   const dbg = createDebuggerContext(toolbox);
 
   invokeInTab("registerWorker");
-  await checkWorkerThreads(dbg, 1);
+  await checkAdditionalThreadCount(dbg, 1);
 
   await waitForSource(dbg, "service-worker.sjs");
   const workerSource = findSource(dbg, "service-worker.sjs");
@@ -153,15 +159,10 @@ add_task(async function () {
   await resume(dbg);
   invokeInTab("unregisterWorker");
 
-  await checkWorkerThreads(dbg, 0);
+  await checkAdditionalThreadCount(dbg, 0);
   await waitForRequestsToSettle(dbg);
   await removeTab(gBrowser.selectedTab);
 });
-
-async function checkWorkerThreads(dbg, count) {
-  await waitUntil(() => dbg.selectors.getThreads().length == count);
-  ok(true, `Have ${count} threads`);
-}
 
 async function checkWorkerStatus(dbg, status) {
   /* TODO: Re-Add support for showing service worker status (Bug 1641099)

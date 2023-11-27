@@ -3271,8 +3271,8 @@ static void AccumulateFrameBounds(nsIFrame* aContainerFrame, nsIFrame* aFrame,
     nsIFrame* prevFrame = aFrame;
     nsIFrame* f = aFrame;
 
-    while (f && f->IsFrameOfType(nsIFrame::eLineParticipant) &&
-           !f->IsTransformed() && !f->IsAbsPosContainingBlock()) {
+    while (f && f->IsLineParticipant() && !f->IsTransformed() &&
+           !f->IsAbsPosContainingBlock()) {
       prevFrame = f;
       f = prevFrame->GetParent();
     }
@@ -5385,6 +5385,11 @@ bool PresShell::IsTransparentContainerElement() const {
           break;
       }
     }
+    return true;
+  }
+
+  if (mDocument->IsInitialDocument() &&
+      mDocument->IsLikelyContentInaccessibleTopLevelAboutBlank()) {
     return true;
   }
 
@@ -11218,9 +11223,9 @@ void PresShell::MarkFixedFramesForReflow(IntrinsicDirty aIntrinsicDirty) {
 }
 
 static void AppendSubtree(nsIDocShell* aDocShell,
-                          nsTArray<nsCOMPtr<nsIContentViewer>>& aArray) {
-  if (nsCOMPtr<nsIContentViewer> cv = aDocShell->GetContentViewer()) {
-    aArray.AppendElement(cv);
+                          nsTArray<nsCOMPtr<nsIDocumentViewer>>& aArray) {
+  if (nsCOMPtr<nsIDocumentViewer> viewer = aDocShell->GetDocViewer()) {
+    aArray.AppendElement(viewer);
   }
 
   int32_t n = aDocShell->GetInProcessChildCount();
@@ -11248,11 +11253,11 @@ void PresShell::MaybeReflowForInflationScreenSizeChange() {
     return;
   }
   if (nsCOMPtr<nsIDocShell> docShell = pc->GetDocShell()) {
-    nsTArray<nsCOMPtr<nsIContentViewer>> array;
+    nsTArray<nsCOMPtr<nsIDocumentViewer>> array;
     AppendSubtree(docShell, array);
     for (uint32_t i = 0, iEnd = array.Length(); i < iEnd; ++i) {
-      nsCOMPtr<nsIContentViewer> cv = array[i];
-      if (RefPtr<PresShell> descendantPresShell = cv->GetPresShell()) {
+      nsCOMPtr<nsIDocumentViewer> viewer = array[i];
+      if (RefPtr<PresShell> descendantPresShell = viewer->GetPresShell()) {
         nsIFrame* rootFrame = descendantPresShell->GetRootFrame();
         if (rootFrame) {
           descendantPresShell->FrameNeedsReflow(
@@ -11507,7 +11512,7 @@ bool PresShell::DetermineFontSizeInflationState() {
     nsPresContext* topContext =
         mPresContext->GetInProcessRootContentDocumentPresContext();
     LayoutDeviceIntSize result;
-    if (!nsLayoutUtils::GetContentViewerSize(topContext, result)) {
+    if (!nsLayoutUtils::GetDocumentViewerSize(topContext, result)) {
       return false;
     }
     displaySize = Some(result);

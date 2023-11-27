@@ -10,12 +10,12 @@
 #endif
 #include "cubeb/cubeb.h"
 #include <atomic>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
-//#define ENABLE_NORMAL_LOG
-//#define ENABLE_VERBOSE_LOG
+// #define ENABLE_NORMAL_LOG
+// #define ENABLE_VERBOSE_LOG
 #include "common.h"
 
 #define STREAM_RATE 44100
@@ -24,14 +24,17 @@
 #define STREAM_LAYOUT CUBEB_LAYOUT_MONO
 #define STREAM_FORMAT CUBEB_SAMPLE_S16LE
 
-int is_windows_7()
+int
+is_windows_7()
 {
 #ifdef __MINGW32__
-  fprintf(stderr, "Warning: this test was built with MinGW.\n"
-         "MinGW does not contain necessary version checking infrastructure. Claiming to be Windows 7, even if we're not.\n");
+  fprintf(stderr,
+          "Warning: this test was built with MinGW.\n"
+          "MinGW does not contain necessary version checking infrastructure. "
+          "Claiming to be Windows 7, even if we're not.\n");
   return 1;
 #endif
-#if (defined(_WIN32) || defined(__WIN32__)) && ( !defined(__MINGW32__))
+#if (defined(_WIN32) || defined(__WIN32__)) && (!defined(__MINGW32__))
   OSVERSIONINFOEX osvi;
   DWORDLONG condition_mask = 0;
 
@@ -45,7 +48,8 @@ int is_windows_7()
   VER_SET_CONDITION(condition_mask, VER_MAJORVERSION, VER_EQUAL);
   VER_SET_CONDITION(condition_mask, VER_MINORVERSION, VER_GREATER_EQUAL);
 
-  return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, condition_mask);
+  return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION,
+                           condition_mask);
 #else
   return 0;
 #endif
@@ -56,7 +60,9 @@ static std::atomic<uint64_t> total_frames_written;
 static int delay_callback;
 
 static long
-test_data_callback(cubeb_stream * stm, void * user_ptr, const void * /*inputbuffer*/, void * outputbuffer, long nframes)
+test_data_callback(cubeb_stream * stm, void * user_ptr,
+                   const void * /*inputbuffer*/, void * outputbuffer,
+                   long nframes)
 {
   EXPECT_TRUE(stm && user_ptr == &dummy && outputbuffer && nframes > 0);
   assert(outputbuffer);
@@ -70,7 +76,8 @@ test_data_callback(cubeb_stream * stm, void * user_ptr, const void * /*inputbuff
 }
 
 void
-test_state_callback(cubeb_stream * /*stm*/, void * /*user_ptr*/, cubeb_state /*state*/)
+test_state_callback(cubeb_stream * /*stm*/, void * /*user_ptr*/,
+                    cubeb_state /*state*/)
 {
 }
 
@@ -78,7 +85,7 @@ TEST(cubeb, init_destroy_context)
 {
   int r;
   cubeb * ctx;
-  char const* backend_id;
+  char const * backend_id;
 
   r = common_init(&ctx, "test_sanity");
   ASSERT_EQ(r, CUBEB_OK);
@@ -167,8 +174,9 @@ TEST(cubeb, init_destroy_stream)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
 
-  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                        test_data_callback, test_state_callback, &dummy);
+  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params,
+                        STREAM_LATENCY, test_data_callback, test_state_callback,
+                        &dummy);
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_NE(stream, nullptr);
 
@@ -198,8 +206,9 @@ TEST(cubeb, init_destroy_multiple_streams)
 #endif
 
   for (i = 0; i < ARRAY_LENGTH(stream); ++i) {
-    r = cubeb_stream_init(ctx, &stream[i], "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                          test_data_callback, test_state_callback, &dummy);
+    r = cubeb_stream_init(ctx, &stream[i], "test", NULL, NULL, NULL, &params,
+                          STREAM_LATENCY, test_data_callback,
+                          test_state_callback, &dummy);
     ASSERT_EQ(r, CUBEB_OK);
     ASSERT_NE(stream[i], nullptr);
   }
@@ -231,8 +240,9 @@ TEST(cubeb, configure_stream)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
 
-  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                        test_data_callback, test_state_callback, &dummy);
+  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params,
+                        STREAM_LATENCY, test_data_callback, test_state_callback,
+                        &dummy);
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_NE(stream, nullptr);
 
@@ -266,8 +276,9 @@ TEST(cubeb, configure_stream_undefined_layout)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
 
-  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                        test_data_callback, test_state_callback, &dummy);
+  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params,
+                        STREAM_LATENCY, test_data_callback, test_state_callback,
+                        &dummy);
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_NE(stream, nullptr);
 
@@ -306,8 +317,9 @@ test_init_start_stop_destroy_multiple_streams(int early, int delay_ms)
 #endif
 
   for (i = 0; i < ARRAY_LENGTH(stream); ++i) {
-    r = cubeb_stream_init(ctx, &stream[i], "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                          test_data_callback, test_state_callback, &dummy);
+    r = cubeb_stream_init(ctx, &stream[i], "test", NULL, NULL, NULL, &params,
+                          STREAM_LATENCY, test_data_callback,
+                          test_state_callback, &dummy);
     ASSERT_EQ(r, CUBEB_OK);
     ASSERT_NE(stream[i], nullptr);
     if (early) {
@@ -399,7 +411,8 @@ TEST(cubeb, init_destroy_multiple_contexts_and_streams)
     ASSERT_NE(ctx[i], nullptr);
 
     for (j = 0; j < streams_per_ctx; ++j) {
-      r = cubeb_stream_init(ctx[i], &stream[i * streams_per_ctx + j], "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
+      r = cubeb_stream_init(ctx[i], &stream[i * streams_per_ctx + j], "test",
+                            NULL, NULL, NULL, &params, STREAM_LATENCY,
                             test_data_callback, test_state_callback, &dummy);
       ASSERT_EQ(r, CUBEB_OK);
       ASSERT_NE(stream[i * streams_per_ctx + j], nullptr);
@@ -436,8 +449,9 @@ TEST(cubeb, basic_stream_operations)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
 
-  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                        test_data_callback, test_state_callback, &dummy);
+  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params,
+                        STREAM_LATENCY, test_data_callback, test_state_callback,
+                        &dummy);
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_NE(stream, nullptr);
 
@@ -497,8 +511,9 @@ TEST(cubeb, stream_position)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
 
-  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                        test_data_callback, test_state_callback, &dummy);
+  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params,
+                        STREAM_LATENCY, test_data_callback, test_state_callback,
+                        &dummy);
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_NE(stream, nullptr);
 
@@ -586,7 +601,9 @@ static std::atomic<int> do_drain;
 static std::atomic<int> got_drain;
 
 static long
-test_drain_data_callback(cubeb_stream * stm, void * user_ptr, const void * /*inputbuffer*/, void * outputbuffer, long nframes)
+test_drain_data_callback(cubeb_stream * stm, void * user_ptr,
+                         const void * /*inputbuffer*/, void * outputbuffer,
+                         long nframes)
 {
   EXPECT_TRUE(stm && user_ptr == &dummy && outputbuffer && nframes > 0);
   assert(outputbuffer);
@@ -602,7 +619,8 @@ test_drain_data_callback(cubeb_stream * stm, void * user_ptr, const void * /*inp
 }
 
 void
-test_drain_state_callback(cubeb_stream * /*stm*/, void * /*user_ptr*/, cubeb_state state)
+test_drain_state_callback(cubeb_stream * /*stm*/, void * /*user_ptr*/,
+                          cubeb_state state)
 {
   if (state == CUBEB_STATE_DRAINED) {
     ASSERT_TRUE(!got_drain);
@@ -634,8 +652,9 @@ TEST(cubeb, drain)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
 
-  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params, STREAM_LATENCY,
-                        test_drain_data_callback, test_drain_state_callback, &dummy);
+  r = cubeb_stream_init(ctx, &stream, "test", NULL, NULL, NULL, &params,
+                        STREAM_LATENCY, test_drain_data_callback,
+                        test_drain_state_callback, &dummy);
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_NE(stream, nullptr);
 
@@ -661,9 +680,9 @@ TEST(cubeb, drain)
   ASSERT_EQ(r, CUBEB_OK);
   ASSERT_TRUE(got_drain);
 
-  // Really, we should be able to rely on position reaching our final written frame, but
-  // for now let's make sure it doesn't continue beyond that point.
-  //ASSERT_LE(position, total_frames_written.load());
+  // Really, we should be able to rely on position reaching our final written
+  // frame, but for now let's make sure it doesn't continue beyond that point.
+  // ASSERT_LE(position, total_frames_written.load());
 
   cubeb_stream_destroy(stream);
   cubeb_destroy(ctx);
@@ -693,7 +712,7 @@ TEST(cubeb, stable_devid)
   cubeb_device_collection first;
   cubeb_device_collection second;
   cubeb_device_type all_devices =
-    (cubeb_device_type) (CUBEB_DEVICE_TYPE_INPUT | CUBEB_DEVICE_TYPE_OUTPUT);
+      (cubeb_device_type)(CUBEB_DEVICE_TYPE_INPUT | CUBEB_DEVICE_TYPE_OUTPUT);
   size_t n;
 
   r = common_init(&ctx, "test_sanity");

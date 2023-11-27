@@ -53,6 +53,7 @@
 #include "mozilla/dom/RemoteWorkerService.h"
 #include "mozilla/dom/RootedDictionary.h"
 #include "mozilla/dom/TimeoutHandler.h"
+#include "mozilla/dom/UseCounterMetrics.h"
 #include "mozilla/dom/WorkerBinding.h"
 #include "mozilla/dom/WorkerScope.h"
 #include "mozilla/dom/WorkerStatus.h"
@@ -61,6 +62,7 @@
 #include "mozilla/dom/WindowContext.h"
 #include "mozilla/extensions/ExtensionBrowser.h"  // extensions::Create{AndDispatchInitWorkerContext,WorkerLoaded,WorkerDestroyed}Runnable
 #include "mozilla/extensions/WebExtensionPolicy.h"
+#include "mozilla/glean/GleanMetrics.h"
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/StorageAccess.h"
@@ -2195,6 +2197,13 @@ void WorkerPrivate::UpdateOverridenLoadGroup(nsILoadGroup* aBaseLoadGroup) {
   mLoadInfo.mInterfaceRequestor->MaybeAddBrowserChild(aBaseLoadGroup);
 }
 
+bool WorkerPrivate::IsOnParentThread() const {
+  if (GetParent()) {
+    return GetParent()->IsOnWorkerThread();
+  }
+  return NS_IsMainThread();
+}
+
 #ifdef DEBUG
 
 void WorkerPrivate::AssertIsOnParentThread() const {
@@ -3195,7 +3204,11 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
         // an event running for a very long time.
         thread->SetRunningEventDelay(TimeDuration(), TimeStamp());
 
+        mWorkerLoopIsIdle = true;
+
         WaitForWorkerEvents();
+
+        mWorkerLoopIsIdle = false;
       }
 
       auto result = ProcessAllControlRunnablesLocked();
@@ -3281,7 +3294,7 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
       data->mPerformedShutdownAfterLastContentTaskExecuted.Flip();
       if (data->mScope) {
         data->mScope->NoteTerminating();
-        data->mScope->DisconnectEventTargetObjects();
+        data->mScope->DisconnectGlobalTeardownObservers();
         if (data->mScope->GetExistingScheduler()) {
           data->mScope->GetExistingScheduler()->Disconnect();
         }
@@ -4337,7 +4350,13 @@ bool WorkerPrivate::IsEligibleForCC() {
     return true;
   }
 
-  bool HasShutdownTasks = !mShutdownTasks.IsEmpty();
+  bool hasShutdownTasks = !mShutdownTasks.IsEmpty();
+  bool hasPendingEvents = false;
+  if (mThread) {
+    hasPendingEvents =
+        NS_SUCCEEDED(mThread->HasPendingEvents(&hasPendingEvents)) &&
+        hasPendingEvents;
+  }
 
   LOGV(("mMainThreadEventTarget: %s",
         mMainThreadEventTarget->IsEmpty() ? "empty" : "non-empty"));
@@ -4346,12 +4365,13 @@ bool WorkerPrivate::IsEligibleForCC() {
   LOGV(("mMainThreadDebuggerEventTarget: %s",
         mMainThreadDebuggeeEventTarget->IsEmpty() ? "empty" : "non-empty"));
   LOGV(("mCCFlagSaysEligible: %s", mCCFlagSaysEligible ? "true" : "false"));
-  LOGV(("HasShutdownTasks: %s", HasShutdownTasks ? "true" : "false"));
+  LOGV(("hasShutdownTasks: %s", hasShutdownTasks ? "true" : "false"));
+  LOGV(("hasPendingEvents: %s", hasPendingEvents ? "true" : "false"));
 
   return mMainThreadEventTarget->IsEmpty() &&
          mMainThreadEventTargetForMessaging->IsEmpty() &&
          mMainThreadDebuggeeEventTarget->IsEmpty() && mCCFlagSaysEligible &&
-         !HasShutdownTasks;
+         !hasShutdownTasks && !hasPendingEvents && mWorkerLoopIsIdle;
 }
 
 void WorkerPrivate::CancelAllTimeouts() {
@@ -4630,12 +4650,15 @@ void WorkerPrivate::ReportUseCounters() {
   switch (kind) {
     case WorkerKindDedicated:
       Telemetry::Accumulate(Telemetry::DEDICATED_WORKER_DESTROYED, 1);
+      glean::use_counter::dedicated_workers_destroyed.Add();
       break;
     case WorkerKindShared:
       Telemetry::Accumulate(Telemetry::SHARED_WORKER_DESTROYED, 1);
+      glean::use_counter::shared_workers_destroyed.Add();
       break;
     case WorkerKindService:
       Telemetry::Accumulate(Telemetry::SERVICE_WORKER_DESTROYED, 1);
+      glean::use_counter::service_workers_destroyed.Add();
       break;
     default:
       MOZ_ASSERT(false, "Unknown worker kind");
@@ -4663,6 +4686,7 @@ void WorkerPrivate::ReportUseCounters() {
       static_cast<size_t>(Telemetry::HistogramUseCounterWorkerCount) / count;
   MOZ_ASSERT(factor > kind);
 
+  const auto workerKind = Kind();
   for (size_t c = 0; c < count; ++c) {
     // Histograms for worker use counters use the same order as the worker kinds
     // , so we can use the worker kind to index to corresponding histogram.
@@ -4679,6 +4703,7 @@ void WorkerPrivate::ReportUseCounters() {
                     workerPathForLogging->get());
     }
     Telemetry::Accumulate(id, 1);
+    IncrementWorkerUseCounter(static_cast<UseCounterWorker>(c), workerKind);
   }
 }
 
@@ -5747,7 +5772,7 @@ WorkerGlobalScope* WorkerPrivate::GetOrCreateGlobalScope(JSContext* aCx) {
   // Worker has already in "Canceling", let the WorkerGlobalScope start dying.
   if (data->mCancelBeforeWorkerScopeConstructed) {
     data->mScope->NoteTerminating();
-    data->mScope->DisconnectEventTargetObjects();
+    data->mScope->DisconnectGlobalTeardownObservers();
   }
 
   JS_FireOnNewGlobalObject(aCx, global);

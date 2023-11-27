@@ -132,7 +132,7 @@ interface nsIDOMWindowUtils : nsISupports {
   /**
    * Information about the window size in device pixels.
    */
-  void getContentViewerSize(out uint32_t aDisplayWidth, out uint32_t aDisplayHeight);
+  void getDocumentViewerSize(out uint32_t aDisplayWidth, out uint32_t aDisplayHeight);
 
   /**
    * For any scrollable element, this allows you to override the default
@@ -1934,12 +1934,6 @@ interface nsIDOMWindowUtils : nsISupports {
    */
   AString getOMTAStyle(in Element aElement, in AString aProperty,
                        [optional] in AString aPseudoElement);
-
-  /*
-   * Returns true if the given animation is being tracked by the pending
-   * animation tracker for the current document.
-   */
-  bool isAnimationInPendingTracker(in Animation aAnimation);
 
   /**
    * If aHandlingInput is true, this informs the event state manager that

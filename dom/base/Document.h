@@ -68,8 +68,8 @@
 #include "nsHashKeys.h"
 #include "nsIChannel.h"
 #include "nsIChannelEventSink.h"
-#include "nsIContentViewer.h"
 #include "nsID.h"
+#include "nsIDocumentViewer.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsILoadContext.h"
 #include "nsILoadGroup.h"
@@ -198,7 +198,6 @@ class FullscreenExit;
 class FullscreenRequest;
 class HTMLEditor;
 struct LangGroupFontPrefs;
-class PendingAnimationTracker;
 class PermissionDelegateHandler;
 class PresShell;
 class ScrollTimelineAnimationTracker;
@@ -415,7 +414,7 @@ class ExternalResourceMap {
   struct ExternalResource {
     ~ExternalResource();
     RefPtr<Document> mDocument;
-    nsCOMPtr<nsIContentViewer> mViewer;
+    nsCOMPtr<nsIDocumentViewer> mViewer;
     nsCOMPtr<nsILoadGroup> mLoadGroup;
   };
 
@@ -444,10 +443,10 @@ class ExternalResourceMap {
     nsresult StartLoad(nsIURI* aURI, nsIReferrerInfo* aReferrerInfo,
                        nsINode* aRequestingNode);
     /**
-     * Set up an nsIContentViewer based on aRequest.  This is guaranteed to
+     * Set up an nsIDocumentViewer based on aRequest.  This is guaranteed to
      * put null in *aViewer and *aLoadGroup on all failures.
      */
-    nsresult SetupViewer(nsIRequest* aRequest, nsIContentViewer** aViewer,
+    nsresult SetupViewer(nsIRequest* aRequest, nsIDocumentViewer** aViewer,
                          nsILoadGroup** aLoadGroup);
 
    private:
@@ -506,7 +505,7 @@ class ExternalResourceMap {
    * function makes sure to remove the pending load for aURI, if any, from our
    * hashtable, and to notify its observers, if any.
    */
-  nsresult AddExternalResource(nsIURI* aURI, nsIContentViewer* aViewer,
+  nsresult AddExternalResource(nsIURI* aURI, nsIDocumentViewer* aViewer,
                                nsILoadGroup* aLoadGroup,
                                Document* aDisplayDocument);
 
@@ -2685,19 +2684,6 @@ class Document : public nsINode,
   // If HasAnimationController is true, this is guaranteed to return non-null.
   SMILAnimationController* GetAnimationController();
 
-  // Gets the tracker for animations that are waiting to start.
-  // Returns nullptr if there is no pending animation tracker for this document
-  // which will be the case if there have never been any CSS animations or
-  // transitions on elements in the document.
-  PendingAnimationTracker* GetPendingAnimationTracker() {
-    return mPendingAnimationTracker;
-  }
-
-  // Gets the tracker for animations that are waiting to start and
-  // creates it if it doesn't already exist. As a result, the return value
-  // will never be nullptr.
-  PendingAnimationTracker* GetOrCreatePendingAnimationTracker();
-
   // Gets the tracker for scroll-driven animations that are waiting to start.
   // Returns nullptr if there is no scroll-driven animation tracker for this
   // document which will be the case if there have never been any scroll-driven
@@ -2869,14 +2855,14 @@ class Document : public nsINode,
    * and replace the cloned resources).
    *
    * @param aCloneContainer The container for the clone document.
-   * @param aContentViewer The viewer for the clone document. Must be the viewer
-   *                       of aCloneContainer, but callers must have a reference
-   *                       to it already and ensure it's not null.
+   * @param aDocumentViewer The viewer for the clone document. Must be the
+   *                        viewer of aCloneContainer, but callers must have a
+   *                        reference to it already and ensure it's not null.
    * @param aPrintSettings The print settings for this clone.
    * @param aOutHasInProcessPrintCallbacks Self-descriptive.
    */
   already_AddRefed<Document> CreateStaticClone(
-      nsIDocShell* aCloneContainer, nsIContentViewer* aContentViewer,
+      nsIDocShell* aCloneContainer, nsIDocumentViewer* aDocumentViewer,
       nsIPrintSettings* aPrintSettings, bool* aOutHasInProcessPrintCallbacks);
 
   /**
@@ -2960,7 +2946,8 @@ class Document : public nsINode,
                                   const nsAString& aNonce,
                                   const nsAString& aIntegrity,
                                   css::StylePreloadKind,
-                                  uint64_t aEarlyHintPreloaderId);
+                                  uint64_t aEarlyHintPreloaderId,
+                                  const nsAString& aFetchPriority);
 
   /**
    * Called by the chrome registry to load style sheets.
@@ -3478,9 +3465,9 @@ class Document : public nsINode,
 
   // QuerySelector and QuerySelectorAll already defined on nsINode
 
-  XPathExpression* CreateExpression(const nsAString& aExpression,
-                                    XPathNSResolver* aResolver,
-                                    ErrorResult& rv);
+  UniquePtr<XPathExpression> CreateExpression(const nsAString& aExpression,
+                                              XPathNSResolver* aResolver,
+                                              ErrorResult& rv);
   nsINode* CreateNSResolver(nsINode& aNodeResolver);
   already_AddRefed<XPathResult> Evaluate(
       JSContext* aCx, const nsAString& aExpression, nsINode& aContextNode,
@@ -4698,8 +4685,6 @@ class Document : public nsINode,
   // True if the document has been detached from its content viewer.
   bool mIsGoingAway : 1;
 
-  bool mInXBLUpdate : 1;
-
   // Whether we have filled our style set with all the stylesheets.
   bool mStyleSetFilled : 1;
 
@@ -5160,10 +5145,6 @@ class Document : public nsINode,
   LinkedList<DocumentTimeline> mTimelines;
 
   RefPtr<dom::ScriptLoader> mScriptLoader;
-
-  // Tracker for animations that are waiting to start.
-  // nullptr until GetOrCreatePendingAnimationTracker is called.
-  RefPtr<PendingAnimationTracker> mPendingAnimationTracker;
 
   // Tracker for scroll-driven animations that are waiting to start.
   // nullptr until GetOrCreateScrollTimelineAnimationTracker is called.

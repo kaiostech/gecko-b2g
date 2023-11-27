@@ -1692,8 +1692,8 @@ struct BaseCompiler final {
                                         const ResultType& labelType,
                                         RefType sourceType, RefType destType);
   [[nodiscard]] bool emitBrOnCast(bool onSuccess);
-  [[nodiscard]] bool emitExternInternalize();
-  [[nodiscard]] bool emitExternExternalize();
+  [[nodiscard]] bool emitAnyConvertExtern();
+  [[nodiscard]] bool emitExternConvertAny();
 
   // Utility classes/methods to add trap information related to
   // null pointer dereferences/accesses.
@@ -1712,6 +1712,10 @@ struct BaseCompiler final {
   RegPtr loadTypeDefInstanceData(uint32_t typeIndex);
   // Load a pointer to the SuperTypeVector for a given type index
   RegPtr loadSuperTypeVector(uint32_t typeIndex);
+
+  template <bool ZeroFields>
+  bool emitStructAlloc(uint32_t typeIndex, RegRef* object,
+                       bool* isOutlineStruct, RegPtr* outlineBase);
 
   template <typename NullCheckPolicy>
   RegPtr emitGcArrayGetData(RegRef rp);

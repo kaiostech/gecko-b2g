@@ -823,6 +823,12 @@ class ThreadActor extends Actor {
       this.setActiveEventBreakpoints(options.eventBreakpoints);
     }
 
+    // Only consider this options if an explicit boolean value is passed.
+    if (typeof this._options.shouldPauseOnDebuggerStatement == "boolean") {
+      this.setPauseOnDebuggerStatement(
+        this._options.shouldPauseOnDebuggerStatement
+      );
+    }
     this.setPauseOnExceptions(this._options.pauseOnExceptions);
   }
 
@@ -1361,6 +1367,21 @@ class ThreadActor extends Actor {
     } else {
       this.dbg.onExceptionUnwind = undefined;
     }
+  }
+
+  /**
+   * Set the debugging hook to pause on debugger statement if configured to do so.
+   *
+   * Note that the thread actor will pause on exception by default.
+   * This method has to be called with a falsy value to disable it.
+   *
+   * @param {Boolean} doPause
+   *        Controls whether we should or should not pause on debugger statement.
+   */
+  setPauseOnDebuggerStatement(doPause) {
+    this.dbg.onDebuggerStatement = doPause
+      ? this.onDebuggerStatement
+      : undefined;
   }
 
   isPauseOnExceptionsEnabled() {
@@ -2233,7 +2254,11 @@ class ThreadActor extends Actor {
           ...content.substring(0, scriptStartOffset).matchAll("\n"),
         ];
         const startLine = 1 + allLineBreaks.length;
+        // NOTE: Debugger.Source.prototype.startColumn is 1-based.
+        //       Create 1-based column here for the following comparison,
+        //       and also the createSource call below.
         const startColumn =
+          1 +
           scriptStartOffset -
           (allLineBreaks.length ? allLineBreaks.at(-1).index - 1 : 0);
 
@@ -2249,6 +2274,7 @@ class ThreadActor extends Actor {
 
         try {
           const global = this.dbg.getDebuggees()[0];
+          // NOTE: Debugger.Object.prototype.createSource takes 1-based column.
           this._addSource(
             global.createSource({
               text,

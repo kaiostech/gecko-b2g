@@ -16,6 +16,8 @@
 #include "jit/CacheIRReader.h"
 #include "jit/CompileInfo.h"
 #include "jit/InlineScriptTree.h"
+#include "jit/JitHints.h"
+#include "jit/JitRuntime.h"
 #include "jit/JitScript.h"
 #include "jit/JitSpewer.h"
 #include "jit/JitZone.h"
@@ -142,7 +144,7 @@ AbortReasonOr<WarpSnapshot*> WarpOracle::createSnapshot() {
   JitSpew(JitSpew_IonScripts,
           "Warp %s script %s:%u:%u (%p) (warmup-counter=%" PRIu32 ",%s%s)",
           mode, outerScript_->filename(), outerScript_->lineno(),
-          outerScript_->column().zeroOriginValue(),
+          outerScript_->column().oneOriginValue(),
           static_cast<JSScript*>(outerScript_), outerScript_->getWarmUpCount(),
           outerScript_->isGenerator() ? " isGenerator" : "",
           outerScript_->isAsync() ? " isAsync" : "");
@@ -775,6 +777,17 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
 
   uint32_t offset = loc.bytecodeToOffset(script_);
 
+  // Set the trial inlining state directly if there is a hint cached from a
+  // previous compilation.
+  if (cx_->runtime()->jitRuntime()->hasJitHintsMap()) {
+    JitHintsMap* jitHints = cx_->runtime()->jitRuntime()->getJitHintsMap();
+    if (fallbackStub->trialInliningState() == TrialInliningState::Candidate &&
+        jitHints->hasMonomorphicInlineHintAtOffset(script_, offset)) {
+      fallbackStub->setTrialInliningState(
+          TrialInliningState::MonomorphicInlined);
+    }
+  }
+
   // Clear the used-by-transpiler flag on the IC. It can still be set from a
   // previous compilation because we don't clear the flag on every IC when
   // invalidating.
@@ -790,7 +803,7 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
             "fallback stub (entered-count: %" PRIu32
             ") for JSOp::%s @ %s:%u:%u",
             fallbackStub->enteredCount(), CodeName(loc.getOp()),
-            script_->filename(), line, column.zeroOriginValue());
+            script_->filename(), line, column.oneOriginValue());
 
     // If the fallback stub was used but there's no optimized stub, use an IC.
     if (fallbackStub->enteredCount() != 0) {
@@ -815,7 +828,7 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
 
     JitSpew(JitSpew_WarpTranspiler, "Failed to attach for JSOp::%s @ %s:%u:%u",
             CodeName(loc.getOp()), script_->filename(), line,
-            column.zeroOriginValue());
+            column.oneOriginValue());
     return Ok();
   }
 
@@ -853,7 +866,7 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
     JitSpew(JitSpew_WarpTranspiler,
             "multiple active stubs for JSOp::%s @ %s:%u:%u",
             CodeName(loc.getOp()), script_->filename(), line,
-            column.zeroOriginValue());
+            column.oneOriginValue());
     return Ok();
   }
 
@@ -880,7 +893,7 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
       JitSpew(JitSpew_WarpTranspiler,
               "unsupported CacheIR opcode %s for JSOp::%s @ %s:%u:%u",
               CacheIROpNames[size_t(op)], CodeName(loc.getOp()),
-              script_->filename(), line, column.zeroOriginValue());
+              script_->filename(), line, column.oneOriginValue());
       return Ok();
     }
 
@@ -1088,6 +1101,16 @@ AbortReasonOr<bool> WarpScriptOracle::maybeInlineCall(
     return abort(AbortReason::Alloc);
   }
   fallbackStub->setUsedByTranspiler();
+
+  // Store the location of this monomorphic inline as a hint for future
+  // compilations.
+  if (!isTrialInlined && cx_->runtime()->jitRuntime()->hasJitHintsMap()) {
+    JitHintsMap* jitHints = cx_->runtime()->jitRuntime()->getJitHintsMap();
+    if (!jitHints->addMonomorphicInlineLocation(script_, loc)) {
+      return abort(AbortReason::Alloc);
+    }
+  }
+
   return true;
 }
 

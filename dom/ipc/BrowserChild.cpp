@@ -1028,7 +1028,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult BrowserChild::RecvCreateAboutBlankContentViewer(
+mozilla::ipc::IPCResult BrowserChild::RecvCreateAboutBlankDocumentViewer(
     nsIPrincipal* aPrincipal, nsIPrincipal* aPartitionedPrincipal) {
   if (aPrincipal->GetIsExpandedPrincipal() ||
       aPartitionedPrincipal->GetIsExpandedPrincipal()) {
@@ -1037,7 +1037,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvCreateAboutBlankContentViewer(
   if (aPrincipal->IsSystemPrincipal() ||
       aPartitionedPrincipal->IsSystemPrincipal()) {
     MOZ_ASSERT_UNREACHABLE(
-        "Cannot use CreateAboutBlankContentViewer to create system principal "
+        "Cannot use CreateAboutBlankDocumentViewer to create system principal "
         "document in content");
     return IPC_OK();
   }
@@ -1056,8 +1056,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvCreateAboutBlankContentViewer(
     return IPC_OK();
   }
 
-  docShell->CreateAboutBlankContentViewer(aPrincipal, aPartitionedPrincipal,
-                                          nullptr);
+  docShell->CreateAboutBlankDocumentViewer(aPrincipal, aPartitionedPrincipal,
+                                           nullptr);
   return IPC_OK();
 }
 
@@ -1097,9 +1097,9 @@ nsresult BrowserChild::CloneDocumentTreeIntoSelf(
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIContentViewer> cv;
-  ourDocShell->GetContentViewer(getter_AddRefs(cv));
-  if (NS_WARN_IF(!cv)) {
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  ourDocShell->GetDocViewer(getter_AddRefs(viewer));
+  if (NS_WARN_IF(!viewer)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -1123,8 +1123,8 @@ nsresult BrowserChild::CloneDocumentTreeIntoSelf(
     AutoPrintEventDispatcher dispatcher(*sourceDocument);
     nsAutoScriptBlocker scriptBlocker;
     bool hasInProcessCallbacks = false;
-    clone = sourceDocument->CreateStaticClone(ourDocShell, cv, printSettings,
-                                              &hasInProcessCallbacks);
+    clone = sourceDocument->CreateStaticClone(
+        ourDocShell, viewer, printSettings, &hasInProcessCallbacks);
     if (NS_WARN_IF(!clone)) {
       return NS_ERROR_FAILURE;
     }
@@ -1188,9 +1188,9 @@ nsresult BrowserChild::UpdateRemotePrintSettings(
 
   bc->PreOrderWalk([&](BrowsingContext* aBc) {
     if (nsCOMPtr<nsIDocShell> inProcess = aBc->GetDocShell()) {
-      nsCOMPtr<nsIContentViewer> cv;
-      inProcess->GetContentViewer(getter_AddRefs(cv));
-      if (NS_WARN_IF(!cv)) {
+      nsCOMPtr<nsIDocumentViewer> viewer;
+      inProcess->GetDocViewer(getter_AddRefs(viewer));
+      if (NS_WARN_IF(!viewer)) {
         return BrowsingContext::WalkFlag::Skip;
       }
       // The CanRunScript analysis is not smart enough to see across
@@ -1202,7 +1202,7 @@ nsresult BrowserChild::UpdateRemotePrintSettings(
         RefPtr<RemotePrintJobChild> printJob =
             static_cast<RemotePrintJobChild*>(
                 aPrintData.remotePrintJob().AsChild());
-        cv->SetPrintSettingsForSubdocument(printSettings, printJob);
+        viewer->SetPrintSettingsForSubdocument(printSettings, printJob);
       }());
     } else if (RefPtr<BrowserBridgeChild> remoteChild =
                    BrowserBridgeChild::GetFrom(aBc->GetEmbedderElement())) {
@@ -4044,7 +4044,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BrowserChildMessageManager)
   NS_INTERFACE_MAP_ENTRY(nsIMessageSender)
-  NS_INTERFACE_MAP_ENTRY(ContentFrameMessageManager)
+  NS_INTERFACE_MAP_ENTRY_CONCRETE(ContentFrameMessageManager)
   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 

@@ -441,8 +441,12 @@ pref("browser.urlbar.suggest.recentsearches",       true);
 // Feature gate pref for weather suggestions in the urlbar.
 pref("browser.urlbar.weather.featureGate", false);
 
-// Feature gate pref for clipboard suggestions in the urlbar.
+// Enable clipboard suggestions in Nightly.
+#ifdef NIGHTLY_BUILD
+pref("browser.urlbar.clipboard.featureGate", true);
+#else
 pref("browser.urlbar.clipboard.featureGate", false);
+#endif
 
 // When false, the weather suggestion will not be fetched when a VPN is
 // detected. When true, it will be fetched anyway.
@@ -1316,6 +1320,10 @@ pref("places.frecency.origins.alternative.featureGate", false);
 // selects "Forget About This Site".
 pref("places.forgetThisSite.clearByBaseDomain", true);
 
+#ifdef NIGHTLY_BUILD
+pref("places.experimental.useSingleQueueTransactionManager", true);
+#endif
+
 // Whether to warm up network connections for places: menus and places: toolbar.
 pref("browser.places.speculativeConnect.enabled", true);
 
@@ -1439,6 +1447,7 @@ pref("browser.bookmarks.editDialog.maxRecentFolders", 7);
   pref("browser.taskbar.previews.enable", false);
   pref("browser.taskbar.previews.max", 20);
   pref("browser.taskbar.previews.cachetime", 5);
+  pref("browser.taskbar.lists.legacyBackend", true);
   pref("browser.taskbar.lists.enabled", true);
   pref("browser.taskbar.lists.frequent.enabled", true);
   pref("browser.taskbar.lists.recent.enabled", false);
@@ -1502,7 +1511,6 @@ pref("services.sync.prefs.sync.browser.safebrowsing.downloads.remote.block_poten
 pref("services.sync.prefs.sync.browser.safebrowsing.malware.enabled", true);
 pref("services.sync.prefs.sync.browser.safebrowsing.phishing.enabled", true);
 pref("services.sync.prefs.sync.browser.search.update", true);
-pref("services.sync.prefs.sync.browser.search.widget.inNavBar", true);
 pref("services.sync.prefs.sync.browser.startup.homepage", true);
 pref("services.sync.prefs.sync.browser.startup.page", true);
 pref("services.sync.prefs.sync.browser.startup.upgradeDialog.enabled", true);
@@ -2899,6 +2907,21 @@ pref("cookiebanners.ui.desktop.cfrVariant", 0);
 #ifdef NIGHTLY_BUILD
   pref("dom.security.credentialmanagement.identity.enabled", true);
 #endif
+
+#if defined(NIGHTLY_BUILD)
+pref("ui.new-webcompat-reporter.enabled", true);
+#else
+pref("ui.new-webcompat-reporter.enabled", false);
+#endif
+
+#if defined(EARLY_BETA_OR_EARLIER)
+pref("ui.new-webcompat-reporter.send-more-info-link", true);
+#else
+pref("ui.new-webcompat-reporter.send-more-info-link", false);
+#endif
+
+# 0 = disabled, 1 = reason optional, 2 = reason required.
+pref("ui.new-webcompat-reporter.reason-dropdown", 0);
 
 // Reset Private Browsing Session feature
 #if defined(NIGHTLY_BUILD)

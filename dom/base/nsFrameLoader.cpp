@@ -17,7 +17,7 @@
 
 #include "nsDocShell.h"
 #include "nsIContentInlines.h"
-#include "nsIContentViewer.h"
+#include "nsIDocumentViewer.h"
 #include "nsIPrintSettings.h"
 #include "nsIPrintSettingsService.h"
 #include "mozilla/dom/Document.h"
@@ -1161,9 +1161,9 @@ void nsFrameLoader::Hide() {
     return;
   }
 
-  nsCOMPtr<nsIContentViewer> contentViewer;
-  GetDocShell()->GetContentViewer(getter_AddRefs(contentViewer));
-  if (contentViewer) contentViewer->SetSticky(false);
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  GetDocShell()->GetDocViewer(getter_AddRefs(viewer));
+  if (viewer) viewer->SetSticky(false);
 
   RefPtr<nsDocShell> baseWin = GetDocShell();
   baseWin->SetVisibility(false);
@@ -1329,7 +1329,7 @@ nsresult nsFrameLoader::SwapWithOtherRemoteLoader(
               aFrameLoader->GetMaybePendingBrowsingContext()) {
         nsCOMPtr<nsISHistory> shistory = bc->Canonical()->GetSessionHistory();
         if (shistory) {
-          shistory->EvictAllContentViewers();
+          shistory->EvictAllDocumentViewers();
         }
       }
     };
@@ -1794,10 +1794,10 @@ nsresult nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
 
   // Drop any cached content viewers in the two session histories.
   if (ourHistory) {
-    ourHistory->EvictLocalContentViewers();
+    ourHistory->EvictLocalDocumentViewers();
   }
   if (otherHistory) {
-    otherHistory->EvictLocalContentViewers();
+    otherHistory->EvictLocalDocumentViewers();
   }
 
   NS_ASSERTION(ourFrame == ourContent->GetPrimaryFrame() &&
@@ -2944,8 +2944,8 @@ nsresult nsFrameLoader::FinishStaticClone(
   nsCOMPtr<Document> kungFuDeathGrip = docShell->GetDocument();
   Unused << kungFuDeathGrip;
 
-  nsCOMPtr<nsIContentViewer> viewer;
-  docShell->GetContentViewer(getter_AddRefs(viewer));
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  docShell->GetDocViewer(getter_AddRefs(viewer));
   NS_ENSURE_STATE(viewer);
 
   nsCOMPtr<Document> clonedDoc = doc->CreateStaticClone(

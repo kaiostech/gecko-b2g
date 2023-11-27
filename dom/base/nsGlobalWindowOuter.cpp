@@ -150,7 +150,7 @@
 #include "nsDOMWindowUtils.h"
 #include "nsIWindowWatcher.h"
 #include "nsPIWindowWatcher.h"
-#include "nsIContentViewer.h"
+#include "nsIDocumentViewer.h"
 #include "nsIScriptError.h"
 #include "nsISHistory.h"
 #include "nsIControllers.h"
@@ -1787,9 +1787,9 @@ void nsGlobalWindowOuter::SetInitialPrincipal(
   // Use the subject (or system) principal as the storage principal too until
   // the new window finishes navigating and gets a real storage principal.
   nsDocShell::Cast(GetDocShell())
-      ->CreateAboutBlankContentViewer(aNewWindowPrincipal, aNewWindowPrincipal,
-                                      aCSP, nullptr,
-                                      /* aIsInitialDocument */ true, aCOEP);
+      ->CreateAboutBlankDocumentViewer(aNewWindowPrincipal, aNewWindowPrincipal,
+                                       aCSP, nullptr,
+                                       /* aIsInitialDocument */ true, aCOEP);
 
   if (mDoc) {
     MOZ_ASSERT(mDoc->IsInitialDocument(),
@@ -2816,11 +2816,11 @@ bool nsGlobalWindowOuter::AreDialogsEnabled() {
 
   // Dialogs are blocked if the content viewer is hidden
   if (mDocShell) {
-    nsCOMPtr<nsIContentViewer> cv;
-    mDocShell->GetContentViewer(getter_AddRefs(cv));
+    nsCOMPtr<nsIDocumentViewer> viewer;
+    mDocShell->GetDocViewer(getter_AddRefs(viewer));
 
     bool isHidden;
-    cv->GetIsHidden(&isHidden);
+    viewer->GetIsHidden(&isHidden);
     if (isHidden) {
       return false;
     }
@@ -5053,7 +5053,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
   nsAutoSyncOperation sync(docToPrint, SyncOperationBehavior::eAllowInput);
   AutoModalState modalState(*this);
 
-  nsCOMPtr<nsIContentViewer> cv;
+  nsCOMPtr<nsIDocumentViewer> viewer;
   RefPtr<BrowsingContext> bc;
   bool hasPrintCallbacks = false;
   if (docToPrint->IsStaticDocument()) {
@@ -5078,8 +5078,8 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
           "docshell");
       return nullptr;
     }
-    docShell->GetContentViewer(getter_AddRefs(cv));
-    MOZ_DIAGNOSTIC_ASSERT(cv);
+    docShell->GetDocViewer(getter_AddRefs(viewer));
+    MOZ_DIAGNOSTIC_ASSERT(viewer);
   } else {
     if (aDocShellToCloneInto) {
       // Ensure the content viewer is created if needed.
@@ -5116,9 +5116,9 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
     Unused << bc->Top()->SetIsPrinting(true);
     nsCOMPtr<nsIDocShell> cloneDocShell = bc->GetDocShell();
     MOZ_DIAGNOSTIC_ASSERT(cloneDocShell);
-    cloneDocShell->GetContentViewer(getter_AddRefs(cv));
-    MOZ_DIAGNOSTIC_ASSERT(cv);
-    if (!cv) {
+    cloneDocShell->GetDocViewer(getter_AddRefs(viewer));
+    MOZ_DIAGNOSTIC_ASSERT(viewer);
+    if (!viewer) {
       aError.ThrowNotSupportedError("Didn't end up with a content viewer");
       return nullptr;
     }
@@ -5136,7 +5136,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
       MOZ_DIAGNOSTIC_ASSERT(bc->Group() == sourceBC->Group());
     }
 
-    if (RefPtr<Document> doc = cv->GetDocument()) {
+    if (RefPtr<Document> doc = viewer->GetDocument()) {
       if (doc->IsShowing()) {
         // We're going to drop this document on the floor, in the SetDocument
         // call below. Make sure to run OnPageHide() to keep state consistent
@@ -5149,14 +5149,14 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
 
     nsAutoScriptBlocker blockScripts;
     RefPtr<Document> clone = docToPrint->CreateStaticClone(
-        cloneDocShell, cv, ps, &hasPrintCallbacks);
+        cloneDocShell, viewer, ps, &hasPrintCallbacks);
     if (!clone) {
       aError.ThrowNotSupportedError("Clone operation for printing failed");
       return nullptr;
     }
   }
 
-  nsCOMPtr<nsIWebBrowserPrint> webBrowserPrint = do_QueryInterface(cv);
+  nsCOMPtr<nsIWebBrowserPrint> webBrowserPrint = do_QueryInterface(viewer);
   if (!webBrowserPrint) {
     aError.ThrowNotSupportedError(
         "Content viewer didn't implement nsIWebBrowserPrint");
@@ -5378,13 +5378,13 @@ void nsGlobalWindowOuter::SizeToContentOuter(
 
   // The content viewer does a check to make sure that it's a content
   // viewer for a toplevel docshell.
-  nsCOMPtr<nsIContentViewer> cv;
-  mDocShell->GetContentViewer(getter_AddRefs(cv));
-  if (!cv) {
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  mDocShell->GetDocViewer(getter_AddRefs(viewer));
+  if (!viewer) {
     return aError.Throw(NS_ERROR_FAILURE);
   }
 
-  auto contentSize = cv->GetContentSize(
+  auto contentSize = viewer->GetContentSize(
       aConstraints.mMaxWidth, aConstraints.mMaxHeight, aConstraints.mPrefWidth);
   if (!contentSize) {
     return aError.Throw(NS_ERROR_FAILURE);
@@ -5399,12 +5399,12 @@ void nsGlobalWindowOuter::SizeToContentOuter(
 
   // Don't use DevToCSSIntPixelsForBaseWindow() nor
   // CSSToDevIntPixelsForBaseWindow() here because contentSize is comes from
-  // nsIContentViewer::GetContentSize() and it's computed with nsPresContext so
+  // nsIDocumentViewer::GetContentSize() and it's computed with nsPresContext so
   // that we need to work with nsPresContext here too.
-  RefPtr<nsPresContext> presContext = cv->GetPresContext();
+  RefPtr<nsPresContext> presContext = viewer->GetPresContext();
   MOZ_ASSERT(
       presContext,
-      "Should be non-nullptr if nsIContentViewer::GetContentSize() succeeded");
+      "Should be non-nullptr if nsIDocumentViewer::GetContentSize() succeeded");
   CSSIntSize cssSize = *contentSize;
   CheckSecurityWidthAndHeight(&cssSize.width, &cssSize.height, aCallerType);
 
@@ -5904,11 +5904,11 @@ bool nsGlobalWindowOuter::CanClose() {
     return true;
   }
 
-  nsCOMPtr<nsIContentViewer> cv;
-  mDocShell->GetContentViewer(getter_AddRefs(cv));
-  if (cv) {
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  mDocShell->GetDocViewer(getter_AddRefs(viewer));
+  if (viewer) {
     bool canClose;
-    nsresult rv = cv->PermitUnload(&canClose);
+    nsresult rv = viewer->PermitUnload(&canClose);
     if (NS_SUCCEEDED(rv) && !canClose) return false;
   }
 
@@ -6600,8 +6600,8 @@ nsresult nsGlobalWindowOuter::GetInterfaceInternal(const nsIID& aIID,
 #ifdef NS_PRINTING
   else if (aIID.Equals(NS_GET_IID(nsIWebBrowserPrint))) {
     if (mDocShell) {
-      nsCOMPtr<nsIContentViewer> viewer;
-      mDocShell->GetContentViewer(getter_AddRefs(viewer));
+      nsCOMPtr<nsIDocumentViewer> viewer;
+      mDocShell->GetDocViewer(getter_AddRefs(viewer));
       if (viewer) {
         nsCOMPtr<nsIWebBrowserPrint> webBrowserPrint(do_QueryInterface(viewer));
         webBrowserPrint.forget(aSink);

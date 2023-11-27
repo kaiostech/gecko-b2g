@@ -9,8 +9,10 @@
 use crate::applicable_declarations::CascadePriority;
 use crate::media_queries::Device;
 use crate::properties::{CSSWideKeyword, CustomDeclaration, CustomDeclarationValue};
-use crate::properties_and_values::registry::PropertyRegistration;
-use crate::properties_and_values::value::SpecifiedValue as SpecifiedRegisteredValue;
+use crate::properties_and_values::{
+    registry::PropertyRegistration,
+    value::{AllowComputationallyDependent, SpecifiedValue as SpecifiedRegisteredValue},
+};
 use crate::selector_map::{PrecomputedHashMap, PrecomputedHashSet, PrecomputedHasher};
 use crate::stylesheets::UrlExtraData;
 use crate::stylist::Stylist;
@@ -116,7 +118,7 @@ macro_rules! lnf_int_variable {
     }};
 }
 
-static CHROME_ENVIRONMENT_VARIABLES: [EnvironmentVariable; 6] = [
+static CHROME_ENVIRONMENT_VARIABLES: [EnvironmentVariable; 7] = [
     lnf_int_variable!(
         atom!("-moz-gtk-csd-titlebar-radius"),
         TitlebarRadius,
@@ -136,6 +138,11 @@ static CHROME_ENVIRONMENT_VARIABLES: [EnvironmentVariable; 6] = [
         atom!("-moz-gtk-csd-maximize-button-position"),
         GTKCSDMaximizeButtonPosition,
         integer
+    ),
+    lnf_int_variable!(
+        atom!("-moz-overlay-scrollbar-fade-duration"),
+        ScrollbarFadeDuration,
+        int_ms
     ),
     make_variable!(
         atom!("-moz-content-preferred-color-scheme"),
@@ -193,6 +200,8 @@ pub struct VariableValue {
     /// var() or env() references.
     references: VarOrEnvReferences,
 }
+
+trivial_to_computed_value!(VariableValue);
 
 // For all purposes, we want values to be considered equal if their css text is equal.
 impl PartialEq for VariableValue {
@@ -534,6 +543,19 @@ impl VariableValue {
         )
     }
 
+    /// Create VariableValue from an integer amount of milliseconds.
+    fn int_ms(number: i32, url_data: &UrlExtraData) -> Self {
+        Self::from_token(
+            Token::Dimension {
+                has_sign: false,
+                value: number as f32,
+                int_value: Some(number),
+                unit: CowRcStr::from("ms"),
+            },
+            url_data,
+        )
+    }
+
     /// Create VariableValue from an integer amount of CSS pixels.
     fn int_pixels(number: i32, url_data: &UrlExtraData) -> Self {
         Self::from_token(
@@ -842,9 +864,17 @@ pub struct CustomPropertiesBuilder<'a, 'b: 'a> {
 impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
     /// Create a new builder, inheriting from a given custom properties map.
     pub fn new(stylist: &'a Stylist, computed_context: &'a computed::Context<'b>) -> Self {
+        let is_root_element = computed_context.is_root_element();
+
         let inherited = computed_context.inherited_custom_properties();
         let initial_values = stylist.get_custom_property_initial_values();
-        let is_root_element = computed_context.is_root_element();
+
+        // Reuse flags from computing registered custom properties initial values, such as whether
+        // they depend on viewport units.
+        computed_context
+            .style()
+            .add_flags(stylist.get_custom_property_initial_values_flags());
+
         Self {
             seen: PrecomputedHashSet::default(),
             reverted: Default::default(),
@@ -910,10 +940,15 @@ impl<'a, 'b: 'a> CustomPropertiesBuilder<'a, 'b> {
                     if let Some(registration) = custom_registration {
                         let mut input = ParserInput::new(&unparsed_value.css);
                         let mut input = Parser::new(&mut input);
+                        // TODO(bug 1856522): Substitute custom property references in font-*
+                        // declarations before computing registered custom properties containing
+                        // font-relative units.
                         if let Ok(value) = SpecifiedRegisteredValue::compute(
                             &mut input,
                             registration,
+                            &unparsed_value.url_data,
                             self.computed_context,
+                            AllowComputationallyDependent::Yes,
                         ) {
                             map.insert(custom_registration, name.clone(), value);
                         } else {
@@ -1472,9 +1507,13 @@ fn substitute_references_in_value_and_apply(
             false
         } else {
             if let Some(registration) = custom_registration {
-                if let Ok(value) =
-                    SpecifiedRegisteredValue::compute(&mut input, registration, computed_context)
-                {
+                if let Ok(value) = SpecifiedRegisteredValue::compute(
+                    &mut input,
+                    registration,
+                    &computed_value.url_data,
+                    computed_context,
+                    AllowComputationallyDependent::Yes,
+                ) {
                     custom_properties.insert(custom_registration, name.clone(), value);
                 } else {
                     handle_invalid_at_computed_value_time(
@@ -1594,7 +1633,9 @@ fn substitute_block<'i>(
                                 if let Err(_) = SpecifiedRegisteredValue::compute(
                                     &mut fallback_input,
                                     registration,
+                                    &partial_computed_value.url_data,
                                     computed_context,
+                                    AllowComputationallyDependent::Yes,
                                 ) {
                                     return Err(input
                                         .new_custom_error(StyleParseErrorKind::UnspecifiedError));
@@ -1624,7 +1665,9 @@ fn substitute_block<'i>(
                             if let Ok(fallback) = SpecifiedRegisteredValue::compute(
                                 &mut fallback_input,
                                 registration,
+                                &fallback.url_data,
                                 computed_context,
+                                AllowComputationallyDependent::Yes,
                             ) {
                                 partial_computed_value.push_variable(input, &fallback)?;
                             } else {

@@ -350,10 +350,12 @@
   background-size: 12px;
   -moz-context-properties: fill;
   fill: var(--theme-icon-dimmed-color);
-}
+  background-color: transparent;
+  border: none;
 
-.ruleview-overridden-rule-filter:hover {
-  fill: var(--theme-icon-color);
+  &:is(:hover, :focus-visible) {
+    fill: var(--theme-icon-color);
+  }
 }
 
 .ruleview-ruleopen {
@@ -421,7 +423,6 @@
     display: inline-block;
     border: 0;
     padding: 0;
-    outline: none;
     background: url("chrome://devtools/skin/images/checkbox.svg") center no-repeat content-box;
     /* Using fill to paint the border, and stroke for the tick */
     -moz-context-properties: fill, stroke;
@@ -484,7 +485,7 @@
   stroke: var(--theme-icon-color);
 }
 
-.ruleview-rule:not(:hover) .ruleview-enableproperty:not(:focus) {
+.ruleview-rule:not(:hover, :focus-within) .ruleview-enableproperty {
   /* Use opacity to hide the checkbox instead of visibility:hidden,
      so that it's possible to focus it with the keyboard. */
   opacity: 0;
@@ -870,6 +871,7 @@
 
 .ruleview-selectorhighlighter {
   display: inline-block;
+  border: none;
   vertical-align: top;
   width: 15px;
   height: 15px;

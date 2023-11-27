@@ -440,7 +440,7 @@ ipc::IPCResult WebGPUParent::RecvAdapterRequestDevice(
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvAdapterDestroy(RawId aAdapterId) {
+ipc::IPCResult WebGPUParent::RecvAdapterDrop(RawId aAdapterId) {
   ffi::wgpu_server_adapter_drop(mContext.get(), aAdapterId);
   return IPC_OK();
 }
@@ -466,7 +466,7 @@ WebGPUParent::BufferMapData* WebGPUParent::GetBufferMapData(RawId aBufferId) {
   return &iter->second;
 }
 
-ipc::IPCResult WebGPUParent::RecvCreateBuffer(
+ipc::IPCResult WebGPUParent::RecvDeviceCreateBuffer(
     RawId aDeviceId, RawId aBufferId, dom::GPUBufferDescriptor&& aDesc,
     ipc::UnsafeSharedMemoryHandle&& aShmem) {
   webgpu::StringHelper label(aDesc.mLabel);
@@ -708,22 +708,32 @@ ipc::IPCResult WebGPUParent::RecvBufferDestroy(RawId aBufferId) {
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvTextureDestroy(RawId aTextureId) {
-  ffi::wgpu_server_texture_drop(mContext.get(), aTextureId);
-
+void WebGPUParent::RemoveExternalTexture(RawId aTextureId) {
   auto it = mExternalTextures.find(aTextureId);
   if (it != mExternalTextures.end()) {
     mExternalTextures.erase(it);
   }
+}
+
+ipc::IPCResult WebGPUParent::RecvTextureDestroy(RawId aTextureId,
+                                                RawId aDeviceId) {
+  ffi::wgpu_server_texture_destroy(mContext.get(), aTextureId);
+  RemoveExternalTexture(aTextureId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvTextureViewDestroy(RawId aTextureViewId) {
+ipc::IPCResult WebGPUParent::RecvTextureDrop(RawId aTextureId) {
+  ffi::wgpu_server_texture_drop(mContext.get(), aTextureId);
+  RemoveExternalTexture(aTextureId);
+  return IPC_OK();
+}
+
+ipc::IPCResult WebGPUParent::RecvTextureViewDrop(RawId aTextureViewId) {
   ffi::wgpu_server_texture_view_drop(mContext.get(), aTextureViewId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvSamplerDestroy(RawId aSamplerId) {
+ipc::IPCResult WebGPUParent::RecvSamplerDrop(RawId aSamplerId) {
   ffi::wgpu_server_sampler_drop(mContext.get(), aSamplerId);
   return IPC_OK();
 }
@@ -745,17 +755,12 @@ ipc::IPCResult WebGPUParent::RecvCommandEncoderFinish(
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvCommandEncoderDestroy(RawId aEncoderId) {
+ipc::IPCResult WebGPUParent::RecvCommandEncoderDrop(RawId aEncoderId) {
   ffi::wgpu_server_encoder_drop(mContext.get(), aEncoderId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvCommandBufferDestroy(RawId aCommandBufferId) {
-  ffi::wgpu_server_command_buffer_drop(mContext.get(), aCommandBufferId);
-  return IPC_OK();
-}
-
-ipc::IPCResult WebGPUParent::RecvRenderBundleDestroy(RawId aBundleId) {
+ipc::IPCResult WebGPUParent::RecvRenderBundleDrop(RawId aBundleId) {
   ffi::wgpu_server_render_bundle_drop(mContext.get(), aBundleId);
   return IPC_OK();
 }
@@ -809,37 +814,37 @@ ipc::IPCResult WebGPUParent::RecvQueueWriteAction(
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvBindGroupLayoutDestroy(RawId aBindGroupId) {
+ipc::IPCResult WebGPUParent::RecvBindGroupLayoutDrop(RawId aBindGroupId) {
   ffi::wgpu_server_bind_group_layout_drop(mContext.get(), aBindGroupId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvPipelineLayoutDestroy(RawId aLayoutId) {
+ipc::IPCResult WebGPUParent::RecvPipelineLayoutDrop(RawId aLayoutId) {
   ffi::wgpu_server_pipeline_layout_drop(mContext.get(), aLayoutId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvBindGroupDestroy(RawId aBindGroupId) {
+ipc::IPCResult WebGPUParent::RecvBindGroupDrop(RawId aBindGroupId) {
   ffi::wgpu_server_bind_group_drop(mContext.get(), aBindGroupId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvShaderModuleDestroy(RawId aModuleId) {
+ipc::IPCResult WebGPUParent::RecvShaderModuleDrop(RawId aModuleId) {
   ffi::wgpu_server_shader_module_drop(mContext.get(), aModuleId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvComputePipelineDestroy(RawId aPipelineId) {
+ipc::IPCResult WebGPUParent::RecvComputePipelineDrop(RawId aPipelineId) {
   ffi::wgpu_server_compute_pipeline_drop(mContext.get(), aPipelineId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvRenderPipelineDestroy(RawId aPipelineId) {
+ipc::IPCResult WebGPUParent::RecvRenderPipelineDrop(RawId aPipelineId) {
   ffi::wgpu_server_render_pipeline_drop(mContext.get(), aPipelineId);
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvImplicitLayoutDestroy(
+ipc::IPCResult WebGPUParent::RecvImplicitLayoutDrop(
     RawId aImplicitPlId, const nsTArray<RawId>& aImplicitBglIds) {
   ffi::wgpu_server_pipeline_layout_drop(mContext.get(), aImplicitPlId);
   for (const auto& id : aImplicitBglIds) {
@@ -864,15 +869,14 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateSwapChain(
       return IPC_OK();
   }
 
-  constexpr uint32_t kBufferAlignmentMask = 0xff;
-  const auto bufferStrideWithMask = CheckedInt<uint32_t>(aDesc.size().width) *
-                                        gfx::BytesPerPixel(aDesc.format()) +
-                                    kBufferAlignmentMask;
+  const auto bufferStrideWithMask =
+      Device::BufferStrideWithMask(aDesc.size(), aDesc.format());
   if (!bufferStrideWithMask.isValid()) {
     MOZ_ASSERT_UNREACHABLE("Invalid width / buffer stride!");
     return IPC_OK();
   }
 
+  constexpr uint32_t kBufferAlignmentMask = 0xff;
   const uint32_t bufferStride =
       bufferStrideWithMask.value() & ~kBufferAlignmentMask;
 
@@ -1172,9 +1176,16 @@ ipc::IPCResult WebGPUParent::RecvSwapChainPresent(
       static_cast<uint32_t>(size.height),
       1,
   };
-  ffi::wgpu_server_encoder_copy_texture_to_buffer(
-      mContext.get(), aCommandEncoderId, &texView, bufferId, &bufLayout,
-      &extent);
+
+  {
+    ErrorBuffer error;
+    ffi::wgpu_server_encoder_copy_texture_to_buffer(
+        mContext.get(), aCommandEncoderId, &texView, bufferId, &bufLayout,
+        &extent, error.ToFFI());
+    if (ForwardError(data->mDeviceId, error)) {
+      return IPC_OK();
+    }
+  }
   ffi::WGPUCommandBufferDescriptor commandDesc = {};
   {
     ErrorBuffer error;
@@ -1211,7 +1222,7 @@ ipc::IPCResult WebGPUParent::RecvSwapChainPresent(
   return IPC_OK();
 }
 
-ipc::IPCResult WebGPUParent::RecvSwapChainDestroy(
+ipc::IPCResult WebGPUParent::RecvSwapChainDrop(
     const layers::RemoteTextureOwnerId& aOwnerId) {
   if (mRemoteTextureOwner) {
     mRemoteTextureOwner->UnregisterTextureOwner(aOwnerId);

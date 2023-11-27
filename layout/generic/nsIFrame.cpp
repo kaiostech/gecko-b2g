@@ -28,6 +28,7 @@
 #include "mozilla/dom/Selection.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/PathHelpers.h"
+#include "mozilla/IntegerRange.h"
 #include "mozilla/intl/BidiEmbeddingLevel.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/PresShell.h"
@@ -154,13 +155,22 @@ using namespace mozilla::layout;
 typedef nsAbsoluteContainingBlock::AbsPosReflowFlags AbsPosReflowFlags;
 using nsStyleTransformMatrix::TransformReferenceBox;
 
-const mozilla::LayoutFrameType nsIFrame::sLayoutFrameTypes[
-#define FRAME_ID(...) 1 +
-#define ABSTRACT_FRAME_ID(...)
-#include "mozilla/FrameIdList.h"
-#undef FRAME_ID
-#undef ABSTRACT_FRAME_ID
-    0] = {
+nsIFrame* nsILineIterator::LineInfo::GetLastFrameOnLine() const {
+  if (!mNumFramesOnLine) {
+    return nullptr;  // empty line, not illegal
+  }
+  MOZ_ASSERT(mFirstFrameOnLine);
+  nsIFrame* maybeLastFrame = mFirstFrameOnLine;
+  for ([[maybe_unused]] int32_t i : IntegerRange(mNumFramesOnLine - 1)) {
+    maybeLastFrame = maybeLastFrame->GetNextSibling();
+    if (NS_WARN_IF(!maybeLastFrame)) {
+      return nullptr;
+    }
+  }
+  return maybeLastFrame;
+}
+
+const mozilla::LayoutFrameType nsIFrame::sLayoutFrameTypes[kFrameClassCount] = {
 #define FRAME_ID(class_, type_, ...) mozilla::LayoutFrameType::type_,
 #define ABSTRACT_FRAME_ID(...)
 #include "mozilla/FrameIdList.h"
@@ -168,22 +178,11 @@ const mozilla::LayoutFrameType nsIFrame::sLayoutFrameTypes[
 #undef ABSTRACT_FRAME_ID
 };
 
-const nsIFrame::FrameClassBits nsIFrame::sFrameClassBits[
-#define FRAME_ID(...) 1 +
+const nsIFrame::ClassFlags nsIFrame::sLayoutFrameClassFlags[kFrameClassCount] =
+    {
+#define FRAME_ID(class_, type_, flags_, ...) flags_,
 #define ABSTRACT_FRAME_ID(...)
 #include "mozilla/FrameIdList.h"
-#undef FRAME_ID
-#undef ABSTRACT_FRAME_ID
-    0] = {
-#define Leaf eFrameClassBitsLeaf
-#define NotLeaf eFrameClassBitsNone
-#define DynamicLeaf eFrameClassBitsDynamicLeaf
-#define FRAME_ID(class_, type_, leaf_, ...) leaf_,
-#define ABSTRACT_FRAME_ID(...)
-#include "mozilla/FrameIdList.h"
-#undef Leaf
-#undef NotLeaf
-#undef DynamicLeaf
 #undef FRAME_ID
 #undef ABSTRACT_FRAME_ID
 };
@@ -480,10 +479,9 @@ static bool IsFontSizeInflationContainer(nsIFrame* aFrame,
    * container.
    *
    * From a code perspective, the only hard requirement is that frames
-   * that are line participants
-   * (nsIFrame::IsFrameOfType(nsIFrame::eLineParticipant)) are never
-   * containers, since line layout assumes that the inflation is
-   * consistent within a line.
+   * that are line participants (nsIFrame::IsLineParticipant) are never
+   * containers, since line layout assumes that the inflation is consistent
+   * within a line.
    *
    * This is not an imposition, since we obviously want a bunch of text
    * (possibly with inline elements) flowing within a block to count the
@@ -532,12 +530,11 @@ static bool IsFontSizeInflationContainer(nsIFrame* aFrame,
        (content->IsAnyOfHTMLElements(nsGkAtoms::option, nsGkAtoms::optgroup,
                                      nsGkAtoms::select, nsGkAtoms::input,
                                      nsGkAtoms::button, nsGkAtoms::textarea)));
-  NS_ASSERTION(!aFrame->IsFrameOfType(nsIFrame::eLineParticipant) || isInline ||
+  NS_ASSERTION(!aFrame->IsLineParticipant() || isInline ||
                    // br frames and mathml frames report being line
                    // participants even when their position or display is
                    // set
-                   aFrame->IsBrFrame() ||
-                   aFrame->IsFrameOfType(nsIFrame::eMathML),
+                   aFrame->IsBrFrame() || aFrame->IsMathMLFrame(),
                "line participants must not be containers");
   return !isInline;
 }
@@ -595,8 +592,6 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                     nsIFrame* aPrevInFlow) {
   MOZ_ASSERT(nsQueryFrame::FrameIID(mClass) == GetFrameId());
   MOZ_ASSERT(!mContent, "Double-initing a frame?");
-  NS_ASSERTION(IsFrameOfType(eDEBUGAllFrames) && !IsFrameOfType(eDEBUGNoFrames),
-               "IsFrameOfType implementation that doesn't call base class");
 
   mContent = aContent;
   mParent = aParent;
@@ -674,12 +669,12 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
         // because when initializng the table wrapper frame, we don't yet have
         // access to its children so we can't tell if we have transform
         // animations or not.
-        if (IsFrameOfType(eSupportsCSSTransforms)) {
+        if (SupportsCSSTransforms()) {
           mMayHaveTransformAnimation = true;
           AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
         } else if (aParent && nsLayoutUtils::GetStyleFrame(aParent) == this) {
           MOZ_ASSERT(
-              aParent->IsFrameOfType(eSupportsCSSTransforms),
+              aParent->SupportsCSSTransforms(),
               "Style frames that don't support transforms should have parents"
               " that do");
           aParent->mMayHaveTransformAnimation = true;
@@ -1404,8 +1399,7 @@ void nsIFrame::HandleLastRememberedSize() {
     element->RemoveLastRememberedISize();
   }
   if ((canRememberBSize || canRememberISize) && !HidesContent()) {
-    bool isNonReplacedInline = IsFrameOfType(nsIFrame::eLineParticipant) &&
-                               !IsFrameOfType(nsIFrame::eReplaced);
+    bool isNonReplacedInline = IsLineParticipant() && !IsReplaced();
     if (!isNonReplacedInline) {
       PresContext()->Document()->ObserveForLastRememberedSize(*element);
       return;
@@ -1693,7 +1687,7 @@ bool nsIFrame::IsCSSTransformed() const {
 bool nsIFrame::HasAnimationOfTransform() const {
   return IsPrimaryFrame() &&
          nsLayoutUtils::HasAnimationOfTransformAndMotionPath(this) &&
-         IsFrameOfType(eSupportsCSSTransforms);
+         SupportsCSSTransforms();
 }
 
 bool nsIFrame::ChildrenHavePerspective(
@@ -1740,7 +1734,7 @@ bool nsIFrame::Extend3DContext(const nsStyleDisplay* aStyleDisplay,
   }
   const nsStyleDisplay* disp = StyleDisplayWithOptionalParam(aStyleDisplay);
   if (disp->mTransformStyle != StyleTransformStyle::Preserve3d ||
-      !IsFrameOfType(nsIFrame::eSupportsCSSTransforms)) {
+      !SupportsCSSTransforms()) {
     return false;
   }
 
@@ -2393,7 +2387,7 @@ static inline bool IsIntrinsicKeyword(const SizeOrMaxSize& aSize) {
 
 bool nsIFrame::CanBeDynamicReflowRoot() const {
   const auto& display = *StyleDisplay();
-  if (IsFrameOfType(nsIFrame::eLineParticipant) || display.mDisplay.IsRuby() ||
+  if (IsLineParticipant() || display.mDisplay.IsRuby() ||
       display.IsInnerTableStyle() ||
       display.DisplayInside() == StyleDisplayInside::Table) {
     // We have a display type where 'width' and 'height' don't actually set the
@@ -3914,7 +3908,7 @@ static bool DescendIntoChild(nsDisplayListBuilder* aBuilder,
     return true;
   }
 
-  if (aChild->IsFrameOfType(nsIFrame::eTablePart)) {
+  if (aChild->IsTablePart()) {
     // Relative positioning and transforms can cause table parts to move, but we
     // will still paint the backgrounds for their ancestor parts under them at
     // their 'normal' position. That means that we must consider the overflow
@@ -3927,7 +3921,7 @@ static bool DescendIntoChild(nsDisplayListBuilder* aBuilder,
     const nsIFrame* f = aChild;
     nsRect normalPositionOverflowRelativeToTable = overflow;
 
-    while (f->IsFrameOfType(nsIFrame::eTablePart)) {
+    while (f->IsTablePart()) {
       normalPositionOverflowRelativeToTable += f->GetNormalPosition();
       f = f->GetParent();
     }
@@ -4150,7 +4144,7 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
 
   if (!pseudoStackingContext && !isSVG &&
       aFlags.contains(DisplayChildFlag::Inline) &&
-      !child->IsFrameOfType(eLineParticipant)) {
+      !child->IsLineParticipant()) {
     // child is a non-inline frame in an inline context, i.e.,
     // it acts like inline-block or inline-table. Therefore it is a
     // pseudo-stacking-context.
@@ -4273,10 +4267,9 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
     child->MarkAbsoluteFramesForDisplayList(aBuilder);
     child->SetBuiltDisplayList(true);
 
-    if (!awayFromCommonPath &&
-        // Some SVG frames might change opacity without invalidating the frame,
-        // so exclude them from the fast-path.
-        !child->IsFrameOfType(nsIFrame::eSVG)) {
+    // Some SVG frames might change opacity without invalidating the frame, so
+    // exclude them from the fast-path.
+    if (!awayFromCommonPath && !child->IsSVGFrame()) {
       // The shortcut is available for the child for next time.
       child->AddStateBits(NS_FRAME_SIMPLE_DISPLAYLIST);
     }
@@ -5007,7 +5000,7 @@ nsresult nsIFrame::PeekBackwardAndForward(nsSelectionAmount aAmountBack,
   int32_t baseOffset = aStartPos;
   nsresult rv;
 
-  PeekOffsetOptions peekOffsetOptions{PeekOffsetOption::ScrollViewStop};
+  PeekOffsetOptions peekOffsetOptions{PeekOffsetOption::StopAtScroller};
   if (aJumpLines) {
     peekOffsetOptions += PeekOffsetOption::JumpLines;
   }
@@ -5837,7 +5830,7 @@ StyleImageRendering nsIFrame::UsedImageRendering() const {
 // The touch-action CSS property applies to: all elements except: non-replaced
 // inline elements, table rows, row groups, table columns, and column groups.
 StyleTouchAction nsIFrame::UsedTouchAction() const {
-  if (IsFrameOfType(eLineParticipant)) {
+  if (IsLineParticipant()) {
     return StyleTouchAction::AUTO;
   }
   auto& disp = *StyleDisplay();
@@ -6173,7 +6166,7 @@ AspectRatio nsIFrame::GetAspectRatio() const {
   // https://drafts.csswg.org/css-sizing-4/#aspect-ratio
   // For those frame types that don't support aspect-ratio, they must not have
   // the natural ratio, so this early return is fine.
-  if (!IsFrameOfType(eSupportsAspectRatio)) {
+  if (!SupportsAspectRatio()) {
     return AspectRatio();
   }
 
@@ -6480,7 +6473,7 @@ nsIFrame::SizeComputationResult nsIFrame::ComputeSize(
     // This means we successfully applied aspect-ratio and now need to check
     // if we need to apply the implied minimum size:
     // https://drafts.csswg.org/css-sizing-4/#aspect-ratio-minimum
-    MOZ_ASSERT(!IsFrameOfType(eReplacedSizing),
+    MOZ_ASSERT(!HasReplacedSizing(),
                "aspect-ratio minimums should not apply to replaced elements");
     // The inline size computed by aspect-ratio shouldn't less than the content
     // size.
@@ -6671,7 +6664,7 @@ Maybe<nscoord> nsIFrame::ComputeInlineSizeFromAspectRatio(
       aSizeOverrides.mAspectRatio
           ? *aSizeOverrides.mAspectRatio
           : StylePosition()->mAspectRatio.ToLayoutRatio();
-  if (!IsFrameOfType(eSupportsAspectRatio) || !aspectRatio) {
+  if (!SupportsAspectRatio() || !aspectRatio) {
     return Nothing();
   }
 
@@ -7953,7 +7946,7 @@ void nsIFrame::UnionChildOverflow(OverflowAreas& aOverflowAreas) {
 // property or preferred size property should be resolved against zero. This is
 // handled in IsPercentageResolvedAgainstZero().
 inline static bool FormControlShrinksForPercentSize(const nsIFrame* aFrame) {
-  if (!aFrame->IsFrameOfType(nsIFrame::eReplaced)) {
+  if (!aFrame->IsReplaced()) {
     // Quick test to reject most frames.
     return false;
   }
@@ -7987,7 +7980,7 @@ bool nsIFrame::IsPercentageResolvedAgainstZero(
     const StyleSize& aStyleSize, const StyleMaxSize& aStyleMaxSize) const {
   const bool sizeHasPercent = aStyleSize.HasPercent();
   return ((sizeHasPercent || aStyleMaxSize.HasPercent()) &&
-          IsFrameOfType(nsIFrame::eReplacedSizing)) ||
+          HasReplacedSizing()) ||
          (sizeHasPercent && FormControlShrinksForPercentSize(this));
 }
 
@@ -8007,8 +8000,7 @@ bool nsIFrame::IsPercentageResolvedAgainstZero(const LengthPercentage& aSize,
     return true;
   }
 
-  const bool hasPercentOnReplaced =
-      aSize.HasPercent() && IsFrameOfType(nsIFrame::eReplacedSizing);
+  const bool hasPercentOnReplaced = aSize.HasPercent() && HasReplacedSizing();
   if (aProperty == SizeProperty::MaxSize) {
     return hasPercentOnReplaced;
   }
@@ -8061,8 +8053,7 @@ bool nsIFrame::IsBlockContainer() const {
   //
   // If we ever start skipping table row groups from being containing blocks,
   // you need to remove the StickyScrollContainer hack referencing bug 1421660.
-  return !IsFrameOfType(nsIFrame::eLineParticipant) && !IsBlockWrapper() &&
-         !IsSubgrid() &&
+  return !IsLineParticipant() && !IsBlockWrapper() && !IsSubgrid() &&
          // Table rows are not containing blocks either
          !IsTableRowFrame();
 }
@@ -8636,7 +8627,7 @@ static nsresult GetNextPrevLineFromBlockFrame(PeekOffsetStruct* aPos,
       result = NS_NewFrameTraversal(
           getter_AddRefs(frameTraversal), pc, resultFrame, ePostOrder,
           false,  // aVisual
-          aPos->mOptions.contains(PeekOffsetOption::ScrollViewStop),
+          aPos->mOptions.contains(PeekOffsetOption::StopAtScroller),
           false,  // aFollowOOFs
           false   // aSkipPopupChecks
       );
@@ -8712,7 +8703,7 @@ static nsresult GetNextPrevLineFromBlockFrame(PeekOffsetStruct* aPos,
         result = NS_NewFrameTraversal(
             getter_AddRefs(frameTraversal), pc, resultFrame, eLeaf,
             false,  // aVisual
-            aPos->mOptions.contains(PeekOffsetOption::ScrollViewStop),
+            aPos->mOptions.contains(PeekOffsetOption::StopAtScroller),
             false,  // aFollowOOFs
             false   // aSkipPopupChecks
         );
@@ -9039,7 +9030,15 @@ nsresult nsIFrame::PeekOffsetForWord(PeekOffsetStruct* aPos, int32_t aOffset) {
       break;
     }
 
-    SelectablePeekReport next = current.mFrame->GetFrameFromDirection(*aPos);
+    SelectablePeekReport next = [&]() {
+      PeekOffsetOptions options = aPos->mOptions;
+      if (state.mSawInlineCharacter) {
+        // If we've already found a character, we don't want to stop at
+        // placeholder frame boundary if there is in the word.
+        options += PeekOffsetOption::StopAtPlaceholder;
+      }
+      return current.mFrame->GetFrameFromDirection(aPos->mDirection, options);
+    }();
     if (next.Failed()) {
       // If we've crossed the line boundary, check to make sure that we
       // have not consumed a trailing newline as whitespace if it's
@@ -9053,7 +9052,8 @@ nsresult nsIFrame::PeekOffsetForWord(PeekOffsetStruct* aPos, int32_t aOffset) {
       break;
     }
 
-    if (next.mJumpedLine && !wordSelectEatSpace && state.mSawBeforeType) {
+    if ((next.mJumpedLine || next.mFoundPlaceholder) && !wordSelectEatSpace &&
+        state.mSawBeforeType) {
       // We can't jump lines if we're looking for whitespace following
       // non-whitespace, and we already encountered non-whitespace.
       break;
@@ -9134,7 +9134,7 @@ nsresult nsIFrame::PeekOffsetForLine(PeekOffsetStruct* aPos) {
   AutoAssertNoDomMutations guard;
   while (NS_FAILED(result)) {
     auto [newBlock, lineFrame] = blockFrame->GetContainingBlockForLine(
-        aPos->mOptions.contains(PeekOffsetOption::ScrollViewStop));
+        aPos->mOptions.contains(PeekOffsetOption::StopAtScroller));
     if (!newBlock) {
       return NS_ERROR_FAILURE;
     }
@@ -9229,7 +9229,7 @@ nsresult nsIFrame::PeekOffsetForLineEdge(PeekOffsetStruct* aPos) {
   Element* editingHost = frame->GetContent()->GetEditingHost();
 
   auto [blockFrame, lineFrame] = frame->GetContainingBlockForLine(
-      aPos->mOptions.contains(PeekOffsetOption::ScrollViewStop));
+      aPos->mOptions.contains(PeekOffsetOption::StopAtScroller));
   if (!blockFrame) {
     return NS_ERROR_FAILURE;
   }
@@ -9468,52 +9468,118 @@ std::pair<nsIFrame*, nsIFrame*> nsIFrame::GetContainingBlockForLine(
 
 Result<bool, nsresult> nsIFrame::IsVisuallyAtLineEdge(
     nsILineIterator* aLineIterator, int32_t aLine, nsDirection aDirection) {
-  nsIFrame* firstFrame;
-  nsIFrame* lastFrame;
+  auto line = aLineIterator->GetLine(aLine).unwrap();
 
   const bool lineIsRTL = aLineIterator->IsLineIteratorFlowRTL();
-  bool isReordered;
 
+  nsIFrame *firstFrame = nullptr, *lastFrame = nullptr;
+  bool isReordered = false;
   MOZ_TRY(aLineIterator->CheckLineOrder(aLine, &isReordered, &firstFrame,
                                         &lastFrame));
-
-  nsIFrame** framePtr = aDirection == eDirPrevious ? &firstFrame : &lastFrame;
-  if (!*framePtr) {
-    return true;
+  if (!firstFrame || !lastFrame) {
+    return true;  // XXX: Why true?  We check whether `this` is at the edge...
   }
 
-  bool frameIsRTL = (nsBidiPresUtils::FrameDirection(*framePtr) ==
-                     mozilla::intl::BidiDirection::RTL);
-  if ((frameIsRTL == lineIsRTL) == (aDirection == eDirPrevious)) {
-    nsIFrame::GetFirstLeaf(framePtr);
-  } else {
-    nsIFrame::GetLastLeaf(framePtr);
+  nsIFrame* leftmostFrame = lineIsRTL ? lastFrame : firstFrame;
+  nsIFrame* rightmostFrame = lineIsRTL ? firstFrame : lastFrame;
+  auto FrameIsRTL = [](nsIFrame* aFrame) {
+    return nsBidiPresUtils::FrameDirection(aFrame) ==
+           mozilla::intl::BidiDirection::RTL;
+  };
+  if (!lineIsRTL == (aDirection == eDirPrevious)) {
+    nsIFrame* maybeLeftmostFrame = leftmostFrame;
+    for ([[maybe_unused]] int32_t i : IntegerRange(line.mNumFramesOnLine)) {
+      if (maybeLeftmostFrame == this) {
+        return true;
+      }
+      // If left edge of the line starts with placeholder frames, we can ignore
+      // them and should keep checking the following frames.
+      if (!maybeLeftmostFrame->IsPlaceholderFrame()) {
+        if ((FrameIsRTL(maybeLeftmostFrame) == lineIsRTL) ==
+            (aDirection == eDirPrevious)) {
+          nsIFrame::GetFirstLeaf(&maybeLeftmostFrame);
+        } else {
+          nsIFrame::GetLastLeaf(&maybeLeftmostFrame);
+        }
+        return maybeLeftmostFrame == this;
+      }
+      maybeLeftmostFrame = nsBidiPresUtils::GetFrameToRightOf(
+          maybeLeftmostFrame, line.mFirstFrameOnLine, line.mNumFramesOnLine);
+      if (!maybeLeftmostFrame) {
+        return false;
+      }
+    }
+    return false;
   }
-  return *framePtr == this;
+
+  nsIFrame* maybeRightmostFrame = rightmostFrame;
+  for ([[maybe_unused]] int32_t i : IntegerRange(line.mNumFramesOnLine)) {
+    if (maybeRightmostFrame == this) {
+      return true;
+    }
+    // If the line ends with placehlder frames, we can ignore them and should
+    // keep checking the preceding frames.
+    if (!maybeRightmostFrame->IsPlaceholderFrame()) {
+      if ((FrameIsRTL(maybeRightmostFrame) == lineIsRTL) ==
+          (aDirection == eDirPrevious)) {
+        nsIFrame::GetFirstLeaf(&maybeRightmostFrame);
+      } else {
+        nsIFrame::GetLastLeaf(&maybeRightmostFrame);
+      }
+      return maybeRightmostFrame == this;
+    }
+    maybeRightmostFrame = nsBidiPresUtils::GetFrameToLeftOf(
+        maybeRightmostFrame, line.mFirstFrameOnLine, line.mNumFramesOnLine);
+    if (!maybeRightmostFrame) {
+      return false;
+    }
+  }
+  return false;
 }
 
 Result<bool, nsresult> nsIFrame::IsLogicallyAtLineEdge(
     nsILineIterator* aLineIterator, int32_t aLine, nsDirection aDirection) {
   auto line = aLineIterator->GetLine(aLine).unwrap();
+  if (!line.mNumFramesOnLine) {
+    return false;
+  }
+  MOZ_ASSERT(line.mFirstFrameOnLine);
 
   if (aDirection == eDirPrevious) {
-    nsIFrame* firstFrame = line.mFirstFrameOnLine;
-    nsIFrame::GetFirstLeaf(&firstFrame);
-    return firstFrame == this;
+    nsIFrame* maybeFirstFrame = line.mFirstFrameOnLine;
+    for ([[maybe_unused]] int32_t i : IntegerRange(line.mNumFramesOnLine)) {
+      if (maybeFirstFrame == this) {
+        return true;
+      }
+      // If the line starts with placeholder frames, we can ignore them and
+      // should keep checking the following frames.
+      if (!maybeFirstFrame->IsPlaceholderFrame()) {
+        nsIFrame::GetFirstLeaf(&maybeFirstFrame);
+        return maybeFirstFrame == this;
+      }
+      maybeFirstFrame = maybeFirstFrame->GetNextSibling();
+      if (!maybeFirstFrame) {
+        return false;
+      }
+    }
+    return false;
   }
 
   // eDirNext
-  nsIFrame* lastFrame = line.mFirstFrameOnLine;
-  for (int32_t lineFrameCount = line.mNumFramesOnLine; lineFrameCount > 1;
-       lineFrameCount--) {
-    lastFrame = lastFrame->GetNextSibling();
-    if (!lastFrame) {
-      NS_ERROR("should not be reached nsIFrame");
-      return Err(NS_ERROR_FAILURE);
+  nsIFrame* maybeLastFrame = line.GetLastFrameOnLine();
+  for ([[maybe_unused]] int32_t i : IntegerRange(line.mNumFramesOnLine)) {
+    if (maybeLastFrame == this) {
+      return true;
     }
+    // If the line ends with placehlder frames, we can ignore them and should
+    // keep checking the preceding frames.
+    if (!maybeLastFrame->IsPlaceholderFrame()) {
+      nsIFrame::GetLastLeaf(&maybeLastFrame);
+      return maybeLastFrame == this;
+    }
+    maybeLastFrame = maybeLastFrame->GetPrevSibling();
   }
-  nsIFrame::GetLastLeaf(&lastFrame);
-  return lastFrame == this;
+  return false;
 }
 
 nsIFrame::SelectablePeekReport nsIFrame::GetFrameFromDirection(
@@ -9523,11 +9589,13 @@ nsIFrame::SelectablePeekReport nsIFrame::GetFrameFromDirection(
   nsPresContext* presContext = PresContext();
   const bool needsVisualTraversal =
       aOptions.contains(PeekOffsetOption::Visual) && presContext->BidiEnabled();
+  const bool followOofs =
+      !aOptions.contains(PeekOffsetOption::StopAtPlaceholder);
   nsCOMPtr<nsIFrameEnumerator> frameTraversal;
   MOZ_TRY(NS_NewFrameTraversal(
       getter_AddRefs(frameTraversal), presContext, this, eLeaf,
-      needsVisualTraversal, aOptions.contains(PeekOffsetOption::ScrollViewStop),
-      true,  // aFollowOOFs
+      needsVisualTraversal, aOptions.contains(PeekOffsetOption::StopAtScroller),
+      followOofs,
       false  // aSkipPopupChecks
       ));
 
@@ -9539,7 +9607,7 @@ nsIFrame::SelectablePeekReport nsIFrame::GetFrameFromDirection(
       GetClosestNativeAnonymousSubtreeRoot();
   while (!selectable) {
     auto [blockFrame, lineFrame] = traversedFrame->GetContainingBlockForLine(
-        aOptions.contains(PeekOffsetOption::ScrollViewStop));
+        aOptions.contains(PeekOffsetOption::StopAtScroller));
     if (!blockFrame) {
       return result;
     }
@@ -9571,6 +9639,19 @@ nsIFrame::SelectablePeekReport nsIFrame::GetFrameFromDirection(
 
     traversedFrame = frameTraversal->Traverse(aDirection == eDirNext);
     if (!traversedFrame) {
+      return result;
+    }
+
+    if (aOptions.contains(PeekOffsetOption::StopAtPlaceholder) &&
+        traversedFrame->IsPlaceholderFrame()) {
+      // XXX If the placeholder frame does not have meaningful content, the user
+      // may want to select as a word around the out-of-flow cotent.  However,
+      // non-text frame resets context in nsIFrame::PeekOffsetWord(). Therefore,
+      // next text frame considers the new word starts from its edge. So, it's
+      // not enough to implement such behavior with adding a check here whether
+      // the real frame may change the word with its contents if it were not
+      // out-of-flow.
+      result.mFoundPlaceholder = true;
       return result;
     }
 
@@ -9747,8 +9828,7 @@ static nsRect ComputeOutlineInnerRect(
   // aOutValid is set to false if the returned nsRect is not valid
   // and should not be included in the outline rectangle.
   aOutValid = !aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT) ||
-              !aFrame->IsFrameOfType(nsIFrame::eSVGContainer) ||
-              aFrame->IsSVGTextFrame();
+              !aFrame->IsSVGContainerFrame() || aFrame->IsSVGTextFrame();
 
   nsRect u;
 
@@ -10895,7 +10975,7 @@ bool nsIFrame::IsStackingContext(const nsStyleDisplay* aStyleDisplay,
   auto willChange = aStyleDisplay->mWillChange.bits;
   if (aStyleDisplay->IsContainPaint() || aStyleDisplay->IsContainLayout() ||
       willChange & StyleWillChangeBits::CONTAIN) {
-    if (IsFrameOfType(eSupportsContainLayoutAndPaint)) {
+    if (SupportsContainLayoutAndPaint()) {
       return true;
     }
   }
@@ -10903,7 +10983,7 @@ bool nsIFrame::IsStackingContext(const nsStyleDisplay* aStyleDisplay,
   // but the spec says it acts like the rest of these
   if (aStyleDisplay->HasPerspectiveStyle() ||
       willChange & StyleWillChangeBits::PERSPECTIVE) {
-    if (IsFrameOfType(eSupportsCSSTransforms)) {
+    if (SupportsCSSTransforms()) {
       return true;
     }
   }
@@ -11350,7 +11430,7 @@ nsIFrame::PhysicalAxes nsIFrame::ShouldApplyOverflowClipping(
   // 'contain:paint' should prevent all means of escaping that clipping
   // (e.g. because it forms a fixed-pos containing block).
   if (aDisp->IsContainPaint() && !IsScrollFrame() &&
-      IsFrameOfType(eSupportsContainLayoutAndPaint)) {
+      SupportsContainLayoutAndPaint()) {
     return PhysicalAxes::Both;
   }
 
@@ -11368,7 +11448,7 @@ nsIFrame::PhysicalAxes nsIFrame::ShouldApplyOverflowClipping(
       case LayoutFrameType::SVGForeignObject:
         return PhysicalAxes::Both;
       default:
-        if (IsFrameOfType(nsIFrame::eReplacedContainsBlock)) {
+        if (IsReplacedWithBlock()) {
           if (type == mozilla::LayoutFrameType::TextInput) {
             // It has an anonymous scroll frame that handles any overflow.
             return PhysicalAxes::None;

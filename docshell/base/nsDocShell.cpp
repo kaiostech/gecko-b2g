@@ -105,10 +105,10 @@
 #include "nsIContent.h"
 #include "nsIContentInlines.h"
 #include "nsIContentSecurityPolicy.h"
-#include "nsIContentViewer.h"
 #include "nsIController.h"
 #include "nsIDocShellTreeItem.h"
 #include "nsIDocShellTreeOwner.h"
+#include "nsIDocumentViewer.h"
 #include "mozilla/dom/Document.h"
 #include "nsHTMLDocument.h"
 #include "nsIDocumentLoaderFactory.h"
@@ -389,10 +389,10 @@ nsDocShell::~nsDocShell() {
 
   Destroy();
 
-  if (mContentViewer) {
-    mContentViewer->Close(nullptr);
-    mContentViewer->Destroy();
-    mContentViewer = nullptr;
+  if (mDocumentViewer) {
+    mDocumentViewer->Close(nullptr);
+    mDocumentViewer->Destroy();
+    mDocumentViewer = nullptr;
   }
 
   MOZ_LOG(gDocShellLeakLog, LogLevel::Debug, ("DOCSHELL %p destroyed\n", this));
@@ -589,8 +589,8 @@ nsDocShell::GetInterface(const nsIID& aIID, void** aSink) {
              NS_SUCCEEDED(EnsureScriptEnvironment())) {
     return mScriptGlobal->QueryInterface(aIID, aSink);
   } else if (aIID.Equals(NS_GET_IID(Document)) &&
-             NS_SUCCEEDED(EnsureContentViewer())) {
-    RefPtr<Document> doc = mContentViewer->GetDocument();
+             NS_SUCCEEDED(EnsureDocumentViewer())) {
+    RefPtr<Document> doc = mDocumentViewer->GetDocument();
     doc.forget(aSink);
     return *aSink ? NS_OK : NS_NOINTERFACE;
   } else if (aIID.Equals(NS_GET_IID(nsIPrompt)) &&
@@ -1210,17 +1210,17 @@ nsDocShell::FirePageHideNotification(bool aIsUnload) {
 
 void nsDocShell::FirePageHideNotificationInternal(
     bool aIsUnload, bool aSkipCheckingDynEntries) {
-  if (mContentViewer && !mFiredUnloadEvent) {
+  if (mDocumentViewer && !mFiredUnloadEvent) {
     // Keep an explicit reference since calling PageHide could release
-    // mContentViewer
-    nsCOMPtr<nsIContentViewer> contentViewer(mContentViewer);
+    // mDocumentViewer
+    nsCOMPtr<nsIDocumentViewer> viewer(mDocumentViewer);
     mFiredUnloadEvent = true;
 
     if (mTiming) {
       mTiming->NotifyUnloadEventStart();
     }
 
-    contentViewer->PageHide(aIsUnload);
+    viewer->PageHide(aIsUnload);
 
     if (mTiming) {
       mTiming->NotifyUnloadEventEnd();
@@ -1288,7 +1288,7 @@ void nsDocShell::ThawFreezeNonRecursive(bool aThaw) {
 void nsDocShell::FirePageHideShowNonRecursive(bool aShow) {
   MOZ_ASSERT(mozilla::BFCacheInParent());
 
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return;
   }
 
@@ -1296,13 +1296,13 @@ void nsDocShell::FirePageHideShowNonRecursive(bool aShow) {
   // add and remove a request and before that call SetCurrentURI to get
   // the location change notification.
   // For pagehide, set mFiredUnloadEvent to true, so that unload doesn't fire.
-  nsCOMPtr<nsIContentViewer> contentViewer(mContentViewer);
+  nsCOMPtr<nsIDocumentViewer> viewer(mDocumentViewer);
   if (aShow) {
-    contentViewer->SetIsHidden(false);
+    viewer->SetIsHidden(false);
     mRefreshURIList = std::move(mBFCachedRefreshURIList);
     RefreshURIFromQueue();
     mFiredUnloadEvent = false;
-    RefPtr<Document> doc = contentViewer->GetDocument();
+    RefPtr<Document> doc = viewer->GetDocument();
     if (doc) {
       doc->NotifyActivityChanged();
       nsCOMPtr<nsPIDOMWindowInner> inner =
@@ -1359,7 +1359,7 @@ void nsDocShell::FirePageHideShowNonRecursive(bool aShow) {
     }
 
     mFiredUnloadEvent = true;
-    contentViewer->PageHide(false);
+    viewer->PageHide(false);
 
     RefPtr<PresShell> presShell = GetPresShell();
     if (presShell) {
@@ -1433,9 +1433,9 @@ nsDOMNavigationTiming* nsDocShell::GetNavigationTiming() const {
 }
 
 nsPresContext* nsDocShell::GetEldestPresContext() {
-  nsIContentViewer* viewer = mContentViewer;
+  nsIDocumentViewer* viewer = mDocumentViewer;
   while (viewer) {
-    nsIContentViewer* prevViewer = viewer->GetPreviousViewer();
+    nsIDocumentViewer* prevViewer = viewer->GetPreviousViewer();
     if (!prevViewer) {
       return viewer->GetPresContext();
     }
@@ -1446,11 +1446,11 @@ nsPresContext* nsDocShell::GetEldestPresContext() {
 }
 
 nsPresContext* nsDocShell::GetPresContext() {
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return nullptr;
   }
 
-  return mContentViewer->GetPresContext();
+  return mDocumentViewer->GetPresContext();
 }
 
 PresShell* nsDocShell::GetPresShell() {
@@ -1469,11 +1469,11 @@ PresShell* nsDocShell::GetEldestPresShell() {
 }
 
 NS_IMETHODIMP
-nsDocShell::GetContentViewer(nsIContentViewer** aContentViewer) {
-  NS_ENSURE_ARG_POINTER(aContentViewer);
+nsDocShell::GetDocViewer(nsIDocumentViewer** aDocumentViewer) {
+  NS_ENSURE_ARG_POINTER(aDocumentViewer);
 
-  *aContentViewer = mContentViewer;
-  NS_IF_ADDREF(*aContentViewer);
+  *aDocumentViewer = mDocumentViewer;
+  NS_IF_ADDREF(*aDocumentViewer);
   return NS_OK;
 }
 
@@ -1586,8 +1586,8 @@ nsDocShell::GetCharset(nsACString& aCharset) {
 
 NS_IMETHODIMP
 nsDocShell::ForceEncodingDetection() {
-  nsCOMPtr<nsIContentViewer> viewer;
-  GetContentViewer(getter_AddRefs(viewer));
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  GetDocViewer(getter_AddRefs(viewer));
   if (!viewer) {
     return NS_OK;
   }
@@ -2037,10 +2037,10 @@ NS_IMETHODIMP
 nsDocShell::GetMayEnableCharacterEncodingMenu(
     bool* aMayEnableCharacterEncodingMenu) {
   *aMayEnableCharacterEncodingMenu = false;
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return NS_OK;
   }
-  Document* doc = mContentViewer->GetDocument();
+  Document* doc = mDocumentViewer->GetDocument();
   if (!doc) {
     return NS_OK;
   }
@@ -2273,8 +2273,8 @@ nsDocShell::GetCurrentDocumentChannel(nsIChannel** aResult) {
 }
 
 nsIChannel* nsDocShell::GetCurrentDocChannel() {
-  if (mContentViewer) {
-    Document* doc = mContentViewer->GetDocument();
+  if (mDocumentViewer) {
+    Document* doc = mDocumentViewer->GetDocument();
     if (doc) {
       return doc->GetChannel();
     }
@@ -2487,7 +2487,7 @@ void nsDocShell::MaybeCreateInitialClientSource(nsIPrincipal* aPrincipal) {
   }
 
   // Don't recreate the initial client source.  We call this multiple times
-  // when DoChannelLoad() is called before CreateAboutBlankContentViewer.
+  // when DoChannelLoad() is called before CreateAboutBlankDocumentViewer.
   if (mInitialClientSource) {
     return;
   }
@@ -2509,7 +2509,7 @@ void nsDocShell::MaybeCreateInitialClientSource(nsIPrincipal* aPrincipal) {
                            ShouldUsePartitionPrincipalForServiceWorker(this));
 
   // Sometimes there is no principal available when we are called from
-  // CreateAboutBlankContentViewer.  For example, sometimes the principal
+  // CreateAboutBlankDocumentViewer.  For example, sometimes the principal
   // is only extracted from the load context after the document is created
   // in Document::ResetToURI().  Ideally we would do something similar
   // here, but for now lets just avoid the issue by not preallocating the
@@ -2926,10 +2926,10 @@ nsDocShell::AddChild(nsIDocShellTreeItem* aChild) {
   }
 
   // get the parent's current charset
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return NS_OK;
   }
-  Document* doc = mContentViewer->GetDocument();
+  Document* doc = mDocumentViewer->GetDocument();
   if (!doc) {
     return NS_OK;
   }
@@ -3116,12 +3116,12 @@ nsIScriptGlobalObject* nsDocShell::GetScriptGlobalObject() {
 }
 
 Document* nsDocShell::GetDocument() {
-  NS_ENSURE_SUCCESS(EnsureContentViewer(), nullptr);
-  return mContentViewer->GetDocument();
+  NS_ENSURE_SUCCESS(EnsureDocumentViewer(), nullptr);
+  return mDocumentViewer->GetDocument();
 }
 
 Document* nsDocShell::GetExtantDocument() {
-  return mContentViewer ? mContentViewer->GetDocument() : nullptr;
+  return mDocumentViewer ? mDocumentViewer->GetDocument() : nullptr;
 }
 
 nsPIDOMWindowOuter* nsDocShell::GetWindow() {
@@ -3191,11 +3191,11 @@ bool nsDocShell::IsNavigationAllowed(bool aDisplayPrintErrorDialog,
   if (!isAllowed) {
     return false;
   }
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return true;
   }
   bool firingBeforeUnload;
-  mContentViewer->GetBeforeUnloadFiring(&firingBeforeUnload);
+  mDocumentViewer->GetBeforeUnloadFiring(&firingBeforeUnload);
   return !firingBeforeUnload;
 }
 
@@ -4008,11 +4008,11 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
     if (!XRE_IsParentProcess()) {
       ++mPendingReloadCount;
       RefPtr<nsDocShell> docShell(this);
-      nsCOMPtr<nsIContentViewer> cv(mContentViewer);
-      NS_ENSURE_STATE(cv);
+      nsCOMPtr<nsIDocumentViewer> viewer(mDocumentViewer);
+      NS_ENSURE_STATE(viewer);
 
       bool okToUnload = true;
-      MOZ_TRY(cv->PermitUnload(&okToUnload));
+      MOZ_TRY(viewer->PermitUnload(&okToUnload));
       if (!okToUnload) {
         return NS_OK;
       }
@@ -4241,14 +4241,14 @@ nsDocShell::Stop(uint32_t aStopFlags) {
 
   if (nsIWebNavigation::STOP_CONTENT & aStopFlags) {
     // Stop the document loading and animations
-    if (mContentViewer) {
-      nsCOMPtr<nsIContentViewer> cv = mContentViewer;
-      cv->Stop();
+    if (mDocumentViewer) {
+      nsCOMPtr<nsIDocumentViewer> viewer = mDocumentViewer;
+      viewer->Stop();
     }
   } else if (nsIWebNavigation::STOP_NETWORK & aStopFlags) {
     // Stop the document loading only
-    if (mContentViewer) {
-      RefPtr<Document> doc = mContentViewer->GetDocument();
+    if (mDocumentViewer) {
+      RefPtr<Document> doc = mDocumentViewer->GetDocument();
       if (doc) {
         doc->StopDocumentLoad();
       }
@@ -4257,7 +4257,7 @@ nsDocShell::Stop(uint32_t aStopFlags) {
 
   if (nsIWebNavigation::STOP_NETWORK & aStopFlags) {
     // Suspend any timers that were set for this loader.  We'll clear
-    // them out for good in CreateContentViewer.
+    // them out for good in CreateDocumentViewer.
     if (mRefreshURIList) {
       SuspendRefreshURIs();
       mSavedRefreshURIList.swap(mRefreshURIList);
@@ -4288,9 +4288,9 @@ nsDocShell::Stop(uint32_t aStopFlags) {
 NS_IMETHODIMP
 nsDocShell::GetDocument(Document** aDocument) {
   NS_ENSURE_ARG_POINTER(aDocument);
-  NS_ENSURE_SUCCESS(EnsureContentViewer(), NS_ERROR_FAILURE);
+  NS_ENSURE_SUCCESS(EnsureDocumentViewer(), NS_ERROR_FAILURE);
 
-  RefPtr<Document> doc = mContentViewer->GetDocument();
+  RefPtr<Document> doc = mDocumentViewer->GetDocument();
   if (!doc) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -4531,10 +4531,10 @@ nsDocShell::Destroy() {
     docShellParentAsItem->RemoveChild(this);
   }
 
-  if (mContentViewer) {
-    mContentViewer->Close(nullptr);
-    mContentViewer->Destroy();
-    mContentViewer = nullptr;
+  if (mDocumentViewer) {
+    mDocumentViewer->Close(nullptr);
+    mDocumentViewer->Destroy();
+    mDocumentViewer = nullptr;
   }
 
   nsDocLoader::Destroy();
@@ -4551,7 +4551,7 @@ nsDocShell::Destroy() {
     // We want to destroy these content viewers now rather than
     // letting their destruction wait for the session history
     // entries to get garbage collected.  (Bug 488394)
-    GetSessionHistory()->EvictLocalContentViewers();
+    GetSessionHistory()->EvictLocalDocumentViewers();
   }
 
   if (mWillChangeProcess && !mBrowsingContext->IsDiscarded()) {
@@ -4601,8 +4601,8 @@ NS_IMETHODIMP
 nsDocShell::SetPosition(int32_t aX, int32_t aY) {
   mBounds.MoveTo(aX, aY);
 
-  if (mContentViewer) {
-    NS_ENSURE_SUCCESS(mContentViewer->Move(aX, aY), NS_ERROR_FAILURE);
+  if (mDocumentViewer) {
+    NS_ENSURE_SUCCESS(mDocumentViewer->Move(aX, aY), NS_ERROR_FAILURE);
   }
 
   return NS_OK;
@@ -4643,11 +4643,11 @@ nsDocShell::SetPositionAndSize(int32_t aX, int32_t aY, int32_t aWidth,
                                int32_t aHeight, uint32_t aFlags) {
   mBounds.SetRect(aX, aY, aWidth, aHeight);
 
-  // Hold strong ref, since SetBounds can make us null out mContentViewer
-  nsCOMPtr<nsIContentViewer> viewer = mContentViewer;
+  // Hold strong ref, since SetBounds can make us null out mDocumentViewer
+  nsCOMPtr<nsIDocumentViewer> viewer = mDocumentViewer;
   if (viewer) {
     uint32_t cvflags = (aFlags & nsIBaseWindow::eDelayResize)
-                           ? nsIContentViewer::eDelayResize
+                           ? nsIDocumentViewer::eDelayResize
                            : 0;
     // XXX Border figured in here or is that handled elsewhere?
     nsresult rv = viewer->SetBoundsWithFlags(mBounds, cvflags);
@@ -4768,7 +4768,7 @@ nsDocShell::GetVisibility(bool* aVisibility) {
 
   *aVisibility = false;
 
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return NS_OK;
   }
 
@@ -4867,8 +4867,8 @@ void nsDocShell::ActivenessMaybeChanged() {
 
   // Tell the nsDOMNavigationTiming about it
   RefPtr<nsDOMNavigationTiming> timing = mTiming;
-  if (!timing && mContentViewer) {
-    if (Document* doc = mContentViewer->GetDocument()) {
+  if (!timing && mDocumentViewer) {
+    if (Document* doc = mDocumentViewer->GetDocument()) {
       timing = doc->GetNavigationTiming();
     }
   }
@@ -4935,15 +4935,15 @@ nsDocShell::GetFailedChannel(nsIChannel** aFailedChannel) {
 
 NS_IMETHODIMP
 nsDocShell::SetVisibility(bool aVisibility) {
-  // Show()/Hide() may change mContentViewer.
-  nsCOMPtr<nsIContentViewer> cv = mContentViewer;
-  if (!cv) {
+  // Show()/Hide() may change mDocumentViewer.
+  nsCOMPtr<nsIDocumentViewer> viewer = mDocumentViewer;
+  if (!viewer) {
     return NS_OK;
   }
   if (aVisibility) {
-    cv->Show();
+    viewer->Show();
   } else {
-    cv->Hide();
+    viewer->Hide();
   }
 
   return NS_OK;
@@ -5612,7 +5612,7 @@ static bool IsFollowupPartOfMultipart(nsIRequest* aRequest) {
          !firstPart;
 }
 
-nsresult nsDocShell::Embed(nsIContentViewer* aContentViewer,
+nsresult nsDocShell::Embed(nsIDocumentViewer* aDocumentViewer,
                            WindowGlobalChild* aWindowActor,
                            bool aIsTransientAboutBlank, bool aPersist,
                            nsIRequest* aRequest, nsIURI* aPreviousURI) {
@@ -5620,7 +5620,7 @@ nsresult nsDocShell::Embed(nsIContentViewer* aContentViewer,
   // setting up new document
   PersistLayoutHistoryState();
 
-  nsresult rv = SetupNewViewer(aContentViewer, aWindowActor);
+  nsresult rv = SetupNewViewer(aDocumentViewer, aWindowActor);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // XXX What if SetupNewViewer fails?
@@ -6366,12 +6366,12 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
   //
   nsCOMPtr<nsIDocShell> kungFuDeathGrip(this);
 
-  // Notify the ContentViewer that the Document has finished loading.  This
+  // Notify the DocumentViewer that the Document has finished loading.  This
   // will cause any OnLoad(...) and PopState(...) handlers to fire.
-  if (!mEODForCurrentDocument && mContentViewer) {
+  if (!mEODForCurrentDocument && mDocumentViewer) {
     mIsExecutingOnLoadHandler = true;
-    nsCOMPtr<nsIContentViewer> contentViewer = mContentViewer;
-    contentViewer->LoadComplete(aStatus);
+    nsCOMPtr<nsIDocumentViewer> viewer = mDocumentViewer;
+    viewer->LoadComplete(aStatus);
     mIsExecutingOnLoadHandler = false;
 
     mEODForCurrentDocument = true;
@@ -6486,8 +6486,8 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
 // nsDocShell: Content Viewer Management
 //*****************************************************************************
 
-nsresult nsDocShell::EnsureContentViewer() {
-  if (mContentViewer) {
+nsresult nsDocShell::EnsureDocumentViewer() {
+  if (mDocumentViewer) {
     return NS_OK;
   }
   if (mIsBeingDestroyed) {
@@ -6511,20 +6511,20 @@ nsresult nsDocShell::EnsureContentViewer() {
     }
   }
 
-  nsresult rv = CreateAboutBlankContentViewer(
+  nsresult rv = CreateAboutBlankDocumentViewer(
       principal, partitionedPrincipal, cspToInheritForAboutBlank, baseURI,
       /* aIsInitialDocument */ true);
 
-  NS_ENSURE_STATE(mContentViewer);
+  NS_ENSURE_STATE(mDocumentViewer);
 
   if (NS_SUCCEEDED(rv)) {
     RefPtr<Document> doc(GetDocument());
     MOZ_ASSERT(doc,
-               "Should have doc if CreateAboutBlankContentViewer "
+               "Should have doc if CreateAboutBlankDocumentViewer "
                "succeeded!");
     MOZ_ASSERT(doc->IsInitialDocument(), "Document should be initial document");
 
-    // Documents created using EnsureContentViewer may be transient
+    // Documents created using EnsureDocumentViewer may be transient
     // placeholders created by framescripts before content has a
     // chance to load. In some cases, window.open(..., "noopener")
     // will create such a document and then synchronously tear it
@@ -6537,14 +6537,14 @@ nsresult nsDocShell::EnsureContentViewer() {
   return rv;
 }
 
-nsresult nsDocShell::CreateAboutBlankContentViewer(
+nsresult nsDocShell::CreateAboutBlankDocumentViewer(
     nsIPrincipal* aPrincipal, nsIPrincipal* aPartitionedPrincipal,
     nsIContentSecurityPolicy* aCSP, nsIURI* aBaseURI, bool aIsInitialDocument,
     const Maybe<nsILoadInfo::CrossOriginEmbedderPolicy>& aCOEP,
     bool aTryToSaveOldPresentation, bool aCheckPermitUnload,
     WindowGlobalChild* aActor) {
   RefPtr<Document> blankDoc;
-  nsCOMPtr<nsIContentViewer> viewer;
+  nsCOMPtr<nsIDocumentViewer> viewer;
   nsresult rv = NS_ERROR_FAILURE;
 
   MOZ_ASSERT_IF(aActor, aActor->DocumentPrincipal() == aPrincipal);
@@ -6564,7 +6564,7 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  // mContentViewer->PermitUnload may release |this| docshell.
+  // mDocumentViewer->PermitUnload may release |this| docshell.
   nsCOMPtr<nsIDocShell> kungFuDeathGrip(this);
 
   AutoRestore<bool> creatingDocument(mCreatingDocument);
@@ -6580,7 +6580,7 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
   // already, so we don't clobber the timing for an in-progress load.
   bool hadTiming = mTiming;
   bool toBeReset = MaybeInitTiming();
-  if (mContentViewer) {
+  if (mDocumentViewer) {
     if (aCheckPermitUnload) {
       // We've got a content viewer already. Make sure the user
       // permits us to discard the current document and replace it
@@ -6592,7 +6592,7 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
       mTiming->NotifyBeforeUnload();
 
       bool okToUnload;
-      rv = mContentViewer->PermitUnload(&okToUnload);
+      rv = mDocumentViewer->PermitUnload(&okToUnload);
 
       if (NS_SUCCEEDED(rv) && !okToUnload) {
         // The user chose not to unload the page, interrupt the load.
@@ -6637,7 +6637,7 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
   mFiredUnloadEvent = false;
 
   nsCOMPtr<nsIDocumentLoaderFactory> docFactory =
-      nsContentUtils::FindInternalContentViewer("text/html"_ns);
+      nsContentUtils::FindInternalDocumentViewer("text/html"_ns);
 
   if (docFactory) {
     nsCOMPtr<nsIPrincipal> principal, partitionedPrincipal;
@@ -6734,20 +6734,21 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
 }
 
 NS_IMETHODIMP
-nsDocShell::CreateAboutBlankContentViewer(nsIPrincipal* aPrincipal,
-                                          nsIPrincipal* aPartitionedPrincipal,
-                                          nsIContentSecurityPolicy* aCSP) {
-  return CreateAboutBlankContentViewer(aPrincipal, aPartitionedPrincipal, aCSP,
-                                       nullptr, /* aIsInitialDocument */ false);
+nsDocShell::CreateAboutBlankDocumentViewer(nsIPrincipal* aPrincipal,
+                                           nsIPrincipal* aPartitionedPrincipal,
+                                           nsIContentSecurityPolicy* aCSP) {
+  return CreateAboutBlankDocumentViewer(aPrincipal, aPartitionedPrincipal, aCSP,
+                                        nullptr,
+                                        /* aIsInitialDocument */ false);
 }
 
-nsresult nsDocShell::CreateContentViewerForActor(
+nsresult nsDocShell::CreateDocumentViewerForActor(
     WindowGlobalChild* aWindowActor) {
   MOZ_ASSERT(aWindowActor);
 
   // FIXME: WindowGlobalChild should provide the PartitionedPrincipal.
   // FIXME: We may want to support non-initial documents here.
-  nsresult rv = CreateAboutBlankContentViewer(
+  nsresult rv = CreateAboutBlankDocumentViewer(
       aWindowActor->DocumentPrincipal(), aWindowActor->DocumentPrincipal(),
       /* aCsp */ nullptr,
       /* aBaseURI */ nullptr,
@@ -6760,7 +6761,7 @@ nsresult nsDocShell::CreateContentViewerForActor(
     RefPtr<Document> doc(GetDocument());
     MOZ_ASSERT(
         doc,
-        "Should have a document if CreateAboutBlankContentViewer succeeded");
+        "Should have a document if CreateAboutBlankDocumentViewer succeeded");
     MOZ_ASSERT(doc->GetOwnerGlobal() == aWindowActor->GetWindowGlobal(),
                "New document should be in the same global as our actor");
     MOZ_ASSERT(doc->IsInitialDocument(),
@@ -6781,7 +6782,7 @@ bool nsDocShell::CanSavePresentation(uint32_t aLoadType,
 
   MOZ_ASSERT(!mozilla::SessionHistoryInParent(),
              "mOSHE cannot be non-null with SHIP");
-  nsCOMPtr<nsIContentViewer> viewer = mOSHE->GetContentViewer();
+  nsCOMPtr<nsIDocumentViewer> viewer = mOSHE->GetDocumentViewer();
   if (viewer) {
     NS_WARNING("mOSHE already has a content viewer!");
     return false;
@@ -7040,9 +7041,9 @@ nsresult nsDocShell::CaptureState() {
   mOSHE->SetRefreshURIList(mSavedRefreshURIList);
 
   // Capture the current content viewer bounds.
-  if (mContentViewer) {
+  if (mDocumentViewer) {
     nsIntRect bounds;
-    mContentViewer->GetBounds(bounds);
+    mDocumentViewer->GetBounds(bounds);
     mOSHE->SetViewerBounds(bounds);
   }
 
@@ -7071,15 +7072,15 @@ nsDocShell::RestorePresentationEvent::Run() {
 }
 
 NS_IMETHODIMP
-nsDocShell::BeginRestore(nsIContentViewer* aContentViewer, bool aTop) {
+nsDocShell::BeginRestore(nsIDocumentViewer* aDocumentViewer, bool aTop) {
   MOZ_ASSERT(!mozilla::SessionHistoryInParent());
 
   nsresult rv;
-  if (!aContentViewer) {
-    rv = EnsureContentViewer();
+  if (!aDocumentViewer) {
+    rv = EnsureDocumentViewer();
     NS_ENSURE_SUCCESS(rv, rv);
 
-    aContentViewer = mContentViewer;
+    aDocumentViewer = mDocumentViewer;
   }
 
   // Dispatch events for restoring the presentation.  We try to simulate
@@ -7087,7 +7088,7 @@ nsDocShell::BeginRestore(nsIContentViewer* aContentViewer, bool aTop) {
   // the document's channel to the loadgroup to initiate stateChange
   // notifications.
 
-  RefPtr<Document> doc = aContentViewer->GetDocument();
+  RefPtr<Document> doc = aDocumentViewer->GetDocument();
   if (doc) {
     nsIChannel* channel = doc->GetChannel();
     if (channel) {
@@ -7100,7 +7101,7 @@ nsDocShell::BeginRestore(nsIContentViewer* aContentViewer, bool aTop) {
 
   if (!aTop) {
     // This point corresponds to us having gotten OnStartRequest or
-    // STATE_START, so do the same thing that CreateContentViewer does at
+    // STATE_START, so do the same thing that CreateDocumentViewer does at
     // this point to ensure that unload/pagehide events for this document
     // will fire when it's unloaded again.
     mFiredUnloadEvent = false;
@@ -7178,7 +7179,7 @@ nsresult nsDocShell::RestorePresentation(nsISHEntry* aSHEntry,
   NS_ASSERTION(mLoadType & LOAD_CMD_HISTORY,
                "RestorePresentation should only be called for history loads");
 
-  nsCOMPtr<nsIContentViewer> viewer = aSHEntry->GetContentViewer();
+  nsCOMPtr<nsIDocumentViewer> viewer = aSHEntry->GetDocumentViewer();
 
   nsAutoCString spec;
   if (MOZ_UNLIKELY(MOZ_LOG_TEST(gPageCacheLog, LogLevel::Debug))) {
@@ -7207,11 +7208,11 @@ nsresult nsDocShell::RestorePresentation(nsISHEntry* aSHEntry,
   if (!::SameCOMIdentity(container, GetAsSupports(this))) {
     MOZ_LOG(gPageCacheLog, LogLevel::Debug,
             ("No valid container, clearing presentation"));
-    aSHEntry->SetContentViewer(nullptr);
+    aSHEntry->SetDocumentViewer(nullptr);
     return NS_ERROR_FAILURE;
   }
 
-  NS_ASSERTION(mContentViewer != viewer, "Restoring existing presentation");
+  NS_ASSERTION(mDocumentViewer != viewer, "Restoring existing presentation");
 
   MOZ_LOG(gPageCacheLog, LogLevel::Debug,
           ("restoring presentation from session history: %s", spec.get()));
@@ -7274,12 +7275,12 @@ nsresult nsDocShell::RestoreFromHistory() {
   MOZ_ASSERT(mRestorePresentationEvent.IsPending());
   PresentationEventForgetter forgetter(mRestorePresentationEvent);
 
-  // This section of code follows the same ordering as CreateContentViewer.
+  // This section of code follows the same ordering as CreateDocumentViewer.
   if (!mLSHE) {
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIContentViewer> viewer = mLSHE->GetContentViewer();
+  nsCOMPtr<nsIDocumentViewer> viewer = mLSHE->GetDocumentViewer();
   if (!viewer) {
     return NS_ERROR_FAILURE;
   }
@@ -7357,7 +7358,7 @@ nsresult nsDocShell::RestoreFromHistory() {
   // XXX can we refactor this so that we can just call Embed()?
   PersistLayoutHistoryState();
   nsresult rv;
-  if (mContentViewer) {
+  if (mDocumentViewer) {
     if (mSavingOldViewer && NS_FAILED(CaptureState())) {
       if (mOSHE) {
         mOSHE->SyncPresentationState();
@@ -7374,13 +7375,13 @@ nsresult nsDocShell::RestoreFromHistory() {
   // before we grab the root view sibling, so that we don't grab a view
   // that's about to go away.
 
-  if (mContentViewer) {
+  if (mDocumentViewer) {
     // Make sure to hold a strong ref to previousViewer here while we
-    // drop the reference to it from mContentViewer.
-    nsCOMPtr<nsIContentViewer> previousViewer =
-        mContentViewer->GetPreviousViewer();
+    // drop the reference to it from mDocumentViewer.
+    nsCOMPtr<nsIDocumentViewer> previousViewer =
+        mDocumentViewer->GetPreviousViewer();
     if (previousViewer) {
-      mContentViewer->SetPreviousViewer(nullptr);
+      mDocumentViewer->SetPreviousViewer(nullptr);
       previousViewer->Destroy();
     }
   }
@@ -7403,7 +7404,7 @@ nsresult nsDocShell::RestoreFromHistory() {
         rootViewSibling = oldRootView->GetNextSibling();
         rootViewParent = oldRootView->GetParent();
 
-        mContentViewer->GetBounds(newBounds);
+        mDocumentViewer->GetBounds(newBounds);
       }
     }
   }
@@ -7419,29 +7420,29 @@ nsresult nsDocShell::RestoreFromHistory() {
     sibling = frame ? frame->PresShell()->GetDocument() : nullptr;
   }
 
-  // Transfer ownership to mContentViewer.  By ensuring that either the
+  // Transfer ownership to mDocumentViewer.  By ensuring that either the
   // docshell or the session history, but not both, have references to the
   // content viewer, we prevent the viewer from being torn down after
   // Destroy() is called.
 
-  if (mContentViewer) {
-    mContentViewer->Close(mSavingOldViewer ? mOSHE.get() : nullptr);
-    viewer->SetPreviousViewer(mContentViewer);
+  if (mDocumentViewer) {
+    mDocumentViewer->Close(mSavingOldViewer ? mOSHE.get() : nullptr);
+    viewer->SetPreviousViewer(mDocumentViewer);
   }
-  if (mOSHE && (!mContentViewer || !mSavingOldViewer)) {
+  if (mOSHE && (!mDocumentViewer || !mSavingOldViewer)) {
     // We don't plan to save a viewer in mOSHE; tell it to drop
     // any other state it's holding.
     mOSHE->SyncPresentationState();
   }
 
-  // Order the mContentViewer setup just like Embed does.
-  mContentViewer = nullptr;
+  // Order the mDocumentViewer setup just like Embed does.
+  mDocumentViewer = nullptr;
 
   // Now that we're about to switch documents, forget all of our children.
   // Note that we cached them as needed up in CaptureState above.
   DestroyChildren();
 
-  mContentViewer.swap(viewer);
+  mDocumentViewer.swap(viewer);
 
   // Grab all of the related presentation from the SHEntry now.
   // Clearing the viewer from the SHEntry will clear all of this state.
@@ -7450,7 +7451,7 @@ nsresult nsDocShell::RestoreFromHistory() {
 
   bool sticky = mLSHE->GetSticky();
 
-  RefPtr<Document> document = mContentViewer->GetDocument();
+  RefPtr<Document> document = mDocumentViewer->GetDocument();
 
   nsCOMArray<nsIDocShellTreeItem> childShells;
   int32_t i = 0;
@@ -7470,7 +7471,7 @@ nsresult nsDocShell::RestoreFromHistory() {
 
   // Reattach to the window object.
   mIsRestoringDocument = true;  // for MediaDocument::BecomeInteractive
-  rv = mContentViewer->Open(windowState, mLSHE);
+  rv = mDocumentViewer->Open(windowState, mLSHE);
   mIsRestoringDocument = false;
 
   // Hack to keep nsDocShellEditorData alive across the
@@ -7478,7 +7479,7 @@ nsresult nsDocShell::RestoreFromHistory() {
   UniquePtr<nsDocShellEditorData> data(mLSHE->ForgetEditorData());
 
   // Now remove it from the cached presentation.
-  mLSHE->SetContentViewer(nullptr);
+  mLSHE->SetDocumentViewer(nullptr);
   mEODForCurrentDocument = false;
 
   mLSHE->SetEditorData(data.release());
@@ -7496,7 +7497,7 @@ nsresult nsDocShell::RestoreFromHistory() {
   // Restore the sticky state of the viewer.  The viewer has set this state
   // on the history entry in Destroy() just before marking itself non-sticky,
   // to avoid teardown of the presentation.
-  mContentViewer->SetSticky(sticky);
+  mDocumentViewer->SetSticky(sticky);
 
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -7534,7 +7535,7 @@ nsresult nsDocShell::RestoreFromHistory() {
                   /* aLocationFlags */ 0);
   }
 
-  // This is the end of our CreateContentViewer() replacement.
+  // This is the end of our CreateDocumentViewer() replacement.
   // Now we simulate a load.  First, we restore the state of the javascript
   // window object.
   nsCOMPtr<nsPIDOMWindowOuter> privWin = GetWindow();
@@ -7605,7 +7606,7 @@ nsresult nsDocShell::RestoreFromHistory() {
   // presShell->BackingScaleFactorChanged().
 
   // But we depend on that device context when adjusting the view size
-  // via mContentViewer->SetBounds(newBounds) below. So we need to
+  // via mDocumentViewer->SetBounds(newBounds) below. So we need to
   // explicitly tell it to check for changed resolution here.
   if (presShell) {
     RefPtr<nsPresContext> pc = presShell->GetPresContext();
@@ -7702,7 +7703,7 @@ nsresult nsDocShell::RestoreFromHistory() {
       MOZ_LOG(gPageCacheLog, LogLevel::Debug,
               ("resize widget(%d, %d, %d, %d)", newBounds.x, newBounds.y,
                newBounds.width, newBounds.height));
-      mContentViewer->SetBounds(newBounds);
+      mDocumentViewer->SetBounds(newBounds);
     } else {
       nsIScrollableFrame* rootScrollFrame =
           presShell->GetRootScrollFrameAsScrollable();
@@ -7737,9 +7738,9 @@ nsresult nsDocShell::RestoreFromHistory() {
   return privWin->FireDelayedDOMEvents(true);
 }
 
-nsresult nsDocShell::CreateContentViewer(const nsACString& aContentType,
-                                         nsIRequest* aRequest,
-                                         nsIStreamListener** aContentHandler) {
+nsresult nsDocShell::CreateDocumentViewer(const nsACString& aContentType,
+                                          nsIRequest* aRequest,
+                                          nsIStreamListener** aContentHandler) {
   if (DocGroup::TryToLoadIframesInBackground()) {
     ResetToFirstLoad();
   }
@@ -7764,9 +7765,9 @@ nsresult nsDocShell::CreateContentViewer(const nsACString& aContentType,
   NS_ASSERTION(mLoadGroup, "Someone ignored return from Init()?");
 
   // Instantiate the content viewer object
-  nsCOMPtr<nsIContentViewer> viewer;
-  nsresult rv = NewContentViewerObj(aContentType, aRequest, mLoadGroup,
-                                    aContentHandler, getter_AddRefs(viewer));
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  nsresult rv = NewDocumentViewerObj(aContentType, aRequest, mLoadGroup,
+                                     aContentHandler, getter_AddRefs(viewer));
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -7937,7 +7938,7 @@ nsresult nsDocShell::CreateContentViewer(const nsACString& aContentType,
   }
 
   if (DocGroup::TryToLoadIframesInBackground()) {
-    if ((!mContentViewer || GetDocument()->IsInitialDocument()) &&
+    if ((!mDocumentViewer || GetDocument()->IsInitialDocument()) &&
         IsSubframe()) {
       // At this point, we know we just created a new iframe document based on
       // the response from the server, and we check if it's a cross-domain
@@ -8020,15 +8021,15 @@ nsresult nsDocShell::CreateContentViewer(const nsACString& aContentType,
   return NS_OK;
 }
 
-nsresult nsDocShell::NewContentViewerObj(const nsACString& aContentType,
-                                         nsIRequest* aRequest,
-                                         nsILoadGroup* aLoadGroup,
-                                         nsIStreamListener** aContentHandler,
-                                         nsIContentViewer** aViewer) {
+nsresult nsDocShell::NewDocumentViewerObj(const nsACString& aContentType,
+                                          nsIRequest* aRequest,
+                                          nsILoadGroup* aLoadGroup,
+                                          nsIStreamListener** aContentHandler,
+                                          nsIDocumentViewer** aViewer) {
   nsCOMPtr<nsIChannel> aOpenedChannel = do_QueryInterface(aRequest);
 
   nsCOMPtr<nsIDocumentLoaderFactory> docLoaderFactory =
-      nsContentUtils::FindInternalContentViewer(aContentType);
+      nsContentUtils::FindInternalDocumentViewer(aContentType);
   if (!docLoaderFactory) {
     return NS_ERROR_FAILURE;
   }
@@ -8044,7 +8045,7 @@ nsresult nsDocShell::NewContentViewerObj(const nsACString& aContentType,
   return NS_OK;
 }
 
-nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
+nsresult nsDocShell::SetupNewViewer(nsIDocumentViewer* aNewViewer,
                                     WindowGlobalChild* aWindowActor) {
   MOZ_ASSERT(!mIsBeingDestroyed);
 
@@ -8079,15 +8080,15 @@ nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
   const Encoding* reloadEncoding = nullptr;
   int32_t reloadEncodingSource = kCharsetUninitialized;
   // |newMUDV| also serves as a flag to set the data from the above vars
-  nsCOMPtr<nsIContentViewer> newCv;
+  nsCOMPtr<nsIDocumentViewer> newViewer;
 
-  if (mContentViewer || parent) {
-    nsCOMPtr<nsIContentViewer> oldCv;
-    if (mContentViewer) {
+  if (mDocumentViewer || parent) {
+    nsCOMPtr<nsIDocumentViewer> oldViewer;
+    if (mDocumentViewer) {
       // Get any interesting state from old content viewer
       // XXX: it would be far better to just reuse the document viewer ,
       //      since we know we're just displaying the same document as before
-      oldCv = mContentViewer;
+      oldViewer = mDocumentViewer;
 
       // Tell the old content viewer to hibernate in session history when
       // it is destroyed.
@@ -8100,14 +8101,14 @@ nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
       }
     } else {
       // No old content viewer, so get state from parent's content viewer
-      parent->GetContentViewer(getter_AddRefs(oldCv));
+      parent->GetDocViewer(getter_AddRefs(oldViewer));
     }
 
-    if (oldCv) {
-      newCv = aNewViewer;
-      if (newCv) {
+    if (oldViewer) {
+      newViewer = aNewViewer;
+      if (newViewer) {
         reloadEncoding =
-            oldCv->GetReloadEncodingAndSource(&reloadEncodingSource);
+            oldViewer->GetReloadEncodingAndSource(&reloadEncodingSource);
       }
     }
   }
@@ -8115,48 +8116,48 @@ nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
   nscolor bgcolor = NS_RGBA(0, 0, 0, 0);
   bool isUnderHiddenEmbedderElement = false;
   // Ensure that the content viewer is destroyed *after* the GC - bug 71515
-  nsCOMPtr<nsIContentViewer> contentViewer = mContentViewer;
-  if (contentViewer) {
+  nsCOMPtr<nsIDocumentViewer> viewer = mDocumentViewer;
+  if (viewer) {
     // Stop any activity that may be happening in the old document before
     // releasing it...
-    contentViewer->Stop();
+    viewer->Stop();
 
     // Try to extract the canvas background color from the old
     // presentation shell, so we can use it for the next document.
-    if (PresShell* presShell = contentViewer->GetPresShell()) {
+    if (PresShell* presShell = viewer->GetPresShell()) {
       bgcolor = presShell->GetCanvasBackground();
       isUnderHiddenEmbedderElement = presShell->IsUnderHiddenEmbedderElement();
     }
 
-    contentViewer->Close(mSavingOldViewer ? mOSHE.get() : nullptr);
-    aNewViewer->SetPreviousViewer(contentViewer);
+    viewer->Close(mSavingOldViewer ? mOSHE.get() : nullptr);
+    aNewViewer->SetPreviousViewer(viewer);
   }
-  if (mOSHE && (!mContentViewer || !mSavingOldViewer)) {
+  if (mOSHE && (!mDocumentViewer || !mSavingOldViewer)) {
     // We don't plan to save a viewer in mOSHE; tell it to drop
     // any other state it's holding.
     mOSHE->SyncPresentationState();
   }
 
-  mContentViewer = nullptr;
+  mDocumentViewer = nullptr;
 
   // Now that we're about to switch documents, forget all of our children.
   // Note that we cached them as needed up in CaptureState above.
   DestroyChildren();
 
-  mContentViewer = aNewViewer;
+  mDocumentViewer = aNewViewer;
 
   nsCOMPtr<nsIWidget> widget;
   NS_ENSURE_SUCCESS(GetMainWidget(getter_AddRefs(widget)), NS_ERROR_FAILURE);
 
   nsIntRect bounds(x, y, cx, cy);
 
-  mContentViewer->SetNavigationTiming(mTiming);
+  mDocumentViewer->SetNavigationTiming(mTiming);
 
-  if (NS_FAILED(mContentViewer->Init(widget, bounds, aWindowActor))) {
-    nsCOMPtr<nsIContentViewer> viewer = mContentViewer;
+  if (NS_FAILED(mDocumentViewer->Init(widget, bounds, aWindowActor))) {
+    nsCOMPtr<nsIDocumentViewer> viewer = mDocumentViewer;
     viewer->Close(nullptr);
     viewer->Destroy();
-    mContentViewer = nullptr;
+    mDocumentViewer = nullptr;
     SetCurrentURIInternal(nullptr);
     NS_WARNING("ContentViewer Initialization failed");
     return NS_ERROR_FAILURE;
@@ -8164,15 +8165,15 @@ nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
 
   // If we have old state to copy, set the old state onto the new content
   // viewer
-  if (newCv) {
-    newCv->SetReloadEncodingAndSource(reloadEncoding, reloadEncodingSource);
+  if (newViewer) {
+    newViewer->SetReloadEncodingAndSource(reloadEncoding, reloadEncodingSource);
   }
 
-  NS_ENSURE_TRUE(mContentViewer, NS_ERROR_FAILURE);
+  NS_ENSURE_TRUE(mDocumentViewer, NS_ERROR_FAILURE);
 
   // Stuff the bgcolor from the old pres shell into the new
   // pres shell. This improves page load continuity.
-  if (RefPtr<PresShell> presShell = mContentViewer->GetPresShell()) {
+  if (RefPtr<PresShell> presShell = mDocumentViewer->GetPresShell()) {
     presShell->SetCanvasBackground(bgcolor);
     presShell->ActivenessMaybeChanged();
     if (isUnderHiddenEmbedderElement) {
@@ -8183,7 +8184,7 @@ nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
   // XXX: It looks like the LayoutState gets restored again in Embed()
   //      right after the call to SetupNewViewer(...)
 
-  // We don't show the mContentViewer yet, since we want to draw the old page
+  // We don't show the mDocumentViewer yet, since we want to draw the old page
   // until we have enough of the new page to show.  Just return with the new
   // viewer still set to hidden.
 
@@ -8192,7 +8193,7 @@ nsresult nsDocShell::SetupNewViewer(nsIContentViewer* aNewViewer,
 
 void nsDocShell::SetDocCurrentStateObj(nsISHEntry* aShEntry,
                                        SessionHistoryInfo* aInfo) {
-  NS_ENSURE_TRUE_VOID(mContentViewer);
+  NS_ENSURE_TRUE_VOID(mDocumentViewer);
 
   RefPtr<Document> document = GetDocument();
   NS_ENSURE_TRUE_VOID(document);
@@ -8474,8 +8475,8 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
     // If the docshell's document is sandboxed, only open a new window
     // if the document's SANDBOXED_AUXILLARY_NAVIGATION flag is not set.
     // (i.e. if allow-popups is specified)
-    NS_ENSURE_TRUE(mContentViewer, NS_ERROR_FAILURE);
-    Document* doc = mContentViewer->GetDocument();
+    NS_ENSURE_TRUE(mDocumentViewer, NS_ERROR_FAILURE);
+    Document* doc = mDocumentViewer->GetDocument();
 
     const bool isDocumentAuxSandboxed =
         doc && (doc->GetSandboxFlags() & SANDBOXED_AUXILIARY_NAVIGATION);
@@ -8769,7 +8770,9 @@ bool nsDocShell::IsSameDocumentNavigation(nsDocShellLoadState* aLoadState,
 }
 
 nsresult nsDocShell::HandleSameDocumentNavigation(
-    nsDocShellLoadState* aLoadState, SameDocumentNavigationState& aState) {
+    nsDocShellLoadState* aLoadState, SameDocumentNavigationState& aState,
+    bool& aSameDocument) {
+  aSameDocument = true;
 #ifdef DEBUG
   SameDocumentNavigationState state;
   MOZ_ASSERT(IsSameDocumentNavigation(aLoadState, state));
@@ -8792,6 +8795,37 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
     MOZ_TRY(NS_GetSecureUpgradedURI(aLoadState->URI(), getter_AddRefs(newURI)));
     MOZ_LOG(gSHLog, LogLevel::Debug,
             ("Upgraded URI to %s", newURI->GetSpecOrDefault().get()));
+  }
+
+  // check if aLoadState->URI(), principalURI, mCurrentURI are same origin
+  // skip handling otherwise
+  nsCOMPtr<nsIPrincipal> origPrincipal = doc->NodePrincipal();
+  nsCOMPtr<nsIURI> principalURI = origPrincipal->GetURI();
+  if (origPrincipal->GetIsNullPrincipal()) {
+    nsCOMPtr<nsIPrincipal> precursor = origPrincipal->GetPrecursorPrincipal();
+    if (precursor) {
+      principalURI = precursor->GetURI();
+    }
+  }
+
+  auto isLoadableViaInternet = [](nsIURI* uri) {
+    return (uri && (net::SchemeIsHTTP(uri) || net::SchemeIsHTTPS(uri)));
+  };
+
+  if (isLoadableViaInternet(principalURI) &&
+      isLoadableViaInternet(mCurrentURI) && isLoadableViaInternet(newURI)) {
+    nsIScriptSecurityManager* ssm = nsContentUtils::GetSecurityManager();
+    if (!NS_SUCCEEDED(
+            ssm->CheckSameOriginURI(newURI, principalURI, false, false)) ||
+        !NS_SUCCEEDED(
+            ssm->CheckSameOriginURI(mCurrentURI, principalURI, false, false))) {
+      MOZ_LOG(gSHLog, LogLevel::Debug,
+              ("nsDocShell[%p]: possible violation of the same origin policy "
+               "during same document navigation",
+               this));
+      aSameDocument = false;
+      return NS_OK;
+    }
   }
 
 #ifdef DEBUG
@@ -9375,8 +9409,8 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
     }
 
     // clear the decks to prevent context bleed-through (bug 298255)
-    rv = CreateAboutBlankContentViewer(nullptr, nullptr, nullptr, nullptr,
-                                       /* aIsInitialDocument */ false);
+    rv = CreateAboutBlankDocumentViewer(nullptr, nullptr, nullptr, nullptr,
+                                        /* aIsInitialDocument */ false);
     if (NS_FAILED(rv)) {
       return NS_ERROR_FAILURE;
     }
@@ -9390,16 +9424,18 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   // document. If the process fails, or if we successfully navigate within the
   // same document, return.
   if (sameDocument) {
-    nsresult rv =
-        HandleSameDocumentNavigation(aLoadState, sameDocumentNavigationState);
+    nsresult rv = HandleSameDocumentNavigation(
+        aLoadState, sameDocumentNavigationState, sameDocument);
     NS_ENSURE_SUCCESS(rv, rv);
     if (shouldTakeFocus) {
       mBrowsingContext->Focus(CallerType::System, IgnoreErrors());
     }
-    return rv;
+    if (sameDocument) {
+      return rv;
+    }
   }
 
-  // mContentViewer->PermitUnload can destroy |this| docShell, which
+  // mDocumentViewer->PermitUnload can destroy |this| docShell, which
   // causes the next call of CanSavePresentation to crash.
   // Hold onto |this| until we return, to prevent a crash from happening.
   // (bug#331040)
@@ -9424,7 +9460,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   // Check if the page doesn't want to be unloaded. The javascript:
   // protocol handler deals with this for javascript: URLs.
   if (!isJavaScript && isNotDownload &&
-      !aLoadState->NotifiedBeforeUnloadListeners() && mContentViewer) {
+      !aLoadState->NotifiedBeforeUnloadListeners() && mDocumentViewer) {
     bool okToUnload;
 
     // Check if request is exempted from HTTPSOnlyMode and if https-first is
@@ -9450,11 +9486,11 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
     // unload and just unload.
     if (!isHistoryOrReload && aLoadState->IsExemptFromHTTPSFirstMode() &&
         nsHTTPSOnlyUtils::IsHttpsFirstModeEnabled(isPrivateWin)) {
-      rv = mContentViewer->PermitUnload(
-          nsIContentViewer::PermitUnloadAction::eDontPromptAndUnload,
+      rv = mDocumentViewer->PermitUnload(
+          nsIDocumentViewer::PermitUnloadAction::eDontPromptAndUnload,
           &okToUnload);
     } else {
-      rv = mContentViewer->PermitUnload(&okToUnload);
+      rv = mDocumentViewer->PermitUnload(&okToUnload);
     }
 
     if (NS_SUCCEEDED(rv) && !okToUnload) {
@@ -9535,7 +9571,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
     // If not a zombie, don't stop content until data
     // starts arriving from the new URI...
 
-    if ((mContentViewer && mContentViewer->GetPreviousViewer()) ||
+    if ((mDocumentViewer && mDocumentViewer->GetPreviousViewer()) ||
         LOAD_TYPE_HAS_FLAGS(aLoadState->LoadType(), LOAD_FLAGS_STOP_CONTENT)) {
       rv = Stop(nsIWebNavigation::STOP_ALL);
     } else {
@@ -9583,16 +9619,16 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
       shistory->RemovePendingHistoryNavigations();
     }
     if (!mozilla::SessionHistoryInParent()) {
-      // It's possible that the previous viewer of mContentViewer is the
+      // It's possible that the previous viewer of mDocumentViewer is the
       // viewer that will end up in aLoadState->SHEntry() when it gets closed.
       // If that's the case, we need to go ahead and force it into its shentry
       // so we can restore it.
-      if (mContentViewer) {
-        nsCOMPtr<nsIContentViewer> prevViewer =
-            mContentViewer->GetPreviousViewer();
+      if (mDocumentViewer) {
+        nsCOMPtr<nsIDocumentViewer> prevViewer =
+            mDocumentViewer->GetPreviousViewer();
         if (prevViewer) {
 #ifdef DEBUG
-          nsCOMPtr<nsIContentViewer> prevPrevViewer =
+          nsCOMPtr<nsIDocumentViewer> prevPrevViewer =
               prevViewer->GetPreviousViewer();
           NS_ASSERTION(!prevPrevViewer, "Should never have viewer chain here");
 #endif
@@ -9600,7 +9636,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
           prevViewer->GetHistoryEntry(getter_AddRefs(viewerEntry));
           if (viewerEntry == aLoadState->SHEntry()) {
             // Make sure this viewer ends up in the right place
-            mContentViewer->SetPreviousViewer(nullptr);
+            mDocumentViewer->SetPreviousViewer(nullptr);
             prevViewer->Destroy();
           }
         }
@@ -9735,8 +9771,8 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
   RefPtr<Document> document;
   bool inheritedFromCurrent = false;
 
-  if (aConsiderCurrentDocument && mContentViewer) {
-    document = mContentViewer->GetDocument();
+  if (aConsiderCurrentDocument && mDocumentViewer) {
+    document = mDocumentViewer->GetDocument();
     inheritedFromCurrent = true;
   }
 
@@ -9755,11 +9791,11 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
 
     // Make sure we end up with _something_ as the principal no matter
     // what.If this fails, we'll just get a null docViewer and bail.
-    EnsureContentViewer();
-    if (!mContentViewer) {
+    EnsureDocumentViewer();
+    if (!mDocumentViewer) {
       return nullptr;
     }
-    document = mContentViewer->GetDocument();
+    document = mDocumentViewer->GetDocument();
   }
 
   //-- Get the document's principal
@@ -10167,8 +10203,8 @@ bool nsDocShell::IsAboutBlankLoadOntoInitialAboutBlank(
     nsIURI* aURI, bool aInheritPrincipal, nsIPrincipal* aPrincipalToInherit) {
   return NS_IsAboutBlank(aURI) && aInheritPrincipal &&
          (aPrincipalToInherit == GetInheritedPrincipal(false)) &&
-         (!mContentViewer || !mContentViewer->GetDocument() ||
-          mContentViewer->GetDocument()->IsInitialDocument());
+         (!mDocumentViewer || !mDocumentViewer->GetDocument() ||
+          mDocumentViewer->GetDocument()->IsInitialDocument());
 }
 
 nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
@@ -11167,7 +11203,7 @@ Maybe<Wireframe> nsDocShell::GetWireframe() {
     return Nothing();
   }
 
-  RefPtr<Document> doc = mContentViewer->GetDocument();
+  RefPtr<Document> doc = mDocumentViewer->GetDocument();
   Nullable<Wireframe> wireframe;
   doc->GetWireframeWithoutFlushing(false, wireframe);
   if (wireframe.IsNull()) {
@@ -11247,7 +11283,7 @@ nsDocShell::AddState(JS::Handle<JS::Value> aData, const nsAString& aTitle,
   // It's important that this function not run arbitrary scripts after step A
   // and before completing step E.  For example, if a script called
   // history.back() before we completed step E, bfcache might destroy an
-  // active content viewer.  Since EvictOutOfRangeContentViewers at the end of
+  // active content viewer.  Since EvictOutOfRangeDocumentViewers at the end of
   // step E might run script, we can't just put a script blocker around the
   // critical section.
   //
@@ -11580,8 +11616,8 @@ nsresult nsDocShell::UpdateURLAndHistory(Document* aDocument, nsIURI* aNewURI,
     // docshell subtree that disables session history.
     RefPtr<ChildSHistory> rootSH = GetRootSessionHistory();
     if (rootSH) {
-      rootSH->LegacySHistory()->EvictContentViewersOrReplaceEntry(newSHEntry,
-                                                                  aReplace);
+      rootSH->LegacySHistory()->EvictDocumentViewersOrReplaceEntry(newSHEntry,
+                                                                   aReplace);
     }
   }
 
@@ -12027,7 +12063,7 @@ nsresult nsDocShell::LoadHistoryEntry(nsISHEntry* aEntry, uint32_t aLoadType,
   rv = aEntry->CreateLoadInfo(getter_AddRefs(loadState));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // Calling CreateAboutBlankContentViewer can set mOSHE to null, and if
+  // Calling CreateAboutBlankDocumentViewer can set mOSHE to null, and if
   // that's the only thing holding a ref to aEntry that will cause aEntry to
   // die while we're loading it.  So hold a strong ref to aEntry here, just
   // in case.
@@ -12069,7 +12105,7 @@ nsresult nsDocShell::LoadHistoryEntry(nsDocShellLoadState* aLoadState,
     // Don't cache the presentation if we're going to just reload the
     // current entry. Caching would lead to trying to save the different
     // content viewers in the same nsISHEntry object.
-    rv = CreateAboutBlankContentViewer(
+    rv = CreateAboutBlankDocumentViewer(
         aLoadState->PrincipalToInherit(),
         aLoadState->PartitionedPrincipalToInherit(), nullptr, nullptr,
         /* aIsInitialDocument */ false, Nothing(), !aLoadingCurrentEntry);
@@ -12354,7 +12390,7 @@ void nsDocShell::SaveLastVisit(nsIChannel* aChannel, nsIURI* aURI,
 /* static */ void nsDocShell::InternalAddURIVisit(
     nsIURI* aURI, nsIURI* aPreviousURI, uint32_t aChannelRedirectFlags,
     uint32_t aResponseStatus, BrowsingContext* aBrowsingContext,
-    nsIWidget* aWidget, uint32_t aLoadType) {
+    nsIWidget* aWidget, uint32_t aLoadType, bool aWasUpgraded) {
   MOZ_ASSERT(aURI, "Visited URI is null!");
   MOZ_ASSERT(aLoadType != LOAD_ERROR_PAGE && aLoadType != LOAD_BYPASS_HISTORY,
              "Do not add error or bypass pages to global history");
@@ -12405,6 +12441,11 @@ void nsDocShell::SaveLastVisit(nsIChannel* aChannel, nsIURI* aURI,
       visitURIFlags |= IHistory::UNRECOVERABLE_ERROR;
     }
 
+    if (aWasUpgraded) {
+      visitURIFlags |=
+          IHistory::REDIRECT_SOURCE | IHistory::REDIRECT_SOURCE_UPGRADED;
+    }
+
     mozilla::Unused << history->VisitURI(aWidget, aURI, aPreviousURI,
                                          visitURIFlags,
                                          aBrowsingContext->BrowserId());
@@ -12418,7 +12459,8 @@ void nsDocShell::AddURIVisit(nsIURI* aURI, nsIURI* aPreviousURI,
   nsCOMPtr<nsIWidget> widget = widget::WidgetUtils::DOMWindowToWidget(outer);
 
   InternalAddURIVisit(aURI, aPreviousURI, aChannelRedirectFlags,
-                      aResponseStatus, mBrowsingContext, widget, mLoadType);
+                      aResponseStatus, mBrowsingContext, widget, mLoadType,
+                      false);
 }
 
 //*****************************************************************************
@@ -13201,11 +13243,11 @@ bool nsDocShell::ShouldBlockLoadingForBackButton() {
 }
 
 bool nsDocShell::PluginsAllowedInCurrentDoc() {
-  if (!mContentViewer) {
+  if (!mDocumentViewer) {
     return false;
   }
 
-  Document* doc = mContentViewer->GetDocument();
+  Document* doc = mDocumentViewer->GetDocument();
   if (!doc) {
     return false;
   }
@@ -13221,13 +13263,13 @@ bool nsDocShell::PluginsAllowedInCurrentDoc() {
 nsresult nsDocShell::CharsetChangeReloadDocument(
     mozilla::NotNull<const mozilla::Encoding*> aEncoding, int32_t aSource) {
   // XXX hack. keep the aCharset and aSource wait to pick it up
-  nsCOMPtr<nsIContentViewer> cv;
-  NS_ENSURE_SUCCESS(GetContentViewer(getter_AddRefs(cv)), NS_ERROR_FAILURE);
-  if (cv) {
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  NS_ENSURE_SUCCESS(GetDocViewer(getter_AddRefs(viewer)), NS_ERROR_FAILURE);
+  if (viewer) {
     int32_t source;
-    Unused << cv->GetReloadEncodingAndSource(&source);
+    Unused << viewer->GetReloadEncodingAndSource(&source);
     if (aSource > source) {
-      cv->SetReloadEncodingAndSource(aEncoding, aSource);
+      viewer->SetReloadEncodingAndSource(aEncoding, aSource);
       if (eCharsetReloadRequested != mCharsetReloadState) {
         mCharsetReloadState = eCharsetReloadRequested;
         switch (mLoadType) {
@@ -13257,7 +13299,7 @@ nsresult nsDocShell::CharsetChangeStopDocumentLoad() {
 
 NS_IMETHODIMP nsDocShell::ExitPrintPreview() {
 #if NS_PRINT_PREVIEW
-  nsCOMPtr<nsIWebBrowserPrint> viewer = do_QueryInterface(mContentViewer);
+  nsCOMPtr<nsIWebBrowserPrint> viewer = do_QueryInterface(mDocumentViewer);
   return viewer->ExitPrintPreview();
 #else
   return NS_OK;

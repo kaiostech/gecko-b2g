@@ -2927,7 +2927,7 @@ static bool ShouldSecureUpgradeNoHSTS(nsIURI* aURI, nsILoadInfo* aLoadInfo) {
                         u""_ns,  // aSourceFile
                         u""_ns,  // aScriptSample
                         0,       // aLineNumber
-                        0,       // aColumnNumber
+                        1,       // aColumnNumber
                         nsIScriptError::warningFlag,
                         "upgradeInsecureRequest"_ns, innerWindowId,
                         !!aLoadInfo->GetOriginAttributes().mPrivateBrowsingId);
@@ -3474,12 +3474,8 @@ bool IsSchemeChangePermitted(nsIURI* aOldURI, const nsACString& newScheme) {
   // URL Spec: If url includes credentials or has a non-null port, and
   // buffer is "file", then return.
   if (newScheme.EqualsIgnoreCase("file")) {
-    rv = aOldURI->GetUsername(tmp);
-    if (NS_FAILED(rv) || !tmp.IsEmpty()) {
-      return false;
-    }
-    rv = aOldURI->GetPassword(tmp);
-    if (NS_FAILED(rv) || !tmp.IsEmpty()) {
+    bool hasUserPass;
+    if (NS_FAILED(aOldURI->GetHasUserPass(&hasUserPass)) || hasUserPass) {
       return false;
     }
     int32_t port;

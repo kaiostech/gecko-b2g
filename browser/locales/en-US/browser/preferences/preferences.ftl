@@ -752,12 +752,6 @@ home-prefs-sections-rows-option =
 
 ## Search Section
 
-search-bar-header = Search Bar
-search-bar-hidden =
-    .label = Use the address bar for search and navigation
-search-bar-shown =
-    .label = Add search bar in toolbar
-
 search-engine-default-header = Default Search Engine
 search-engine-default-desc-2 = This is your default search engine in the address bar and search bar. You can switch it at any time.
 search-engine-default-private-desc-2 = Choose a different default search engine for Private Windows only
@@ -887,9 +881,9 @@ sync-signedin-login-failure = Please sign in to reconnect { $email }
 
 ##
 
-sync-resend-verification =
-    .label = Resend Verification
-    .accesskey = d
+sync-verify-account =
+    .label = Verify Account
+    .accesskey = V
 
 sync-remove-account =
     .label = Remove Account
@@ -1002,16 +996,6 @@ sync-device-name-save =
     .accesskey = v
 
 sync-connect-another-device = Connect another device
-
-## These strings are shown in a desktop notification after the
-## user requests we resend a verification email.
-
-sync-verification-sent-title = Verification Sent
-# Variables:
-#   $email (String): Email address of user's Firefox account.
-sync-verification-sent-body = A verification link has been sent to { $email }.
-sync-verification-not-sent-title = Unable to Send Verification
-sync-verification-not-sent-body = We are unable to send a verification mail at this time, please try again later.
 
 ## Privacy Section
 

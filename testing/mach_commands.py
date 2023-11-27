@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 import requests
-from mach.decorators import Command, CommandArgument, SettingsProvider, SubCommand
+from mach.decorators import Command, CommandArgument, SubCommand
 from mozbuild.base import BuildEnvironmentNotFoundException
 from mozbuild.base import MachCommandConditions as conditions
 
@@ -36,23 +36,6 @@ name or suite alias.
 
 The following test suites and aliases are supported: {}
 """.strip()
-
-
-@SettingsProvider
-class TestConfig(object):
-    @classmethod
-    def config_settings(cls):
-        from mozlog.commandline import log_formatters
-        from mozlog.structuredlog import log_levels
-
-        format_desc = "The default format to use when running tests with `mach test`."
-        format_choices = list(log_formatters)
-        level_desc = "The default log level to use when running tests with `mach test`."
-        level_choices = [l.lower() for l in log_levels]
-        return [
-            ("test.format", "string", format_desc, "mach", {"choices": format_choices}),
-            ("test.level", "string", level_desc, "info", {"choices": level_choices}),
-        ]
 
 
 def get_test_parser():
@@ -903,6 +886,7 @@ def test_info_tests(
     help="Do not categorize by bugzilla component.",
 )
 @CommandArgument("--output-file", help="Path to report file.")
+@CommandArgument("--runcounts-input-file", help="Optional path to report file.")
 @CommandArgument("--verbose", action="store_true", help="Enable debug logging.")
 @CommandArgument(
     "--start",
@@ -930,6 +914,7 @@ def test_report(
     start,
     end,
     show_testruns,
+    runcounts_input_file,
 ):
     import testinfo
     from mozbuild import build_commands
@@ -957,6 +942,7 @@ def test_report(
         start,
         end,
         show_testruns,
+        runcounts_input_file,
     )
 
 

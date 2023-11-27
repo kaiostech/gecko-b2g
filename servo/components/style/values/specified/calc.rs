@@ -6,6 +6,7 @@
 //!
 //! [calc]: https://drafts.csswg.org/css-values/#calc-notation
 
+use crate::color::parsing::{AngleOrNumber, NumberOrPercentage};
 use crate::parser::ParserContext;
 use crate::values::generics::calc::{
     self as generic, CalcNodeLeaf, CalcUnits, MinMaxOp, ModRemOp, PositivePercentageBasis,
@@ -16,7 +17,6 @@ use crate::values::specified::length::{ContainerRelativeLength, ViewportPercenta
 use crate::values::specified::{self, Angle, Resolution, Time};
 use crate::values::{serialize_number, serialize_percentage, CSSFloat, CSSInteger};
 use cssparser::{CowRcStr, Parser, Token};
-use crate::color::parsing::{AngleOrNumber, NumberOrPercentage};
 use smallvec::SmallVec;
 use std::cmp;
 use std::fmt::{self, Write};
@@ -188,11 +188,9 @@ impl generic::CalcNodeLeaf for Leaf {
         }
 
         match (self, other) {
-            (&Percentage(ref one), &Percentage(ref other)) => {
-                match basis {
-                    PositivePercentageBasis::Yes => one.partial_cmp(other),
-                    PositivePercentageBasis::Unknown => None,
-                }
+            (&Percentage(ref one), &Percentage(ref other)) => match basis {
+                PositivePercentageBasis::Yes => one.partial_cmp(other),
+                PositivePercentageBasis::Unknown => None,
             },
             (&Length(ref one), &Length(ref other)) => one.partial_cmp(other),
             (&Angle(ref one), &Angle(ref other)) => one.degrees().partial_cmp(&other.degrees()),
@@ -680,9 +678,7 @@ impl CalcNode {
                 },
                 MathFunction::Exp => {
                     let a = Self::parse_number_argument(context, input)?;
-
                     let number = a.exp();
-
                     Ok(Self::Leaf(Leaf::Number(number)))
                 },
                 MathFunction::Abs => {
@@ -690,7 +686,11 @@ impl CalcNode {
                     Ok(Self::Abs(Box::new(node)))
                 },
                 MathFunction::Sign => {
-                    let node = Self::parse_argument(context, input, CalcUnits::all())?;
+                    // The sign of a percentage is dependent on the percentage basis, so if
+                    // percentages aren't allowed (so there's no basis) we shouldn't allow them in
+                    // sign(). The rest of the units are safe tho.
+                    let sign_units = allowed_units | (CalcUnits::ALL - CalcUnits::PERCENTAGE);
+                    let node = Self::parse_argument(context, input, sign_units)?;
                     Ok(Self::Sign(Box::new(node)))
                 },
             }

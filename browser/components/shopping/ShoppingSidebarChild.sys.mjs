@@ -60,6 +60,7 @@ export class ShoppingSidebarChild extends RemotePageChild {
     this._destroyed = true;
     super.didDestroy?.();
     gAllActors.delete(this);
+    this.#product?.off("analysis-progress", this.#onAnalysisProgress);
     this.#product?.uninit();
   }
 
@@ -160,12 +161,16 @@ export class ShoppingSidebarChild extends RemotePageChild {
     return lazy.optedIn === 1;
   }
 
-  get canFetchAndShowAd() {
+  get adsEnabled() {
     return lazy.adsEnabled;
   }
 
-  get userHasAdsEnabled() {
+  get adsEnabledByUser() {
     return lazy.adsEnabledByUser;
+  }
+
+  get canFetchAndShowAd() {
+    return this.adsEnabled && this.adsEnabledByUser;
   }
 
   optedInStateChanged() {
@@ -177,7 +182,7 @@ export class ShoppingSidebarChild extends RemotePageChild {
 
   adsEnabledByUserChanged() {
     this.sendToContent("adsEnabledByUserChanged", {
-      adsEnabledByUser: this.userHasAdsEnabled,
+      adsEnabledByUser: this.adsEnabledByUser,
     });
 
     this.requestRecommendations(this.#productURI);
@@ -222,6 +227,7 @@ export class ShoppingSidebarChild extends RemotePageChild {
       }
       return currentURI && currentURI == this.#productURI;
     };
+    this.#product?.off("analysis-progress", this.#onAnalysisProgress);
     this.#product?.uninit();
     // We are called either because the URL has changed or because the opt-in
     // state has changed. In both cases, we want to clear out content
@@ -230,8 +236,8 @@ export class ShoppingSidebarChild extends RemotePageChild {
     // Do not clear data however if an analysis was requested via a call-to-action.
     if (!isPolledRequest) {
       this.sendToContent("Update", {
-        adsEnabled: this.canFetchAndShowAd,
-        adsEnabledByUser: this.userHasAdsEnabled,
+        adsEnabled: this.adsEnabled,
+        adsEnabledByUser: this.adsEnabledByUser,
         showOnboarding: !this.canFetchAndShowData,
         data: null,
         recommendationData: null,
@@ -255,6 +261,11 @@ export class ShoppingSidebarChild extends RemotePageChild {
 
       let uri = this.#productURI;
       this.#product = new ShoppingProduct(uri);
+      this.#product.on(
+        "analysis-progress",
+        this.#onAnalysisProgress.bind(this)
+      );
+
       let data;
       let isAnalysisInProgress;
 
@@ -325,8 +336,8 @@ export class ShoppingSidebarChild extends RemotePageChild {
       }
 
       this.sendToContent("Update", {
-        adsEnabled: this.canFetchAndShowAd,
-        adsEnabledByUser: this.userHasAdsEnabled,
+        adsEnabled: this.adsEnabled,
+        adsEnabledByUser: this.adsEnabledByUser,
         showOnboarding: false,
         data,
         productUrl: this.#productURI.spec,
@@ -373,7 +384,7 @@ export class ShoppingSidebarChild extends RemotePageChild {
     return (
       uri.equalsExceptRef(this.#productURI) &&
       this.canFetchAndShowData &&
-      (lazy.adsExposure || (this.canFetchAndShowAd && this.userHasAdsEnabled))
+      (lazy.adsExposure || this.canFetchAndShowAd)
     );
   }
 
@@ -385,8 +396,7 @@ export class ShoppingSidebarChild extends RemotePageChild {
     return (
       uri.equalsExceptRef(this.#productURI) &&
       this.canFetchAndShowData &&
-      this.canFetchAndShowAd &&
-      this.userHasAdsEnabled
+      this.canFetchAndShowAd
     );
   }
 
@@ -441,5 +451,11 @@ export class ShoppingSidebarChild extends RemotePageChild {
 
   async reportProductAvailable() {
     await this.#product.sendReport();
+  }
+
+  #onAnalysisProgress(eventName, progress) {
+    this.sendToContent("UpdateAnalysisProgress", {
+      progress,
+    });
   }
 }

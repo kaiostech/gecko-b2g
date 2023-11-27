@@ -85,7 +85,6 @@
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/OriginAttributes.h"
 #include "mozilla/OwningNonNull.h"
-#include "mozilla/PendingAnimationTracker.h"
 #include "mozilla/PendingFullscreenEvent.h"
 #include "mozilla/PermissionDelegateHandler.h"
 #include "mozilla/PermissionManager.h"
@@ -232,6 +231,7 @@
 #include "mozilla/dom/TreeOrderedArrayInlines.h"
 #include "mozilla/dom/TreeWalker.h"
 #include "mozilla/dom/URL.h"
+#include "mozilla/dom/UseCounterMetrics.h"
 #include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "mozilla/dom/WindowContext.h"
@@ -239,6 +239,7 @@
 #include "mozilla/dom/WindowProxyHolder.h"
 #include "mozilla/dom/WorkerDocumentListener.h"
 #include "mozilla/dom/XPathEvaluator.h"
+#include "mozilla/dom/XPathExpression.h"
 #include "mozilla/dom/nsCSPContext.h"
 #include "mozilla/dom/nsCSPUtils.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
@@ -923,7 +924,7 @@ void ExternalResourceMap::Traverse(
 
 void ExternalResourceMap::HideViewers() {
   for (const auto& entry : mMap) {
-    nsCOMPtr<nsIContentViewer> viewer = entry.GetData()->mViewer;
+    nsCOMPtr<nsIDocumentViewer> viewer = entry.GetData()->mViewer;
     if (viewer) {
       viewer->Hide();
     }
@@ -932,7 +933,7 @@ void ExternalResourceMap::HideViewers() {
 
 void ExternalResourceMap::ShowViewers() {
   for (const auto& entry : mMap) {
-    nsCOMPtr<nsIContentViewer> viewer = entry.GetData()->mViewer;
+    nsCOMPtr<nsIDocumentViewer> viewer = entry.GetData()->mViewer;
     if (viewer) {
       viewer->Show();
     }
@@ -948,7 +949,7 @@ void TransferShowingState(Document* aFromDoc, Document* aToDoc) {
 }
 
 nsresult ExternalResourceMap::AddExternalResource(nsIURI* aURI,
-                                                  nsIContentViewer* aViewer,
+                                                  nsIDocumentViewer* aViewer,
                                                   nsILoadGroup* aLoadGroup,
                                                   Document* aDisplayDocument) {
   MOZ_ASSERT(aURI, "Unexpected call");
@@ -1014,7 +1015,7 @@ ExternalResourceMap::PendingLoad::OnStartRequest(nsIRequest* aRequest) {
     return NS_BINDING_ABORTED;
   }
 
-  nsCOMPtr<nsIContentViewer> viewer;
+  nsCOMPtr<nsIDocumentViewer> viewer;
   nsCOMPtr<nsILoadGroup> loadGroup;
   nsresult rv =
       SetupViewer(aRequest, getter_AddRefs(viewer), getter_AddRefs(loadGroup));
@@ -1034,7 +1035,7 @@ ExternalResourceMap::PendingLoad::OnStartRequest(nsIRequest* aRequest) {
 }
 
 nsresult ExternalResourceMap::PendingLoad::SetupViewer(
-    nsIRequest* aRequest, nsIContentViewer** aViewer,
+    nsIRequest* aRequest, nsIDocumentViewer** aViewer,
     nsILoadGroup** aLoadGroup) {
   MOZ_ASSERT(!mTargetListener, "Unexpected call to OnStartRequest");
   *aViewer = nullptr;
@@ -1084,7 +1085,7 @@ nsresult ExternalResourceMap::PendingLoad::SetupViewer(
       do_GetService(contractId.get());
   NS_ENSURE_TRUE(docLoaderFactory, NS_ERROR_NOT_AVAILABLE);
 
-  nsCOMPtr<nsIContentViewer> viewer;
+  nsCOMPtr<nsIDocumentViewer> viewer;
   nsCOMPtr<nsIStreamListener> listener;
   rv = docLoaderFactory->CreateInstance(
       "external-resource", chan, newLoadGroup, type, nullptr, nullptr,
@@ -1350,7 +1351,6 @@ Document::Document(const char* aContentType)
       mIsSVGGlyphsDocument(false),
       mInDestructor(false),
       mIsGoingAway(false),
-      mInXBLUpdate(false),
       mStyleSetFilled(false),
       mQuirkSheetAdded(false),
       mContentEditableSheetAdded(false),
@@ -2527,7 +2527,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOriginalDocument)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCachedEncoder)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentTimeline)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingAnimationTracker)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mScrollTimelineAnimationTracker)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTemplateContentsOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChildrenCollection)
@@ -2547,7 +2546,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAll)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocGroup)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameRequestManager)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mContentIdentifiersForLCP)
 
   // Traverse all our nsCOMArrays.
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPreloadingImages)
@@ -2579,7 +2577,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
     if (mql->HasListeners() &&
         NS_SUCCEEDED(mql->CheckCurrentGlobalCorrectness())) {
       NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mDOMMediaQueryLists item");
-      cb.NoteXPCOMChild(mql);
+      cb.NoteXPCOMChild(static_cast<EventTarget*>(mql));
     }
   }
 
@@ -2653,7 +2651,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mOriginalDocument)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCachedEncoder)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentTimeline)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingAnimationTracker)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mScrollTimelineAnimationTracker)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTemplateContentsOwner)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mChildrenCollection)
@@ -2673,7 +2670,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mAll)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReferrerInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadReferrerInfo)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mContentIdentifiersForLCP);
 
   if (tmp->mDocGroup && tmp->mDocGroup->GetBrowsingContextGroup()) {
     tmp->mDocGroup->GetBrowsingContextGroup()->RemoveDocument(tmp,
@@ -2816,7 +2812,7 @@ void Document::Reset(nsIChannel* aChannel, nsILoadGroup* aLoadGroup) {
     // Note: this code is duplicated in PrototypeDocumentContentSink::Init and
     // nsScriptSecurityManager::GetChannelResultPrincipals.
     // Note: this should match the uri used for the OnNewURI call in
-    //       nsDocShell::CreateContentViewer.
+    //       nsDocShell::CreateDocumentViewer.
     NS_GetFinalChannelURI(aChannel, getter_AddRefs(uri));
 
     nsIScriptSecurityManager* securityManager =
@@ -7161,9 +7157,9 @@ bool Document::RemoveFromBFCacheSync() {
     removed = true;
   } else if (!IsCurrentActiveDocument()) {
     // In the old bfcache implementation while the new page is loading, but
-    // before nsIContentViewer.show() has been called, the previous page doesn't
-    // yet have nsIBFCacheEntry. However, the previous page isn't the current
-    // active document anymore.
+    // before nsIDocumentViewer.show() has been called, the previous page
+    // doesn't yet have nsIBFCacheEntry. However, the previous page isn't the
+    // current active document anymore.
     DisallowBFCaching();
     removed = true;
   }
@@ -9468,14 +9464,6 @@ SMILAnimationController* Document::GetAnimationController() {
   return mAnimationController;
 }
 
-PendingAnimationTracker* Document::GetOrCreatePendingAnimationTracker() {
-  if (!mPendingAnimationTracker) {
-    mPendingAnimationTracker = new PendingAnimationTracker(this);
-  }
-
-  return mPendingAnimationTracker;
-}
-
 ScrollTimelineAnimationTracker*
 Document::GetOrCreateScrollTimelineAnimationTracker() {
   if (!mScrollTimelineAnimationTracker) {
@@ -9839,10 +9827,10 @@ Document* Document::Open(const Optional<nsAString>& /* unused */,
     // out-of-band document.write()
     shell->PrepareForNewContentModel();
 
-    nsCOMPtr<nsIContentViewer> cv;
-    shell->GetContentViewer(getter_AddRefs(cv));
-    if (cv) {
-      cv->LoadStart(this);
+    nsCOMPtr<nsIDocumentViewer> viewer;
+    shell->GetDocViewer(getter_AddRefs(viewer));
+    if (viewer) {
+      viewer->LoadStart(this);
     }
   }
 
@@ -12551,7 +12539,7 @@ SheetPreloadStatus Document::PreloadStyle(
     nsIURI* uri, const Encoding* aEncoding, const nsAString& aCrossOriginAttr,
     const enum ReferrerPolicy aReferrerPolicy, const nsAString& aNonce,
     const nsAString& aIntegrity, css::StylePreloadKind aKind,
-    uint64_t aEarlyHintPreloaderId) {
+    uint64_t aEarlyHintPreloaderId, const nsAString& aFetchPriority) {
   MOZ_ASSERT(aKind != css::StylePreloadKind::None);
 
   // The CSSLoader will retain this object after we return.
@@ -12563,7 +12551,8 @@ SheetPreloadStatus Document::PreloadStyle(
   // Charset names are always ASCII.
   auto result = CSSLoader()->LoadSheet(
       uri, aKind, aEncoding, referrerInfo, obs, aEarlyHintPreloaderId,
-      Element::StringToCORSMode(aCrossOriginAttr), aNonce, aIntegrity);
+      Element::StringToCORSMode(aCrossOriginAttr), aNonce, aIntegrity,
+      nsGenericHTMLElement::ToFetchPriority(aFetchPriority));
   if (result.isErr()) {
     return SheetPreloadStatus::Errored;
   }
@@ -13354,7 +13343,7 @@ static void CachePrintSelectionRanges(const Document& aSourceDoc,
 }
 
 already_AddRefed<Document> Document::CreateStaticClone(
-    nsIDocShell* aCloneContainer, nsIContentViewer* aViewer,
+    nsIDocShell* aCloneContainer, nsIDocumentViewer* aViewer,
     nsIPrintSettings* aPrintSettings, bool* aOutHasInProcessPrintCallbacks) {
   MOZ_ASSERT(!mCreatingStaticClone);
   MOZ_ASSERT(!GetProperty(nsGkAtoms::adoptedsheetclones));
@@ -15904,9 +15893,8 @@ already_AddRefed<Document> Document::Constructor(const GlobalObject& aGlobal,
   return doc.forget();
 }
 
-XPathExpression* Document::CreateExpression(const nsAString& aExpression,
-                                            XPathNSResolver* aResolver,
-                                            ErrorResult& rv) {
+UniquePtr<XPathExpression> Document::CreateExpression(
+    const nsAString& aExpression, XPathNSResolver* aResolver, ErrorResult& rv) {
   return XPathEvaluator()->CreateExpression(aExpression, aResolver, rv);
 }
 
@@ -16152,6 +16140,7 @@ void Document::ReportDocumentUseCounters() {
   // TOP_LEVEL_CONTENT_DOCUMENTS_DESTROYED is recorded in
   // WindowGlobalParent::FinishAccumulatingPageUseCounters.
   Telemetry::Accumulate(Telemetry::CONTENT_DOCUMENTS_DESTROYED, 1);
+  glean::use_counter::content_documents_destroyed.Add();
 
   // Ask all of our resource documents to report their own document use
   // counters.
@@ -16184,6 +16173,7 @@ void Document::ReportDocumentUseCounters() {
                     Telemetry::GetHistogramName(id), urlForLogging->get());
     }
     Telemetry::Accumulate(id, 1);
+    IncrementUseCounter(uc, /* aIsPage = */ false);
   }
 }
 

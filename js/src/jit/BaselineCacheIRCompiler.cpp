@@ -2591,7 +2591,7 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
     JitSpew(JitSpew_BaselineICFallback,
             "Tried attaching identical stub for (%s:%u:%u)",
             outerScript->filename(), outerScript->lineno(),
-            outerScript->column().zeroOriginValue());
+            outerScript->column().oneOriginValue());
     return ICAttachResult::DuplicateStub;
   }
 
@@ -2616,6 +2616,9 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
     cx->zone()->jitZone()->clearStubFoldingBailoutData();
     if (stub->usedByTranspiler() && owningScript->hasIonScript()) {
       owningScript->ionScript()->resetNumFixableBailouts();
+    } else {
+      // Update the last IC counter if this is not a bailout from Ion.
+      owningScript->updateLastICStubCounter();
     }
     return ICAttachResult::Attached;
   }
@@ -2650,6 +2653,11 @@ ICAttachResult js::jit::AttachBaselineCacheIRStub(
   writer.copyStubData(newStub->stubDataStart());
   newStub->setTypeData(writer.typeData());
   stub->addNewStub(icEntry, newStub);
+
+  JSScript* owningScript = icScript->isInlined()
+                               ? icScript->inliningRoot()->owningScript()
+                               : outerScript;
+  owningScript->updateLastICStubCounter();
   return ICAttachResult::Attached;
 }
 

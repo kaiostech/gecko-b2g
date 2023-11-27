@@ -1,7 +1,10 @@
 use super::{conv::is_layered_target, Command as C, PrivateCapabilities};
 use arrayvec::ArrayVec;
 use glow::HasContext;
-use std::{mem, slice, sync::Arc};
+use std::{
+    mem, slice,
+    sync::{atomic::Ordering, Arc},
+};
 
 const DEBUG_ID: u32 = 0;
 
@@ -55,16 +58,17 @@ impl super::Queue {
         unsafe { gl.draw_buffers(&[glow::COLOR_ATTACHMENT0 + draw_buffer]) };
         unsafe { gl.draw_arrays(glow::TRIANGLES, 0, 3) };
 
-        if self.draw_buffer_count != 0 {
+        let draw_buffer_count = self.draw_buffer_count.load(Ordering::Relaxed);
+        if draw_buffer_count != 0 {
             // Reset the draw buffers to what they were before the clear
-            let indices = (0..self.draw_buffer_count as u32)
+            let indices = (0..draw_buffer_count as u32)
                 .map(|i| glow::COLOR_ATTACHMENT0 + i)
                 .collect::<ArrayVec<_, { crate::MAX_COLOR_ATTACHMENTS }>>();
             unsafe { gl.draw_buffers(&indices) };
         }
     }
 
-    unsafe fn reset_state(&mut self, gl: &glow::Context) {
+    unsafe fn reset_state(&self, gl: &glow::Context) {
         unsafe { gl.use_program(None) };
         unsafe { gl.bind_framebuffer(glow::FRAMEBUFFER, None) };
         unsafe { gl.disable(glow::DEPTH_TEST) };
@@ -79,7 +83,8 @@ impl super::Queue {
         }
 
         unsafe { gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None) };
-        self.current_index_buffer = None;
+        let mut current_index_buffer = self.current_index_buffer.lock();
+        *current_index_buffer = None;
     }
 
     unsafe fn set_attachment(
@@ -146,7 +151,7 @@ impl super::Queue {
     }
 
     unsafe fn process(
-        &mut self,
+        &self,
         gl: &glow::Context,
         command: &C,
         #[cfg_attr(target_arch = "wasm32", allow(unused))] data_bytes: &[u8],
@@ -355,7 +360,10 @@ impl super::Queue {
                 unsafe { gl.bind_buffer(copy_src_target, None) };
                 if is_index_buffer_only_element_dst {
                     unsafe {
-                        gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, self.current_index_buffer)
+                        gl.bind_buffer(
+                            glow::ELEMENT_ARRAY_BUFFER,
+                            *self.current_index_buffer.lock(),
+                        )
                     };
                 } else {
                     unsafe { gl.bind_buffer(copy_dst_target, None) };
@@ -564,7 +572,7 @@ impl super::Queue {
                 ref copy,
             } => {
                 let (block_width, block_height) = dst_format.block_dimensions();
-                let block_size = dst_format.block_size(None).unwrap();
+                let block_size = dst_format.block_copy_size(None).unwrap();
                 let format_desc = self.shared.describe_texture_format(dst_format);
                 let row_texels = copy
                     .buffer_layout
@@ -702,7 +710,7 @@ impl super::Queue {
                 dst_target: _,
                 ref copy,
             } => {
-                let block_size = src_format.block_size(None).unwrap();
+                let block_size = src_format.block_copy_size(None).unwrap();
                 if src_format.is_compressed() {
                     log::error!("Not implemented yet: compressed texture copy to buffer");
                     return;
@@ -799,7 +807,8 @@ impl super::Queue {
             }
             C::SetIndexBuffer(buffer) => {
                 unsafe { gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(buffer)) };
-                self.current_index_buffer = Some(buffer);
+                let mut current_index_buffer = self.current_index_buffer.lock();
+                *current_index_buffer = Some(buffer);
             }
             C::BeginQuery(query, target) => {
                 unsafe { gl.begin_query(target, query) };
@@ -861,7 +870,8 @@ impl super::Queue {
                         }
                     }
                 } else {
-                    self.temp_query_results.clear();
+                    let mut temp_query_results = self.temp_query_results.lock();
+                    temp_query_results.clear();
                     for &query in
                         queries[query_range.start as usize..query_range.end as usize].iter()
                     {
@@ -874,12 +884,12 @@ impl super::Queue {
                                 result as usize,
                             )
                         };
-                        self.temp_query_results.push(result);
+                        temp_query_results.push(result);
                     }
                     let query_data = unsafe {
                         slice::from_raw_parts(
-                            self.temp_query_results.as_ptr() as *const u8,
-                            self.temp_query_results.len() * mem::size_of::<u64>(),
+                            temp_query_results.as_ptr() as *const u8,
+                            temp_query_results.len() * mem::size_of::<u64>(),
                         )
                     };
                     match dst.raw {
@@ -979,7 +989,7 @@ impl super::Queue {
                 }
             }
             C::SetDrawColorBuffers(count) => {
-                self.draw_buffer_count = count;
+                self.draw_buffer_count.store(count, Ordering::Relaxed);
                 let indices = (0..count as u32)
                     .map(|i| glow::COLOR_ATTACHMENT0 + i)
                     .collect::<ArrayVec<_, { crate::MAX_COLOR_ATTACHMENTS }>>();
@@ -1463,33 +1473,27 @@ impl super::Queue {
                     //
                     // --- Float 1-4 Component ---
                     //
-                    naga::TypeInner::Scalar {
-                        kind: naga::ScalarKind::Float,
-                        width: 4,
-                    } => {
+                    naga::TypeInner::Scalar(naga::Scalar::F32) => {
                         let data = unsafe { get_data::<f32, 1>(data_bytes, offset)[0] };
                         unsafe { gl.uniform_1_f32(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Float,
                         size: naga::VectorSize::Bi,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 2>(data_bytes, offset) };
                         unsafe { gl.uniform_2_f32_slice(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Float,
                         size: naga::VectorSize::Tri,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 3>(data_bytes, offset) };
                         unsafe { gl.uniform_3_f32_slice(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Float,
                         size: naga::VectorSize::Quad,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 4>(data_bytes, offset) };
                         unsafe { gl.uniform_4_f32_slice(location, data) };
@@ -1498,33 +1502,27 @@ impl super::Queue {
                     //
                     // --- Int 1-4 Component ---
                     //
-                    naga::TypeInner::Scalar {
-                        kind: naga::ScalarKind::Sint,
-                        width: 4,
-                    } => {
+                    naga::TypeInner::Scalar(naga::Scalar::I32) => {
                         let data = unsafe { get_data::<i32, 1>(data_bytes, offset)[0] };
                         unsafe { gl.uniform_1_i32(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Sint,
                         size: naga::VectorSize::Bi,
-                        width: 4,
+                        scalar: naga::Scalar::I32,
                     } => {
                         let data = unsafe { get_data::<i32, 2>(data_bytes, offset) };
                         unsafe { gl.uniform_2_i32_slice(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Sint,
                         size: naga::VectorSize::Tri,
-                        width: 4,
+                        scalar: naga::Scalar::I32,
                     } => {
                         let data = unsafe { get_data::<i32, 3>(data_bytes, offset) };
                         unsafe { gl.uniform_3_i32_slice(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Sint,
                         size: naga::VectorSize::Quad,
-                        width: 4,
+                        scalar: naga::Scalar::I32,
                     } => {
                         let data = unsafe { get_data::<i32, 4>(data_bytes, offset) };
                         unsafe { gl.uniform_4_i32_slice(location, data) };
@@ -1533,33 +1531,27 @@ impl super::Queue {
                     //
                     // --- Uint 1-4 Component ---
                     //
-                    naga::TypeInner::Scalar {
-                        kind: naga::ScalarKind::Uint,
-                        width: 4,
-                    } => {
+                    naga::TypeInner::Scalar(naga::Scalar::U32) => {
                         let data = unsafe { get_data::<u32, 1>(data_bytes, offset)[0] };
                         unsafe { gl.uniform_1_u32(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Uint,
                         size: naga::VectorSize::Bi,
-                        width: 4,
+                        scalar: naga::Scalar::U32,
                     } => {
                         let data = unsafe { get_data::<u32, 2>(data_bytes, offset) };
                         unsafe { gl.uniform_2_u32_slice(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Uint,
                         size: naga::VectorSize::Tri,
-                        width: 4,
+                        scalar: naga::Scalar::U32,
                     } => {
                         let data = unsafe { get_data::<u32, 3>(data_bytes, offset) };
                         unsafe { gl.uniform_3_u32_slice(location, data) };
                     }
                     naga::TypeInner::Vector {
-                        kind: naga::ScalarKind::Uint,
                         size: naga::VectorSize::Quad,
-                        width: 4,
+                        scalar: naga::Scalar::U32,
                     } => {
                         let data = unsafe { get_data::<u32, 4>(data_bytes, offset) };
                         unsafe { gl.uniform_4_u32_slice(location, data) };
@@ -1571,7 +1563,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Bi,
                         rows: naga::VectorSize::Bi,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 4>(data_bytes, offset) };
                         unsafe { gl.uniform_matrix_2_f32_slice(location, false, data) };
@@ -1579,7 +1571,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Bi,
                         rows: naga::VectorSize::Tri,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         // repack 2 vec3s into 6 values.
                         let unpacked_data = unsafe { get_data::<f32, 8>(data_bytes, offset) };
@@ -1593,7 +1585,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Bi,
                         rows: naga::VectorSize::Quad,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 8>(data_bytes, offset) };
                         unsafe { gl.uniform_matrix_2x4_f32_slice(location, false, data) };
@@ -1605,7 +1597,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Tri,
                         rows: naga::VectorSize::Bi,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 6>(data_bytes, offset) };
                         unsafe { gl.uniform_matrix_3x2_f32_slice(location, false, data) };
@@ -1613,7 +1605,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Tri,
                         rows: naga::VectorSize::Tri,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         // repack 3 vec3s into 9 values.
                         let unpacked_data = unsafe { get_data::<f32, 12>(data_bytes, offset) };
@@ -1628,7 +1620,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Tri,
                         rows: naga::VectorSize::Quad,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 12>(data_bytes, offset) };
                         unsafe { gl.uniform_matrix_3x4_f32_slice(location, false, data) };
@@ -1640,7 +1632,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Quad,
                         rows: naga::VectorSize::Bi,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 8>(data_bytes, offset) };
                         unsafe { gl.uniform_matrix_4x2_f32_slice(location, false, data) };
@@ -1648,7 +1640,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Quad,
                         rows: naga::VectorSize::Tri,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         // repack 4 vec3s into 12 values.
                         let unpacked_data = unsafe { get_data::<f32, 16>(data_bytes, offset) };
@@ -1664,7 +1656,7 @@ impl super::Queue {
                     naga::TypeInner::Matrix {
                         columns: naga::VectorSize::Quad,
                         rows: naga::VectorSize::Quad,
-                        width: 4,
+                        scalar: naga::Scalar::F32,
                     } => {
                         let data = unsafe { get_data::<f32, 16>(data_bytes, offset) };
                         unsafe { gl.uniform_matrix_4_f32_slice(location, false, data) };
@@ -1678,7 +1670,7 @@ impl super::Queue {
 
 impl crate::Queue<super::Api> for super::Queue {
     unsafe fn submit(
-        &mut self,
+        &self,
         command_buffers: &[&super::CommandBuffer],
         signal_fence: Option<(&mut super::Fence, crate::FenceValue)>,
     ) -> Result<(), crate::DeviceError> {
@@ -1725,8 +1717,8 @@ impl crate::Queue<super::Api> for super::Queue {
     }
 
     unsafe fn present(
-        &mut self,
-        surface: &mut super::Surface,
+        &self,
+        surface: &super::Surface,
         texture: super::Texture,
     ) -> Result<(), crate::SurfaceError> {
         unsafe { surface.present(texture, &self.shared.context) }

@@ -939,7 +939,6 @@ void KeyframeEffect::UpdateTarget(Element* aElement,
     nsAutoAnimationMutationBatch mb(mTarget.mElement->OwnerDoc());
     if (mAnimation) {
       MutationObservers::NotifyAnimationAdded(mAnimation);
-      mAnimation->ReschedulePendingTasks();
     }
   }
 
@@ -1894,7 +1893,7 @@ bool KeyframeEffect::ContainsAnimatedScale(const nsIFrame* aFrame) const {
   // frame. If we are being passed a frame that doesn't support transforms
   // (i.e. the inner table frame) we could just return false, but it possibly
   // means we looked up the wrong EffectSet so for now we just assert instead.
-  MOZ_ASSERT(aFrame && aFrame->IsFrameOfType(nsIFrame::eSupportsCSSTransforms),
+  MOZ_ASSERT(aFrame && aFrame->SupportsCSSTransforms(),
              "We should be passed a frame that supports transforms");
 
   if (!IsCurrent()) {
@@ -2037,7 +2036,7 @@ KeyframeEffect::MatchForCompositor KeyframeEffect::IsMatchForCompositor(
     }
 
     // We don't yet support off-main-thread background-color animations on
-    // canvas frame or on <html> or <body> which genarate
+    // canvas frame or on <html> or <body> which generate
     // nsDisplayCanvasBackgroundColor or nsDisplaySolidColor display item.
     if (aFrame->IsCanvasFrame() ||
         (aFrame->GetContent() &&

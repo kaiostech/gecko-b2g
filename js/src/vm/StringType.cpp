@@ -133,7 +133,7 @@ JS::ubi::Node::Size JS::ubi::Concrete<JSString>::size(
 
 const char16_t JS::ubi::Concrete<JSString>::concreteTypeName[] = u"JSString";
 
-mozilla::Maybe<std::tuple<size_t, size_t> > JSString::encodeUTF8Partial(
+mozilla::Maybe<std::tuple<size_t, size_t>> JSString::encodeUTF8Partial(
     const JS::AutoRequireNoGC& nogc, mozilla::Span<char> buffer) const {
   mozilla::Vector<const JSString*, 16, SystemAllocPolicy> stack;
   const JSString* current = this;
@@ -399,11 +399,20 @@ void JSString::dumpRepresentationHeader(js::GenericPrinter& out,
 
 void JSLinearString::dumpRepresentationChars(js::GenericPrinter& out,
                                              int indent) const {
+  const char* where = "";
+  if (!isInline()) {
+    js::gc::StoreBuffer* sb = storeBuffer();
+    if (sb && sb->nursery().isInside(nonInlineCharsRaw())) {
+      where = "(NURSERY) ";
+    }
+  }
   if (hasLatin1Chars()) {
-    out.printf("%*schars: ((Latin1Char*) %p) ", indent, "", rawLatin1Chars());
+    out.printf("%*schars: %s((Latin1Char*) %p) ", indent, "", where,
+               rawLatin1Chars());
     dumpChars(rawLatin1Chars(), length(), out);
   } else {
-    out.printf("%*schars: ((char16_t*) %p) ", indent, "", rawTwoByteChars());
+    out.printf("%*schars: %s((char16_t*) %p) ", indent, "", where,
+               rawTwoByteChars());
     dumpChars(rawTwoByteChars(), length(), out);
   }
   out.putChar('\n');
@@ -435,8 +444,9 @@ JSExtensibleString& JSLinearString::makeExtensible(size_t capacity) {
 }
 
 template <typename CharT>
-static MOZ_ALWAYS_INLINE bool AllocChars(JSString* str, size_t length,
-                                         CharT** chars, size_t* capacity) {
+static MOZ_ALWAYS_INLINE bool AllocCharsForFlatten(JSString* str, size_t length,
+                                                   CharT** chars,
+                                                   size_t* capacity) {
   /*
    * Grow by 12.5% if the buffer is very large. Otherwise, round up to the
    * next power of 2. This is similar to what we do with arrays; see
@@ -460,6 +470,25 @@ UniqueLatin1Chars JSRope::copyLatin1Chars(JSContext* maybecx,
 UniqueTwoByteChars JSRope::copyTwoByteChars(JSContext* maybecx,
                                             arena_id_t destArenaId) const {
   return copyCharsInternal<char16_t>(maybecx, destArenaId);
+}
+
+// Allocate chars for a string. If parameters and conditions allow, this will
+// try to allocate in the nursery, but this may always fall back to a malloc
+// allocation. The return value will record where the allocation happened.
+template <typename CharT>
+static MOZ_ALWAYS_INLINE JSString::OwnedChars<CharT> AllocChars(JSContext* cx,
+                                                                size_t length,
+                                                                gc::Heap heap) {
+  if (heap == gc::Heap::Default && cx->zone()->allocNurseryStrings()) {
+    MOZ_ASSERT(cx->nursery().isEnabled());
+    auto [buffer, isMalloced] = cx->nursery().allocateBuffer(
+        cx->zone(), length * sizeof(CharT), js::StringBufferArena);
+
+    return {static_cast<CharT*>(buffer), length, isMalloced, isMalloced};
+  }
+
+  auto buffer = cx->make_pod_arena_array<CharT>(js::StringBufferArena, length);
+  return {std::move(buffer), length, true};
 }
 
 template <typename CharT>
@@ -763,7 +792,7 @@ JSLinearString* JSRope::flattenInternal(JSRope* root) {
     }
   } else {
     // If we can't reuse the leftmost child's buffer, allocate a new one.
-    if (!AllocChars(root, wholeLength, &wholeChars, &wholeCapacity)) {
+    if (!AllocCharsForFlatten(root, wholeLength, &wholeChars, &wholeCapacity)) {
       return nullptr;
     }
 
@@ -1293,9 +1322,11 @@ bool AutoStableStringChars::init(JSContext* cx, JSString* s) {
 
   MOZ_ASSERT(state_ == Uninitialized);
 
-  // If the chars are inline then we need to copy them since they may be moved
-  // by a compacting GC.
-  if (baseIsInline(linearString)) {
+  // Inline and nursery-allocated chars may move during a GC, so copy them
+  // out into a temporary malloced buffer. Note that we cannot update the
+  // string itself with a malloced buffer, because there may be dependent
+  // strings that are using the original chars.
+  if (linearString->hasMovableChars()) {
     return linearString->hasTwoByteChars() ? copyTwoByteChars(cx, linearString)
                                            : copyLatin1Chars(cx, linearString);
   }
@@ -1326,9 +1357,8 @@ bool AutoStableStringChars::initTwoByte(JSContext* cx, JSString* s) {
     return copyAndInflateLatin1Chars(cx, linearString);
   }
 
-  // If the chars are inline then we need to copy them since they may be moved
-  // by a compacting GC.
-  if (baseIsInline(linearString)) {
+  // Copy movable chars since they may be moved by GC (see above).
+  if (linearString->hasMovableChars()) {
     return copyTwoByteChars(cx, linearString);
   }
 
@@ -1339,14 +1369,6 @@ bool AutoStableStringChars::initTwoByte(JSContext* cx, JSString* s) {
 
   s_ = linearString;
   return true;
-}
-
-bool AutoStableStringChars::baseIsInline(Handle<JSLinearString*> linearString) {
-  JSString* base = linearString;
-  while (base->isDependent()) {
-    base = base->asDependent().base();
-  }
-  return base->isInline();
 }
 
 template <typename T>
@@ -1567,7 +1589,8 @@ static JSLinearString* NewStringDeflated(JSContext* cx, const char16_t* s,
         cx, mozilla::Range<const char16_t>(s, n), heap);
   }
 
-  auto news = cx->make_pod_arena_array<Latin1Char>(js::StringBufferArena, n);
+  JS::Rooted<JSString::OwnedChars<Latin1Char>> news(
+      cx, AllocChars<Latin1Char>(cx, n, heap));
   if (!news) {
     if (!allowGC) {
       cx->recoverFromOutOfMemory();
@@ -1576,9 +1599,9 @@ static JSLinearString* NewStringDeflated(JSContext* cx, const char16_t* s,
   }
 
   MOZ_ASSERT(CanStoreCharsAsLatin1(s, n));
-  FillFromCompatible(news.get(), s, n);
+  FillFromCompatible(news.data(), s, n);
 
-  return JSLinearString::new_<allowGC>(cx, std::move(news), n, heap);
+  return JSLinearString::new_<allowGC, Latin1Char>(cx, &news, heap);
 }
 
 static MOZ_ALWAYS_INLINE JSAtom* NewInlineAtomDeflated(JSContext* cx,
@@ -1629,7 +1652,9 @@ JSLinearString* js::NewStringDontDeflate(
         cx, mozilla::Range<const CharT>(chars.get(), length), heap);
   }
 
-  return JSLinearString::new_<allowGC>(cx, std::move(chars), length, heap);
+  JS::Rooted<JSString::OwnedChars<CharT>> ownedChars(cx, std::move(chars),
+                                                     length, true);
+  return JSLinearString::new_<allowGC, CharT>(cx, &ownedChars, heap);
 }
 
 template JSLinearString* js::NewStringDontDeflate<CanGC>(
@@ -1689,7 +1714,8 @@ JSLinearString* NewStringCopyNDontDeflateNonStaticValidLength(JSContext* cx,
                                     heap);
   }
 
-  auto news = cx->make_pod_arena_array<CharT>(js::StringBufferArena, n);
+  Rooted<JSString::OwnedChars<CharT>> news(cx,
+                                           ::AllocChars<CharT>(cx, n, heap));
   if (!news) {
     if (!allowGC) {
       cx->recoverFromOutOfMemory();
@@ -1697,9 +1723,9 @@ JSLinearString* NewStringCopyNDontDeflateNonStaticValidLength(JSContext* cx,
     return nullptr;
   }
 
-  PodCopy(news.get(), s, n);
+  PodCopy(news.data(), s, n);
 
-  return JSLinearString::newValidLength<allowGC>(cx, std::move(news), n, heap);
+  return JSLinearString::newValidLength<allowGC, CharT>(cx, &news, heap);
 }
 
 template JSLinearString* NewStringCopyNDontDeflateNonStaticValidLength<CanGC>(

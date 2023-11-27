@@ -833,9 +833,7 @@ bool GCRuntime::init(uint32_t maxbytes) {
   }
 #endif
 
-  if (!updateMarkersVector()) {
-    return false;
-  }
+  initOrDisableParallelMarking();
 
   {
     AutoLockGCBgAlloc lock(this);
@@ -1046,8 +1044,7 @@ bool GCRuntime::setParameter(JSGCParamKey key, uint32_t value,
     case JSGC_PARALLEL_MARKING_ENABLED:
       // Not supported on workers.
       parallelMarkingEnabled = rt->isMainRuntime() && value != 0;
-      updateMarkersVector();
-      break;
+      return initOrDisableParallelMarking();
     case JSGC_INCREMENTAL_WEAKMAP_ENABLED:
       for (auto& marker : markers) {
         marker->incrementalWeakMapMarkingEnabled = value != 0;
@@ -1101,7 +1098,7 @@ bool GCRuntime::setThreadParameter(JSGCParamKey key, uint32_t value,
   }
 
   updateHelperThreadCount();
-  updateMarkersVector();
+  initOrDisableParallelMarking();
 
   return true;
 }
@@ -1133,7 +1130,7 @@ void GCRuntime::resetParameter(JSGCParamKey key, AutoLockGC& lock) {
       break;
     case JSGC_PARALLEL_MARKING_ENABLED:
       parallelMarkingEnabled = TuningDefaults::ParallelMarkingEnabled;
-      updateMarkersVector();
+      initOrDisableParallelMarking();
       break;
     case JSGC_INCREMENTAL_WEAKMAP_ENABLED:
       for (auto& marker : markers) {
@@ -1178,7 +1175,7 @@ void GCRuntime::resetThreadParameter(JSGCParamKey key, AutoLockGC& lock) {
   }
 
   updateHelperThreadCount();
-  updateMarkersVector();
+  initOrDisableParallelMarking();
 }
 
 uint32_t GCRuntime::getParameter(JSGCParamKey key) {
@@ -1333,6 +1330,17 @@ void GCRuntime::assertNoMarkingWork() const {
   MOZ_ASSERT(!hasDelayedMarking());
 }
 #endif
+
+bool GCRuntime::initOrDisableParallelMarking() {
+  // Attempt to initialize parallel marking state or disable it on failure.
+
+  if (!updateMarkersVector()) {
+    parallelMarkingEnabled = false;
+    return false;
+  }
+
+  return true;
+}
 
 static size_t GetGCParallelThreadCount() {
   AutoLockHelperThreadState lock;
@@ -1619,14 +1627,14 @@ JS_PUBLIC_API void JS::SetCreateGCSliceBudgetCallback(
 void TimeBudget::setDeadlineFromNow() { deadline = TimeStamp::Now() + budget; }
 
 SliceBudget::SliceBudget(TimeBudget time, InterruptRequestFlag* interrupt)
-    : budget(TimeBudget(time)),
+    : counter(StepsPerExpensiveCheck),
       interruptRequested(interrupt),
-      counter(StepsPerExpensiveCheck) {
+      budget(TimeBudget(time)) {
   budget.as<TimeBudget>().setDeadlineFromNow();
 }
 
 SliceBudget::SliceBudget(WorkBudget work)
-    : budget(work), interruptRequested(nullptr), counter(work.budget) {}
+    : counter(work.budget), interruptRequested(nullptr), budget(work) {}
 
 int SliceBudget::describe(char* buffer, size_t maxlen) const {
   if (isUnlimited()) {
@@ -1658,7 +1666,6 @@ bool SliceBudget::checkOverBudget() {
   }
 
   if (interruptRequested && *interruptRequested) {
-    *interruptRequested = false;
     interrupted = true;
   }
 
@@ -3000,6 +3007,13 @@ IncrementalProgress GCRuntime::markUntilBudgetExhausted(
   // Run a marking slice and return whether the stack is now empty.
 
   AutoMajorGCProfilerEntry s(this);
+
+  if (initialState != State::Mark) {
+    sliceBudget.forceCheck();
+    if (sliceBudget.isOverBudget()) {
+      return NotFinished;
+    }
+  }
 
   if (processTestMarkQueue() == QueueYielded) {
     return NotFinished;

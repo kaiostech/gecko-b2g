@@ -304,6 +304,14 @@ static nsString MapKeySystem(const nsString& aKeySystem) {
   return aKeySystem;
 }
 
+/* static */
+void MFCDMParent::SetWidevineL1Path(const char* aPath) {
+  nsAutoCString path(aPath);
+  path.AppendLiteral("\\Google.Widevine.CDM.dll");
+  sWidevineL1Path = CreateBSTRFromConstChar(path.get());
+  MFCDM_PARENT_SLOG("Set Widevine L1 dll path=%ls\n", sWidevineL1Path);
+}
+
 void MFCDMParent::Register() {
   MOZ_ASSERT(!sRegisteredCDMs.Contains(this->mId));
   sRegisteredCDMs.InsertOrUpdate(this->mId, this);
@@ -395,8 +403,7 @@ LPCWSTR MFCDMParent::GetCDMLibraryName() const {
   }
   if (IsWidevineExperimentKeySystemAndSupported(mKeySystem) ||
       IsWidevineKeySystem(mKeySystem)) {
-    // TODO : return real Widevine Dll name in bug 1858546
-    return L"";
+    return sWidevineL1Path;
   }
   // TODO : support ClearKey
   return L"Unknown";
@@ -695,6 +702,65 @@ mozilla::ipc::IPCResult MFCDMParent::RecvGetCapabilities(
       capabilities.encryptionSchemes().AppendElement(scheme.first);
       MFCDM_PARENT_LOG("%s: +scheme:%s", __func__,
                        scheme.first == CryptoScheme::Cenc ? "cenc" : "cbcs");
+    }
+  }
+
+  static auto RequireClearLead = [](const nsString& aKeySystem) {
+    if (aKeySystem.EqualsLiteral(kWidevineExperiment2KeySystemName)) {
+      return true;
+    }
+    return false;
+  };
+
+  // For key system requires clearlead, every codec needs to have clear support.
+  // If not, then we will remove the codec from supported codec.
+  if (RequireClearLead(mKeySystem)) {
+    for (const auto& schme : capabilities.encryptionSchemes()) {
+      nsTArray<KeySystemConfig::EMECodecString> noClearLeadCodecs;
+      for (const auto& codec : supportedVideoCodecs) {
+        nsAutoString additionalFeature(u"encryption-type=");
+        // If we don't specify 'encryption-iv-size', it would use 8 bytes IV as
+        // default [1]. If it's not supported, then we will try 16 bytes later.
+        // Since PlayReady 4.0 [2], 8 and 16 bytes IV are both supported. But
+        // We're not sure if Widevine supports both or not.
+        // [1]
+        // https://learn.microsoft.com/en-us/windows/win32/api/mfmediaengine/nf-mfmediaengine-imfextendeddrmtypesupport-istypesupportedex
+        // [2]
+        // https://learn.microsoft.com/en-us/playready/packaging/content-encryption-modes#initialization-vectors-ivs
+        if (schme == CryptoScheme::Cenc) {
+          additionalFeature.AppendLiteral(u"cenc-clearlead,");
+        } else {
+          additionalFeature.AppendLiteral(u"cbcs-clearlead,");
+        }
+        bool rv =
+            FactorySupports(mFactory, mKeySystem, convertCodecToFourCC(codec),
+                            nsCString(""), additionalFeature, aIsHWSecure);
+        MFCDM_PARENT_LOG("clearlead %s IV 8 bytes %s %s",
+                         CryptoSchemeToString(schme), codec.get(),
+                         rv ? "supported" : "not supported");
+        if (rv) {
+          continue;
+        }
+        // Try 16 bytes IV.
+        additionalFeature.AppendLiteral(u"encryption-iv-size=16,");
+        rv = FactorySupports(mFactory, mKeySystem, convertCodecToFourCC(codec),
+                             nsCString(""), additionalFeature, aIsHWSecure);
+        MFCDM_PARENT_LOG("clearlead %s IV 16 bytes %s %s",
+                         CryptoSchemeToString(schme), codec.get(),
+                         rv ? "supported" : "not supported");
+        // Failed on both, so remove the codec from supported codec.
+        if (!rv) {
+          noClearLeadCodecs.AppendElement(codec);
+        }
+      }
+      for (const auto& codec : noClearLeadCodecs) {
+        MFCDM_PARENT_LOG("%s: -video:%s", __func__, codec.get());
+        capabilities.videoCapabilities().RemoveElementsBy(
+            [&codec](const MFCDMMediaCapability& aCapbilities) {
+              return aCapbilities.contentType() == NS_ConvertUTF8toUTF16(codec);
+            });
+        supportedVideoCodecs.RemoveElement(codec);
+      }
     }
   }
 

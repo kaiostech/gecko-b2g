@@ -1672,10 +1672,12 @@ pref("intl.hyphenation-alias.no-*", "nb");
 pref("intl.hyphenation-alias.nb-*", "nb");
 pref("intl.hyphenation-alias.nn-*", "nn");
 
-// In German, we allow hyphenation of capitalized words; otherwise not.
+// In German and Finnish, we allow hyphenation of capitalized words; otherwise not.
+// (Should this be extended to other languages? Should the default be changed?)
 pref("intl.hyphenate-capitalized.de-1996", true);
 pref("intl.hyphenate-capitalized.de-1901", true);
 pref("intl.hyphenate-capitalized.de-CH", true);
+pref("intl.hyphenate-capitalized.fi", true);
 
 // All prefs of default font should be "auto".
 pref("font.name.serif.ar", "");
@@ -3361,7 +3363,7 @@ pref("urlclassifier.features.emailtracking.datacollection.allowlistTables", "moz
 pref("urlclassifier.disallow_completions", "goog-downloadwhite-digest256,base-track-digest256,mozstd-trackwhite-digest256,content-track-digest256,mozplugin-block-digest256,mozplugin2-block-digest256,ads-track-digest256,social-track-digest256,analytics-track-digest256,base-fingerprinting-track-digest256,content-fingerprinting-track-digest256,base-cryptomining-track-digest256,content-cryptomining-track-digest256,fanboyannoyance-ads-digest256,fanboysocial-ads-digest256,easylist-ads-digest256,easyprivacy-ads-digest256,adguard-ads-digest256,social-tracking-protection-digest256,social-tracking-protection-facebook-digest256,social-tracking-protection-linkedin-digest256,social-tracking-protection-twitter-digest256,base-email-track-digest256,content-email-track-digest256");
 
 // Workaround for Google Recaptcha
-pref("urlclassifier.trackingAnnotationSkipURLs", "google.com/recaptcha/,*.google.com/recaptcha/");
+pref("urlclassifier.trackingAnnotationSkipURLs", "google.com/recaptcha/,*.google.com/recaptcha/,d3vox9szr7t2nm.cloudfront.net");
 pref("privacy.rejectForeign.allowList", "");
 
 // The list of email webapp sites

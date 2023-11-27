@@ -23,10 +23,10 @@ use crate::media_queries::Device;
 use crate::properties;
 use crate::properties::{ComputedValues, StyleBuilder};
 use crate::rule_cache::RuleCacheConditions;
-use crate::stylist::Stylist;
 use crate::stylesheets::container_rule::{
     ContainerInfo, ContainerSizeQuery, ContainerSizeQueryResult,
 };
+use crate::stylist::Stylist;
 use crate::values::specified::length::FontBaseSize;
 use crate::{ArcSlice, Atom, One};
 use euclid::{default, Point2D, Rect, Size2D};
@@ -308,6 +308,28 @@ impl<'a> Context<'a> {
             for_non_inherited_property: false,
             rule_cache_conditions: RefCell::new(rule_cache_conditions),
             container_size_query: RefCell::new(container_size_query),
+        }
+    }
+
+    /// Creates a context suitable for computing the initial value of @property.
+    pub fn new_for_initial_at_property_value(
+        stylist: &'a Stylist,
+        rule_cache_conditions: &'a mut RuleCacheConditions,
+    ) -> Self {
+        Self {
+            builder: StyleBuilder::new(stylist.device(), Some(stylist), None, None, None, false),
+            cached_system_font: None,
+            // Because font-relative values are disallowed in @property initial values, we do not
+            // need to keep track of whether we're in a media query, whether we're in a container
+            // query, and so on.
+            in_media_query: false,
+            in_container_query: false,
+            quirks_mode: stylist.quirks_mode(),
+            container_info: None,
+            for_smil_animation: false,
+            for_non_inherited_property: false,
+            rule_cache_conditions: RefCell::new(rule_cache_conditions),
+            container_size_query: RefCell::new(ContainerSizeQuery::none()),
         }
     }
 

@@ -1,7 +1,7 @@
 use super::{BackendResult, Error, Version, Writer};
 use crate::{
-    AddressSpace, Binding, Bytes, Expression, Handle, ImageClass, ImageDimension, Interpolation,
-    Sampling, ScalarKind, ShaderStage, StorageFormat, Type, TypeInner,
+    AddressSpace, Binding, Expression, Handle, ImageClass, ImageDimension, Interpolation, Sampling,
+    Scalar, ScalarKind, ShaderStage, StorageFormat, Type, TypeInner,
 };
 use std::fmt::Write;
 
@@ -275,11 +275,9 @@ impl<'a, W> Writer<'a, W> {
 
         for (ty_handle, ty) in self.module.types.iter() {
             match ty.inner {
-                TypeInner::Scalar { kind, width } => self.scalar_required_features(kind, width),
-                TypeInner::Vector { kind, width, .. } => self.scalar_required_features(kind, width),
-                TypeInner::Matrix { width, .. } => {
-                    self.scalar_required_features(ScalarKind::Float, width)
-                }
+                TypeInner::Scalar(scalar)
+                | TypeInner::Vector { scalar, .. }
+                | TypeInner::Matrix { scalar, .. } => self.scalar_required_features(scalar),
                 TypeInner::Array { base, size, .. } => {
                     if let TypeInner::Array { .. } = self.module.types[base].inner {
                         self.features.request(Features::ARRAY_OF_ARRAYS)
@@ -463,8 +461,8 @@ impl<'a, W> Writer<'a, W> {
     }
 
     /// Helper method that checks the [`Features`] needed by a scalar
-    fn scalar_required_features(&mut self, kind: ScalarKind, width: Bytes) {
-        if kind == ScalarKind::Float && width == 8 {
+    fn scalar_required_features(&mut self, scalar: Scalar) {
+        if scalar.kind == ScalarKind::Float && scalar.width == 8 {
             self.features.request(Features::DOUBLE_TYPE);
         }
     }

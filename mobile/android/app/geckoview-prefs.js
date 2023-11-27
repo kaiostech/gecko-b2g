@@ -31,9 +31,6 @@ pref("app.update.timerMinimumDelay", 30); // seconds
 // Use a breakout angle of 45° (bug 1226655)
 pref("apz.axis_lock.breakout_angle", "0.7853982");
 
-// Use "strict" axis locking (bug 1226655)
-pref("apz.axis_lock.mode", 1);
-
 // APZ content response timeout (bug 1247280)
 pref("apz.content_response_timeout", 600);
 
@@ -271,9 +268,8 @@ pref("formhelper.autozoom", true);
 pref("geckoview.console.enabled", false);
 
 #ifdef NIGHTLY_BUILD
-  // Testing flag for geckoview shopping product. When true, sendAttributionEvent
-  // will return "TEST_AID_RESPONSE" for products with "TEST_AID" id.
-  pref("geckoview.shopping.test_response", false);
+  // Used for mocking data for GeckoView shopping tests, should use in addition with an automation check.
+  pref("geckoview.shopping.mock_test_response", false);
 #endif
 
 pref("image.cache.size", 1048576); // bytes

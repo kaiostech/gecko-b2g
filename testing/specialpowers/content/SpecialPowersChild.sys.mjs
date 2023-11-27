@@ -1115,7 +1115,7 @@ export class SpecialPowersChild extends JSWindowActorChild {
   }
 
   _getMUDV(window) {
-    return window.docShell.contentViewer;
+    return window.docShell.docViewer;
   }
   // XXX: these APIs really ought to be removed, they're not e10s-safe.
   // (also they're pretty Firefox-specific)
@@ -1676,11 +1676,11 @@ export class SpecialPowersChild extends JSWindowActorChild {
     this._xpcshellScope = val;
   }
 
-  async evictAllContentViewers() {
+  async evictAllDocumentViewers() {
     if (Services.appinfo.sessionHistoryInParent) {
-      await this.sendQuery("EvictAllContentViewers");
+      await this.sendQuery("EvictAllDocumentViewers");
     } else {
-      this.browsingContext.top.childSessionHistory.legacySHistory.evictAllContentViewers();
+      this.browsingContext.top.childSessionHistory.legacySHistory.evictAllDocumentViewers();
     }
   }
 
@@ -2192,11 +2192,11 @@ export class SpecialPowersChild extends JSWindowActorChild {
   }
 
   /**
-   * See \ref nsIContentViewerEdit.setCommandNode(in Node).
+   * See \ref nsIDocumentViewerEdit.setCommandNode(in Node).
    */
   setCommandNode(window, node) {
-    return window.docShell.contentViewer
-      .QueryInterface(Ci.nsIContentViewerEdit)
+    return window.docShell.docViewer
+      .QueryInterface(Ci.nsIDocumentViewerEdit)
       .setCommandNode(node);
   }
 

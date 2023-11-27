@@ -3963,7 +3963,7 @@
 
 - name: dom.select.showPicker.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.separate_event_queue_for_post_message.enabled
@@ -4051,7 +4051,7 @@
 
 - name: dom.workers.importScripts.enforceStrictMimeType
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Is support for modules (new Worker(..., {type: "module"})) enabled for workers?
@@ -4771,6 +4771,15 @@
   mirror: always
   rust: true
 
+# Whether to pass labels to the hardware abstraction layer. This is only useful when
+# inspecting a WebGPU workload in a GPU debugging tool like renderdoc. Enabling it
+# exposes poorly tested driver API surfaces so it should not be enabled by default.
+- name: dom.webgpu.hal-labels
+  type: bool
+  value: false
+  mirror: once
+  rust: true
+
 # Is support for HTMLInputElement.webkitEntries enabled?
 - name: dom.webkitBlink.filesystem.enabled
   type: bool
@@ -4797,6 +4806,11 @@
 - name: dom.webnotifications.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+- name: dom.webnotifications.privateBrowsing.enableDespiteLimitations
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 - name: dom.webnotifications.requireuserinteraction
@@ -8949,7 +8963,7 @@
 # Is support for -moz-prefixed transition properties enabled?
 - name: layout.css.prefixes.transitions
   type: bool
-  value: true
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
 # Is CSS error reporting enabled?
@@ -10381,11 +10395,6 @@
 -   name: media.wmf.dxva.max-videos
     type: RelaxedAtomicUint32
     value: 8
-    mirror: always
-
--   name: media.wmf.dxva.d3d9.amd-pre-uvd4.disabled
-    type: RelaxedAtomicBool
-    value: true
     mirror: always
 
 -   name: media.wmf.use-nv12-format
@@ -12297,12 +12306,6 @@
   value: 2
   mirror: always
 
-# If true, only use the token once
-- name: network.ssl_tokens_cache_use_only_once
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # The maximum allowed length for a URL - 1MB default.
 - name: network.standard-url.max-length
   type: RelaxedAtomicUint32
@@ -12843,6 +12846,14 @@
 # 0 => NewReno
 # 1 => Cubic
 - name: network.http.http3.cc_algorithm
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+  rust: true
+
+# It represents the maximum duration that we used to accumulate
+# callback timeouts before we set a timer and break out of the loop.
+- name: network.http.http3.max_accumlated_time_ms
   type: RelaxedAtomicUint32
   value: 1
   mirror: always
@@ -14764,6 +14775,12 @@
 - name: svg.use-element.recursive-clone-limit
   type: uint32_t
   value: 8
+  mirror: always
+
+# Whether <svg:use> with a data: URL as href is allowed
+- name: svg.use-element.data-url-href.allowed
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

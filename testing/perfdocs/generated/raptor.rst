@@ -4254,7 +4254,9 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 
    * **alert threshold**: 2.0
    * **apps**: firefox, chrome, chromium, safari, custom-car
+   * **browser cycles**: 1
    * **browsertime args**: --browsertime.speedometer_iterations=5
+   * **cold**: true
    * **custom data**: true
    * **expected**: pass
    * **expose browser profiler**: true
@@ -4266,7 +4268,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **page timeout**: 600000
    * **repository**: https://github.com/WebKit/Speedometer
    * **repository revision**: 36712deb57d45879f56dd2136f8a6ed8a22d964b
-   * **submetric summary method**: median
+   * **submetric summary method**: mean
    * **subtest lower is better**: true
    * **subtest name filters**: tests/,s3/
    * **subtest unit**: ms
@@ -4596,7 +4598,9 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 
    * **alert threshold**: 2.0
    * **apps**: fenix, geckoview, refbrow, chrome-m, cstm-car-m
+   * **browser cycles**: 1
    * **browsertime args**: --browsertime.speedometer_iterations=5
+   * **cold**: true
    * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 14000000
@@ -4607,7 +4611,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **page timeout**: 420000
    * **repository**: https://github.com/WebKit/Speedometer
    * **repository revision**: 36712deb57d45879f56dd2136f8a6ed8a22d964b
-   * **submetric summary method**: median
+   * **submetric summary method**: mean
    * **subtest lower is better**: true
    * **subtest name filters**: tests/,s3/
    * **subtest unit**: ms
@@ -11723,6 +11727,212 @@ Browsertime tests that use a custom pageload test script. These use the pageload
         - mozilla-release
         - mozilla-beta
       * - **browsertime-throttled-firefox-throttled**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+
+.. dropdown:: tp6-bench
+   :class-container: anchor-id-tp6-bench-c
+
+   **Owner**: PerfTest Team
+
+   * **alert threshold**: 2.0
+   * **apps**: firefox, chrome, chromium, safari
+   * **browser cycles**: 1
+   * **cold**: true
+   * **custom data**: true
+   * **expected**: pass
+   * **gecko profile entries**: 14000000
+   * **gecko profile interval**: 1
+   * **lower is better**: true
+   * **output timeout**: 2000000
+   * **page cycles**: 1
+   * **page timeout**: 1800000
+   * **playback**: mitmproxy
+   * **playback pageset manifest**: None
+   * **playback version**: 8.1.1
+   * **subtest unit**: ms
+   * **support class**: browsertime_tp6_bench.py
+   * **test script**: browsertime_tp6_bench.js
+   * **test summary**: flatten
+   * **test url**: `<None>`__
+   * **type**: pageload
+   * **unit**: ms
+   * **Test Task**:
+
+   .. list-table:: **test-linux1804-64-nightlyasrelease-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux1804-64-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-linux1804-64-shippable-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1015-64-nightlyasrelease-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1015-64-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-macosx1015-64-shippable-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows10-32-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows10-32-shippable-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows10-64-nightlyasrelease-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows10-64-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+
+
+   .. list-table:: **test-windows10-64-shippable-qr/opt**
+      :widths: 30 15 15 15 15
+      :header-rows: 1
+
+      * - **Test Name**
+        - mozilla-central
+        - autoland
+        - mozilla-release
+        - mozilla-beta
+      * - **browsertime-pageload-benchmark-firefox-tp6-bench**
         - ❌
         - ❌
         - ❌

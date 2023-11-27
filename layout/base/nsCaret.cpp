@@ -58,9 +58,12 @@ static nsIFrame* CheckForTrailingTextFrameRecursive(nsIFrame* aFrame,
                                                     nsIFrame* aStopAtFrame) {
   if (aFrame == aStopAtFrame ||
       ((aFrame->IsTextFrame() &&
-        (static_cast<nsTextFrame*>(aFrame))->IsAtEndOfLine())))
+        (static_cast<nsTextFrame*>(aFrame))->IsAtEndOfLine()))) {
     return aFrame;
-  if (!aFrame->IsFrameOfType(nsIFrame::eLineParticipant)) return nullptr;
+  }
+  if (!aFrame->IsLineParticipant()) {
+    return nullptr;
+  }
 
   for (nsIFrame* f : aFrame->PrincipalChildList()) {
     nsIFrame* r = CheckForTrailingTextFrameRecursive(f, aStopAtFrame);
@@ -70,7 +73,7 @@ static nsIFrame* CheckForTrailingTextFrameRecursive(nsIFrame* aFrame,
 }
 
 static nsLineBox* FindContainingLine(nsIFrame* aFrame) {
-  while (aFrame && aFrame->IsFrameOfType(nsIFrame::eLineParticipant)) {
+  while (aFrame && aFrame->IsLineParticipant()) {
     nsIFrame* parent = aFrame->GetParent();
     nsBlockFrame* blockParent = do_QueryFrame(parent);
     if (blockParent) {
@@ -780,7 +783,7 @@ nsIFrame* nsCaret::GetCaretFrameForNodeOffset(nsFrameSelection* aFrameSelection,
                 if (baseLevel != levelAfter) {
                   PeekOffsetStruct pos(eSelectBeginLine, eDirPrevious, 0,
                                        nsPoint(0, 0),
-                                       {PeekOffsetOption::ScrollViewStop,
+                                       {PeekOffsetOption::StopAtScroller,
                                         PeekOffsetOption::Visual});
                   if (NS_SUCCEEDED(frameAfter->PeekOffset(&pos))) {
                     theFrame = pos.mResultFrame;
@@ -812,7 +815,7 @@ nsIFrame* nsCaret::GetCaretFrameForNodeOffset(nsFrameSelection* aFrameSelection,
                 if (baseLevel != levelBefore) {
                   PeekOffsetStruct pos(eSelectEndLine, eDirNext, 0,
                                        nsPoint(0, 0),
-                                       {PeekOffsetOption::ScrollViewStop,
+                                       {PeekOffsetOption::StopAtScroller,
                                         PeekOffsetOption::Visual});
                   if (NS_SUCCEEDED(frameBefore->PeekOffset(&pos))) {
                     theFrame = pos.mResultFrame;

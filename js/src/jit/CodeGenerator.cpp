@@ -7313,7 +7313,7 @@ bool CodeGenerator::generateBody() {
     JitSpew(JitSpew_Codegen, "--------------------------------");
     JitSpew(JitSpew_Codegen, "# block%zu %s:%zu:%u%s:", i,
             filename ? filename : "?", lineNumber,
-            columnNumber.zeroOriginValue(),
+            columnNumber.oneOriginValue(),
             current->mir()->isLoopHeader() ? " (loop header)" : "");
 #endif
 
@@ -8220,7 +8220,8 @@ void CodeGenerator::visitCreateInlinedArgumentsObject(
 
     // Discard saved callObj, callee, and values array on the stack.
     masm.addToStackPtr(
-        Imm32(masm.PushRegsInMaskSizeInBytes(liveRegs) + argc * sizeof(Value)));
+        Imm32(MacroAssembler::PushRegsInMaskSizeInBytes(liveRegs) +
+              argc * sizeof(Value)));
     masm.jump(&done);
 
     masm.bind(&failure);
@@ -9011,7 +9012,8 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
   uint32_t framePushedAtStackMapBase =
       masm.framePushed() - callBase->stackArgAreaSizeUnaligned();
   lir->safepoint()->setFramePushedAtStackMapBase(framePushedAtStackMapBase);
-  MOZ_ASSERT(!lir->safepoint()->isWasmTrap());
+  MOZ_ASSERT(lir->safepoint()->wasmSafepointKind() ==
+             WasmSafepointKind::LirCall);
 
   // Note the assembler offset and framePushed for use by the adjunct
   // LSafePoint, see visitor for LWasmCallIndirectAdjunctSafepoint below.
@@ -13866,18 +13868,30 @@ void CodeGenerator::visitRest(LRest* lir) {
 
 // Create a stackmap from the given safepoint, with the structure:
 //
-//   <reg dump area, if trap>
+//   <reg dump, if any>
 //   |       ++ <body (general spill)>
-//   |               ++ <space for Frame>
-//   |                       ++ <inbound args>
-//   |                                       |
+//   |       |       ++ <space for Frame>
+//   |       |               ++ <inbound args>
+//   |       |                               |
 //   Lowest Addr                             Highest Addr
+//           |
+//           framePushedAtStackMapBase
 //
 // The caller owns the resulting stackmap.  This assumes a grow-down stack.
 //
 // For non-debug builds, if the stackmap would contain no pointers, no
 // stackmap is created, and nullptr is returned.  For a debug build, a
 // stackmap is always created and returned.
+//
+// Depending on the type of safepoint, the stackmap may need to account for
+// spilled registers. WasmSafepointKind::LirCall corresponds to LIR nodes where
+// isCall() == true, for which the register allocator will spill/restore all
+// live registers at the LIR level - in this case, the LSafepoint sees only live
+// values on the stack, never in registers. WasmSafepointKind::CodegenCall, on
+// the other hand, is for LIR nodes which may manually spill/restore live
+// registers in codegen, in which case the stackmap must account for this. Traps
+// also require tracking of live registers, but spilling is handled by the trap
+// mechanism.
 static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
                                          const RegisterOffsets& trapExitLayout,
                                          size_t trapExitLayoutNumWords,
@@ -13889,18 +13903,36 @@ static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
   // The size of the wasm::Frame itself.
   const size_t nFrameBytes = sizeof(wasm::Frame);
 
+  // This is the number of bytes spilled for live registers, outside of a trap.
+  // For traps, trapExitLayout and trapExitLayoutNumWords will be used.
+  const size_t nRegisterDumpBytes =
+      MacroAssembler::PushRegsInMaskSizeInBytes(safepoint.liveRegs());
+
+  // As mentioned above, for WasmSafepointKind::LirCall, register spills and
+  // restores are handled at the LIR level and there should therefore be no live
+  // registers to handle here.
+  MOZ_ASSERT_IF(safepoint.wasmSafepointKind() == WasmSafepointKind::LirCall,
+                nRegisterDumpBytes == 0);
+  MOZ_ASSERT(nRegisterDumpBytes % sizeof(void*) == 0);
+
   // This is the number of bytes in the general spill area, below the Frame.
   const size_t nBodyBytes = safepoint.framePushedAtStackMapBase();
 
   // This is the number of bytes in the general spill area, the Frame, and the
-  // incoming args, but not including any trap (register dump) area.
-  const size_t nNonTrapBytes = nBodyBytes + nFrameBytes + nInboundStackArgBytes;
-  MOZ_ASSERT(nNonTrapBytes % sizeof(void*) == 0);
+  // incoming args, but not including any register dump area.
+  const size_t nNonRegisterBytes =
+      nBodyBytes + nFrameBytes + nInboundStackArgBytes;
+  MOZ_ASSERT(nNonRegisterBytes % sizeof(void*) == 0);
+
+  // This is the number of bytes in the register dump area, if any, below the
+  // general spill area.
+  const size_t nRegisterBytes =
+      (safepoint.wasmSafepointKind() == WasmSafepointKind::Trap)
+          ? (trapExitLayoutNumWords * sizeof(void*))
+          : nRegisterDumpBytes;
 
   // This is the total number of bytes covered by the map.
-  const DebugOnly<size_t> nTotalBytes =
-      nNonTrapBytes +
-      (safepoint.isWasmTrap() ? (trapExitLayoutNumWords * sizeof(void*)) : 0);
+  const DebugOnly<size_t> nTotalBytes = nNonRegisterBytes + nRegisterBytes;
 
   // Create the stackmap initially in this vector.  Since most frames will
   // contain 128 or fewer words, heap allocation is avoided in the majority of
@@ -13914,41 +13946,62 @@ static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
   // REG DUMP AREA, if any.
   const LiveGeneralRegisterSet wasmAnyRefRegs = safepoint.wasmAnyRefRegs();
   GeneralRegisterForwardIterator wasmAnyRefRegsIter(wasmAnyRefRegs);
-  if (safepoint.isWasmTrap()) {
-    // Deal with roots in registers.  This can only happen for safepoints
-    // associated with a trap.  For safepoints associated with a call, we
-    // don't expect to have any live values in registers, hence no roots in
-    // registers.
-    if (!vec.appendN(false, trapExitLayoutNumWords)) {
-      return false;
-    }
-    for (; wasmAnyRefRegsIter.more(); ++wasmAnyRefRegsIter) {
-      Register reg = *wasmAnyRefRegsIter;
-      size_t offsetFromTop = trapExitLayout.getOffset(reg);
+  switch (safepoint.wasmSafepointKind()) {
+    case WasmSafepointKind::LirCall:
+    case WasmSafepointKind::CodegenCall: {
+      size_t spilledNumWords = nRegisterDumpBytes / sizeof(void*);
+      if (!vec.appendN(false, spilledNumWords)) {
+        return false;
+      }
 
-      // If this doesn't hold, the associated register wasn't saved by
-      // the trap exit stub.  Better to crash now than much later, in
-      // some obscure place, and possibly with security consequences.
-      MOZ_RELEASE_ASSERT(offsetFromTop < trapExitLayoutNumWords);
+      for (; wasmAnyRefRegsIter.more(); ++wasmAnyRefRegsIter) {
+        Register reg = *wasmAnyRefRegsIter;
+        size_t offsetFromSpillBase =
+            safepoint.liveRegs().gprs().offsetOfPushedRegister(reg) /
+            sizeof(void*);
+        MOZ_ASSERT(0 < offsetFromSpillBase &&
+                   offsetFromSpillBase <= spilledNumWords);
+        size_t offsetInVector = spilledNumWords - offsetFromSpillBase;
 
-      // offsetFromTop is an offset in words down from the highest
-      // address in the exit stub save area.  Switch it around to be an
-      // offset up from the bottom of the (integer register) save area.
-      size_t offsetFromBottom = trapExitLayoutNumWords - 1 - offsetFromTop;
+        vec[offsetInVector] = true;
+        hasRefs = true;
+      }
 
-      vec[offsetFromBottom] = true;
-      hasRefs = true;
-    }
-  } else {
-    // This map is associated with a call instruction.  We expect there to be
-    // no live ref-carrying registers, and if there are we're in deep trouble.
-    MOZ_RELEASE_ASSERT(!wasmAnyRefRegsIter.more());
+      // Float and vector registers do not have to be handled; they cannot
+      // contain wasm anyrefs, and they are spilled after general-purpose
+      // registers. Gprs are therefore closest to the spill base and thus their
+      // offset calculation does not need to account for other spills.
+    } break;
+    case WasmSafepointKind::Trap: {
+      if (!vec.appendN(false, trapExitLayoutNumWords)) {
+        return false;
+      }
+      for (; wasmAnyRefRegsIter.more(); ++wasmAnyRefRegsIter) {
+        Register reg = *wasmAnyRefRegsIter;
+        size_t offsetFromTop = trapExitLayout.getOffset(reg);
+
+        // If this doesn't hold, the associated register wasn't saved by
+        // the trap exit stub.  Better to crash now than much later, in
+        // some obscure place, and possibly with security consequences.
+        MOZ_RELEASE_ASSERT(offsetFromTop < trapExitLayoutNumWords);
+
+        // offsetFromTop is an offset in words down from the highest
+        // address in the exit stub save area.  Switch it around to be an
+        // offset up from the bottom of the (integer register) save area.
+        size_t offsetFromBottom = trapExitLayoutNumWords - 1 - offsetFromTop;
+
+        vec[offsetFromBottom] = true;
+        hasRefs = true;
+      }
+    } break;
+    default:
+      MOZ_CRASH("unreachable");
   }
 
   // BODY (GENERAL SPILL) AREA and FRAME and INCOMING ARGS
   // Deal with roots on the stack.
   size_t wordsSoFar = vec.length();
-  if (!vec.appendN(false, nNonTrapBytes / sizeof(void*))) {
+  if (!vec.appendN(false, nNonRegisterBytes / sizeof(void*))) {
     return false;
   }
   const LSafepoint::SlotList& wasmAnyRefSlots = safepoint.wasmAnyRefSlots();
@@ -13987,7 +14040,7 @@ static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
   if (!stackMap) {
     return false;
   }
-  if (safepoint.isWasmTrap()) {
+  if (safepoint.wasmSafepointKind() == WasmSafepointKind::Trap) {
     stackMap->setExitStubWords(trapExitLayoutNumWords);
   }
 
@@ -14118,7 +14171,7 @@ bool CodeGenerator::generate() {
   JitSpew(JitSpew_Codegen, "# Emitting code for script %s:%u:%u",
           gen->outerInfo().script()->filename(),
           gen->outerInfo().script()->lineno(),
-          gen->outerInfo().script()->column().zeroOriginValue());
+          gen->outerInfo().script()->column().oneOriginValue());
 
   // Initialize native code table with an entry to the start of
   // top-level script.
@@ -17416,7 +17469,7 @@ void CodeGenerator::visitOutOfLineResumableWasmTrap(
   // That will be taken into account when the StackMap is created from the
   // LSafepoint.
   lir->safepoint()->setFramePushedAtStackMapBase(ool->framePushed());
-  lir->safepoint()->setIsWasmTrap();
+  lir->safepoint()->setWasmSafepointKind(WasmSafepointKind::Trap);
 
   masm.jump(ool->rejoin());
 }
@@ -17552,6 +17605,96 @@ void CodeGenerator::visitWasmRefIsSubtypeOfConcreteAndBranch(
   BranchWasmRefIsSubtype(masm, ref, ins->sourceType(), ins->destType(),
                          onSuccess, superSTV, scratch1, scratch2);
   masm.jump(onFail);
+}
+
+void CodeGenerator::callWasmStructAllocFun(LInstruction* lir,
+                                           wasm::SymbolicAddress fun,
+                                           Register typeDefData,
+                                           Register output) {
+  masm.Push(InstanceReg);
+  int32_t framePushedAfterInstance = masm.framePushed();
+  saveLive(lir);
+
+  masm.setupWasmABICall();
+  masm.passABIArg(InstanceReg);
+  masm.passABIArg(typeDefData);
+  int32_t instanceOffset = masm.framePushed() - framePushedAfterInstance;
+  CodeOffset offset =
+      masm.callWithABI(wasm::BytecodeOffset(0), fun,
+                       mozilla::Some(instanceOffset), MoveOp::GENERAL);
+  masm.storeCallPointerResult(output);
+
+  markSafepointAt(offset.offset(), lir);
+  lir->safepoint()->setFramePushedAtStackMapBase(framePushedAfterInstance);
+  lir->safepoint()->setWasmSafepointKind(WasmSafepointKind::CodegenCall);
+
+  restoreLive(lir);
+  masm.Pop(InstanceReg);
+#if JS_CODEGEN_ARM64
+  masm.syncStackPtr();
+#endif
+}
+
+// Out-of-line path to allocate wasm GC structs
+class OutOfLineWasmNewStruct : public OutOfLineCodeBase<CodeGenerator> {
+  LInstruction* lir_;
+  wasm::SymbolicAddress fun_;
+  Register typeDefData_;
+  Register output_;
+
+ public:
+  OutOfLineWasmNewStruct(LInstruction* lir, wasm::SymbolicAddress fun,
+                         Register typeDefData, Register output)
+      : lir_(lir), fun_(fun), typeDefData_(typeDefData), output_(output) {}
+
+  void accept(CodeGenerator* codegen) override {
+    codegen->visitOutOfLineWasmNewStruct(this);
+  }
+
+  LInstruction* lir() const { return lir_; }
+  wasm::SymbolicAddress fun() const { return fun_; }
+  Register typeDefData() const { return typeDefData_; }
+  Register output() const { return output_; }
+};
+
+void CodeGenerator::visitOutOfLineWasmNewStruct(OutOfLineWasmNewStruct* ool) {
+  callWasmStructAllocFun(ool->lir(), ool->fun(), ool->typeDefData(),
+                         ool->output());
+  masm.jump(ool->rejoin());
+}
+
+void CodeGenerator::visitWasmNewStructObject(LWasmNewStructObject* lir) {
+  MOZ_ASSERT(gen->compilingWasm());
+
+  MWasmNewStructObject* mir = lir->mir();
+
+  Register typeDefData = ToRegister(lir->typeDefData());
+  Register output = ToRegister(lir->output());
+
+  if (mir->isOutline()) {
+    wasm::SymbolicAddress fun = mir->zeroFields()
+                                    ? wasm::SymbolicAddress::StructNewOOL_true
+                                    : wasm::SymbolicAddress::StructNewOOL_false;
+    callWasmStructAllocFun(lir, fun, typeDefData, output);
+  } else {
+    wasm::SymbolicAddress fun = mir->zeroFields()
+                                    ? wasm::SymbolicAddress::StructNewIL_true
+                                    : wasm::SymbolicAddress::StructNewIL_false;
+
+    Register instance = ToRegister(lir->instance());
+    MOZ_ASSERT(instance == InstanceReg);
+
+    auto ool =
+        new (alloc()) OutOfLineWasmNewStruct(lir, fun, typeDefData, output);
+    addOutOfLineCode(ool, lir->mir());
+
+    Register temp1 = ToRegister(lir->temp0());
+    Register temp2 = ToRegister(lir->temp1());
+    masm.wasmNewStructObject(instance, output, typeDefData, temp1, temp2,
+                             ool->entry(), mir->allocKind(), mir->zeroFields());
+
+    masm.bind(ool->rejoin());
+  }
 }
 
 void CodeGenerator::visitWasmHeapReg(LWasmHeapReg* ins) {

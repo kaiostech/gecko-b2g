@@ -682,7 +682,7 @@ class nsCSSFrameConstructor final : public nsFrameManager {
      inline box. */
 #define FCDATA_IS_INLINE 0x1000
   /* If FCDATA_IS_LINE_PARTICIPANT is set, the frame is something that will
-     return true for IsFrameOfType(nsIFrame::eLineParticipant) */
+     return true for IsLineParticipant() */
 #define FCDATA_IS_LINE_PARTICIPANT 0x2000
   /* If FCDATA_IS_LINE_BREAK is set, the frame is something that will
      induce a line break boundary before and after itself. */
@@ -1247,7 +1247,7 @@ class nsCSSFrameConstructor final : public nsFrameManager {
    * the frame.
    *
    * Note that this does not add PageValuesProperty to the frame when not in a
-   * paginated context, or if layout.css.named-pages.enabled is set to false.
+   * paginated context.
    */
   class MOZ_RAII AutoFrameConstructionPageName final {
     nsFrameConstructorState& mState;

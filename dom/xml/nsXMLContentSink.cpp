@@ -22,7 +22,7 @@
 #include "nsIScriptContext.h"
 #include "nsNameSpaceManager.h"
 #include "nsIScriptSecurityManager.h"
-#include "nsIContentViewer.h"
+#include "nsIDocumentViewer.h"
 #include "prtime.h"
 #include "mozilla/Logging.h"
 #include "nsRect.h"
@@ -53,6 +53,7 @@
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/LoadInfo.h"
 #include "mozilla/UseCounter.h"
+#include "js/ColumnNumber.h"  // JS::ColumnNumberOneOrigin
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -327,12 +328,12 @@ nsresult nsXMLContentSink::OnDocumentCreated(Document* aSourceDocument,
                                              Document* aResultDocument) {
   aResultDocument->SetDocWriteDisabled(true);
 
-  nsCOMPtr<nsIContentViewer> contentViewer;
-  mDocShell->GetContentViewer(getter_AddRefs(contentViewer));
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  mDocShell->GetDocViewer(getter_AddRefs(viewer));
   // Make sure that we haven't loaded a new document into the contentviewer
   // after starting the XSLT transform.
-  if (contentViewer && contentViewer->GetDocument() == aSourceDocument) {
-    return contentViewer->SetDocumentInternal(aResultDocument, true);
+  if (viewer && viewer->GetDocument() == aSourceDocument) {
+    return viewer->SetDocumentInternal(aResultDocument, true);
   }
   return NS_OK;
 }
@@ -345,21 +346,21 @@ nsresult nsXMLContentSink::OnTransformDone(Document* aSourceDocument,
 
   mDocumentChildren.Clear();
 
-  nsCOMPtr<nsIContentViewer> contentViewer;
-  mDocShell->GetContentViewer(getter_AddRefs(contentViewer));
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  mDocShell->GetDocViewer(getter_AddRefs(viewer));
 
   RefPtr<Document> originalDocument = mDocument;
   bool blockingOnload = mIsBlockingOnload;
 
   // Make sure that we haven't loaded a new document into the contentviewer
   // after starting the XSLT transform.
-  if (contentViewer && (contentViewer->GetDocument() == aSourceDocument ||
-                        contentViewer->GetDocument() == aResultDocument)) {
+  if (viewer && (viewer->GetDocument() == aSourceDocument ||
+                 viewer->GetDocument() == aResultDocument)) {
     if (NS_FAILED(aResult)) {
       // Transform failed.
       aResultDocument->SetMayStartLayout(false);
       // We have an error document.
-      contentViewer->SetDocument(aResultDocument);
+      viewer->SetDocument(aResultDocument);
     }
 
     if (!mRunsToCompletion) {
@@ -487,7 +488,8 @@ nsresult nsXMLContentSink::CreateElement(
       aNodeInfo->Equals(nsGkAtoms::script, kNameSpaceID_SVG)) {
     if (nsCOMPtr<nsIScriptElement> sele = do_QueryInterface(element)) {
       sele->SetScriptLineNumber(aLineNumber);
-      sele->SetScriptColumnNumber(aColumnNumber);
+      sele->SetScriptColumnNumber(
+          JS::ColumnNumberOneOrigin::fromZeroOrigin(aColumnNumber));
       sele->SetCreatorParser(GetParser());
     } else {
       MOZ_ASSERT(nsNameSpaceManager::GetInstance()->mSVGDisabled,
@@ -519,7 +521,7 @@ nsresult nsXMLContentSink::CreateElement(
     }
     if (!aNodeInfo->Equals(nsGkAtoms::link, kNameSpaceID_XHTML)) {
       linkStyle->SetLineNumber(aFromParser ? aLineNumber : 0);
-      linkStyle->SetColumnNumber(aFromParser ? aColumnNumber : 0);
+      linkStyle->SetColumnNumber(aFromParser ? aColumnNumber + 1 : 1);
     }
   }
 
@@ -645,7 +647,8 @@ nsresult nsXMLContentSink::LoadXSLStyleSheet(nsIURI* aUrl) {
 nsresult nsXMLContentSink::ProcessStyleLinkFromHeader(
     const nsAString& aHref, bool aAlternate, const nsAString& aTitle,
     const nsAString& aIntegrity, const nsAString& aType,
-    const nsAString& aMedia, const nsAString& aReferrerPolicy) {
+    const nsAString& aMedia, const nsAString& aReferrerPolicy,
+    const nsAString& aFetchPriority) {
   mPrettyPrintXML = false;
 
   nsAutoCString cmd;
@@ -664,7 +667,8 @@ nsresult nsXMLContentSink::ProcessStyleLinkFromHeader(
 
   // Otherwise fall through to nsContentSink to handle CSS Link headers.
   return nsContentSink::ProcessStyleLinkFromHeader(
-      aHref, aAlternate, aTitle, aIntegrity, aType, aMedia, aReferrerPolicy);
+      aHref, aAlternate, aTitle, aIntegrity, aType, aMedia, aReferrerPolicy,
+      aFetchPriority);
 }
 
 nsresult nsXMLContentSink::MaybeProcessXSLTLink(
@@ -1322,7 +1326,7 @@ nsXMLContentSink::ReportError(const char16_t* aErrorText,
   parsererror.Append((char16_t)0xFFFF);
   parsererror.AppendLiteral("parsererror");
 
-  rv = HandleStartElement(parsererror.get(), noAtts, 0, (uint32_t)-1, false);
+  rv = HandleStartElement(parsererror.get(), noAtts, 0, (uint32_t)-1, 0);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = HandleCharacterData(aErrorText, NS_strlen(aErrorText), false);
@@ -1332,7 +1336,7 @@ nsXMLContentSink::ReportError(const char16_t* aErrorText,
   sourcetext.Append((char16_t)0xFFFF);
   sourcetext.AppendLiteral("sourcetext");
 
-  rv = HandleStartElement(sourcetext.get(), noAtts, 0, (uint32_t)-1, false);
+  rv = HandleStartElement(sourcetext.get(), noAtts, 0, (uint32_t)-1, 0);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = HandleCharacterData(aSourceText, NS_strlen(aSourceText), false);

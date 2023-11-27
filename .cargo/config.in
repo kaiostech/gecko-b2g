@@ -25,9 +25,9 @@ git = "https://github.com/franziskuskiefer/cose-rust"
 rev = "43c22248d136c8b38fe42ea709d08da6355cf04b"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/gfx-rs/wgpu?rev=ba3d6898f18c25bb5a2b8ba18790134b97758e83"]
+[source."git+https://github.com/gfx-rs/wgpu?rev=a820a3ffba468cbb87c2a7e7bbe37065ed5207ee"]
 git = "https://github.com/gfx-rs/wgpu"
-rev = "ba3d6898f18c25bb5a2b8ba18790134b97758e83"
+rev = "a820a3ffba468cbb87c2a7e7bbe37065ed5207ee"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/glandium/warp?rev=4af45fae95bc98b0eba1ef0db17e1dac471bb23d"]
@@ -65,9 +65,9 @@ git = "https://github.com/mozilla/audioipc"
 rev = "6be424d75f1367e70f2f5ddcacd6d0237e81a6a9"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=93b5c01a131f65c83c11aeb317f4583405c5eb79"]
+[source."git+https://github.com/mozilla/cubeb-coreaudio-rs?rev=964e14628f285ad44522bdeeb566c1864ecd2fd8"]
 git = "https://github.com/mozilla/cubeb-coreaudio-rs"
-rev = "93b5c01a131f65c83c11aeb317f4583405c5eb79"
+rev = "964e14628f285ad44522bdeeb566c1864ecd2fd8"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/cubeb-pulse-rs?rev=cf48897be5cbe147d051ebbbe1eaf5fd8fb6bbc9"]
@@ -85,9 +85,9 @@ git = "https://github.com/mozilla/mp4parse-rust"
 rev = "d262e40e7b80f949dcdb4db21caa6dbf1a8b2043"
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/mozilla/neqo?tag=v0.6.6"]
+[source."git+https://github.com/mozilla/neqo?tag=v0.6.8"]
 git = "https://github.com/mozilla/neqo"
-tag = "v0.6.6"
+tag = "v0.6.8"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/mozilla/uniffi-rs.git?rev=c0e64b839018728d8153ce1758d391b7782e2e21"]

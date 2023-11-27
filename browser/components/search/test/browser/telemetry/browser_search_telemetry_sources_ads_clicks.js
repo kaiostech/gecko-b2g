@@ -63,6 +63,7 @@ async function track_ad_click(testOrganic) {
     gBrowser,
     getSERPUrl("searchTelemetryAd.html", testOrganic)
   );
+  await waitForPageWithAdImpressions();
 
   await assertSearchSourcesTelemetry(
     {},
@@ -74,7 +75,7 @@ async function track_ad_click(testOrganic) {
     }
   );
 
-  assertImpressionEvents([
+  assertSERPTelemetry([
     {
       impression: {
         provider: "example",
@@ -85,9 +86,16 @@ async function track_ad_click(testOrganic) {
         is_private: "false",
         shopping_tab_displayed: "false",
       },
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
+        },
+      ],
     },
   ]);
-  await promiseAdImpressionReceived(1);
 
   let pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
   BrowserTestUtils.synthesizeMouseAtCenter("#ad1", {}, tab.linkedBrowser);
@@ -103,7 +111,7 @@ async function track_ad_click(testOrganic) {
     }
   );
 
-  assertImpressionEvents([
+  assertSERPTelemetry([
     {
       impression: {
         provider: "example",
@@ -120,6 +128,14 @@ async function track_ad_click(testOrganic) {
           target: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         },
       ],
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
+        },
+      ],
     },
   ]);
 
@@ -127,7 +143,7 @@ async function track_ad_click(testOrganic) {
   pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
   gBrowser.goBack();
   await pageLoadPromise;
-  await promiseWaitForAdLinkCheck();
+  await waitForPageWithAdImpressions();
 
   // We've gone back, so we register an extra display & if it is with ads or not.
   await assertSearchSourcesTelemetry(
@@ -141,7 +157,7 @@ async function track_ad_click(testOrganic) {
     }
   );
 
-  assertImpressionEvents([
+  assertSERPTelemetry([
     {
       impression: {
         provider: "example",
@@ -158,6 +174,14 @@ async function track_ad_click(testOrganic) {
           target: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
         },
       ],
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
+        },
+      ],
     },
     {
       impression: {
@@ -169,9 +193,16 @@ async function track_ad_click(testOrganic) {
         is_private: "false",
         shopping_tab_displayed: "false",
       },
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
+        },
+      ],
     },
   ]);
-  await promiseAdImpressionReceived(2);
 
   pageLoadPromise = BrowserTestUtils.waitForLocationChange(gBrowser);
   BrowserTestUtils.synthesizeMouseAtCenter("#ad1", {}, tab.linkedBrowser);
@@ -190,7 +221,7 @@ async function track_ad_click(testOrganic) {
     }
   );
 
-  assertImpressionEvents([
+  assertSERPTelemetry([
     {
       impression: {
         provider: "example",
@@ -205,6 +236,14 @@ async function track_ad_click(testOrganic) {
         {
           action: SearchSERPTelemetryUtils.ACTIONS.CLICKED,
           target: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+        },
+      ],
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
         },
       ],
     },
@@ -222,6 +261,14 @@ async function track_ad_click(testOrganic) {
         {
           action: SearchSERPTelemetryUtils.ACTIONS.CLICKED,
           target: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+        },
+      ],
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
         },
       ],
     },
@@ -241,7 +288,9 @@ add_task(async function test_track_ad_click_organic() {
 add_task(async function test_track_ad_click_with_location_change_other_tab() {
   resetTelemetry();
   const url = getSERPUrl("searchTelemetryAd.html");
+  let adImpressionPromise = waitForPageWithAdImpressions();
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  await waitForPageWithAdImpressions();
 
   await assertSearchSourcesTelemetry(
     {},
@@ -251,7 +300,7 @@ add_task(async function test_track_ad_click_with_location_change_other_tab() {
     }
   );
 
-  assertImpressionEvents([
+  assertSERPTelemetry([
     {
       impression: {
         provider: "example",
@@ -262,9 +311,17 @@ add_task(async function test_track_ad_click_with_location_change_other_tab() {
         is_private: "false",
         shopping_tab_displayed: "false",
       },
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
+        },
+      ],
     },
   ]);
-  await promiseAdImpressionReceived();
+  await adImpressionPromise;
 
   const newTab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
@@ -286,7 +343,7 @@ add_task(async function test_track_ad_click_with_location_change_other_tab() {
     }
   );
 
-  assertImpressionEvents([
+  assertSERPTelemetry([
     {
       impression: {
         provider: "example",
@@ -301,6 +358,14 @@ add_task(async function test_track_ad_click_with_location_change_other_tab() {
         {
           action: SearchSERPTelemetryUtils.ACTIONS.CLICKED,
           target: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+        },
+      ],
+      adImpressions: [
+        {
+          component: SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
+          ads_loaded: "2",
+          ads_visible: "2",
+          ads_hidden: "0",
         },
       ],
     },

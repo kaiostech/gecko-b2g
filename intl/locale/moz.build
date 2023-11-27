@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-XPCSHELL_TESTS_MANIFESTS += ["tests/unit/xpcshell.ini"]
+XPCSHELL_TESTS_MANIFESTS += ["tests/unit/xpcshell.toml"]
 
 TESTING_JS_MODULES += [
     "tests/LangPackMatcherTestUtils.sys.mjs",
@@ -86,10 +86,14 @@ if CONFIG["COMPILE_ENVIRONMENT"]:
         inputs=["/intl/locale/rust/fluent-langneg-ffi"],
     )
     CbindgenHeader(
+        "oxilangtag_ffi_generated.h", inputs=["/intl/locale/rust/oxilangtag-ffi"]
+    )
+    CbindgenHeader(
         "unic_langid_ffi_generated.h", inputs=["/intl/locale/rust/unic-langid-ffi"]
     )
 
     EXPORTS.mozilla.intl += [
         "!fluent_langneg_ffi_generated.h",
+        "!oxilangtag_ffi_generated.h",
         "!unic_langid_ffi_generated.h",
     ]

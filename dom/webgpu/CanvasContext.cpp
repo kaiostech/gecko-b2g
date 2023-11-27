@@ -100,6 +100,8 @@ void CanvasContext::GetCanvas(
 void CanvasContext::Configure(const dom::GPUCanvasConfiguration& aConfig) {
   Unconfigure();
 
+  // Bug 1864904: Failures in validation should throw a TypeError, per spec.
+
   // these formats are guaranteed by the spec
   switch (aConfig.mFormat) {
     case dom::GPUTextureFormat::Rgba8unorm:
@@ -137,7 +139,7 @@ void CanvasContext::Configure(const dom::GPUCanvasConfiguration& aConfig) {
 
 void CanvasContext::Unconfigure() {
   if (mBridge && mBridge->IsOpen() && mRemoteTextureOwnerId.isSome()) {
-    mBridge->SendSwapChainDestroy(*mRemoteTextureOwnerId);
+    mBridge->SendSwapChainDrop(*mRemoteTextureOwnerId);
   }
   mRemoteTextureOwnerId = Nothing();
   mBridge = nullptr;
@@ -201,7 +203,7 @@ void CanvasContext::SwapChainPresent() {
   mBridge->SwapChainPresent(mTexture->mId, *mLastRemoteTextureId,
                             *mRemoteTextureOwnerId);
   if (mUseExternalTextureInSwapChain) {
-    mTexture->ForceDestroy();
+    mTexture->Destroy();
     mNewTextureRequested = true;
   }
 }

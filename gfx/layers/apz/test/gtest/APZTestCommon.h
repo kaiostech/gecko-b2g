@@ -389,6 +389,11 @@ class TestAsyncPanZoomController : public AsyncPanZoomController {
     EXPECT_EQ(PAN_MOMENTUM, mState);
   }
 
+  void AssertStateIsWheelScroll() {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    EXPECT_EQ(WHEEL_SCROLL, mState);
+  }
+
   void SetAxisLocked(ScrollDirections aDirections, bool aLockValue) {
     if (aDirections.contains(ScrollDirection::eVertical)) {
       mY.SetAxisLocked(aLockValue);
@@ -449,6 +454,10 @@ class TestAsyncPanZoomController : public AsyncPanZoomController {
 
   bool IsOverscrollAnimationRunning() const {
     return mState == PanZoomState::OVERSCROLL_ANIMATION;
+  }
+
+  bool IsWheelScrollAnimationRunning() const {
+    return mState == PanZoomState::WHEEL_SCROLL;
   }
 
  private:

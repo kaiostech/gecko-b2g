@@ -243,10 +243,12 @@ export class CookieBannerParent extends JSWindowActorParent {
         target = rule.optIn;
       }
       return {
+        id: rule.id,
         hide: rule.hide ?? rule.presence,
         presence: rule.presence,
         skipPresenceVisibilityCheck: rule.skipPresenceVisibilityCheck,
         target,
+        isGlobalRule: rule.isGlobalRule,
       };
     });
 

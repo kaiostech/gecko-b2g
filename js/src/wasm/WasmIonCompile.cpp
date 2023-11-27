@@ -3852,6 +3852,31 @@ class FunctionCompiler {
 
   /********************************************** WasmGC: struct helpers ***/
 
+  [[nodiscard]] MDefinition* createStructObject(uint32_t typeIndex,
+                                                bool zeroFields) {
+    const TypeDef& typeDef = (*moduleEnv().types)[typeIndex];
+    gc::AllocKind allocKind = WasmStructObject::allocKindForTypeDef(&typeDef);
+    bool isOutline =
+        WasmStructObject::requiresOutlineBytes(typeDef.structType().size_);
+
+    // Allocate an uninitialized struct.  This requires the type definition
+    // for the struct.
+    MDefinition* typeDefData = loadTypeDefInstanceData(typeIndex);
+    if (!typeDefData) {
+      return nullptr;
+    }
+
+    auto* structObject =
+        MWasmNewStructObject::New(alloc(), instancePointer_, typeDefData,
+                                  isOutline, zeroFields, allocKind);
+    if (!structObject) {
+      return nullptr;
+    }
+    curBlock_->add(structObject);
+
+    return structObject;
+  }
+
   // Helper function for EmitStruct{New,Set}: given a MIR pointer to a
   // WasmStructObject, a MIR pointer to a value, and a field descriptor,
   // generate MIR to write the value to the relevant field in the object.
@@ -6977,27 +7002,12 @@ static bool EmitStructNew(FunctionCompiler& f) {
     return true;
   }
 
-  const StructType& structType = (*f.moduleEnv().types)[typeIndex].structType();
+  const TypeDef& typeDef = (*f.moduleEnv().types)[typeIndex];
+  const StructType& structType = typeDef.structType();
   MOZ_ASSERT(args.length() == structType.fields_.length());
 
-  // Allocate an uninitialized struct.  This requires the type definition
-  // for the struct.
-  MDefinition* typeDefData = f.loadTypeDefInstanceData(typeIndex);
-  if (!typeDefData) {
-    return false;
-  }
-
-  // Figure out whether we need an OOL storage area, and hence which routine
-  // to call.
-  SymbolicAddressSignature calleeSASig =
-      WasmStructObject::requiresOutlineBytes(structType.size_)
-          ? SASigStructNewOOL_false
-          : SASigStructNewIL_false;
-
-  // Create call: structObject = Instance::structNew{IL,OOL}<false>(typeDefData)
-  MDefinition* structObject;
-  if (!f.emitInstanceCall1(lineOrBytecode, calleeSASig, typeDefData,
-                           &structObject)) {
+  MDefinition* structObject = f.createStructObject(typeIndex, false);
+  if (!structObject) {
     return false;
   }
 
@@ -7646,8 +7656,8 @@ static bool EmitBrOnCast(FunctionCompiler& f, bool onSuccess) {
                           labelType, values);
 }
 
-static bool EmitExternInternalize(FunctionCompiler& f) {
-  // extern.internalize is a no-op because anyref and extern share the same
+static bool EmitAnyConvertExtern(FunctionCompiler& f) {
+  // any.convert_extern is a no-op because anyref and extern share the same
   // representation
   MDefinition* ref;
   if (!f.iter().readRefConversion(RefType::extern_(), RefType::any(), &ref)) {
@@ -7658,8 +7668,8 @@ static bool EmitExternInternalize(FunctionCompiler& f) {
   return true;
 }
 
-static bool EmitExternExternalize(FunctionCompiler& f) {
-  // extern.externalize is a no-op because anyref and extern share the same
+static bool EmitExternConvertAny(FunctionCompiler& f) {
+  // extern.convert_any is a no-op because anyref and extern share the same
   // representation
   MDefinition* ref;
   if (!f.iter().readRefConversion(RefType::any(), RefType::extern_(), &ref)) {
@@ -8322,10 +8332,10 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
             CHECK(EmitRefCast(f, /*nullable=*/false));
           case uint32_t(GcOp::RefCastNull):
             CHECK(EmitRefCast(f, /*nullable=*/true));
-          case uint16_t(GcOp::ExternInternalize):
-            CHECK(EmitExternInternalize(f));
-          case uint16_t(GcOp::ExternExternalize):
-            CHECK(EmitExternExternalize(f));
+          case uint16_t(GcOp::AnyConvertExtern):
+            CHECK(EmitAnyConvertExtern(f));
+          case uint16_t(GcOp::ExternConvertAny):
+            CHECK(EmitExternConvertAny(f));
           default:
             return f.iter().unrecognizedOpcode(&op);
         }  // switch (op.b1)

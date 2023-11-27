@@ -155,7 +155,7 @@ using mozilla::glean::perf::PageLoadExtra from "mozilla/glean/GleanMetrics.h";
 using mozilla::dom::MaybeDiscardedBrowsingContext from "mozilla/dom/BrowsingContext.h";
 using mozilla::dom::BrowsingContextTransaction from "mozilla/dom/BrowsingContext.h";
 using mozilla::dom::BrowsingContextInitializer from "mozilla/dom/BrowsingContext.h";
-using mozilla::dom::PermitUnloadResult from "nsIContentViewer.h";
+using mozilla::dom::PermitUnloadResult from "nsIDocumentViewer.h";
 using mozilla::dom::MaybeDiscardedWindowContext from "mozilla/dom/WindowContext.h";
 using mozilla::dom::WindowContextTransaction from "mozilla/dom/WindowContext.h";
 [MoveOnly] using base::SharedMemoryHandle from "base/shared_memory.h";
@@ -503,6 +503,10 @@ struct JSWindowActorInfo
   // False if `url` is for JSM or nothing.
   bool isESModule;
 
+  // This is to align with JSProcessActorInfo.
+  // This attribute isn't used for JSWindow Actors.
+  bool loadInDevToolsLoader;
+
   // The module of the url.
   nsCString? url;
 
@@ -523,6 +527,9 @@ struct JSProcessActorInfo
     // True if `url` is for ESM.
     // False if `url` is for JSM or nothing.
     bool isESModule;
+
+    // True if the actor should be loaded in the distinct loader dedicated to DevTools.
+    bool loadInDevToolsLoader;
 
     // The module of the url.
     nsCString? url;

@@ -47,6 +47,7 @@
 #include "nsILoadInfo.h"
 #include "nsRFPService.h"
 #include "nsTObserverArray.h"
+#include "stdint.h"
 
 class nsIThreadInternal;
 
@@ -63,7 +64,11 @@ class RemoteWorkerChild;
 // If you change this, the corresponding list in nsIWorkerDebugger.idl needs
 // to be updated too. And histograms enum for worker use counters uses the same
 // order of worker kind. Please also update dom/base/usecounters.py.
-enum WorkerKind { WorkerKindDedicated, WorkerKindShared, WorkerKindService };
+enum WorkerKind : uint8_t {
+  WorkerKindDedicated,
+  WorkerKindShared,
+  WorkerKindService
+};
 
 class ClientInfo;
 class ClientSource;
@@ -1050,6 +1055,8 @@ class WorkerPrivate final
   nsresult DispatchDebuggerRunnable(
       already_AddRefed<WorkerRunnable> aDebuggerRunnable);
 
+  bool IsOnParentThread() const;
+
 #ifdef DEBUG
   void AssertIsOnParentThread() const;
 
@@ -1610,6 +1617,9 @@ class WorkerPrivate final
   bool mShutdownTasksRun MOZ_GUARDED_BY(mMutex) = false;
 
   bool mCCFlagSaysEligible MOZ_GUARDED_BY(mMutex){true};
+
+  // The flag indicates if the worke is idle for events in the main event loop.
+  bool mWorkerLoopIsIdle MOZ_GUARDED_BY(mMutex){false};
 };
 
 class AutoSyncLoopHolder {

@@ -50,8 +50,8 @@ function testCopyImage () {
 
   // Set node and copy image.
   var docShell = SpecialPowers.wrap(window).docShell;
-  var documentViewer = docShell.contentViewer
-                               .QueryInterface(Ci.nsIContentViewerEdit);
+  var documentViewer = docShell.docViewer
+                               .QueryInterface(Ci.nsIDocumentViewerEdit);
   documentViewer.setCommandNode(node);
   documentViewer.copyImage(documentViewer.COPY_IMAGE_ALL);
 

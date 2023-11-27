@@ -881,8 +881,7 @@ bool nsComputedDOMStyle::NeedsToFlushStyle(nsCSSPropertyID aPropID) const {
 static bool IsNonReplacedInline(nsIFrame* aFrame) {
   // FIXME: this should be IsInlineInsideStyle() since width/height
   // doesn't apply to ruby boxes.
-  return aFrame->StyleDisplay()->IsInlineFlow() &&
-         !aFrame->IsFrameOfType(nsIFrame::eReplaced) &&
+  return aFrame->StyleDisplay()->IsInlineFlow() && !aFrame->IsReplaced() &&
          !aFrame->IsFieldSetFrame() && !aFrame->IsBlockFrame() &&
          !aFrame->IsScrollFrame() && !aFrame->IsColumnSetWrapperFrame();
 }
@@ -1000,10 +999,12 @@ void nsComputedDOMStyle::Flush(Document& aDocument, FlushType aFlushType) {
   }
 #endif
 
-  aDocument.FlushPendingNotifications(aFlushType);
   if (MOZ_UNLIKELY(&aDocument != mElement->OwnerDoc())) {
-    mElement->OwnerDoc()->FlushPendingNotifications(aFlushType);
+    aDocument.FlushPendingNotifications(aFlushType);
   }
+  // This performs the flush, and also guarantees that content-visibility:
+  // hidden elements get laid out, if needed.
+  mElement->GetPrimaryFrame(aFlushType);
 }
 
 nsIFrame* nsComputedDOMStyle::GetOuterFrame() const {

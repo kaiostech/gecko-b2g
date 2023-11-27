@@ -60,7 +60,6 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(SVGUseElement)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(SVGUseElement,
                                                 SVGUseElementBase)
-  nsAutoScriptBlocker scriptBlocker;
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mOriginal)
   tmp->UnlinkSource();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -118,7 +117,6 @@ void SVGUseElement::ProcessAttributeChange(int32_t aNamespaceID,
     if (auto* frame = GetFrame()) {
       frame->HrefChanged();
     }
-    mOriginal = nullptr;
     UnlinkSource();
     TriggerReclone();
   }
@@ -545,16 +543,30 @@ void SVGUseElement::LookupHref() {
     return;
   }
 
-  nsCOMPtr<nsIURI> originURI =
-      mOriginal ? mOriginal->GetBaseURI() : GetBaseURI();
-  nsCOMPtr<nsIURI> baseURI =
-      nsContentUtils::IsLocalRefURL(href)
-          ? SVGObserverUtils::GetBaseURLForLocalRef(this, originURI)
-          : originURI;
+  if (nsContentUtils::IsLocalRefURL(href)) {
+    // Use the original <use>, if it exists, because the #ref might be local
+    // the original's document.
+    RefPtr<SVGUseElement> elem = mOriginal ? mOriginal.get() : this;
+    RefPtr<nsAtom> idAtom = NS_AtomizeMainThread(Substring(href, 1));
+    mReferencedElementTracker.ResetWithID(*elem, idAtom);
+    return;
+  }
 
+  nsCOMPtr<nsIURI> baseURI = mOriginal ? mOriginal->GetBaseURI() : GetBaseURI();
   nsCOMPtr<nsIURI> targetURI;
   nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(targetURI), href,
                                             GetComposedDoc(), baseURI);
+  if (!targetURI) {
+    return;
+  }
+
+  // Don't allow <use href="data:...">. Using "#ref" inside a data: document is
+  // handled above.
+  if (targetURI->SchemeIs("data") &&
+      !StaticPrefs::svg_use_element_data_url_href_allowed()) {
+    return;
+  }
+
   nsIReferrerInfo* referrer =
       OwnerDoc()->ReferrerInfoForInternalCSSAndSVGResources();
   mReferencedElementTracker.ResetToURIFragmentID(this, targetURI, referrer);

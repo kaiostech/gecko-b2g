@@ -134,8 +134,8 @@
 #include "nsICanvasRenderingContextInternal.h"
 #include "nsIContent.h"
 #include "nsIContentInlines.h"
-#include "nsIContentViewer.h"
 #include "nsIDocShell.h"
+#include "nsIDocumentViewer.h"
 #include "nsIFrameInlines.h"
 #include "nsIImageLoadingContent.h"
 #include "nsIInterfaceRequestorUtils.h"
@@ -5079,10 +5079,10 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
         }
 
         if (MOZ_UNLIKELY(aFlags & nsLayoutUtils::MIN_INTRINSIC_ISIZE) &&
-            // FIXME: Bug 1715681. Should we use eReplacedSizing instead
-            // because eReplaced is set on some other frames which are
+            // FIXME: Bug 1715681. Should we use HasReplacedSizing instead
+            // because IsReplaced is set on some other frames which are
             // non-replaced elements, e.g. <select>?
-            aFrame->IsFrameOfType(nsIFrame::eReplaced)) {
+            aFrame->IsReplaced()) {
           // This is the 'min-width/height:auto' "transferred size" piece of:
           // https://drafts.csswg.org/css-flexbox-1/#min-size-auto
           // https://drafts.csswg.org/css-grid/#min-size-auto
@@ -5111,8 +5111,7 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
   // then we can drop the check of eSupportsAspectRatio).
   const AspectRatio ar = stylePos->mAspectRatio.ToLayoutRatio();
   if (isInlineAxis && ar && nsIFrame::ToExtremumLength(styleISize) &&
-      aFrame->IsFrameOfType(nsIFrame::eSupportsAspectRatio) &&
-      !inlineSizeFromAspectRatio) {
+      aFrame->SupportsAspectRatio() && !inlineSizeFromAspectRatio) {
     // This 'B' in |styleBSize| means the block size of |aFrame|. We go into
     // this branch only if |aAxis| is the inline axis of |aFrame|.
     const StyleSize& styleBSize =
@@ -8243,8 +8242,7 @@ static bool ShouldInflateFontsForContainer(const nsIFrame* aFrame) {
          // We also want to disable font inflation for containers that have
          // preformatted text.
          // MathML cells need special treatment. See bug 1002526 comment 56.
-         (styleText->WhiteSpaceCanWrap(aFrame) ||
-          aFrame->IsFrameOfType(nsIFrame::eMathML));
+         (styleText->WhiteSpaceCanWrap(aFrame) || aFrame->IsMathMLFrame());
 }
 
 nscoord nsLayoutUtils::InflationMinFontSizeFor(const nsIFrame* aFrame) {
@@ -8353,7 +8351,7 @@ nsRect nsLayoutUtils::GetBoxShadowRectForFrame(nsIFrame* aFrame,
 }
 
 /* static */
-bool nsLayoutUtils::GetContentViewerSize(
+bool nsLayoutUtils::GetDocumentViewerSize(
     const nsPresContext* aPresContext, LayoutDeviceIntSize& aOutSize,
     SubtractDynamicToolbar aSubtractDynamicToolbar) {
   nsCOMPtr<nsIDocShell> docShell = aPresContext->GetDocShell();
@@ -8361,14 +8359,14 @@ bool nsLayoutUtils::GetContentViewerSize(
     return false;
   }
 
-  nsCOMPtr<nsIContentViewer> cv;
-  docShell->GetContentViewer(getter_AddRefs(cv));
-  if (!cv) {
+  nsCOMPtr<nsIDocumentViewer> viewer;
+  docShell->GetDocViewer(getter_AddRefs(viewer));
+  if (!viewer) {
     return false;
   }
 
   nsIntRect bounds;
-  cv->GetBounds(bounds);
+  viewer->GetBounds(bounds);
 
   if (aPresContext->IsRootContentDocumentCrossProcess() &&
       aSubtractDynamicToolbar == SubtractDynamicToolbar::Yes &&
@@ -8423,8 +8421,8 @@ bool nsLayoutUtils::UpdateCompositionBoundsForRCDRSF(
   }
 
   LayoutDeviceIntSize contentSize;
-  if (!GetContentViewerSize(aPresContext, contentSize,
-                            shouldSubtractDynamicToolbar)) {
+  if (!GetDocumentViewerSize(aPresContext, contentSize,
+                             shouldSubtractDynamicToolbar)) {
     return false;
   }
   aCompBounds.SizeTo(ViewAs<ParentLayerPixel>(
@@ -8700,8 +8698,7 @@ AutoMaybeDisableFontInflation::AutoMaybeDisableFontInflation(nsIFrame* aFrame) {
   // descendants) width, we could probably disable inflation in
   // fewer cases than we currently do.
   // MathML cells need special treatment. See bug 1002526 comment 56.
-  if (aFrame->IsContainerForFontSizeInflation() &&
-      !aFrame->IsFrameOfType(nsIFrame::eMathML)) {
+  if (aFrame->IsContainerForFontSizeInflation() && !aFrame->IsMathMLFrame()) {
     mPresContext = aFrame->PresContext();
     mOldValue = mPresContext->mInflationDisabledForShrinkWrap;
     mPresContext->mInflationDisabledForShrinkWrap = true;
@@ -9570,7 +9567,7 @@ bool nsLayoutUtils::IsInvisibleBreak(nsINode* aNode,
   }
 
   nsContainerFrame* f = frame->GetParent();
-  while (f && f->IsFrameOfType(nsIFrame::eLineParticipant)) {
+  while (f && f->IsLineParticipant()) {
     f = f->GetParent();
   }
   nsBlockFrame* blockAncestor = do_QueryFrame(f);
@@ -9795,7 +9792,7 @@ nsPoint nsLayoutUtils::ComputeOffsetToUserSpace(nsDisplayListBuilder* aBuilder,
   nsPoint offsetToBoundingBox =
       aBuilder->ToReferenceFrame(aFrame) -
       SVGIntegrationUtils::GetOffsetToBoundingBox(aFrame);
-  if (!aFrame->IsFrameOfType(nsIFrame::eSVG)) {
+  if (!aFrame->IsSVGFrame()) {
     // Snap the offset if the reference frame is not a SVG frame, since other
     // frames will be snapped to pixel when rendering.
     offsetToBoundingBox =
@@ -10114,7 +10111,7 @@ template <typename SizeType>
   if (RefPtr<MobileViewportManager> MVM =
           aPresContext->PresShell()->GetMobileViewportManager()) {
     displaySize = MVM->DisplaySize();
-  } else if (!nsLayoutUtils::GetContentViewerSize(aPresContext, displaySize)) {
+  } else if (!nsLayoutUtils::GetDocumentViewerSize(aPresContext, displaySize)) {
     return aSize;
   }
 

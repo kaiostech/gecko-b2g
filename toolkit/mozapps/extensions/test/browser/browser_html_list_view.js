@@ -946,6 +946,7 @@ add_task(async function testDisabledDimming() {
     BrowserTestUtils.waitForEvent(
       card.firstElementChild,
       "transitionend",
+      /* capture = */ false,
       e => e.propertyName === "opacity" && e.target.classList.contains("card")
     );
 

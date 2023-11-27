@@ -4,7 +4,10 @@
 
 "use strict";
 
-const { l10n } = require("resource://devtools/shared/inspector/css-logic.js");
+const {
+  l10n,
+  l10nFormatStr,
+} = require("resource://devtools/shared/inspector/css-logic.js");
 const {
   InplaceEditor,
   editableField,
@@ -206,8 +209,7 @@ TextPropertyEditor.prototype = {
     this.enable = createChild(this.container, "input", {
       type: "checkbox",
       class: "ruleview-enableproperty",
-      "aria-labelledby": this.prop.id,
-      tabindex: "-1",
+      title: l10nFormatStr("rule.propertyToggle.label", this.prop.name),
     });
 
     this.nameContainer = createChild(this.container, "span", {
@@ -270,7 +272,7 @@ TextPropertyEditor.prototype = {
 
     // Filter button that filters for the current property name and is
     // displayed when the property is overridden by another rule.
-    this.filterProperty = createChild(this.container, "div", {
+    this.filterProperty = createChild(this.container, "button", {
       class: "ruleview-overridden-rule-filter",
       hidden: "",
       title: l10n("rule.filterProperty.title"),
@@ -317,6 +319,14 @@ TextPropertyEditor.prototype = {
         contentType: InplaceEditor.CONTENT_TYPES.CSS_PROPERTY,
         popup: this.popup,
         cssProperties: this.cssProperties,
+        // (Shift+)Tab will move the focus to the previous/next editable field (so property value
+        // or new selector).
+        focusEditableFieldAfterApply: true,
+        focusEditableFieldContainerSelector: ".ruleview-rule",
+        // We don't want Enter to trigger the next editable field, just to validate
+        // what the user entered, close the editor, and focus the span so the user can
+        // navigate with the keyboard as expected.
+        stopOnReturn: true,
       });
 
       // Auto blur name field on multiple CSS rules get pasted in.
@@ -410,6 +420,14 @@ TextPropertyEditor.prototype = {
           [],
         getGridLineNames: this.getGridlineNames,
         showSuggestCompletionOnEmpty: true,
+        // (Shift+)Tab will move the focus to the previous/next editable field (so property name,
+        // or new property).
+        focusEditableFieldAfterApply: true,
+        focusEditableFieldContainerSelector: ".ruleview-rule",
+        // We don't want Enter to trigger the next editable field, just to validate
+        // what the user entered, close the editor, and focus the span so the user can
+        // navigate with the keyboard as expected.
+        stopOnReturn: true,
       });
     }
   },
@@ -515,6 +533,10 @@ TextPropertyEditor.prototype = {
 
     const name = this.prop.name;
     this.nameSpan.textContent = name;
+    this.enable.setAttribute(
+      "title",
+      l10nFormatStr("rule.propertyToggle.label", name)
+    );
 
     // Combine the property's value and priority into one string for
     // the value.

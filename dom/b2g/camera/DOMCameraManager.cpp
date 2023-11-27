@@ -334,7 +334,7 @@ void nsDOMCameraManager::Register(nsDOMCameraControl* aDOMCameraControl) {
 
   // Put the camera control into the hash table
   nsWeakPtr cameraControl =
-      do_GetWeakReference(static_cast<DOMMediaStream*>(aDOMCameraControl));
+      do_GetWeakReference(static_cast<EventTarget*>(aDOMCameraControl));
   controls->AppendElement(cameraControl);
 }
 

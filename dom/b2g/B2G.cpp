@@ -1006,7 +1006,7 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorage(
   }
 
   mDeviceStorageStores.AppendElement(
-      do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
+      do_GetWeakReference(static_cast<EventTarget*>(storage)));
   return storage.forget();
 }
 
@@ -1085,7 +1085,7 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorageByNameAndType(
   }
 
   mDeviceStorageStores.AppendElement(
-      do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
+      do_GetWeakReference(static_cast<EventTarget*>(storage)));
   return storage.forget();
 }
 

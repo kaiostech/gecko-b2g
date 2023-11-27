@@ -19,7 +19,7 @@ DOMCameraControlListener::DOMCameraControlListener(
     nsDOMCameraControl* aDOMCameraControl, CameraPreviewMediaTrack* aTrack)
     : mDOMCameraControl(new nsMainThreadPtrHolder<nsISupports>(
           "DOMCameraControlListener::aDOMCameraControl",
-          static_cast<DOMMediaStream*>(aDOMCameraControl))),
+          static_cast<EventTarget*>(aDOMCameraControl))),
       mTrack(aTrack) {
   DOM_CAMERA_LOGT("%s:%d : this=%p, camera=%p, track=%p\n", __func__, __LINE__,
                   this, aDOMCameraControl, aTrack);

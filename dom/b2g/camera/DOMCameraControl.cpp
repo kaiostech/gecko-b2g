@@ -1392,11 +1392,11 @@ void nsDOMCameraControl::OnConfigurationChange(
   eventInit.mMode = mCurrentConfiguration->mMode;
   eventInit.mRecorderProfile = mCurrentConfiguration->mRecorderProfile;
   eventInit.mPreviewSize =
-      new DOMRect(static_cast<DOMMediaStream*>(this), 0, 0,
+      new DOMRect(static_cast<EventTarget*>(this), 0, 0,
                   mCurrentConfiguration->mPreviewSize.mWidth,
                   mCurrentConfiguration->mPreviewSize.mHeight);
   eventInit.mPictureSize =
-      new DOMRect(static_cast<DOMMediaStream*>(this), 0, 0,
+      new DOMRect(static_cast<EventTarget*>(this), 0, 0,
                   mCurrentConfiguration->mPictureSize.mWidth,
                   mCurrentConfiguration->mPictureSize.mHeight);
 
@@ -1442,8 +1442,8 @@ void nsDOMCameraControl::OnFacesDetected(
 
   if (faces.SetCapacity(len, fallible)) {
     for (uint32_t i = 0; i < len; ++i) {
-      *faces.AppendElement(fallible) = new DOMCameraDetectedFace(
-          static_cast<DOMMediaStream*>(this), aFaces[i]);
+      *faces.AppendElement(fallible) =
+          new DOMCameraDetectedFace(static_cast<EventTarget*>(this), aFaces[i]);
     }
   }
 

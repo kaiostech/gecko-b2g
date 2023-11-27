@@ -803,8 +803,7 @@ DeviceStorageStatics::Observe(nsISupports* aSubject, const char* aTopic,
 
 DeviceStorageStatics::ListenerWrapper::ListenerWrapper(
     nsDOMDeviceStorage* aListener)
-    : mListener(
-          do_GetWeakReference(static_cast<DOMEventTargetHelper*>(aListener))),
+    : mListener(do_GetWeakReference(static_cast<EventTarget*>(aListener))),
       mOwningThread(NS_GetCurrentThread()) {}
 
 DeviceStorageStatics::ListenerWrapper::~ListenerWrapper() {

@@ -141,7 +141,7 @@ class nsDOMCameraControl final : public DOMMediaStream,
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  operator nsISupports*() { return static_cast<DOMMediaStream*>(this); }
+  operator nsISupports*() { return static_cast<EventTarget*>(this); }
 
 #ifdef MOZ_WIDGET_GONK
   static void PreinitCameraHardware();

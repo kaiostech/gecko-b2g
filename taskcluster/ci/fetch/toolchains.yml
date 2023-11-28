@@ -297,8 +297,8 @@ sccache:
     fetch:
         type: git
         repo: https://github.com/mozilla/sccache
-        # 0.5.4 release + a few patches
-        revision: a21e9f89e161d38cb078fcdb42cdcff1d7c0356b
+        # 0.7.4 release
+        revision: fb0ab0c42268c2ea9bbc1ec9bc848330cfdf08ec
 
 fxc2:
     description: fxc2 source code
@@ -617,7 +617,7 @@ symbol-scrapers:
     fetch:
         type: git
         repo: http://github.com/mozilla/symbol-scrapers
-        revision: 6142272b22aea3496fab8ff7a33d92d7c20caa5d
+        revision: 89b56f618a91db023acc202c25ff87cf0a0c4ee9
 
 xz-5.4.4:
     description: xz 5.4.4 source code

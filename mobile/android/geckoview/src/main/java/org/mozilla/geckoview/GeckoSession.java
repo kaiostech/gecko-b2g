@@ -618,19 +618,6 @@ public class GeckoSession {
                     callback.sendError("Failed to create response");
                   }
                 });
-          } else if ("GeckoView:GetNimbusFeature".equals(event) && callback != null) {
-            final String featureId = message.getString("featureId");
-            final JSONObject res = delegate.onGetNimbusFeature(GeckoSession.this, featureId);
-            if (res == null) {
-              callback.sendError("No Nimbus data for the feature " + featureId);
-              return;
-            }
-            try {
-              callback.sendSuccess(GeckoBundle.fromJSONObject(res));
-            } catch (final JSONException e) {
-              callback.sendError(
-                  "No Nimbus data for the feature " + featureId + ": conversion failed.");
-            }
           } else if ("GeckoView:OnProductUrl".equals(event)) {
             delegate.onProductUrl(GeckoSession.this);
           }
@@ -3099,6 +3086,20 @@ public class GeckoSession {
             });
   }
 
+  /**
+   * Report that a product is back in stock.
+   *
+   * @param url The URL of the product page.
+   * @return a {@link GeckoResult} result of whether reporting a product is back in stock was
+   *     successful.
+   */
+  @AnyThread
+  public @NonNull GeckoResult<String> reportBackInStock(@NonNull final String url) {
+    final GeckoBundle bundle = new GeckoBundle(1);
+    bundle.putString("url", url);
+    return mEventDispatcher.queryString("GeckoView:ReportBackInStock", bundle);
+  }
+
   // This is the GeckoDisplay acquired via acquireDisplay(), if any.
   private GeckoDisplay mDisplay;
 
@@ -4433,25 +4434,6 @@ public class GeckoSession {
      */
     @AnyThread
     default void onCookieBannerHandled(@NonNull final GeckoSession session) {}
-
-    /**
-     * This method is scheduled for deprecation, see Bug 1846074 for details. Please switch to the
-     * [ExperimentDelegate.onGetExperimentFeature] for the same functionality.
-     *
-     * <p>This method is called when GeckoView is requesting a specific Nimbus feature in using
-     * message `GeckoView:GetNimbusFeature`.
-     *
-     * @param session GeckoSession that initiated the callback.
-     * @param featureId Nimbus feature id of the collected data.
-     * @return A {@link JSONObject} with the feature.
-     */
-    @Deprecated
-    @DeprecationSchedule(version = 122, id = "session-nimbus")
-    @AnyThread
-    default @Nullable JSONObject onGetNimbusFeature(
-        @NonNull final GeckoSession session, @NonNull final String featureId) {
-      return null;
-    }
   }
 
   public interface SelectionActionDelegate {

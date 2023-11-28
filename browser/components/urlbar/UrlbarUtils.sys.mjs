@@ -1439,6 +1439,8 @@ export var UrlbarUtils = {
             return "site_specific_contextual_search";
           case "UrlbarProviderQuickSuggest":
             return this._getQuickSuggestTelemetryType(result);
+          case "UrlbarProviderQuickSuggestContextualOptIn":
+            return "fxsuggest_data_sharing_opt_in";
           case "Weather":
             return "weather";
         }
@@ -2408,6 +2410,18 @@ export class UrlbarProvider {
    *  The associated controller.
    */
   onEngagement(state, queryContext, details, controller) {}
+
+  /**
+   * Called before a result from the provider is selected. See `onSelection`
+   * for details on what that means.
+   *
+   * @param {UrlbarResult} result
+   *   The result that was selected.
+   * @param {Element} element
+   *   The element in the result's view that was selected.
+   * @abstract
+   */
+  onBeforeSelection(result, element) {}
 
   /**
    * Called when a result from the provider is selected. "Selected" refers to

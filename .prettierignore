@@ -64,7 +64,6 @@ browser/base/content/macWindow.inc.xhtml
 browser/base/content/main-popupset.inc.xhtml
 browser/base/content/pageinfo/pageInfo.xhtml
 browser/base/content/webext-panels.xhtml
-browser/base/content/webrtcLegacyIndicator.xhtml
 browser/components/downloads/content/contentAreaDownloadsView.xhtml
 browser/components/places/content/bookmarkProperties.xhtml
 browser/components/places/content/bookmarksSidebar.xhtml
@@ -1037,9 +1036,11 @@ browser/components/pocket/content/panels/js/main.bundle.js
 !browser/components/storybook/.storybook/*.js
 
 # Ignore newtab files
-browser/components/newtab/aboutwelcome/content/aboutwelcome.bundle.js
 browser/components/newtab/data/
 browser/components/newtab/logs/
+
+# Ignore about:welcome files
+browser/components/aboutwelcome/logs/
 
 # The only file in browser/locales/ is pre-processed.
 browser/locales/
@@ -1452,6 +1453,7 @@ xpcom/io/crc32c.c
 ##############################################################################
 
 .gradle/
+browser/components/aboutwelcome/content/aboutwelcome.bundle.js
 browser/components/newtab/content-src/asrouter/schemas/BackgroundTaskMessagingExperiment.schema.json
 browser/components/newtab/content-src/asrouter/schemas/MessagingExperiment.schema.json
 browser/components/newtab/logs/

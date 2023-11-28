@@ -1064,8 +1064,6 @@ class ContentParent final : public PContentParent,
   virtual bool DeallocPSmsParent(PSmsParent* aActor);
 #endif  // MOZ_B2G_RIL
 
-  mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);
-
   mozilla::ipc::IPCResult RecvSetClipboard(const IPCTransferable& aTransferable,
                                            const int32_t& aWhichClipboard);
 
@@ -1252,12 +1250,6 @@ class ContentParent final : public PContentParent,
   mozilla::ipc::IPCResult RecvShutdownProfile(const nsACString& aProfile);
 
   mozilla::ipc::IPCResult RecvShutdownPerfStats(const nsACString& aPerfStats);
-
-  mozilla::ipc::IPCResult RecvGetGraphicsDeviceInitData(
-      ContentDeviceData* aOut);
-
-  mozilla::ipc::IPCResult RecvGetOutputColorProfileData(
-      nsTArray<uint8_t>* aOutputColorProfileData);
 
   mozilla::ipc::IPCResult RecvGetFontListShmBlock(
       const uint32_t& aGeneration, const uint32_t& aIndex,

@@ -35,6 +35,18 @@ namespace layers {
 class StackingContextHelper;
 }
 
+// An input to nsTableFrame::ReflowTable() and TableReflowInput.
+enum class TableReflowMode : uint8_t {
+  // A reflow to measure the block-size of the table. We use this value to
+  // request an unconstrained available block in the first reflow if a second
+  // special block-size reflow is needed later.
+  Measuring,
+
+  // A final reflow with the available block-size in the table frame's
+  // ReflowInput.
+  Final,
+};
+
 class nsDisplayTableItem : public nsPaintedDisplayItem {
  public:
   nsDisplayTableItem(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame)
@@ -334,8 +346,9 @@ class nsTableFrame : public nsContainerFrame {
               nsReflowStatus& aStatus) override;
 
   void ReflowTable(ReflowOutput& aDesiredSize, const ReflowInput& aReflowInput,
-                   nscoord aAvailBSize, nsIFrame*& aLastChildReflowed,
-                   nsReflowStatus& aStatus);
+                   const LogicalMargin& aBorderPadding,
+                   mozilla::TableReflowMode aReflowMode,
+                   nsIFrame*& aLastChildReflowed, nsReflowStatus& aStatus);
 
   nsFrameList& GetColGroups();
 
@@ -633,7 +646,8 @@ class nsTableFrame : public nsContainerFrame {
   // Note: this method is accurate after the children are reflowed. It might
   // distribute extra block-size to table rows if the table has a specified
   // block-size larger than the intrinsic block-size.
-  nscoord CalcDesiredBSize(const ReflowInput& aReflowInput);
+  nscoord CalcDesiredBSize(const ReflowInput& aReflowInput,
+                           const LogicalMargin& aBorderPadding);
 
   // The following is a helper for CalcDesiredBSize
   void DistributeBSizeToRows(const ReflowInput& aReflowInput, nscoord aAmount);

@@ -189,6 +189,7 @@ gfxPlatform* gPlatform = nullptr;
 static bool gEverInitialized = false;
 
 const ContentDeviceData* gContentDeviceInitData = nullptr;
+Maybe<nsTArray<uint8_t>> gCMSOutputProfileData;
 
 Atomic<bool, MemoryOrdering::ReleaseAcquire> gfxPlatform::gCMSInitialized;
 CMSMode gfxPlatform::gCMSMode = CMSMode::Off;
@@ -482,10 +483,10 @@ bool gfxPlatform::Initialized() { return !!gPlatform; }
 /* static */
 void gfxPlatform::InitChild(const ContentDeviceData& aData) {
   MOZ_ASSERT(XRE_IsContentProcess());
-  MOZ_RELEASE_ASSERT(!gPlatform,
-                     "InitChild() should be called before first GetPlatform()");
+  MOZ_ASSERT(!gPlatform,
+             "InitChild() should be called before first GetPlatform()");
   // Make the provided initial ContentDeviceData available to the init
-  // routines, so they don't have to do a sync request from the parent.
+  // routines.
   gContentDeviceInitData = &aData;
   Init();
   gContentDeviceInitData = nullptr;
@@ -2084,6 +2085,10 @@ nsTArray<uint8_t> gfxPlatform::GetPrefCMSOutputProfileData() {
 
 const mozilla::gfx::ContentDeviceData* gfxPlatform::GetInitContentDeviceData() {
   return gContentDeviceInitData;
+}
+
+Maybe<nsTArray<uint8_t>>& gfxPlatform::GetCMSOutputProfileData() {
+  return gCMSOutputProfileData;
 }
 
 CMSMode GfxColorManagementMode() {
@@ -3895,20 +3900,16 @@ void gfxPlatform::DisableGPUProcess() {
   gfxVars::SetRemoteCanvasEnabled(false);
 }
 
-void gfxPlatform::FetchAndImportContentDeviceData() {
+void gfxPlatform::ImportCachedContentDeviceData() {
   MOZ_ASSERT(XRE_IsContentProcess());
 
-  if (gContentDeviceInitData) {
-    ImportContentDeviceData(*gContentDeviceInitData);
+  // Import the content device data if we've got some waiting.
+  if (!gContentDeviceInitData) {
     return;
   }
 
-  mozilla::dom::ContentChild* cc = mozilla::dom::ContentChild::GetSingleton();
-
-  mozilla::gfx::ContentDeviceData data;
-  cc->SendGetGraphicsDeviceInitData(&data);
-
-  ImportContentDeviceData(data);
+  ImportContentDeviceData(*gContentDeviceInitData);
+  gContentDeviceInitData = nullptr;
 }
 
 void gfxPlatform::ImportContentDeviceData(
@@ -3917,7 +3918,12 @@ void gfxPlatform::ImportContentDeviceData(
 
   const DevicePrefs& prefs = aData.prefs();
   gfxConfig::Inherit(Feature::HW_COMPOSITING, prefs.hwCompositing());
-  gfxConfig::Inherit(Feature::OPENGL_COMPOSITING, prefs.oglCompositing());
+
+  // We don't inherit Feature::OPENGL_COMPOSITING here, because platforms
+  // will handle that (without imported data from the parent) in
+  // InitOpenGLConfig.
+
+  gCMSOutputProfileData = Some(aData.cmsOutputProfileData().Clone());
 }
 
 void gfxPlatform::BuildContentDeviceData(

@@ -37,7 +37,6 @@ namespace gonk {
 
 class AudioPortCallbackHolder;
 class AudioSettingsObserver;
-class VolumeCurves;
 
 class AudioManager final : public nsIAudioManager, public nsIObserver {
   using DeviceTypeSet = android::DeviceTypeSet;
@@ -133,9 +132,6 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
  private:
   UniquePtr<mozilla::hal::SwitchObserver> mObserver;
   RefPtr<AudioPortCallbackHolder> mAudioPortCallbackHolder;
-#ifdef PRODUCT_MANUFACTURER_QUALCOMM
-  UniquePtr<VolumeCurves> mFmVolumeCurves;
-#endif
 #ifdef MOZ_B2G_RIL
   bool mMuteCallToRIL = false;
   // mIsMicMuted is only used for toggling mute call to RIL.

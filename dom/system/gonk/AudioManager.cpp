@@ -201,49 +201,6 @@ static const VolumeData gVolumeData[] = {
     {u"audio.volume.telephony"_ns, AUDIO_STREAM_VOICE_CALL},
     {u"audio.volume.bt_sco"_ns, AUDIO_STREAM_BLUETOOTH_SCO}};
 
-class VolumeCurves {
- public:
-  explicit VolumeCurves(audio_stream_type_t aStreamType)
-      : mStreamType(aStreamType) {
-    MOZ_ASSERT(aStreamType < AUDIO_STREAM_PUBLIC_CNT);
-  }
-  VolumeCurves() = delete;
-  ~VolumeCurves() = default;
-
-  void Build(audio_devices_t aDevice) {
-    nsTArray<float> curve;
-    for (uint32_t i = 0; i <= MaxIndex(); i++) {
-      curve.AppendElement(ComputeVolume(i, aDevice));
-    }
-    mCurves.InsertOrUpdate(aDevice, std::move(curve));
-  }
-
-  float GetVolume(uint32_t aIndex, audio_devices_t aDevice) {
-    if (aIndex > MaxIndex()) {
-      aIndex = MaxIndex();
-    }
-
-    if (auto curve = mCurves.Lookup(aDevice)) {
-      MOZ_ASSERT(curve->Length() == MaxIndex() + 1);
-      return curve->ElementAt(aIndex);
-    }
-    return ComputeVolume(aIndex, aDevice);
-  }
-
- private:
-  inline uint32_t MaxIndex() { return sMaxStreamVolumeTbl[mStreamType]; }
-
-  float ComputeVolume(uint32_t aIndex, audio_devices_t aDevice) {
-    float decibel =
-        GonkAudioSystem::getStreamVolumeDB(mStreamType, aIndex, aDevice);
-    // decibel to amplitude
-    return exp(decibel * 0.115129f);
-  }
-
-  nsTHashMap<nsUint32HashKey, nsTArray<float>> mCurves;
-  const audio_stream_type_t mStreamType;
-};
-
 class GonkAudioPortCallback : public GonkAudioSystem::AudioPortCallback {
  public:
   virtual void onAudioPortListUpdate() {
@@ -773,10 +730,6 @@ AudioManager::AudioManager()
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sAudioManager);
 
-#ifdef PRODUCT_MANUFACTURER_QUALCOMM
-  mFmVolumeCurves = MakeUnique<VolumeCurves>(AUDIO_STREAM_MUSIC);
-#endif
-
   // Create VolumeStreamStates
   for (int i = AUDIO_STREAM_MIN; i < AUDIO_STREAM_PUBLIC_CNT; i++) {
     auto streamType = static_cast<audio_stream_type_t>(i);
@@ -811,14 +764,6 @@ void AudioManager::Init() {
   for (auto& streamState : mStreamStates) {
     streamState->InitStreamVolume();
   }
-
-#ifdef PRODUCT_MANUFACTURER_QUALCOMM
-  // Build FM volume curves from music stream. The curves can only be computed
-  // after AudioSystem::initStreamVolume() is called.
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_SPEAKER);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADSET);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
-#endif
 
   // Initialize stream volumes with default values
   for (int i = AUDIO_STREAM_MIN; i < AUDIO_STREAM_PUBLIC_CNT; i++) {
@@ -1099,8 +1044,9 @@ void AudioManager::UpdateFmVolume() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   audio_devices_t device = GetDeviceForFm();
   uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
-  float volume =
-      mFmContentVolume * mFmVolumeCurves->GetVolume(volIndex, device);
+  float decibel =
+      GonkAudioSystem::getStreamVolumeDB(AUDIO_STREAM_MUSIC, volIndex, device);
+  float volume = exp(decibel * 0.115129f);
   SetParameters("fm_volume=%f", volume);
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   audio_devices_t device = GetDeviceForFm();

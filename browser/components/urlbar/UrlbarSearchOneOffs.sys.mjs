@@ -87,12 +87,20 @@ export class UrlbarSearchOneOffs extends SearchOneOffs {
     this._on_popupshowing();
   }
 
+  #queryContext;
   onQueryStarted(queryContext) {
-    this.queryContext = queryContext;
+    this.#queryContext = queryContext;
   }
 
   onQueryFinished(queryContext) {
     this.#buildQuickSuggestOptIn(queryContext);
+
+    if (
+      this.#quickSuggestOptInContainer &&
+      !this.#quickSuggestOptInContainer.hidden
+    ) {
+      this.#quickSuggestOptInProvider._recordGlean("impression");
+    }
   }
 
   #quickSuggestOptInContainer;
@@ -105,7 +113,7 @@ export class UrlbarSearchOneOffs extends SearchOneOffs {
   #buildQuickSuggestOptIn(queryContext) {
     let provider = this.#quickSuggestOptInProvider;
     if (
-      !provider.shouldDisplayContextualOptIn(queryContext) ||
+      !provider._shouldDisplayContextualOptIn(queryContext) ||
       provider.isActive(queryContext)
     ) {
       if (this.#quickSuggestOptInContainer) {
@@ -184,8 +192,6 @@ export class UrlbarSearchOneOffs extends SearchOneOffs {
         ? "urlbar-firefox-suggest-contextual-opt-in-description-2"
         : "urlbar-firefox-suggest-contextual-opt-in-description-1"
     );
-
-    this.#quickSuggestOptInProvider._recordGlean("impression");
   }
 
   #isQuickSuggestOptInElement(element) {
@@ -200,7 +206,6 @@ export class UrlbarSearchOneOffs extends SearchOneOffs {
     if (this.#isQuickSuggestOptInElement(element)) {
       this.#quickSuggestOptInProvider._handleCommand(
         element,
-        this.queryContext,
         this.view.controller,
         null,
         this.#quickSuggestOptInContainer
@@ -554,8 +559,8 @@ export class UrlbarSearchOneOffs extends SearchOneOffs {
   }
 
   _on_rebuild() {
-    if (this.queryContext) {
-      this.#buildQuickSuggestOptIn(this.queryContext);
+    if (this.#queryContext) {
+      this.#buildQuickSuggestOptIn(this.#queryContext);
     }
   }
 }

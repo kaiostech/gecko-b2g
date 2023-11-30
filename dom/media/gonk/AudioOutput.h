@@ -37,8 +37,7 @@ class AudioOutput : public GonkAudioSink {
   class CallbackData;
 
  public:
-  AudioOutput(audio_session_t aSessionId, int aUid,
-              audio_stream_type_t aStreamType);
+  AudioOutput(audio_session_t aSessionId, audio_stream_type_t aStreamType);
   virtual ~AudioOutput();
 
   ssize_t FrameSize() const override;
@@ -69,9 +68,6 @@ class AudioOutput : public GonkAudioSink {
   void* mCallbackCookie;
   AudioCallback mCallback;
   CallbackData* mCallbackData;
-
-  // Uid of the current process, need to create audio track
-  int mUid;
 
   // Session id given by AudioSystem and used to create audio track.
   audio_session_t mSessionId;

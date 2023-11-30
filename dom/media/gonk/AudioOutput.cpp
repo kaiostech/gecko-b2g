@@ -34,12 +34,11 @@ extern LazyLogModule gMediaDecoderLog;
 
 namespace android {
 
-AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid,
+AudioOutput::AudioOutput(audio_session_t aSessionId,
                          audio_stream_type_t aStreamType)
     : mCallbackCookie(nullptr),
       mCallback(nullptr),
       mCallbackData(nullptr),
-      mUid(aUid),
       mSessionId(aSessionId),
       mStreamType(aStreamType) {}
 
@@ -103,21 +102,12 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
   sp<AudioTrack> t;
   CallbackData* newcbd = new CallbackData(this);
 
-#if ANDROID_VERSION >= 33
-  t = new AudioTrack(
-      mStreamType,
-      aSampleRate,
-      aFormat,
-      aChannelMask,
-      nullptr);
-#else
   t = new AudioTrack(
       mStreamType, aSampleRate, aFormat, aChannelMask,
       0,  // Offloaded tracks will get frame count from AudioFlinger
       aFlags, CallbackWrapper, newcbd,
       0,  // notification frames
-      mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo, mUid);
-#endif
+      mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo);
 
   if ((!t.get()) || (t->initCheck() != NO_ERROR)) {
     LOG("Unable to create audio track");

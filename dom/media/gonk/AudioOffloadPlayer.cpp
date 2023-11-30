@@ -6,7 +6,6 @@
 
 #include "AudioOffloadPlayer.h"
 
-#include <binder/IPCThreadState.h>
 #include <media/AudioParameter.h>
 #include "AudioOutput.h"
 #include "DecoderTraits.h"
@@ -183,8 +182,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
 #else
   AudioSystem::acquireAudioSessionId(mAudioSessionId, -1);
 #endif
-  mAudioSink = new AudioOutput(
-      mAudioSessionId, IPCThreadState::self()->getCallingUid(), streamType);
+  mAudioSink = new AudioOutput(mAudioSessionId, streamType);
 
   status_t err;
   if (mIsOffloaded) {
@@ -220,18 +218,20 @@ void AudioOffloadPlayer::OpenAudioSink() {
         offloadInfo.has_video, offloadInfo.is_streaming, offloadInfo.bit_width,
         offloadInfo.offload_buffer_size);
 
-    err = mAudioSink->Open(sampleRate, channels, static_cast<audio_channel_mask_t>(channelMask), audioFormat,
-                           &AudioOffloadPlayer::AudioSinkCallback, this,
-                           AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD, &offloadInfo);
+    err = mAudioSink->Open(
+        sampleRate, channels, static_cast<audio_channel_mask_t>(channelMask),
+        audioFormat, &AudioOffloadPlayer::AudioSinkCallback, this,
+        AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD, &offloadInfo);
     if (err == OK) {
       SendMetaDataToHal(offloadInfo);
     }
   } else {
     auto audioFormat = AUDIO_FORMAT_PCM_FLOAT;
 
-    err = mAudioSink->Open(sampleRate, channels, static_cast<audio_channel_mask_t>(channelMask), audioFormat,
-                           &AudioOffloadPlayer::AudioSinkCallback, this,
-                           AUDIO_OUTPUT_FLAG_NONE, nullptr);
+    err = mAudioSink->Open(sampleRate, channels,
+                           static_cast<audio_channel_mask_t>(channelMask),
+                           audioFormat, &AudioOffloadPlayer::AudioSinkCallback,
+                           this, AUDIO_OUTPUT_FLAG_NONE, nullptr);
   }
 
   if (err == OK) {

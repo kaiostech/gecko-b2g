@@ -8492,6 +8492,22 @@
   value: true
   mirror: always
 
+# Controls the transparency of the initial about:blank document. Generally you
+# don't ever want a white flash in dark mode, but due to backwards compat we
+# have some extra control over this, for now at least.
+#
+# See https://github.com/w3c/csswg-drafts/issues/9624 for iframes.
+#
+# Values:
+#  1: content-inaccessible top-level only.
+#  2: frames and content-inaccessible top-level only.
+#  3: always
+#  Others: don't treat this document specially.
+- name: layout.css.initial-document-transparency
+  type: RelaxedAtomicInt32
+  value: 3
+  mirror: always
+
 # The minimum contrast ratio between the accent color foreground and background
 # colors.
 #
@@ -12747,7 +12763,7 @@
 
 - name: network.http.http2.websockets
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 - name: network.http.http2.enable-hpack-dump
@@ -14219,6 +14235,12 @@
   mirror: always
   rust: true
 
+# WebAuthn JSON serialization methods
+- name: security.webauthn.enable_json_serialization_methods
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Dispatch WebAuthn requests to virtual authenticators (mutually exclusive
 # with and webauthn_enable_usbtoken)
 - name: security.webauth.webauthn_enable_softtoken
@@ -14775,12 +14797,6 @@
 - name: svg.use-element.recursive-clone-limit
   type: uint32_t
   value: 8
-  mirror: always
-
-# Whether <svg:use> with a data: URL as href is allowed
-- name: svg.use-element.data-url-href.allowed
-  type: bool
-  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

@@ -17149,7 +17149,8 @@ void Document::ScheduleResizeObserversNotification() const {
 }
 
 static void FlushLayoutForWholeBrowsingContextTree(Document& aDoc) {
-  if (BrowsingContext* bc = aDoc.GetBrowsingContext()) {
+  BrowsingContext* bc = aDoc.GetBrowsingContext();
+  if (bc && bc->GetExtantDocument() == &aDoc) {
     RefPtr<BrowsingContext> top = bc->Top();
     top->PreOrderWalk([](BrowsingContext* aCur) {
       if (Document* doc = aCur->GetExtantDocument()) {
@@ -17157,16 +17158,10 @@ static void FlushLayoutForWholeBrowsingContextTree(Document& aDoc) {
       }
     });
   } else {
-    // If there is no browsing context, we just flush this document itself.
+    // If there is no browsing context, or we're not the current document of the
+    // browsing context, then we just flush this document itself.
     aDoc.FlushPendingNotifications(FlushType::Layout);
   }
-}
-
-bool Document::HasContentVisibilityAutoElements() const {
-  if (PresShell* presShell = GetPresShell()) {
-    return presShell->HasContentVisibilityAutoFrames();
-  }
-  return false;
 }
 
 void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
@@ -17208,12 +17203,6 @@ void Document::DetermineProximityToViewportAndNotifyResizeObservers() {
       break;
     }
 
-    // nsIFrame::UpdateIsRelevantContent may call ObserveForLastRememberedSize()
-    // so update the relevancy after the observations are gathered, otherwise
-    // the last remembered size observation could be a skipped one.
-    if (PresShell* presShell = GetPresShell()) {
-      presShell->UpdateRelevancyOfContentVisibilityAutoFrames();
-    }
     DebugOnly<uint32_t> oldShallowestTargetDepth = shallowestTargetDepth;
     shallowestTargetDepth = BroadcastAllActiveResizeObservations();
     NS_ASSERTION(oldShallowestTargetDepth < shallowestTargetDepth,

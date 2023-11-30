@@ -74,6 +74,7 @@ static const unsigned BUILTIN_THUNK_LIFO_SIZE = 64 * 1024;
 #define _END MIRType::None
 #define _Infallible FailureMode::Infallible
 #define _FailOnNegI32 FailureMode::FailOnNegI32
+#define _FailOnMaxI32 FailureMode::FailOnMaxI32
 #define _FailOnNullPtr FailureMode::FailOnNullPtr
 #define _FailOnInvalidRef FailureMode::FailOnInvalidRef
 
@@ -393,13 +394,15 @@ const SymbolicAddressSignature SASigArrayCopy = {
     7,
     {_PTR, _RoN, _I32, _RoN, _I32, _I32, _I32, _END}};
 
-#define DECL_SAS_FOR_INTRINSIC(op, export, sa_name, abitype, entry, idx) \
-  const SymbolicAddressSignature SASig##sa_name = {                      \
-      SymbolicAddress::sa_name, _VOID, _FailOnNegI32,                    \
-      DECLARE_INTRINSIC_PARAM_TYPES_##op};
+#define VISIT_BUILTIN_FUNC(op, export, sa_name, ...)   \
+  const SymbolicAddressSignature SASig##sa_name = {    \
+      SymbolicAddress::sa_name,                        \
+      DECLARE_BUILTIN_MODULE_FUNC_RESULT_SASTYPE_##op, \
+      DECLARE_BUILTIN_MODULE_FUNC_FAILMODE_##op,       \
+      DECLARE_BUILTIN_MODULE_FUNC_PARAM_SASTYPES_##op};
 
-FOR_EACH_INTRINSIC(DECL_SAS_FOR_INTRINSIC)
-#undef DECL_SAS_FOR_INTRINSIC
+FOR_EACH_BUILTIN_MODULE_FUNC(VISIT_BUILTIN_FUNC)
+#undef VISIT_BUILTIN_FUNC
 
 }  // namespace wasm
 }  // namespace js
@@ -451,10 +454,13 @@ ABIArgType ToABIType(MIRType type) {
 ABIFunctionType ToABIType(const SymbolicAddressSignature& sig) {
   MOZ_ASSERT_IF(sig.failureMode != FailureMode::Infallible,
                 ToABIType(sig.failureMode) == ToABIType(sig.retType));
-  int abiType = ToABIType(sig.retType) << RetType_Shift;
+  int abiType = 0;
   for (int i = 0; i < sig.numArgs; i++) {
-    abiType |= (ToABIType(sig.argTypes[i]) << (ArgType_Shift * (i + 1)));
+    abiType <<= ArgType_Shift;
+    abiType |= ToABIType(sig.argTypes[i]);
   }
+  abiType <<= ArgType_Shift;
+  abiType |= ToABIType(sig.retType);
   return ABIFunctionType(abiType);
 }
 #endif
@@ -1123,16 +1129,16 @@ void* wasm::AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
       *abiType = Args_General0;
       return FuncCast(AllocateBigIntTenuredNoGC, *abiType);
     case SymbolicAddress::DivI64:
-      *abiType = Args_General4;
+      *abiType = Args_Int64_Int32Int32Int32Int32;
       return FuncCast(DivI64, *abiType);
     case SymbolicAddress::UDivI64:
-      *abiType = Args_General4;
+      *abiType = Args_Int64_Int32Int32Int32Int32;
       return FuncCast(UDivI64, *abiType);
     case SymbolicAddress::ModI64:
-      *abiType = Args_General4;
+      *abiType = Args_Int64_Int32Int32Int32Int32;
       return FuncCast(ModI64, *abiType);
     case SymbolicAddress::UModI64:
-      *abiType = Args_General4;
+      *abiType = Args_Int64_Int32Int32Int32Int32;
       return FuncCast(UModI64, *abiType);
     case SymbolicAddress::TruncateDoubleToUint64:
       *abiType = Args_Int64_Double;
@@ -1160,10 +1166,10 @@ void* wasm::AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
       return FuncCast(Int64ToFloat32, *abiType);
 #if defined(JS_CODEGEN_ARM)
     case SymbolicAddress::aeabi_idivmod:
-      *abiType = Args_General2;
+      *abiType = Args_Int64_GeneralGeneral;
       return FuncCast(__aeabi_idivmod, *abiType);
     case SymbolicAddress::aeabi_uidivmod:
-      *abiType = Args_General2;
+      *abiType = Args_Int64_GeneralGeneral;
       return FuncCast(__aeabi_uidivmod, *abiType);
 #endif
     case SymbolicAddress::ModD:
@@ -1455,12 +1461,12 @@ void* wasm::AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
       *abiType = Args_General1;
       return FuncCast(PrintText, *abiType);
 #endif
-#define DECL_SAS_TYPE_AND_FN(op, export, sa_name, abitype, entry, idx) \
-  case SymbolicAddress::sa_name:                                       \
-    *abiType = abitype;                                                \
+#define VISIT_BUILTIN_FUNC(op, export, sa_name, abitype, entry, ...) \
+  case SymbolicAddress::sa_name:                                     \
+    *abiType = abitype;                                              \
     return FuncCast(entry, *abiType);
-      FOR_EACH_INTRINSIC(DECL_SAS_TYPE_AND_FN)
-#undef DECL_SAS_TYPE_AND_FN
+      FOR_EACH_BUILTIN_MODULE_FUNC(VISIT_BUILTIN_FUNC)
+#undef VISIT_BUILTIN_FUNC
     case SymbolicAddress::Limit:
       break;
   }
@@ -1617,10 +1623,10 @@ bool wasm::NeedsBuiltinThunk(SymbolicAddress sym) {
     case SymbolicAddress::ArrayInitData:
     case SymbolicAddress::ArrayInitElem:
     case SymbolicAddress::ArrayCopy:
-#define OP(op, export, sa_name, abitype, entry, idx) \
+#define VISIT_BUILTIN_FUNC(op, export, sa_name, ...) \
   case SymbolicAddress::sa_name:
-      FOR_EACH_INTRINSIC(OP)
-#undef OP
+      FOR_EACH_BUILTIN_MODULE_FUNC(VISIT_BUILTIN_FUNC)
+#undef VISIT_BUILTIN_FUNC
       return true;
 
     case SymbolicAddress::Limit:
@@ -1975,33 +1981,36 @@ static Maybe<ABIFunctionType> ToBuiltinABIFunctionType(
     return Nothing();
   }
 
-  uint32_t abiType;
-  switch (results[0].kind()) {
-    case ValType::F32:
-      abiType = ArgType_Float32 << RetType_Shift;
-      break;
-    case ValType::F64:
-      abiType = ArgType_Float64 << RetType_Shift;
-      break;
-    default:
-      return Nothing();
-  }
-
   if ((args.length() + 1) > (sizeof(uint32_t) * 8 / ArgType_Shift)) {
     return Nothing();
   }
 
+  uint32_t abiType = 0;
   for (size_t i = 0; i < args.length(); i++) {
     switch (args[i].kind()) {
       case ValType::F32:
-        abiType |= (ArgType_Float32 << (ArgType_Shift * (i + 1)));
+        abiType <<= ArgType_Shift;
+        abiType |= ArgType_Float32;
         break;
       case ValType::F64:
-        abiType |= (ArgType_Float64 << (ArgType_Shift * (i + 1)));
+        abiType <<= ArgType_Shift;
+        abiType |= ArgType_Float64;
         break;
       default:
         return Nothing();
     }
+  }
+
+  abiType <<= ArgType_Shift;
+  switch (results[0].kind()) {
+    case ValType::F32:
+      abiType |= ArgType_Float32;
+      break;
+    case ValType::F64:
+      abiType |= ArgType_Float64;
+      break;
+    default:
+      return Nothing();
   }
 
   return Some(ABIFunctionType(abiType));

@@ -868,6 +868,8 @@ package org.mozilla.geckoview {
     method public boolean getForceEnableAccessibility();
     method public boolean getForceUserScalableEnabled();
     method public int getGlMsaaLevel();
+    method public boolean getGlobalPrivacyControl();
+    method public boolean getGlobalPrivacyControlPrivateMode();
     method public boolean getInputAutoZoomEnabled();
     method public boolean getJavaScriptEnabled();
     method @Nullable public String[] getLocales();
@@ -897,6 +899,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings setForceEnableAccessibility(boolean);
     method @NonNull public GeckoRuntimeSettings setForceUserScalableEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings setGlMsaaLevel(int);
+    method @NonNull public GeckoRuntimeSettings setGlobalPrivacyControl(boolean);
     method @NonNull public GeckoRuntimeSettings setInputAutoZoomEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings setJavaScriptEnabled(boolean);
     method public void setLocales(@Nullable String[]);
@@ -940,6 +943,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoRuntimeSettings.Builder fontSizeFactor(float);
     method @NonNull public GeckoRuntimeSettings.Builder forceUserScalableEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder glMsaaLevel(int);
+    method @NonNull public GeckoRuntimeSettings.Builder globalPrivacyControlEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder inputAutoZoomEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder javaScriptEnabled(boolean);
     method @NonNull public GeckoRuntimeSettings.Builder locales(@Nullable String[]);
@@ -1024,6 +1028,7 @@ package org.mozilla.geckoview {
     method @AnyThread @NonNull public GeckoResult<String> reportBackInStock(@NonNull String);
     method @AnyThread @NonNull public GeckoResult<GeckoSession.ReviewAnalysis> requestAnalysis(@NonNull String);
     method @AnyThread @NonNull public GeckoResult<String> requestAnalysisCreationStatus(@NonNull String);
+    method @AnyThread @NonNull public GeckoResult<GeckoSession.AnalysisStatusResponse> requestAnalysisStatus(@NonNull String);
     method @AnyThread @NonNull public GeckoResult<String> requestCreateAnalysis(@NonNull String);
     method @AnyThread @NonNull public GeckoResult<List<GeckoSession.Recommendation>> requestRecommendations(@NonNull String);
     method @AnyThread public void restoreState(@NonNull GeckoSession.SessionState);
@@ -1071,6 +1076,19 @@ package org.mozilla.geckoview {
     field public static final int PRIORITY_DEFAULT = 0;
     field public static final int PRIORITY_HIGH = 1;
     field @Nullable protected GeckoSession.Window mWindow;
+  }
+
+  @AnyThread public static class GeckoSession.AnalysisStatusResponse {
+    ctor protected AnalysisStatusResponse(@NonNull GeckoSession.AnalysisStatusResponse.Builder);
+    field @NonNull public final Double progress;
+    field @NonNull public final String status;
+  }
+
+  public static class GeckoSession.AnalysisStatusResponse.Builder {
+    ctor public Builder(@NonNull String);
+    method @AnyThread @NonNull public GeckoSession.AnalysisStatusResponse build();
+    method @AnyThread @NonNull public GeckoSession.AnalysisStatusResponse.Builder progress(@NonNull Double);
+    method @AnyThread @NonNull public GeckoSession.AnalysisStatusResponse.Builder status(@NonNull String);
   }
 
   @Retention(value=RetentionPolicy.SOURCE) public static interface GeckoSession.ClipboardPermissionType {

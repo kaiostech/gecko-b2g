@@ -142,8 +142,10 @@ nsresult SVGUseElement::Clone(dom::NodeInfo* aNodeInfo,
   nsresult rv1 = it->Init();
   nsresult rv2 = const_cast<SVGUseElement*>(this)->CopyInnerTo(it);
 
-  // SVGUseElement specific portion - record who we cloned from
-  it->mOriginal = const_cast<SVGUseElement*>(this);
+  if (aNodeInfo->GetDocument()->CloningForSVGUse()) {
+    // SVGUseElement specific portion - record who we cloned from
+    it->mOriginal = const_cast<SVGUseElement*>(this);
+  }
 
   if (NS_SUCCEEDED(rv1) && NS_SUCCEEDED(rv2)) {
     kungFuDeathGrip.swap(*aResult);
@@ -543,33 +545,21 @@ void SVGUseElement::LookupHref() {
     return;
   }
 
+  Element* treeToWatch = mOriginal ? mOriginal.get() : this;
   if (nsContentUtils::IsLocalRefURL(href)) {
-    // Use the original <use>, if it exists, because the #ref might be local
-    // the original's document.
-    RefPtr<SVGUseElement> elem = mOriginal ? mOriginal.get() : this;
     RefPtr<nsAtom> idAtom = NS_AtomizeMainThread(Substring(href, 1));
-    mReferencedElementTracker.ResetWithID(*elem, idAtom);
+    mReferencedElementTracker.ResetWithID(*treeToWatch, idAtom);
     return;
   }
 
-  nsCOMPtr<nsIURI> baseURI = mOriginal ? mOriginal->GetBaseURI() : GetBaseURI();
+  nsCOMPtr<nsIURI> baseURI = treeToWatch->GetBaseURI();
   nsCOMPtr<nsIURI> targetURI;
   nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(targetURI), href,
                                             GetComposedDoc(), baseURI);
-  if (!targetURI) {
-    return;
-  }
-
-  // Don't allow <use href="data:...">. Using "#ref" inside a data: document is
-  // handled above.
-  if (targetURI->SchemeIs("data") &&
-      !StaticPrefs::svg_use_element_data_url_href_allowed()) {
-    return;
-  }
-
   nsIReferrerInfo* referrer =
       OwnerDoc()->ReferrerInfoForInternalCSSAndSVGResources();
-  mReferencedElementTracker.ResetToURIFragmentID(this, targetURI, referrer);
+  mReferencedElementTracker.ResetToURIFragmentID(treeToWatch, targetURI,
+                                                 referrer);
 }
 
 void SVGUseElement::TriggerReclone() {

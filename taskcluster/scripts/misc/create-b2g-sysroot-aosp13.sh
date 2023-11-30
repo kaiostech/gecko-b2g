@@ -180,6 +180,7 @@ frameworks/av/media/libstagefright/include
 frameworks/av/media/libmediahelper/include
 frameworks/av/media/libmediametrics/include
 frameworks/av/media/mtp
+frameworks/av/media/utils/include
 frameworks/libs/net/common/native/bpf_syscall_wrappers/include
 frameworks/libs/net/common/native/bpf_headers/include
 frameworks/native/headers/media_plugin

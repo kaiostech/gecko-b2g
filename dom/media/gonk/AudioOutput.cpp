@@ -21,6 +21,10 @@
 
 #include "mozilla/Logging.h"
 
+#if ANDROID_VERSION >= 33
+#  include <mediautils/Synchronization.h>
+#endif
+
 namespace mozilla {
 extern LazyLogModule gMediaDecoderLog;
 }  // namespace mozilla
@@ -34,11 +38,148 @@ extern LazyLogModule gMediaDecoderLog;
 
 namespace android {
 
+// Common code shared by new callback and legacy callback.
+class AudioOutput::AudioTrackCallbackBase {
+ protected:
+  size_t OnMoreData(void* aBuffer, size_t aSize) {
+    LOG("AudioTrackCallback: EVENT_MORE_DATA");
+    Mutex::Autolock lock(mLock);
+    sp<AudioOutput> me = GetOutput();
+    if (!me) {
+      return 0;
+    }
+
+    size_t actualSize = (*me->mCallback)(
+        me.get(), aBuffer, aSize, me->mCallbackCookie, CB_EVENT_FILL_BUFFER);
+
+    // Log when no data is returned from the callback.
+    // (1) We may have no data (especially with network streaming sources).
+    // (2) We may have reached the EOS and the audio track is not stopped yet.
+    // Note that AwesomePlayer/AudioPlayer will only return zero size when it
+    // reaches the EOS. NuPlayerRenderer will return zero when it doesn't have
+    // data (it doesn't block to fill).
+    //
+    // This is a benign busy-wait, with the next data request generated 10 ms or
+    // more later; nevertheless for power reasons, we don't want to see too many
+    // of these.
+
+    if (actualSize == 0 && aSize > 0) {
+      LOG("AudioTrackCallback: empty buffer returned");
+    }
+    return actualSize;
+  }
+
+  void OnUnderrun() { LOG("AudioTrackCallback: EVENT_UNDERRUN (discarded)"); }
+
+  void OnStreamEnd() {
+    Mutex::Autolock lock(mLock);
+    sp<AudioOutput> me = GetOutput();
+    if (!me) {
+      return;
+    }
+    LOG("AudioTrackCallback: deliver EVENT_STREAM_END");
+    (*me->mCallback)(me.get(), nullptr /* buffer */, 0 /* size */,
+                     me->mCallbackCookie, CB_EVENT_STREAM_END);
+  }
+
+  void OnNewIAudioTrack() {
+    Mutex::Autolock lock(mLock);
+    sp<AudioOutput> me = GetOutput();
+    if (!me) {
+      return;
+    }
+    LOG("AudioTrackCallback: deliver EVENT_TEAR_DOWN");
+    (*me->mCallback)(me.get(), nullptr /* buffer */, 0 /* size */,
+                     me->mCallbackCookie, CB_EVENT_TEAR_DOWN);
+  }
+
+  virtual sp<AudioOutput> GetOutput() const = 0;
+
+ private:
+  mutable Mutex mLock;
+};
+
+#if ANDROID_VERSION >= 33
+// New AudioTrack callback which implements IAudioTrackCallback interface.
+class AudioOutput::AudioTrackCallback final
+    : public AudioOutput::AudioTrackCallbackBase,
+      public AudioTrack::IAudioTrackCallback {
+ public:
+  size_t onMoreData(const AudioTrack::Buffer& aBuffer) override {
+    return OnMoreData(aBuffer.data(), aBuffer.size());
+  }
+
+  void onUnderrun() override { OnUnderrun(); }
+
+  void onNewIAudioTrack() override { OnNewIAudioTrack(); }
+
+  void onStreamEnd() override { OnStreamEnd(); }
+
+  explicit AudioTrackCallback(const wp<AudioOutput>& aCookie) {
+    mData = aCookie;
+  }
+
+ private:
+  mediautils::atomic_wp<AudioOutput> mData;
+  sp<AudioOutput> GetOutput() const override { return mData.load().promote(); }
+  DISALLOW_EVIL_CONSTRUCTORS(AudioTrackCallback);
+};
+
+#else
+// Legacy AudioTrack callback uses C-style function pointer. Although AOSP 13
+// also supports legacy callback, AudioTrack::Buffer size is no longer
+// modifiable and there is no way to report actual data size when handling
+// EVENT_MORE_DATA. Therefore on AOSP 13 we should always use the new callback
+// above.
+class AudioOutput::AudioTrackCallback final
+    : public AudioOutput::AudioTrackCallbackBase,
+      public RefBase {
+ public:
+  static void LegacyCallback(int aEvent, void* aCookie, void* aInfo) {
+    auto* thiz = static_cast<AudioTrackCallback*>(aCookie);
+    switch (aEvent) {
+      case AudioTrack::EVENT_MORE_DATA: {
+        auto* buffer = static_cast<AudioTrack::Buffer*>(aInfo);
+        size_t actualSize = thiz->OnMoreData(buffer->raw, buffer->size);
+        buffer->size = actualSize;
+        break;
+      }
+      case AudioTrack::EVENT_UNDERRUN:
+        thiz->OnUnderrun();
+        break;
+      case AudioTrack::EVENT_STREAM_END:
+        thiz->OnStreamEnd();
+        break;
+      case AudioTrack::EVENT_NEW_IAUDIOTRACK:
+        thiz->OnNewIAudioTrack();
+        break;
+      default:
+        LOG("AudioTrackCallback: event %d", aEvent);
+        break;
+    }
+  }
+
+  explicit AudioTrackCallback(const wp<AudioOutput>& aCookie) {
+    mData = aCookie;
+  }
+
+ private:
+  // There is no atomic_wp defined in earlier version of AOSP, but it's fine
+  // to use wp here because when using legacy callback, AudioTrack doesn't hold
+  // a reference to the callback object. The callback object is always destroyed
+  // along with AudioOutput, and at that moment, the AudioTrack is already
+  // stopped, so mData is guaranteed to be not accessed by two threads
+  // concurrently.
+  wp<AudioOutput> mData;
+  sp<AudioOutput> GetOutput() const override { return mData.promote(); }
+  DISALLOW_EVIL_CONSTRUCTORS(AudioTrackCallback);
+};
+#endif
+
 AudioOutput::AudioOutput(audio_session_t aSessionId,
                          audio_stream_type_t aStreamType)
     : mCallbackCookie(nullptr),
       mCallback(nullptr),
-      mCallbackData(nullptr),
       mSessionId(aSessionId),
       mStreamType(aStreamType) {}
 
@@ -99,27 +240,30 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
     }
   }
 
-  sp<AudioTrack> t;
-  CallbackData* newcbd = new CallbackData(this);
+  sp<AudioTrack> track;
+  sp<AudioTrackCallback> trackCallback = new AudioTrackCallback(this);
 
-  t = new AudioTrack(
-      mStreamType, aSampleRate, aFormat, aChannelMask,
-      0,  // Offloaded tracks will get frame count from AudioFlinger
-      aFlags, CallbackWrapper, newcbd,
-      0,  // notification frames
-      mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo);
+  // Offloaded tracks will get frame count from AudioFlinger.
+#if ANDROID_VERSION >= 33
+  track = new AudioTrack(mStreamType, aSampleRate, aFormat, aChannelMask, 0,
+                         aFlags, trackCallback, 0, mSessionId,
+                         AudioTrack::TRANSFER_CALLBACK, aOffloadInfo);
+#else
+  track =
+      new AudioTrack(mStreamType, aSampleRate, aFormat, aChannelMask, 0, aFlags,
+                     AudioTrackCallback::LegacyCallback, trackCallback.get(), 0,
+                     mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo);
+#endif
 
-  if ((!t.get()) || (t->initCheck() != NO_ERROR)) {
+  if (!track || track->initCheck() != OK) {
     LOG("Unable to create audio track");
-    delete newcbd;
     return NO_INIT;
   }
 
-  mCallbackData = newcbd;
-  t->setVolume(1.0);
-
-  mTrack = t;
-  return NO_ERROR;
+  track->setVolume(1.0);
+  mTrack = track;
+  mTrackCallback = trackCallback;
+  return OK;
 }
 
 status_t AudioOutput::Start() {
@@ -152,84 +296,8 @@ void AudioOutput::Pause() {
 
 void AudioOutput::Close() {
   LOG("%s", __PRETTY_FUNCTION__);
-  mTrack.clear();
-
-  delete mCallbackData;
-  mCallbackData = nullptr;
-}
-
-#if ANDROID_VERSION >= 33
-#define BUFFER_DATA buffer->data()
-#define BUFFER_SIZE buffer->size()
-#else
-#define BUFFER_DATA buffer->raw
-#define BUFFER_SIZE buffer->size
-#endif
-
-// static
-void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
-  CallbackData* data = (CallbackData*)aCookie;
-  data->Lock();
-  AudioOutput* me = data->GetOutput();
-  AudioTrack::Buffer* buffer = (AudioTrack::Buffer*)aInfo;
-  if (!me) {
-    // no output set, likely because the track was scheduled to be reused
-    // by another player, but the format turned out to be incompatible.
-    data->Unlock();
-    if (buffer) {
-#if ANDROID_VERSION < 33
-      // FIXME: mSize is private in 33.
-      buffer->size = 0;
-#endif
-    }
-    return;
-  }
-
-  switch (aEvent) {
-    case AudioTrack::EVENT_MORE_DATA: {
-      size_t actualSize =
-          (*me->mCallback)(me, BUFFER_DATA, BUFFER_SIZE, me->mCallbackCookie,
-                           CB_EVENT_FILL_BUFFER);
-
-      if (actualSize == 0 && BUFFER_SIZE > 0) {
-        // Log when no data is returned from the callback.
-        // (1) We may have no data (especially with network streaming sources).
-        // (2) We may have reached the EOS and the audio track is not stopped
-        //     yet.
-        // Note that AwesomePlayer/AudioPlayer will only return zero size when
-        // it reaches the EOS. NuPlayerRenderer will return zero when it doesn't
-        // have data (it doesn't block to fill).
-        //
-        // This is a benign busy-wait, with the next data request generated 10
-        // ms or more later; nevertheless for power reasons, we don't want to
-        // see too many of these.
-        LOG("Callback wrapper: empty buffer returned");
-      }
-
-#if ANDROID_VERSION < 33
-      // FIXME: mSize is private in 33.
-      buffer->size = actualSize;
-#endif
-    } break;
-
-    case AudioTrack::EVENT_STREAM_END:
-      LOG("Callback wrapper: EVENT_STREAM_END");
-      (*me->mCallback)(me, nullptr /* buffer */, 0 /* size */,
-                       me->mCallbackCookie, CB_EVENT_STREAM_END);
-      break;
-
-    case AudioTrack::EVENT_NEW_IAUDIOTRACK:
-      LOG("Callback wrapper: EVENT_TEAR_DOWN");
-      (*me->mCallback)(me, nullptr /* buffer */, 0 /* size */,
-                       me->mCallbackCookie, CB_EVENT_TEAR_DOWN);
-      break;
-
-    default:
-      LOG("received unknown event type: %d in Callback wrapper!", aEvent);
-      break;
-  }
-
-  data->Unlock();
+  mTrack = nullptr;
+  mTrackCallback = nullptr;
 }
 
 }  // namespace android

@@ -34,7 +34,8 @@ namespace android {
  * ease handling offloaded tracks, part of AudioOutput is used here
  */
 class AudioOutput : public GonkAudioSink {
-  class CallbackData;
+  class AudioTrackCallback;
+  class AudioTrackCallbackBase;
 
  public:
   AudioOutput(audio_session_t aSessionId, audio_stream_type_t aStreamType);
@@ -62,36 +63,12 @@ class AudioOutput : public GonkAudioSink {
   void Close() override;
 
  private:
-  static void CallbackWrapper(int aEvent, void* aMe, void* aInfo);
-
   sp<AudioTrack> mTrack;
+  sp<AudioTrackCallback> mTrackCallback;
   void* mCallbackCookie;
   AudioCallback mCallback;
-  CallbackData* mCallbackData;
-
-  // Session id given by AudioSystem and used to create audio track.
   audio_session_t mSessionId;
-
   audio_stream_type_t mStreamType;
-
-  // CallbackData is what is passed to the AudioTrack as the "user" data.
-  // We need to be able to target this to a different Output on the fly,
-  // so we can't use the Output itself for this.
-  class CallbackData {
-   public:
-    CallbackData(AudioOutput* aCookie) { mData = aCookie; }
-    AudioOutput* GetOutput() { return mData; }
-    void SetOutput(AudioOutput* aNewcookie) { mData = aNewcookie; }
-    // Lock/Unlock are used by the callback before accessing the payload of
-    // this object
-    void Lock() { mLock.lock(); }
-    void Unlock() { mLock.unlock(); }
-
-   private:
-    AudioOutput* mData;
-    mutable Mutex mLock;
-    DISALLOW_EVIL_CONSTRUCTORS(CallbackData);
-  };
 };  // AudioOutput
 
 }  // namespace android

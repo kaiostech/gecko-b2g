@@ -26,20 +26,14 @@
 #include "base/basictypes.h"
 #include "GonkAudioSink.h"
 
-namespace mozilla {
+namespace android {
 
 /**
- * Stripped version of Android KK MediaPlayerService::AudioOutput class
- * Android MediaPlayer uses AudioOutput as a wrapper to handle
- * Android::AudioTrack
- * Similarly to ease handling offloaded tracks, part of AudioOutput is used here
+ * Stripped version of Android MediaPlayerService::AudioOutput class. Android
+ * MediaPlayer uses AudioOutput as a wrapper to handle AudioTrack. Similarly to
+ * ease handling offloaded tracks, part of AudioOutput is used here
  */
 class AudioOutput : public GonkAudioSink {
-  typedef android::Mutex Mutex;
-  typedef android::String8 String8;
-  typedef android::status_t status_t;
-  typedef android::AudioTrack AudioTrack;
-
   class CallbackData;
 
  public:
@@ -50,7 +44,7 @@ class AudioOutput : public GonkAudioSink {
   ssize_t FrameSize() const override;
   status_t GetPosition(uint32_t* aPosition) const override;
   status_t SetVolume(float aVolume) override;
-  status_t SetPlaybackRate(const android::AudioPlaybackRate& aRate) override;
+  status_t SetPlaybackRate(const AudioPlaybackRate& aRate) override;
   status_t SetParameters(const String8& aKeyValuePairs) override;
 
   // Creates an offloaded audio track with the given parameters
@@ -70,10 +64,8 @@ class AudioOutput : public GonkAudioSink {
 
  private:
   static void CallbackWrapper(int aEvent, void* aMe, void* aInfo);
-  friend android::AudioTrack;
-  friend android::AudioTrack::Buffer;
 
-  android::sp<AudioTrack> mTrack;
+  sp<AudioTrack> mTrack;
   void* mCallbackCookie;
   AudioCallback mCallback;
   CallbackData* mCallbackData;
@@ -81,7 +73,7 @@ class AudioOutput : public GonkAudioSink {
   // Uid of the current process, need to create audio track
   int mUid;
 
-  // Session id given by Android::AudioSystem and used to create audio track
+  // Session id given by AudioSystem and used to create audio track.
   audio_session_t mSessionId;
 
   audio_stream_type_t mStreamType;
@@ -106,6 +98,6 @@ class AudioOutput : public GonkAudioSink {
   };
 };  // AudioOutput
 
-}  // namespace mozilla
+}  // namespace android
 
 #endif /* AUDIOOUTPUT_H_ */

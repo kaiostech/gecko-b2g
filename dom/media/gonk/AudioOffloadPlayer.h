@@ -21,6 +21,7 @@ class AudioOffloadPlayer : public MediaOffloadPlayer,
                            public DecoderDoctorLifeLogger<AudioOffloadPlayer> {
   using TimeUnit = media::TimeUnit;
   using TimeIntervals = media::TimeIntervals;
+  using GonkAudioSink = android::GonkAudioSink;
 
  public:
   AudioOffloadPlayer(MediaFormatReaderInit& aInit,

@@ -34,17 +34,14 @@
 // AudioSink::open()
 #define CHANNEL_MASK_USE_CHANNEL_ORDER 0
 
-namespace mozilla {
+namespace android {
 
 /**
  * AudioSink: abstraction layer for audio output
  * Stripped version of Android KK MediaPlayerBase::AudioSink class
  */
 
-class GonkAudioSink : public android::RefBase {
-  typedef android::String8 String8;
-  typedef android::status_t status_t;
-
+class GonkAudioSink : public RefBase {
  public:
   enum cb_event_t {
     CB_EVENT_FILL_BUFFER,  // Request to write more data to buffer.
@@ -62,10 +59,8 @@ class GonkAudioSink : public android::RefBase {
   virtual ssize_t FrameSize() const = 0;
   virtual status_t GetPosition(uint32_t* aPosition) const = 0;
   virtual status_t SetVolume(float aVolume) = 0;
-  virtual status_t SetPlaybackRate(const android::AudioPlaybackRate& aRate) = 0;
-  virtual status_t SetParameters(const String8& aKeyValuePairs) {
-    return android::NO_ERROR;
-  }
+  virtual status_t SetPlaybackRate(const AudioPlaybackRate& aRate) = 0;
+  virtual status_t SetParameters(const String8& aKeyValuePairs) { return OK; }
 
   virtual status_t Open(uint32_t aSampleRate, int aChannelCount,
                         audio_channel_mask_t aChannelMask,
@@ -81,6 +76,6 @@ class GonkAudioSink : public android::RefBase {
   virtual void Close() = 0;
 };
 
-}  // namespace mozilla
+}  // namespace android
 
 #endif  // GONK_AUDIO_SINK_H_

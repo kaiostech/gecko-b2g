@@ -22,15 +22,17 @@
 #include "mozilla/Logging.h"
 
 namespace mozilla {
-
 extern LazyLogModule gMediaDecoderLog;
+}  // namespace mozilla
 
-#define LOG(fmt, ...) \
-  MOZ_LOG(gMediaDecoderLog, LogLevel::Debug, (fmt, ##__VA_ARGS__))
-#define LOGV(fmt, ...) \
-  MOZ_LOG(gMediaDecoderLog, LogLevel::Verbose, (fmt, ##__VA_ARGS__))
+#define LOG(fmt, ...)                                          \
+  MOZ_LOG(mozilla::gMediaDecoderLog, mozilla::LogLevel::Debug, \
+          (fmt, ##__VA_ARGS__))
+#define LOGV(fmt, ...)                                           \
+  MOZ_LOG(mozilla::gMediaDecoderLog, mozilla::LogLevel::Verbose, \
+          (fmt, ##__VA_ARGS__))
 
-using namespace android;
+namespace android {
 
 AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid,
                          audio_stream_type_t aStreamType)
@@ -240,4 +242,4 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
   data->Unlock();
 }
 
-}  // namespace mozilla
+}  // namespace android

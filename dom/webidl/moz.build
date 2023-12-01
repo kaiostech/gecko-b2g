@@ -487,6 +487,7 @@ WEBIDL_FILES = [
     "ClipboardEvent.webidl",
     "Comment.webidl",
     "CompositionEvent.webidl",
+    "CompressionStream.webidl",
     "Console.webidl",
     "ConstantSourceNode.webidl",
     "ConvolverNode.webidl",
@@ -527,6 +528,7 @@ WEBIDL_FILES = [
     "DataTransferItem.webidl",
     "DataTransferItemList.webidl",
     "DecoderDoctorNotification.webidl",
+    "DecompressionStream.webidl",
     "DedicatedWorkerGlobalScope.webidl",
     "DelayNode.webidl",
     "DeviceMotionEvent.webidl",
@@ -589,6 +591,7 @@ WEBIDL_FILES = [
     "FileSystemFileHandle.webidl",
     "FileSystemHandle.webidl",
     "FileSystemSyncAccessHandle.webidl",
+    "FileSystemWritableFileStream.webidl",
     "FinalizationRegistry.webidl",
     "FlashlightManager.webidl",
     "FlipManager.webidl",
@@ -835,8 +838,15 @@ WEBIDL_FILES = [
     "PushMessageData.webidl",
     "PushSubscription.webidl",
     "PushSubscriptionOptions.webidl",
+    "QueuingStrategy.webidl",
     "RadioNodeList.webidl",
     "Range.webidl",
+    "ReadableByteStreamController.webidl",
+    "ReadableStream.webidl",
+    "ReadableStreamBYOBReader.webidl",
+    "ReadableStreamBYOBRequest.webidl",
+    "ReadableStreamDefaultController.webidl",
+    "ReadableStreamDefaultReader.webidl",
     "ReferrerPolicy.webidl",
     "Reporting.webidl",
     "Request.webidl",
@@ -1003,11 +1013,16 @@ WEBIDL_FILES = [
     "Touch.webidl",
     "TouchEvent.webidl",
     "TouchList.webidl",
+    "Transformer.webidl",
+    "TransformStream.webidl",
+    "TransformStreamDefaultController.webidl",
     "TransitionEvent.webidl",
     "TreeWalker.webidl",
     "UDPMessageEvent.webidl",
     "UDPSocket.webidl",
     "UIEvent.webidl",
+    "UnderlyingSink.webidl",
+    "UnderlyingSource.webidl",
     "URL.webidl",
     "URLSearchParams.webidl",
     "UsbManager.webidl",
@@ -1050,6 +1065,9 @@ WEBIDL_FILES = [
     "WorkerTestUtils.webidl",
     "Worklet.webidl",
     "WorkletGlobalScope.webidl",
+    "WritableStream.webidl",
+    "WritableStreamDefaultController.webidl",
+    "WritableStreamDefaultWriter.webidl",
     "XMLDocument.webidl",
     "XMLHttpRequest.webidl",
     "XMLHttpRequestEventTarget.webidl",
@@ -1065,28 +1083,6 @@ WEBIDL_FILES = [
 if CONFIG["MOZ_AUDIO_CHANNEL_MANAGER"]:
     WEBIDL_FILES += [
         "AudioChannelManager.webidl",
-    ]
-
-if CONFIG["MOZ_DOM_STREAMS"]:
-    WEBIDL_FILES += [
-        "CompressionStream.webidl",
-        "DecompressionStream.webidl",
-        "FileSystemWritableFileStream.webidl",
-        "QueuingStrategy.webidl",
-        "ReadableByteStreamController.webidl",
-        "ReadableStream.webidl",
-        "ReadableStreamBYOBReader.webidl",
-        "ReadableStreamBYOBRequest.webidl",
-        "ReadableStreamDefaultController.webidl",
-        "ReadableStreamDefaultReader.webidl",
-        "Transformer.webidl",
-        "TransformStream.webidl",
-        "TransformStreamDefaultController.webidl",
-        "UnderlyingSink.webidl",
-        "UnderlyingSource.webidl",
-        "WritableStream.webidl",
-        "WritableStreamDefaultController.webidl",
-        "WritableStreamDefaultWriter.webidl",
     ]
 
 if CONFIG["MOZ_WEBRTC"]:
@@ -1139,15 +1135,7 @@ if CONFIG["MOZ_WEBSPEECH"]:
     ]
 
 WEBIDL_FILES += [
-    "CloseEvent.webidl",
     "CustomEvent.webidl",
-    "DeviceOrientationEvent.webidl",
-    "DeviceStorageChangeEvent.webidl",
-    "HashChangeEvent.webidl",
-    "PageTransitionEvent.webidl",
-    "PopStateEvent.webidl",
-    "PopupBlockedEvent.webidl",
-    "ProgressEvent.webidl",
 ]
 
 # WebExtensions API.

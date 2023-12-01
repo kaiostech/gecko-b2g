@@ -57,6 +57,7 @@ DOMCacheThread
 DataChannel IO
 DataStorage
 DesktopCapture
+File Dialog
 FileWatcher IO
 Font Loader
 FontEnumThread

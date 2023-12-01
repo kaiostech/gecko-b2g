@@ -267,11 +267,11 @@ APZCTreeManager::APZCTreeManager(LayersId aRootLayersId,
                                  UniquePtr<IAPZHitTester> aHitTester)
     : mTestSampleTime(Nothing(), "APZCTreeManager::mTestSampleTime"),
       mInputQueue(new InputQueue()),
+      mMapLock("APZCMapLock"),
       mRootLayersId(aRootLayersId),
       mSampler(nullptr),
       mUpdater(nullptr),
       mTreeLock("APZCTreeLock"),
-      mMapLock("APZCMapLock"),
       mRetainedTouchIdentifier(-1),
       mInScrollbarTouchDrag(false),
       mCurrentMousePosition(ScreenPoint(),
@@ -329,6 +329,13 @@ void APZCTreeManager::NotifyLayerTreeAdopted(
     // manager into this one, it's safer to not do that, as we'll probably have
     // that information repopulated soon anyway (on the next layers update).
   }
+
+  // There may be focus updates from the tab's content process in flight
+  // triggered by events that were processed by the old tree manager,
+  // which this tree manager does not expect.
+  // Resetting the focus state avoids this (the state will sync with content
+  // on the next focus update).
+  mFocusState.Reset();
 
   UniquePtr<APZTestData> adoptedData;
   if (aOldApzcTreeManager) {
@@ -748,7 +755,7 @@ void APZCTreeManager::SampleForWebRender(const Maybe<VsyncId>& aVsyncId,
         wrBridgeParent = aState.mWrBridge;
       });
 
-  bool activeAnimations = AdvanceAnimationsInternal(lock, aSampleTime);
+  const bool activeAnimations = AdvanceAnimationsInternal(lock, aSampleTime);
   if (activeAnimations && controller) {
     controller->ScheduleRenderOnCompositorThread(
         wr::RenderReasons::ANIMATED_PROPERTY);

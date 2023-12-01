@@ -1634,13 +1634,6 @@
 # from parent-process BrowsingContexts
 - name: browser.tabs.documentchannel.parent-controlled
   type: bool
-  value: true
-  mirror: always
-
-# If set, use DocumentChannel to attempt a speculative load from the
-# parent whenever it's not possible to directly load from the parent.
-- name: browser.tabs.documentchannel.speculative-load
-  type: bool
   value: false
   mirror: always
 
@@ -6768,6 +6761,10 @@
     mirror: always
   # Force triple buffering in overlay's video swap chain
 -   name: gfx.webrender.dcomp-video-force-triple-buffering
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+-   name: gfx.webrender.dcomp-video-swap-chain-present-interval-0
     type: RelaxedAtomicBool
     value: false
     mirror: always

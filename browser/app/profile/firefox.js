@@ -432,11 +432,9 @@ pref("browser.urlbar.suggest.recentsearches",       true);
   pref("browser.urlbar.trending.featureGate", true);
 #endif
 
-#if defined(NIGHTLY_BUILD)
-  // Enable Rich Entities.
-  pref("browser.urlbar.richSuggestions.featureGate", true);
-  pref("browser.search.param.search_rich_suggestions", "fen");
-#endif
+// Enable Rich Entities.
+pref("browser.urlbar.richSuggestions.featureGate", true);
+pref("browser.search.param.search_rich_suggestions", "fen");
 
 // Feature gate pref for weather suggestions in the urlbar.
 pref("browser.urlbar.weather.featureGate", false);
@@ -1448,6 +1446,15 @@ pref("browser.bookmarks.editDialog.maxRecentFolders", 7);
   pref("browser.taskbar.previews.max", 20);
   pref("browser.taskbar.previews.cachetime", 5);
   pref("browser.taskbar.lists.legacyBackend", true);
+
+  // We'll only enable the new off-main-thread jumplist backend on Nightly for
+  // now while we test it.
+#ifdef NIGHTLY_BUILD
+  pref("browser.taskbar.lists.legacyBackend", false);
+#else
+  pref("browser.taskbar.lists.legacyBackend", true);
+#endif
+
   pref("browser.taskbar.lists.enabled", true);
   pref("browser.taskbar.lists.frequent.enabled", true);
   pref("browser.taskbar.lists.recent.enabled", false);
@@ -1653,7 +1660,7 @@ pref("browser.newtabpage.activity-stream.improvesearch.topSiteSearchShortcuts", 
 
 // ASRouter provider configuration
 pref("browser.newtabpage.activity-stream.asrouter.providers.cfr", "{\"id\":\"cfr\",\"enabled\":true,\"type\":\"remote-settings\",\"collection\":\"cfr\",\"updateCycleInMs\":3600000}");
-pref("browser.newtabpage.activity-stream.asrouter.providers.whats-new-panel", "{\"id\":\"whats-new-panel\",\"enabled\":true,\"type\":\"remote-settings\",\"collection\":\"whats-new-panel\",\"updateCycleInMs\":3600000}");
+pref("browser.newtabpage.activity-stream.asrouter.providers.whats-new-panel", "{\"id\":\"whats-new-panel\",\"enabled\":false,\"type\":\"remote-settings\",\"collection\":\"whats-new-panel\",\"updateCycleInMs\":3600000}");
 pref("browser.newtabpage.activity-stream.asrouter.providers.message-groups", "{\"id\":\"message-groups\",\"enabled\":true,\"type\":\"remote-settings\",\"collection\":\"message-groups\",\"updateCycleInMs\":3600000}");
 // This url, if changed, MUST continue to point to an https url. Pulling arbitrary content to inject into
 // this page over http opens us up to a man-in-the-middle attack that we'd rather not face. If you are a downstream

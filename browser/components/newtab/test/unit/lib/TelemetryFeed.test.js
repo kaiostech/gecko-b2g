@@ -2085,8 +2085,11 @@ describe("TelemetryFeed", () => {
       const session_id = "1337cafe";
       const pos1 = 1;
       const pos2 = 4;
+      const shim = "Y29uc2lkZXIgeW91ciBjdXJpb3NpdHkgcmV3YXJkZWQ=";
       sandbox.stub(instance.sessions, "get").returns({ session_id });
       sandbox.spy(Glean.pocket.impression, "record");
+      sandbox.spy(Glean.pocket.shim, "set");
+      sandbox.spy(GleanPings.spoc, "submit");
 
       instance.handleDiscoveryStreamImpressionStats("_", {
         source: "foo",
@@ -2097,7 +2100,13 @@ describe("TelemetryFeed", () => {
             type: "organic",
             recommendation_id: "decaf-c0ff33",
           },
-          { id: 2, pos: pos2, type: "spoc", recommendation_id: undefined },
+          {
+            id: 2,
+            pos: pos2,
+            type: "spoc",
+            recommendation_id: undefined,
+            shim,
+          },
         ],
         window_inner_width: 1000,
         window_inner_height: 900,
@@ -2109,13 +2118,19 @@ describe("TelemetryFeed", () => {
         is_sponsored: false,
         position: pos1,
         recommendation_id: "decaf-c0ff33",
+        tile_id: 1,
       });
       assert.deepEqual(Glean.pocket.impression.record.secondCall.args[0], {
         newtab_visit_id: session_id,
         is_sponsored: true,
         position: pos2,
         recommendation_id: undefined,
+        tile_id: 2,
       });
+      assert.calledOnce(Glean.pocket.shim.set);
+      assert.calledWith(Glean.pocket.shim.set, shim);
+      assert.calledOnce(GleanPings.spoc.submit);
+      assert.calledWith(GleanPings.spoc.submit, "impression");
     });
   });
   describe("#handleDiscoveryStreamLoadedContent", () => {
@@ -2559,12 +2574,15 @@ describe("TelemetryFeed", () => {
         value: {
           card_type: "organic",
           recommendation_id: "decaf-c0ff33",
+          tile_id: 314623757745896,
         },
       });
       instance = new TelemetryFeed();
       const session_id = "c0ffee";
       sandbox.stub(instance.sessions, "get").returns({ session_id });
       sandbox.spy(Glean.pocket.click, "record");
+      sandbox.spy(Glean.pocket.shim, "set");
+      sandbox.spy(GleanPings.spoc, "submit");
 
       instance.handleDiscoveryStreamUserEvent(action);
 
@@ -2574,22 +2592,30 @@ describe("TelemetryFeed", () => {
         is_sponsored: false,
         position: action_position,
         recommendation_id: "decaf-c0ff33",
+        tile_id: 314623757745896,
       });
+      assert.notCalled(Glean.pocket.shim.set);
+      assert.notCalled(GleanPings.spoc.submit);
     });
     it("instruments a sponsored top stories click", () => {
       const action_position = 42;
+      const shim = "Y29uc2lkZXIgeW91ciBjdXJpb3NpdHkgcmV3YXJkZWQ=";
       const action = ac.DiscoveryStreamUserEvent({
         event: "CLICK",
         action_position,
         value: {
           card_type: "spoc",
           recommendation_id: undefined,
+          tile_id: 448685088,
+          shim,
         },
       });
       instance = new TelemetryFeed();
       const session_id = "c0ffee";
       sandbox.stub(instance.sessions, "get").returns({ session_id });
       sandbox.spy(Glean.pocket.click, "record");
+      sandbox.spy(Glean.pocket.shim, "set");
+      sandbox.spy(GleanPings.spoc, "submit");
 
       instance.handleDiscoveryStreamUserEvent(action);
 
@@ -2599,7 +2625,12 @@ describe("TelemetryFeed", () => {
         is_sponsored: true,
         position: action_position,
         recommendation_id: undefined,
+        tile_id: 448685088,
       });
+      assert.calledOnce(Glean.pocket.shim.set);
+      assert.calledWith(Glean.pocket.shim.set, shim);
+      assert.calledOnce(GleanPings.spoc.submit);
+      assert.calledWith(GleanPings.spoc.submit, "click");
     });
     it("instruments a save of an organic top story", () => {
       const action_position = 42;
@@ -2609,12 +2640,15 @@ describe("TelemetryFeed", () => {
         value: {
           card_type: "organic",
           recommendation_id: "decaf-c0ff33",
+          tile_id: 314623757745896,
         },
       });
       instance = new TelemetryFeed();
       const session_id = "c0ffee";
       sandbox.stub(instance.sessions, "get").returns({ session_id });
       sandbox.spy(Glean.pocket.save, "record");
+      sandbox.spy(Glean.pocket.shim, "set");
+      sandbox.spy(GleanPings.spoc, "submit");
 
       instance.handleDiscoveryStreamUserEvent(action);
 
@@ -2624,22 +2658,30 @@ describe("TelemetryFeed", () => {
         is_sponsored: false,
         position: action_position,
         recommendation_id: "decaf-c0ff33",
+        tile_id: 314623757745896,
       });
+      assert.notCalled(Glean.pocket.shim.set);
+      assert.notCalled(GleanPings.spoc.submit);
     });
     it("instruments a save of a sponsored top story", () => {
       const action_position = 42;
+      const shim = "Y29uc2lkZXIgeW91ciBjdXJpb3NpdHkgcmV3YXJkZWQ=";
       const action = ac.DiscoveryStreamUserEvent({
         event: "SAVE_TO_POCKET",
         action_position,
         value: {
           card_type: "spoc",
           recommendation_id: undefined,
+          tile_id: 448685088,
+          shim,
         },
       });
       instance = new TelemetryFeed();
       const session_id = "c0ffee";
       sandbox.stub(instance.sessions, "get").returns({ session_id });
       sandbox.spy(Glean.pocket.save, "record");
+      sandbox.spy(Glean.pocket.shim, "set");
+      sandbox.spy(GleanPings.spoc, "submit");
 
       instance.handleDiscoveryStreamUserEvent(action);
 
@@ -2649,7 +2691,12 @@ describe("TelemetryFeed", () => {
         is_sponsored: true,
         position: action_position,
         recommendation_id: undefined,
+        tile_id: 448685088,
       });
+      assert.calledOnce(Glean.pocket.shim.set);
+      assert.calledWith(Glean.pocket.shim.set, shim);
+      assert.calledOnce(GleanPings.spoc.submit);
+      assert.calledWith(GleanPings.spoc.submit, "save");
     });
     it("instruments a save of a sponsored top story, without `value`", () => {
       const action_position = 42;
@@ -2661,6 +2708,8 @@ describe("TelemetryFeed", () => {
       const session_id = "c0ffee";
       sandbox.stub(instance.sessions, "get").returns({ session_id });
       sandbox.spy(Glean.pocket.save, "record");
+      sandbox.spy(Glean.pocket.shim, "set");
+      sandbox.spy(GleanPings.spoc, "submit");
 
       instance.handleDiscoveryStreamUserEvent(action);
 
@@ -2670,7 +2719,10 @@ describe("TelemetryFeed", () => {
         is_sponsored: false,
         position: action_position,
         recommendation_id: undefined,
+        tile_id: undefined,
       });
+      assert.notCalled(Glean.pocket.shim.set);
+      assert.notCalled(GleanPings.spoc.submit);
     });
   });
   describe("#handleAboutSponsoredTopSites", () => {

@@ -982,7 +982,8 @@ class TelemetryFeed {
     const session = this.sessions.get(au.getPortIdOfSender(action));
     switch (action.data?.event) {
       case "CLICK":
-        const { card_type, topic, recommendation_id } = action.data.value ?? {};
+        const { card_type, topic, recommendation_id, tile_id, shim } =
+          action.data.value ?? {};
         if (
           action.data.source === "POPULAR_TOPICS" ||
           card_type === "topics_widget"
@@ -997,7 +998,12 @@ class TelemetryFeed {
             is_sponsored: card_type === "spoc",
             position: action.data.action_position,
             recommendation_id,
+            tile_id,
           });
+          if (shim) {
+            Glean.pocket.shim.set(shim);
+            GleanPings.spoc.submit("click");
+          }
         }
         break;
       case "SAVE_TO_POCKET":
@@ -1006,7 +1012,12 @@ class TelemetryFeed {
           is_sponsored: action.data.value?.card_type === "spoc",
           position: action.data.action_position,
           recommendation_id: action.data.value?.recommendation_id,
+          tile_id: action.data.value?.tile_id,
         });
+        if (action.data.value?.shim) {
+          Glean.pocket.shim.set(action.data.value.shim);
+          GleanPings.spoc.submit("save");
+        }
         break;
     }
   }
@@ -1277,7 +1288,12 @@ class TelemetryFeed {
         is_sponsored: tile.type === "spoc",
         position: tile.pos,
         recommendation_id: tile.recommendation_id,
+        tile_id: tile.id,
       });
+      if (tile.shim) {
+        Glean.pocket.shim.set(tile.shim);
+        GleanPings.spoc.submit("impression");
+      }
     });
     impressionSets[source] = impressions;
     session.impressionSets = impressionSets;

@@ -11,7 +11,6 @@
 #include "nsCOMPtr.h"
 #include "nsComponentManagerUtils.h"
 #include "nsDependentSubstring.h"
-#include "nsIDOMWakeLockListener.h"
 #include "nsIMutableArray.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"

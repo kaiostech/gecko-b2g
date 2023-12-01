@@ -9,7 +9,7 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/StaticPtr.h"
 #include "nsCOMPtr.h"
-#include "nsIDOMWakeLockListener.h"
+#include "nsIDOMMozWakeLockListener.h"
 #include "nsIVolume.h"
 #include "nsIVolumeService.h"
 #include "nsVolume.h"

@@ -8,7 +8,7 @@ with Files("**"):
     BUG_COMPONENT = ("Core", "DOM: Core & HTML")
 
 XPIDL_SOURCES += [
-    "nsIDOMWakeLockListener.idl",
+    "nsIDOMMozWakeLockListener.idl",
     "nsIPowerManagerService.idl",
     "nsIWakeLock.idl",
 ]

@@ -67,7 +67,7 @@
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/powersupply/PowerSupplyManager.h"
-#include "nsIDOMWakeLockListener.h"
+#include "nsIDOMMozWakeLockListener.h"
 #include "nsIObserver.h"
 
 class nsDOMDeviceStorage;

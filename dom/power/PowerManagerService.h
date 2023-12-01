@@ -9,7 +9,7 @@
 #include "nsCOMPtr.h"
 #include "nsHashKeys.h"
 #include "nsTArray.h"
-#include "nsIDOMWakeLockListener.h"
+#include "nsIDOMMozWakeLockListener.h"
 #include "nsIPowerManagerService.h"
 #include "mozilla/HalWakeLockInformation.h"
 #include "mozilla/StaticPtr.h"

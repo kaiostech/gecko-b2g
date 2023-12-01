@@ -11,7 +11,7 @@
 #include "nsHashKeys.h"
 #include "nsRefPtrHashtable.h"
 
-#include "nsIDOMWakeLockListener.h"
+#include "nsIDOMMozWakeLockListener.h"
 
 class WakeLockTopic;
 

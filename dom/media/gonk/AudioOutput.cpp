@@ -24,7 +24,11 @@
 namespace mozilla {
 
 extern LazyLogModule gMediaDecoderLog;
-#define AUDIO_OFFLOAD_LOG(type, msg) MOZ_LOG(gMediaDecoderLog, type, msg)
+
+#define LOG(fmt, ...) \
+  MOZ_LOG(gMediaDecoderLog, LogLevel::Debug, (fmt, ##__VA_ARGS__))
+#define LOGV(fmt, ...) \
+  MOZ_LOG(gMediaDecoderLog, LogLevel::Verbose, (fmt, ##__VA_ARGS__))
 
 using namespace android;
 
@@ -82,16 +86,14 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
   mCallback = aCb;
   mCallbackCookie = aCookie;
 
-  AUDIO_OFFLOAD_LOG(LogLevel::Debug,
-                    ("open(%u, %d, 0x%x, 0x%x, %d 0x%x)", aSampleRate,
-                     aChannelCount, aChannelMask, aFormat, mSessionId, aFlags));
+  LOG("open(%u, %d, 0x%x, 0x%x, %d 0x%x)", aSampleRate, aChannelCount,
+      aChannelMask, aFormat, mSessionId, aFlags);
 
   if (aChannelMask == CHANNEL_MASK_USE_CHANNEL_ORDER) {
     aChannelMask = audio_channel_out_mask_from_count(aChannelCount);
     if (0 == aChannelMask) {
-      AUDIO_OFFLOAD_LOG(LogLevel::Error, ("open() error, can\'t derive mask for"
-                                          " %d audio channels",
-                                          aChannelCount));
+      LOG("open() error, can\'t derive mask for %d audio channels",
+          aChannelCount);
       return NO_INIT;
     }
   }
@@ -116,7 +118,7 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
 #endif
 
   if ((!t.get()) || (t->initCheck() != NO_ERROR)) {
-    AUDIO_OFFLOAD_LOG(LogLevel::Error, ("Unable to create audio track"));
+    LOG("Unable to create audio track");
     delete newcbd;
     return NO_INIT;
   }
@@ -129,7 +131,7 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
 }
 
 status_t AudioOutput::Start() {
-  AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("%s", __PRETTY_FUNCTION__));
+  LOG("%s", __PRETTY_FUNCTION__);
   if (!mTrack.get()) {
     return NO_INIT;
   }
@@ -138,7 +140,7 @@ status_t AudioOutput::Start() {
 }
 
 void AudioOutput::Stop() {
-  AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("%s", __PRETTY_FUNCTION__));
+  LOG("%s", __PRETTY_FUNCTION__);
   if (mTrack.get()) {
     mTrack->stop();
   }
@@ -157,7 +159,7 @@ void AudioOutput::Pause() {
 }
 
 void AudioOutput::Close() {
-  AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("%s", __PRETTY_FUNCTION__));
+  LOG("%s", __PRETTY_FUNCTION__);
   mTrack.clear();
 
   delete mCallbackData;
@@ -209,8 +211,7 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
         // This is a benign busy-wait, with the next data request generated 10
         // ms or more later; nevertheless for power reasons, we don't want to
         // see too many of these.
-        AUDIO_OFFLOAD_LOG(LogLevel::Verbose,
-                          ("Callback wrapper: empty buffer returned"));
+        LOG("Callback wrapper: empty buffer returned");
       }
 
 #if ANDROID_VERSION < 33
@@ -220,22 +221,19 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
     } break;
 
     case AudioTrack::EVENT_STREAM_END:
-      AUDIO_OFFLOAD_LOG(LogLevel::Debug,
-                        ("Callback wrapper: EVENT_STREAM_END"));
+      LOG("Callback wrapper: EVENT_STREAM_END");
       (*me->mCallback)(me, nullptr /* buffer */, 0 /* size */,
                        me->mCallbackCookie, CB_EVENT_STREAM_END);
       break;
 
     case AudioTrack::EVENT_NEW_IAUDIOTRACK:
-      AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("Callback wrapper: EVENT_TEAR_DOWN"));
+      LOG("Callback wrapper: EVENT_TEAR_DOWN");
       (*me->mCallback)(me, nullptr /* buffer */, 0 /* size */,
                        me->mCallbackCookie, CB_EVENT_TEAR_DOWN);
       break;
 
     default:
-      AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("received unknown event type: %d in"
-                                          " Callback wrapper!",
-                                          aEvent));
+      LOG("received unknown event type: %d in Callback wrapper!", aEvent);
       break;
   }
 

@@ -6,11 +6,6 @@
 #include "MediaCodecProxy.h"
 #include <OMX_IVCommon.h>
 #include <gui/Surface.h>
-#if ANDROID_VERSION >= 30
-#  include <mediadrm/ICrypto.h>
-#else
-#  include <media/ICrypto.h>
-#endif
 #include "GonkAudioDecoderManager.h"
 #include "GonkMediaUtils.h"
 #include "VideoUtils.h"
@@ -24,6 +19,7 @@
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/openmax/OMX_Audio.h>
+#include <mediadrm/ICrypto.h>
 #include "MediaData.h"
 #include "MediaInfo.h"
 #include "XiphExtradata.h"

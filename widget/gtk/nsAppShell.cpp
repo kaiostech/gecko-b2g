@@ -45,6 +45,7 @@ using mozilla::widget::ScreenHelperGTK;
 using mozilla::widget::ScreenManager;
 
 #define NOTIFY_TOKEN 0xFA
+#define QUIT_TOKEN 0xFB
 
 LazyLogModule gWidgetLog("Widget");
 LazyLogModule gWidgetDragLog("WidgetDrag");
@@ -55,6 +56,8 @@ LazyLogModule gDmabufLog("Dmabuf");
 LazyLogModule gClipboardLog("WidgetClipboard");
 
 static GPollFunc sPollFunc;
+
+nsAppShell* sAppShell = nullptr;
 
 // Wrapper function to disable hang monitoring while waiting in poll().
 static gint PollWrapper(GPollFD* aUfds, guint aNfsd, gint aTimeout) {
@@ -142,13 +145,23 @@ gboolean nsAppShell::EventProcessorCallback(GIOChannel* source,
 
   unsigned char c;
   Unused << read(self->mPipeFDs[0], &c, 1);
-  NS_ASSERTION(c == (unsigned char)NOTIFY_TOKEN, "wrong token");
-
-  self->NativeEventCallback();
+  switch (c) {
+    case NOTIFY_TOKEN:
+      self->NativeEventCallback();
+      break;
+    case QUIT_TOKEN:
+      self->Exit();
+      break;
+    default:
+      NS_ASSERTION(false, "wrong token");
+      break;
+  }
   return TRUE;
 }
 
 nsAppShell::~nsAppShell() {
+  sAppShell = nullptr;
+
 #ifdef MOZ_ENABLE_DBUS
   StopDBusListening();
 #endif
@@ -312,6 +325,34 @@ void nsAppShell::StopDBusListening() {
 }
 #endif
 
+void nsAppShell::TermSignalHandler(int signo) {
+  if (signo != SIGTERM) {
+    NS_WARNING("Wrong signal!");
+    return;
+  }
+  sAppShell->ScheduleQuitEvent();
+}
+
+void nsAppShell::InstallTermSignalHandler() {
+  if (!XRE_IsParentProcess() || PR_GetEnv("MOZ_DISABLE_SIG_HANDLER") ||
+      !sAppShell) {
+    return;
+  }
+
+  struct sigaction act = {}, oldact;
+  act.sa_handler = TermSignalHandler;
+  sigfillset(&act.sa_mask);
+
+  if (NS_WARN_IF(sigaction(SIGTERM, nullptr, &oldact) != 0)) {
+    return;
+  }
+  if (oldact.sa_handler != SIG_DFL) {
+    NS_WARNING("SIGTERM signal handler is already set?");
+  }
+
+  sigaction(SIGTERM, &act, nullptr);
+}
+
 nsresult nsAppShell::Init() {
   mozilla::hal::Init();
 
@@ -411,6 +452,8 @@ nsresult nsAppShell::Init() {
   mTag = g_source_attach(source, nullptr);
   g_source_unref(source);
 
+  sAppShell = this;
+
   return nsBaseAppShell::Init();
 failed:
   close(mPipeFDs[0]);
@@ -434,6 +477,11 @@ NS_IMETHODIMP nsAppShell::Run() {
 
 void nsAppShell::ScheduleNativeEventCallback() {
   unsigned char buf[] = {NOTIFY_TOKEN};
+  Unused << write(mPipeFDs[1], buf, 1);
+}
+
+void nsAppShell::ScheduleQuitEvent() {
+  unsigned char buf[] = {QUIT_TOKEN};
   Unused << write(mPipeFDs[1], buf, 1);
 }
 

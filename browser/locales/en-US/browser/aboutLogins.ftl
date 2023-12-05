@@ -3,14 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # NOTE: New strings should use the about-logins- prefix.
 
-about-logins-page-title = Logins & Passwords
+about-logins-page-title-name = Passwords
 
-about-logins-login-filter =
-  .placeholder = Search Logins
+about-logins-login-filter2 =
+  .placeholder = Search Passwords
   .key = F
 
-create-new-login-button =
-  .title = Create new login
+create-login-button =
+  .title = Add password
 
 fxaccounts-sign-in-text = Get your passwords on your other devices
 fxaccounts-sign-in-sync-button = Sign in to sync
@@ -39,18 +39,18 @@ login-list =
   .aria-label = Logins matching search query
 # Variables
 #   $count (number) - Number of logins
-login-list-count =
+login-list-count2 =
   { $count ->
-      [one] { $count } login
-     *[other] { $count } logins
+      [one] { $count } password
+     *[other] { $count } passwords
   }
 # Variables
 #   $count (number) - Number of filtered logins
 #   $total (number) - Total number of logins
-login-list-filtered-count =
+login-list-filtered-count2 =
   { $total ->
-      [one] { $count } of { $total } login
-     *[other] { $count } of { $total } logins
+      [one] { $count } of { $total } password
+     *[other] { $count } of { $total } passwords
   }
 login-list-sort-label-text = Sort by:
 login-list-name-option = Name (A-Z)
@@ -60,12 +60,15 @@ login-list-username-reverse-option = Username (Z-A)
 about-logins-login-list-alerts-option = Alerts
 login-list-last-changed-option = Last Modified
 login-list-last-used-option = Last Used
-login-list-intro-title = No logins found
+
+login-list-intro-title2 = No passwords saved
 login-list-intro-description = When you save a password in { -brand-product-name }, it will show up here.
-about-logins-login-list-empty-search-title = No logins found
+
+about-logins-login-list-empty-search-title2 = No passwords found
 about-logins-login-list-empty-search-description = There are no results matching your search.
-login-list-item-title-new-login = New Login
-login-list-item-subtitle-new-login = Enter your login credentials
+
+login-list-item-title-new-login2 = Add password
+
 login-list-item-subtitle-missing-username = (no username)
 about-logins-list-item-breach-icon =
   .title = Breached website
@@ -274,7 +277,7 @@ about-logins-export-file-picker-csv-filter-title =
 ## Login Import Dialog
 
 # Title of the file picker dialog
-about-logins-import-file-picker-title = Import Logins File
+about-logins-import-file-picker-title2 = Import Passwords to { -brand-short-name }
 about-logins-import-file-picker-import-button = Import
 # A description for the .csv file format that may be shown as the file type
 # filter by the operating system.
@@ -296,19 +299,19 @@ about-logins-import-file-picker-tsv-filter-title =
 ##  $count (number) - The number of affected elements
 
 about-logins-import-dialog-title = Import Complete
-about-logins-import-dialog-items-added =
+about-logins-import-dialog-items-added2 =
   { $count ->
-     *[other] <span>New logins added:</span> <span data-l10n-name="count">{ $count }</span>
+     *[other] <span>New passwords added:</span> <span data-l10n-name="count">{ $count }</span>
   }
 
-about-logins-import-dialog-items-modified =
+about-logins-import-dialog-items-modified2 =
   { $count ->
-     *[other] <span>Existing logins updated:</span> <span data-l10n-name="count">{ $count }</span>
+     *[other] <span>Existing entries updated:</span> <span data-l10n-name="count">{ $count }</span>
   }
 
-about-logins-import-dialog-items-no-change =
+about-logins-import-dialog-items-no-change2 =
   { $count ->
-     *[other] <span>Duplicate logins found:</span> <span data-l10n-name="count">{ $count }</span> <span data-l10n-name="meta">(not imported)</span>
+     *[other] <span>Duplicate entries found:</span> <span data-l10n-name="count">{ $count }</span> <span data-l10n-name="meta">(not imported)</span>
   }
 about-logins-import-dialog-items-error =
   { $count ->
@@ -331,15 +334,15 @@ about-logins-import-dialog-error-try-import-again = Try Import Again…
 about-logins-import-dialog-error-cancel = Cancel
 
 about-logins-import-report-title = Import Summary
-about-logins-import-report-description = Logins and passwords imported to { -brand-short-name }.
+about-logins-import-report-description2 = Passwords imported to { -brand-short-name }.
 
 #
 # Variables:
 #  $number (number) - The number of the row
 about-logins-import-report-row-index = Row { $number }
-about-logins-import-report-row-description-no-change = Duplicate: Exact match of existing login
-about-logins-import-report-row-description-modified = Existing login updated
-about-logins-import-report-row-description-added = New login added
+about-logins-import-report-row-description-no-change2 = Duplicate: Exact match of existing entry
+about-logins-import-report-row-description-modified2 = Existing entry updated
+about-logins-import-report-row-description-added2 = New password added
 about-logins-import-report-row-description-error = Error: Missing field
 
 ##
@@ -353,17 +356,17 @@ about-logins-import-report-row-description-error-missing-field = Error: Missing 
 ## Variables:
 ##  $count (number) - The number of affected elements
 
-about-logins-import-report-added =
+about-logins-import-report-added2 =
   { $count ->
-      *[other] <div data-l10n-name="count">{ $count }</div> <div data-l10n-name="details">New logins added</div>
+      *[other] <div data-l10n-name="count">{ $count }</div> <div data-l10n-name="details">New passwords added</div>
   }
-about-logins-import-report-modified =
+about-logins-import-report-modified2 =
   { $count ->
-      *[other] <div data-l10n-name="count">{ $count }</div> <div data-l10n-name="details">Existing logins updated</div>
+      *[other] <div data-l10n-name="count">{ $count }</div> <div data-l10n-name="details">Existing entries updated</div>
   }
-about-logins-import-report-no-change =
+about-logins-import-report-no-change2 =
   { $count ->
-      *[other] <div data-l10n-name="count">{ $count }</div> <div data-l10n-name="details">Duplicate logins</div> <div data-l10n-name="not-imported">(not imported)</div>
+      *[other] <div data-l10n-name="count">{ $count }</div> <div data-l10n-name="details">Duplicate entries</div> <div data-l10n-name="not-imported">(not imported)</div>
   }
 about-logins-import-report-error =
   { $count ->

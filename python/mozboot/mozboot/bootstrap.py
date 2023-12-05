@@ -132,7 +132,7 @@ FEDORA_DISTROS = (
     "rocky",
     "nobara",
     "oracle",
-    'fedora-asahi-remix',
+    "fedora-asahi-remix",
 )
 
 ADD_GIT_CINNABAR_PATH = """

@@ -53,8 +53,6 @@ class Http3Server(object):
         self._proxyPort = -1
         if options.get("proxyPort"):
             self._proxyPort = options["proxyPort"]
-        self.outthread = None
-        self.errthread = None
 
     def ports(self):
         return self._ports
@@ -63,15 +61,9 @@ class Http3Server(object):
         return self._echConfig
 
     def read_streams(self, name, proc, pipe):
-        while True:
-            line = pipe.readline()
-            output = "stdout" if pipe == proc.stdout else "stderr"
-            if line:
-                self._log.info("server: %s [%s] %s" % (name, output, line))
-
-            # Check if process is dead
-            if proc.poll() is not None:
-                break
+        output = "stdout" if pipe == proc.stdout else "stderr"
+        for line in iter(pipe.readline, ""):
+            self._log.info("server: %s [%s] %s" % (name, output, line))
 
     def start(self):
         if not os.path.exists(self._http3ServerPath):
@@ -107,6 +99,19 @@ class Http3Server(object):
             # tell us it's started
             msg = process.stdout.readline()
             self._log.info("mozserve | http3 server msg: %s" % msg)
+            name = "http3server"
+            t1 = Thread(
+                target=self.read_streams,
+                args=(name, process, process.stdout),
+                daemon=True,
+            )
+            t1.start()
+            t2 = Thread(
+                target=self.read_streams,
+                args=(name, process, process.stderr),
+                daemon=True,
+            )
+            t2.start()
             if "server listening" in msg:
                 searchObj = re.search(
                     r"HTTP3 server listening on ports ([0-9]+), ([0-9]+), ([0-9]+), ([0-9]+) and ([0-9]+)."
@@ -121,21 +126,8 @@ class Http3Server(object):
                     self._ports["MOZHTTP3_PORT_PROXY"] = searchObj.group(4)
                     self._ports["MOZHTTP3_PORT_NO_RESPONSE"] = searchObj.group(5)
                     self._echConfig = searchObj.group(6)
-                name = "http3server"
-                t1 = Thread(
-                    target=self.read_streams,
-                    args=(name, process, process.stdout),
-                    daemon=True
-                )
-                t1.start()
-                t2 = Thread(
-                    target=self.read_streams,
-                    args=(name, process, process.stderr),
-                    daemon=True
-                )
-                t2.start()
-                self.outthread = t1
-                self.errthread = t2
+            else:
+                self._log.error("http3server failed to start?")
         except OSError as e:
             # This occurs if the subprocess couldn't be started
             self._log.error("Could not run the http3 server: %s" % (str(e)))
@@ -158,12 +150,6 @@ class Http3Server(object):
                         self._log.info("Killing proc")
                         proc.kill()
                         break
-        if self.outthread is not None:
-            self.outthread.join()
-            del self.outthread
-        if self.errthread is not None:
-            self.errthread.join()
-            del self.errthread
         self._http3ServerProc = {}
 
 

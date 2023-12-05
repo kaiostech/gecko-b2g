@@ -1230,19 +1230,11 @@ nsEventStatus AsyncPanZoomController::HandleGestureEvent(
           rv = OnSingleTapConfirmed(tapGestureInput);
           break;
         case TapGestureInput::TAPGESTURE_DOUBLE:
-          // This means that double tapping on an oop iframe "works" in that we
-          // don't try (and fail) to zoom the oop iframe. But it also means it
-          // is impossible to zoom to some content inside that oop iframe.
-          // Instead the best we can do is zoom to the oop iframe itself. This
-          // is consistent with what Chrome and Safari currently do. Allowing
-          // zooming to content inside an oop iframe would be decently
-          // complicated and it doesn't seem worth it. Bug 1715179 is on file
-          // for this.
           if (!IsRootContent()) {
             if (APZCTreeManager* treeManagerLocal = GetApzcTreeManager()) {
-              if (RefPtr<AsyncPanZoomController> root =
-                      treeManagerLocal->FindZoomableApzc(this)) {
-                rv = root->OnDoubleTap(tapGestureInput);
+              if (AsyncPanZoomController* apzc =
+                      treeManagerLocal->FindRootApzcFor(GetLayersId())) {
+                rv = apzc->OnDoubleTap(tapGestureInput);
               }
             }
             break;
@@ -3065,7 +3057,7 @@ nsEventStatus AsyncPanZoomController::OnLongPress(
       }
       uint64_t blockId = GetInputQueue()->InjectNewTouchBlock(this);
       controller->HandleTap(TapType::eLongTap, *geckoScreenPoint,
-                            aEvent.modifiers, GetGuid(), blockId);
+                            aEvent.modifiers, GetGuid(), blockId, Nothing());
       return nsEventStatus_eConsumeNoDefault;
     }
   }
@@ -3111,10 +3103,12 @@ nsEventStatus AsyncPanZoomController::GenerateSingleTap(
       APZC_LOG("posting runnable for HandleTap from GenerateSingleTap");
       RefPtr<Runnable> runnable =
           NewRunnableMethod<TapType, LayoutDevicePoint, mozilla::Modifiers,
-                            ScrollableLayerGuid, uint64_t>(
+                            ScrollableLayerGuid, uint64_t,
+                            Maybe<DoubleTapToZoomMetrics>>(
               "layers::GeckoContentController::HandleTap", controller,
               &GeckoContentController::HandleTap, aType, *geckoScreenPoint,
-              aModifiers, GetGuid(), touch ? touch->GetBlockId() : 0);
+              aModifiers, GetGuid(), touch ? touch->GetBlockId() : 0,
+              Nothing());
 
       controller->PostDelayedTask(runnable.forget(), 0);
       return nsEventStatus_eConsumeNoDefault;
@@ -3160,16 +3154,48 @@ nsEventStatus AsyncPanZoomController::OnDoubleTap(
     const TapGestureInput& aEvent) {
   APZC_LOG_DETAIL("got a double-tap in state %s\n", this,
                   ToString(mState).c_str());
+
+  MOZ_ASSERT(IsRootForLayersId(),
+             "This function should be called for the root content APZC or "
+             "OOPIF root APZC");
+
+  CSSToCSSMatrix4x4 transformToRootContentApzc;
+  RefPtr<AsyncPanZoomController> rootContentApzc;
+  if (IsRootContent()) {
+    rootContentApzc = RefPtr{this};
+  } else {
+    if (APZCTreeManager* treeManagerLocal = GetApzcTreeManager()) {
+      rootContentApzc = treeManagerLocal->FindZoomableApzc(this);
+      if (rootContentApzc) {
+        MOZ_ASSERT(rootContentApzc->GetLayersId() != GetLayersId());
+        MOZ_ASSERT(this == treeManagerLocal->FindRootApzcFor(GetLayersId()));
+        transformToRootContentApzc =
+            treeManagerLocal->GetOopifToRootContentTransform(this);
+
+        CSSPoint rootScrollPosition = rootContentApzc->GetLayoutScrollOffset();
+        transformToRootContentApzc.PostTranslate(rootScrollPosition.x,
+                                                 rootScrollPosition.y, 0);
+      }
+    }
+  }
+
+  if (!rootContentApzc) {
+    return nsEventStatus_eIgnore;
+  }
+
   RefPtr<GeckoContentController> controller = GetGeckoContentController();
   if (controller) {
-    if (ZoomConstraintsAllowDoubleTapZoom() &&
+    if (rootContentApzc->ZoomConstraintsAllowDoubleTapZoom() &&
         (!GetCurrentTouchBlock() ||
          GetCurrentTouchBlock()->TouchActionAllowsDoubleTapZoom())) {
       if (Maybe<LayoutDevicePoint> geckoScreenPoint =
               ConvertToGecko(aEvent.mPoint)) {
         controller->HandleTap(
             TapType::eDoubleTap, *geckoScreenPoint, aEvent.modifiers, GetGuid(),
-            GetCurrentTouchBlock() ? GetCurrentTouchBlock()->GetBlockId() : 0);
+            GetCurrentTouchBlock() ? GetCurrentTouchBlock()->GetBlockId() : 0,
+            Some(DoubleTapToZoomMetrics{rootContentApzc->GetVisualViewport(),
+                                        rootContentApzc->GetScrollableRect(),
+                                        transformToRootContentApzc}));
       }
     }
     return nsEventStatus_eConsumeNoDefault;
@@ -5314,10 +5340,11 @@ void AsyncPanZoomController::NotifyLayersUpdated(
   // XXX Suspicious comparison between layout and visual scroll offsets.
   // This may not do the right thing when we're zoomed in.
   CSSPoint lastScrollOffset = mLastContentPaintMetrics.GetLayoutScrollOffset();
-  bool userScrolled = !FuzzyEqualsAdditive(Metrics().GetVisualScrollOffset().x,
-                                           lastScrollOffset.x) ||
-                      !FuzzyEqualsAdditive(Metrics().GetVisualScrollOffset().y,
-                                           lastScrollOffset.y);
+  bool userScrolled =
+      !FuzzyEqualsCoordinate(Metrics().GetVisualScrollOffset().x,
+                             lastScrollOffset.x) ||
+      !FuzzyEqualsCoordinate(Metrics().GetVisualScrollOffset().y,
+                             lastScrollOffset.y);
 
   if (aScrollMetadata.DidContentGetPainted()) {
     mLastContentPaintMetadata = aScrollMetadata;

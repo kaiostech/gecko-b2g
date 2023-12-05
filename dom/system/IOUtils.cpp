@@ -619,8 +619,11 @@ already_AddRefed<Promise> IOUtils::WriteJSON(GlobalObject& aGlobal,
         DispatchAndResolve<uint32_t>(
             state->mEventQueue, promise,
             [file = std::move(file), string = std::move(string),
-             opts = opts.unwrap()]() {
-              NS_ConvertUTF16toUTF8 utf8Str(string);
+             opts = opts.unwrap()]() -> Result<uint32_t, IOError> {
+              nsAutoCString utf8Str;
+              if (!CopyUTF16toUTF8(string, utf8Str, fallible)) {
+                return Err(IOError(NS_ERROR_OUT_OF_MEMORY));
+              }
               return WriteSync(file, AsBytes(Span(utf8Str)), opts);
             });
       });
@@ -2883,7 +2886,7 @@ uint32_t IOUtils::LaunchProcess(GlobalObject& aGlobal,
   static_assert(sizeof(pid) <= sizeof(uint32_t),
                 "WebIDL long should be large enough for a pid");
   Result<Ok, mozilla::ipc::LaunchError> err =
-      base::LaunchApp(argv, options, &pid);
+      base::LaunchApp(argv, std::move(options), &pid);
   if (err.isErr()) {
     aRv.Throw(NS_ERROR_FAILURE);
     return 0;

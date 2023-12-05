@@ -770,7 +770,7 @@ pref("browser.shopping.experience2023.ads.enabled", false);
 // Activates the ad card in the shopping sidebar.
 // Unlike `browser.shopping.experience2023.ads.enabled`, this pref is controlled by users
 // using the visible toggle.
-pref("browser.shopping.experience2023.ads.userEnabled", false);
+pref("browser.shopping.experience2023.ads.userEnabled", true);
 
 // Saves if shopping survey is enabled.
 pref("browser.shopping.experience2023.survey.enabled", true);
@@ -2858,6 +2858,8 @@ pref("browser.firefox-view.view-count", 0);
 pref("browser.firefox-view.max-history-rows", 300);
 // Enables search functionality in Firefox View.
 pref("browser.firefox-view.search.enabled", false);
+// Enables virtual list functionality in Firefox View.
+pref("browser.firefox-view.virtual-list.enabled", false);
 
 // If the user has seen the pdf.js feature tour this value reflects the tour
 // message id, the id of the last screen they saw, and whether they completed the tour

@@ -533,6 +533,7 @@ Debugger::Debugger(JSContext* cx, NativeObject* dbg)
       uncaughtExceptionHook(nullptr),
       allowUnobservedAsmJS(false),
       allowUnobservedWasm(false),
+      exclusiveDebuggerOnEval(false),
       collectCoverageInfo(false),
       observedGCs(cx->zone()),
       allocationsLog(cx),
@@ -789,6 +790,12 @@ bool DebugAPI::debuggerObservesWasm(GlobalObject* global) {
 }
 
 /* static */
+bool DebugAPI::debuggerObservesNativeCall(GlobalObject* global) {
+  return DebuggerExists(
+      global, [=](Debugger* dbg) { return dbg->observesNativeCalls(); });
+}
+
+/* static */
 bool DebugAPI::hasExceptionUnwindHook(GlobalObject* global) {
   return Debugger::hasLiveHook(global, Debugger::OnExceptionUnwind);
 }
@@ -958,14 +965,7 @@ bool DebugAPI::slowPathOnResumeFrame(JSContext* cx, AbstractFramePtr frame) {
 NativeResumeMode DebugAPI::slowPathOnNativeCall(JSContext* cx,
                                                 const CallArgs& args,
                                                 CallReason reason) {
-  // "onNativeCall" only works consistently in the context of an explicit eval
-  // (or a function call via DebuggerObject.call/apply) that has set the
-  // "insideDebuggerEvaluationWithOnNativeCallHook" state
-  // on the JSContext, so we fast-path this hook to bail right away if that is
-  // not currently set. If this flag is set to a _different_ debugger, the
-  // standard "isHookCallAllowed" debugger logic will apply and only hooks on
-  // that debugger will be callable.
-  if (!cx->insideDebuggerEvaluationWithOnNativeCallHook) {
+  if (!cx->realm()->debuggerObservesNativeCall()) {
     return NativeResumeMode::Continue;
   }
 
@@ -3435,6 +3435,10 @@ Debugger::IsObserving Debugger::observesNativeCalls() const {
   return NotObserving;
 }
 
+bool Debugger::isExclusiveDebuggerOnEval() const {
+  return exclusiveDebuggerOnEval;
+}
+
 // Toggle whether this Debugger's debuggees observe all execution. This is
 // called when a hook that observes all execution is set or unset. See
 // hookObservesAllExecution.
@@ -3541,6 +3545,20 @@ void Debugger::updateObservesWasmOnDebuggees(IsObserving observing) {
     }
 
     realm->updateDebuggerObservesWasm();
+  }
+}
+
+void Debugger::updateObservesNativeCallOnDebuggees(IsObserving observing) {
+  for (WeakGlobalObjectSet::Range r = debuggees.all(); !r.empty();
+       r.popFront()) {
+    GlobalObject* global = r.front();
+    Realm* realm = global->realm();
+
+    if (realm->debuggerObservesNativeCall() == observing) {
+      continue;
+    }
+
+    realm->updateDebuggerObservesNativeCall();
   }
 }
 
@@ -4123,6 +4141,8 @@ struct MOZ_STACK_CLASS Debugger::CallData {
   bool setAllowUnobservedAsmJS();
   bool getAllowUnobservedWasm();
   bool setAllowUnobservedWasm();
+  bool getExclusiveDebuggerOnEval();
+  bool setExclusiveDebuggerOnEval();
   bool getCollectCoverageInfo();
   bool setCollectCoverageInfo();
   bool getMemory();
@@ -4309,7 +4329,20 @@ bool Debugger::CallData::getOnNativeCall() {
 }
 
 bool Debugger::CallData::setOnNativeCall() {
-  return setHookImpl(cx, args, *dbg, OnNativeCall);
+  RootedObject oldHook(cx, dbg->getHook(OnNativeCall));
+
+  if (!setHookImpl(cx, args, *dbg, OnNativeCall)) {
+    return false;
+  }
+
+  JSObject* newHook = dbg->getHook(OnNativeCall);
+  if (!oldHook && newHook) {
+    dbg->updateObservesNativeCallOnDebuggees(Observing);
+  } else if (oldHook && !newHook) {
+    dbg->updateObservesNativeCallOnDebuggees(NotObserving);
+  }
+
+  return true;
 }
 
 bool Debugger::CallData::getOnNewGlobalObject() {
@@ -4395,6 +4428,21 @@ bool Debugger::CallData::setAllowUnobservedWasm() {
     Realm* realm = global->realm();
     realm->updateDebuggerObservesWasm();
   }
+
+  args.rval().setUndefined();
+  return true;
+}
+
+bool Debugger::CallData::getExclusiveDebuggerOnEval() {
+  args.rval().setBoolean(dbg->exclusiveDebuggerOnEval);
+  return true;
+}
+
+bool Debugger::CallData::setExclusiveDebuggerOnEval() {
+  if (!args.requireAtLeast(cx, "Debugger.set exclusiveDebuggerOnEval", 1)) {
+    return false;
+  }
+  dbg->exclusiveDebuggerOnEval = ToBoolean(args[0]);
 
   args.rval().setUndefined();
   return true;
@@ -6404,6 +6452,8 @@ const JSPropertySpec Debugger::properties[] = {
                   setAllowUnobservedWasm),
     JS_DEBUG_PSGS("collectCoverageInfo", getCollectCoverageInfo,
                   setCollectCoverageInfo),
+    JS_DEBUG_PSGS("exclusiveDebuggerOnEval", getExclusiveDebuggerOnEval,
+                  setExclusiveDebuggerOnEval),
     JS_DEBUG_PSG("memory", getMemory),
     JS_STRING_SYM_PS(toStringTag, "Debugger", JSPROP_READONLY),
     JS_PS_END};

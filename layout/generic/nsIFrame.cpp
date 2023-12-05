@@ -732,6 +732,12 @@ void nsIFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   if (!IsPlaceholderFrame() && !aPrevInFlow) {
     UpdateVisibleDescendantsState();
   }
+
+  if (!aPrevInFlow && HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
+    // We aren't going to get a reflow, so nothing else will call
+    // InvalidateRenderingObservers, we have to do it here.
+    SVGObserverUtils::InvalidateRenderingObservers(this);
+  }
 }
 
 void nsIFrame::InitPrimaryFrame() {
@@ -4519,8 +4525,8 @@ nsresult nsIFrame::GetDataForTableSelection(
 }
 
 static bool IsEditingHost(const nsIFrame* aFrame) {
-  auto* element = nsGenericHTMLElement::FromNodeOrNull(aFrame->GetContent());
-  return element && element->IsEditableRoot();
+  nsIContent* content = aFrame->GetContent();
+  return content && content->IsEditingHost();
 }
 
 static StyleUserSelect UsedUserSelect(const nsIFrame* aFrame) {

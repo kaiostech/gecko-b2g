@@ -77,8 +77,11 @@ NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(SVGUseElement, SVGUseElementBase,
 
 SVGUseElement::SVGUseElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
-    : SVGUseElementBase(std::move(aNodeInfo)),
-      mReferencedElementTracker(this) {}
+    : SVGUseElementBase(std::move(aNodeInfo)), mReferencedElementTracker(this) {
+  SetEnabledCallbacks(kCharacterDataChanged | kAttributeChanged |
+                      kContentAppended | kContentInserted | kContentRemoved |
+                      kNodeWillBeDestroyed);
+}
 
 SVGUseElement::~SVGUseElement() {
   UnlinkSource();
@@ -556,6 +559,17 @@ void SVGUseElement::LookupHref() {
   nsCOMPtr<nsIURI> targetURI;
   nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(targetURI), href,
                                             GetComposedDoc(), baseURI);
+  if (!targetURI) {
+    return;
+  }
+
+  // Don't allow <use href="data:...">. Using "#ref" inside a data: document is
+  // handled above.
+  if (targetURI->SchemeIs("data") &&
+      !StaticPrefs::svg_use_element_data_url_href_allowed()) {
+    return;
+  }
+
   nsIReferrerInfo* referrer =
       OwnerDoc()->ReferrerInfoForInternalCSSAndSVGResources();
   mReferencedElementTracker.ResetToURIFragmentID(treeToWatch, targetURI,

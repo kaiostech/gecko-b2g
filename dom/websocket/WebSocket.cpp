@@ -2519,13 +2519,14 @@ void WebSocket::Close(const Optional<uint16_t>& aCode,
     return;
   }
 
+  RefPtr<WebSocketImpl> impl = mImpl;
   if (readyState == CONNECTING) {
-    mImpl->FailConnection(closeCode, closeReason);
+    impl->FailConnection(closeCode, closeReason);
     return;
   }
 
   MOZ_ASSERT(readyState == OPEN);
-  mImpl->CloseConnection(closeCode, closeReason);
+  impl->CloseConnection(closeCode, closeReason);
 }
 
 //-----------------------------------------------------------------------------
@@ -2791,7 +2792,9 @@ NS_IMETHODIMP
 WebSocketImpl::Dispatch(already_AddRefed<nsIRunnable> aEvent, uint32_t aFlags) {
   nsCOMPtr<nsIRunnable> event_ref(aEvent);
   if (mIsMainThread) {
-    return GetMainThreadSerialEventTarget()->Dispatch(event_ref.forget());
+    nsISerialEventTarget* target = GetMainThreadSerialEventTarget();
+    NS_ENSURE_TRUE(target, NS_ERROR_FAILURE);
+    return target->Dispatch(event_ref.forget());
   }
 
   MutexAutoLock lock(mMutex);

@@ -128,7 +128,7 @@ browsertime-tp6:
                         default: []
         treeherder-symbol: Btime(tp6)
     raptor:
-        apps: [firefox, chrome, chromium]
+        apps: [firefox, chrome]
         test: tp6
         run-visual-metrics: true
         subtests:
@@ -163,7 +163,7 @@ browsertime-tp6:
 browsertime-responsiveness:
     <<: *tp6-defaults
     raptor:
-        apps: [firefox, chrome, chromium]
+        apps: [firefox, chrome]
         test: tp6
         run-visual-metrics: true
         subtests:
@@ -214,7 +214,7 @@ browsertime-tp6-essential:
                         - --conditioned-profile=settled
                         - --extra-profiler-run
         raptor:
-            apps: [firefox, chrome, chromium, custom-car]
+            apps: [firefox, chrome]  # Disable non sp3 tests temporarily for CaR. Bug 1867809
             test: tp6
             run-visual-metrics:
                 by-test-platform:
@@ -299,7 +299,7 @@ browsertime-tp6-bytecode:
 browsertime-benchmark:
     description: Raptor (browsertime) Benchmark tests
     raptor:
-        apps: [firefox, chrome, chromium, safari, custom-car]
+        apps: [firefox, chrome, safari, custom-car]
         subtests:
             by-test-platform:
                 macosx1300.*shippable.*:
@@ -345,8 +345,9 @@ browsertime-benchmark:
                         custom-car:
                             - [speedometer, sp]
                             - [speedometer3, sp3]
-                            - [motionmark-animometer-ramp, mm-ar]
-                            - [motionmark-htmlsuite-ramp, mm-hr]
+                            # Disable non sp3 tests temporarily for CaR. Bug 1867809
+                            # - [motionmark-animometer-ramp, mm-ar]
+                            # - [motionmark-htmlsuite-ramp, mm-hr]
                         default:
                             - ares6
                             - [assorted-dom, dom]
@@ -451,7 +452,7 @@ browsertime-benchmark:
 browsertime-benchmark-wasm:
     description: Raptor (browsertime) WASM benchmarks
     raptor:
-        apps: [firefox, chrome, chromium, safari]
+        apps: [firefox, chrome, safari]
         subtests:
             by-app:
                 firefox:
@@ -553,7 +554,7 @@ browsertime-tp6-live:
             - --live-sites
             - --extra-profiler-run
     raptor:
-        apps: [firefox, chrome, chromium, safari]
+        apps: [firefox, chrome, safari]
         test: tp6
         run-visual-metrics: true
         subtests:
@@ -743,7 +744,7 @@ browsertime-regression-tests:
 
 browsertime-upload:
     raptor:
-        apps: [firefox, chrome, chromium, safari]
+        apps: [firefox, chrome, safari]
         subtests:
             - [upload, upload-h2]
             - upload-h3
@@ -801,3 +802,49 @@ browsertime-throttled:
     run-on-projects: []
     tier: 3
     treeherder-symbol: Btime(throttled)
+
+browsertime-indexeddb:
+    description: Raptor (browsertime) tests for IndexedDB
+    max-run-time: 2700
+    treeherder-symbol: Btime(idb)
+    limit-platforms:
+        by-app:
+            chrome:
+                - .*shippable.*
+            chromium:
+                - .*shippable.*
+            custom-car:
+                - .*64.*shippable.*
+            default: []
+    raptor:
+        apps: [firefox, chrome, chromium]
+        run-visual-metrics: false
+        subtests:
+            - addMab1
+            - addMabN
+            - addMar1
+            - addMarN
+            - addMbl1
+            - addMblN
+            - addkAB1
+            - addkABN
+            - addkAR1
+            - addkARN
+            - addkBL1
+            - addkBLN
+            - getkeyrng
+    run-on-projects:
+        by-app:
+            firefox:
+                by-test-platform:
+                    windows.*-32.*: []
+                    .*64.*shippable-qr/.*: [autoland, mozilla-central]
+                    default: []
+            default: []
+    tier:
+        by-app:
+            firefox: 2
+            default: 3
+    mozharness:
+        extra-options:
+            - --extra-profiler-run

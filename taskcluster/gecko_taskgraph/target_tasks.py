@@ -792,13 +792,21 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
         if "tp6-bench" in try_name:
             return False
 
+        # Bug 1867669 - Temporarily disable all live site tests
+        if "live" in try_name and "sheriffed" not in try_name:
+            return False
+
         # Desktop selection
         if "android" not in platform:
             # Select some browsertime tasks as desktop smoke-tests
             if "browsertime" in try_name:
                 if "chrome" in try_name:
+                    if "tp6" in try_name and "essential" not in try_name:
+                        return False
                     return True
                 if "chromium" in try_name:
+                    if "tp6" in try_name and "essential" not in try_name:
+                        return False
                     return True
                 # chromium-as-release has it's own cron
                 if "custom-car" in try_name:
@@ -815,10 +823,6 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                     if "speedometer3" in try_name:
                         return False
                     return True
-            else:
-                # Don't run tp6 raptor tests
-                if "tp6" in try_name:
-                    return False
         # Android selection
         elif accept_raptor_android_build(platform):
             if "chrome-m" in try_name and (

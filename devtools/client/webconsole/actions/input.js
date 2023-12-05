@@ -375,6 +375,10 @@ function handleHelperResult(response) {
               message = l10n.getStr(
                 "webconsole.message.commands.startTracingToWebConsole"
               );
+            } else if (logMethod == "profiler") {
+              message = l10n.getStr(
+                "webconsole.message.commands.startTracingToProfiler"
+              );
             } else {
               throw new Error(`Unsupported tracer log method ${logMethod}`);
             }
@@ -481,7 +485,6 @@ function terminalInputChanged(expression, force = false) {
       ),
       mapped,
       eager: true,
-      disableBreaks: true,
     });
 
     return dispatch({

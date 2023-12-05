@@ -162,7 +162,9 @@ export class ShoppingContainer extends MozLitElement {
   getAnalysisDetailsTemplate() {
     return html`
       <review-reliability letter=${this.data.grade}></review-reliability>
-      <adjusted-rating rating=${this.data.adjusted_rating}></adjusted-rating>
+      <adjusted-rating
+        rating=${ifDefined(this.data.adjusted_rating)}
+      ></adjusted-rating>
       <review-highlights
         .highlights=${this.data.highlights}
       ></review-highlights>
@@ -214,7 +216,7 @@ export class ShoppingContainer extends MozLitElement {
     }
 
     if (this.data.needs_analysis) {
-      if (!this.data.product_id) {
+      if (!this.data.product_id || typeof this.data.grade != "string") {
         // Product is new to us.
         return html`<unanalyzed-product-card
           productUrl=${ifDefined(this.productUrl)}

@@ -39,7 +39,6 @@ describe("TelemetryFeed", () => {
   class PingCentre {
     sendPing() {}
     uninit() {}
-    sendStructuredIngestionPing() {}
   }
   class UTEventReporting {
     sendUserEvent() {}
@@ -1054,20 +1053,6 @@ describe("TelemetryFeed", () => {
       assert.propertyVal(ping, "message_id", "moments_message_01");
     });
   });
-  describe("#applySnippetsPolicy", () => {
-    it("should include client_id", async () => {
-      const data = {
-        action: "snippets_user_event",
-        event: "IMPRESSION",
-        message_id: "snippets_message_01",
-      };
-      const { ping, pingType } = await instance.applySnippetsPolicy(data);
-
-      assert.equal(pingType, "snippets");
-      assert.propertyVal(ping, "client_id", FAKE_TELEMETRY_ID);
-      assert.propertyVal(ping, "message_id", "snippets_message_01");
-    });
-  });
   describe("#applyOnboardingPolicy", () => {
     it("should include client_id", async () => {
       const data = {
@@ -1178,9 +1163,9 @@ describe("TelemetryFeed", () => {
   describe("#createASRouterEvent", () => {
     it("should create a valid AS Router event", async () => {
       const data = {
-        action: "snippets_user_event",
+        action: "cfr_user_event",
         event: "CLICK",
-        message_id: "snippets_message_01",
+        message_id: "cfr_message_01",
       };
       const action = ac.ASRouterUserEvent(data);
       const { ping } = await instance.createASRouterEvent(action);
@@ -1199,30 +1184,6 @@ describe("TelemetryFeed", () => {
       await instance.createASRouterEvent(action);
 
       assert.calledOnce(instance.applyCFRPolicy);
-    });
-    it("should call applySnippetsPolicy if action equals to snippets_user_event", async () => {
-      const data = {
-        action: "snippets_user_event",
-        event: "IMPRESSION",
-        message_id: "snippets_message_01",
-      };
-      sandbox.stub(instance, "applySnippetsPolicy");
-      const action = ac.ASRouterUserEvent(data);
-      await instance.createASRouterEvent(action);
-
-      assert.calledOnce(instance.applySnippetsPolicy);
-    });
-    it("should call applySnippetsPolicy if action equals to snippets_local_testing_user_event", async () => {
-      const data = {
-        action: "snippets_local_testing_user_event",
-        event: "IMPRESSION",
-        message_id: "snippets_message_01",
-      };
-      sandbox.stub(instance, "applySnippetsPolicy");
-      const action = ac.ASRouterUserEvent(data);
-      await instance.createASRouterEvent(action);
-
-      assert.calledOnce(instance.applySnippetsPolicy);
     });
     it("should call applyOnboardingPolicy if action equals to onboarding_user_event", async () => {
       const data = {
@@ -1409,21 +1370,6 @@ describe("TelemetryFeed", () => {
       await instance.sendUTEvent(event, instance.utEvents.sendUserEvent);
 
       assert.calledWith(instance.utEvents.sendUserEvent, event);
-    });
-  });
-  describe("#sendStructuredIngestionEvent", () => {
-    it("should call PingCentre sendStructuredIngestionPing", async () => {
-      FAKE_GLOBAL_PREFS.set(TELEMETRY_PREF, true);
-      const event = {};
-      instance = new TelemetryFeed();
-      sandbox.stub(instance.pingCentre, "sendStructuredIngestionPing");
-
-      await instance.sendStructuredIngestionEvent(
-        event,
-        "http://foo.com/base/"
-      );
-
-      assert.calledWith(instance.pingCentre.sendStructuredIngestionPing, event);
     });
   });
   describe("#setLoadTriggerInfo", () => {
@@ -2195,19 +2141,6 @@ describe("TelemetryFeed", () => {
     });
   });
   describe("#handleASRouterUserEvent", () => {
-    it("should call sendStructuredIngestionEvent on known pingTypes", async () => {
-      const data = {
-        action: "onboarding_user_event",
-        event: "IMPRESSION",
-        message_id: "12345",
-      };
-      instance = new TelemetryFeed();
-      sandbox.spy(instance, "sendStructuredIngestionEvent");
-
-      await instance.handleASRouterUserEvent({ data });
-
-      assert.calledOnce(instance.sendStructuredIngestionEvent);
-    });
     it("should call submitGleanPingForPing on known pingTypes when telemetry is enabled", async () => {
       const data = {
         action: "onboarding_user_event",
@@ -2234,12 +2167,18 @@ describe("TelemetryFeed", () => {
         message_id: "12345",
       };
       instance = new TelemetryFeed();
-      sandbox.spy(instance, "sendStructuredIngestionEvent");
+      instance._prefs.set(TELEMETRY_PREF, true);
 
+      sandbox.spy(
+        global.AboutWelcomeTelemetry.prototype,
+        "submitGleanPingForPing"
+      );
       await instance.handleASRouterUserEvent({ data });
 
       assert.calledOnce(global.console.error);
-      assert.notCalled(instance.sendStructuredIngestionEvent);
+      assert.notCalled(
+        global.AboutWelcomeTelemetry.prototype.submitGleanPingForPing
+      );
     });
   });
   describe("#isInCFRCohort", () => {

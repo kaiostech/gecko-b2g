@@ -112,7 +112,7 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
       mozilla::ipc::Endpoint<PImageBridgeChild>* aOutImageBridge,
       mozilla::ipc::Endpoint<PVRManagerChild>* aOutVRBridge,
       mozilla::ipc::Endpoint<PRemoteDecoderManagerChild>* aOutVideoManager,
-      nsTArray<uint32_t>* aNamespaces);
+      dom::ContentParentId aChildId, nsTArray<uint32_t>* aNamespaces);
 
 #ifdef MOZ_WIDGET_GONK
   bool CreateBufferManager(
@@ -223,16 +223,16 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   void OnPreferenceChange(const char16_t* aData);
 
   bool CreateContentCompositorManager(
-      base::ProcessId aOtherProcess,
+      base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
       mozilla::ipc::Endpoint<PCompositorManagerChild>* aOutEndpoint);
   bool CreateContentImageBridge(
-      base::ProcessId aOtherProcess,
+      base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
       mozilla::ipc::Endpoint<PImageBridgeChild>* aOutEndpoint);
   bool CreateContentVRManager(
-      base::ProcessId aOtherProcess,
+      base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
       mozilla::ipc::Endpoint<PVRManagerChild>* aOutEndpoint);
   void CreateContentRemoteDecoderManager(
-      base::ProcessId aOtherProcess,
+      base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
       mozilla::ipc::Endpoint<PRemoteDecoderManagerChild>* aOutEndPoint);
 
 #ifdef MOZ_WIDGET_GONK

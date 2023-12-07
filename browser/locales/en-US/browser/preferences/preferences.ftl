@@ -732,15 +732,6 @@ home-prefs-recent-activity-header =
     .label = Recent activity
 home-prefs-recent-activity-description = A selection of recent sites and content
 
-# For the "Snippets" feature traditionally on about:home.
-# Alternative translation options: "Small Note" or something that
-# expresses the idea of "a small message, shortened from something else,
-# and non-essential but also not entirely trivial and useless.
-home-prefs-snippets-header =
-    .label = Snippets
-
-home-prefs-snippets-description-new = Tips and news from { -vendor-short-name } and { -brand-product-name }
-
 # Variables:
 #   $num (number) - Number of rows displayed
 home-prefs-sections-rows-option =
@@ -762,9 +753,9 @@ search-separate-default-engine =
 search-suggestions-header = Search Suggestions
 search-suggestions-desc = Choose how suggestions from search engines appear.
 
-search-suggestions-option =
-    .label = Provide search suggestions
-    .accesskey = s
+search-show-suggestions-option =
+    .label = Show search suggestions
+    .accesskey = S
 
 search-show-suggestions-url-bar-option =
     .label = Show search suggestions in address bar results

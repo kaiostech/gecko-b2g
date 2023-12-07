@@ -285,14 +285,7 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
   pref("media.navigator.video.h264.max_mbps", 0);
   pref("media.peerconnection.video.vp9_enabled", true);
   pref("media.peerconnection.video.vp9_preferred", false);
-  #if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
-  // XXX: It would be great to have a way to ensure this doesn't ride the
-  //      trains, but that causes nightlyasrelease bustage. No shiny things for
-  //      us.
-  pref("media.getusermedia.channels", 1);
-  #else
   pref("media.getusermedia.channels", 0);
-  #endif
   #if defined(ANDROID)
     pref("media.getusermedia.camera.off_while_disabled.enabled", false);
     pref("media.getusermedia.microphone.off_while_disabled.enabled", false);
@@ -1884,6 +1877,10 @@ pref("extensions.eventPages.enabled", true);
 pref("extensions.manifestV2.actionsPopupURLRestricted", false);
 // Whether "manifest_version: 3" extensions should be allowed to install successfully.
 pref("extensions.manifestV3.enabled", true);
+#ifndef MOZ_WEBEXT_WEBIDL_ENABLED
+  // Defined in StaticPrefList.yaml but overridden here to lock it.
+  pref("extensions.backgroundServiceWorker.enabled", false, locked);
+#endif
 // Whether to enable the updated openPopup API.
 #ifdef NIGHTLY_BUILD
   pref("extensions.openPopupWithoutUserGesture.enabled", true);
@@ -3992,6 +3989,9 @@ pref("extensions.formautofill.creditCards.heuristics.fathom.highConfidenceThresh
 pref("extensions.formautofill.creditCards.heuristics.fathom.testConfidence", "0");
 
 pref("extensions.formautofill.loglevel", "Warn");
+
+// Temporary pref that we will remove when enabling capture on form removal in Fx122.
+pref("extensions.formautofill.heuristics.captureOnFormRemoval", false);
 // The interactivityCheckMode pref is only temporary.
 // It will be removed when we decide to only support the `focusability` mode
 pref("extensions.formautofill.heuristics.interactivityCheckMode", "focusability");

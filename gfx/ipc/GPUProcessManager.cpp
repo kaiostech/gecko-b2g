@@ -1171,15 +1171,16 @@ bool GPUProcessManager::CreateContentBridges(
     ipc::Endpoint<PImageBridgeChild>* aOutImageBridge,
     ipc::Endpoint<PVRManagerChild>* aOutVRBridge,
     ipc::Endpoint<PRemoteDecoderManagerChild>* aOutVideoManager,
-    nsTArray<uint32_t>* aNamespaces) {
-  if (!CreateContentCompositorManager(aOtherProcess, aOutCompositor) ||
-      !CreateContentImageBridge(aOtherProcess, aOutImageBridge) ||
-      !CreateContentVRManager(aOtherProcess, aOutVRBridge)) {
+    dom::ContentParentId aChildId, nsTArray<uint32_t>* aNamespaces) {
+  if (!CreateContentCompositorManager(aOtherProcess, aChildId,
+                                      aOutCompositor) ||
+      !CreateContentImageBridge(aOtherProcess, aChildId, aOutImageBridge) ||
+      !CreateContentVRManager(aOtherProcess, aChildId, aOutVRBridge)) {
     return false;
   }
   // VideoDeocderManager is only supported in the GPU process, so we allow this
   // to be fallible.
-  CreateContentRemoteDecoderManager(aOtherProcess, aOutVideoManager);
+  CreateContentRemoteDecoderManager(aOtherProcess, aChildId, aOutVideoManager);
   // Allocates 3 namespaces(for CompositorManagerChild, CompositorBridgeChild
   // and ImageBridgeChild)
   aNamespaces->AppendElement(AllocateNamespace());
@@ -1200,7 +1201,7 @@ bool GPUProcessManager::CreateBufferManager(
 #endif
 
 bool GPUProcessManager::CreateContentCompositorManager(
-    base::ProcessId aOtherProcess,
+    base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
     ipc::Endpoint<PCompositorManagerChild>* aOutEndpoint) {
   ipc::Endpoint<PCompositorManagerParent> parentPipe;
   ipc::Endpoint<PCompositorManagerChild> childPipe;
@@ -1222,8 +1223,8 @@ bool GPUProcessManager::CreateContentCompositorManager(
   }
 
   if (mGPUChild) {
-    mGPUChild->SendNewContentCompositorManager(std::move(parentPipe));
-  } else if (!CompositorManagerParent::Create(std::move(parentPipe),
+    mGPUChild->SendNewContentCompositorManager(std::move(parentPipe), aChildId);
+  } else if (!CompositorManagerParent::Create(std::move(parentPipe), aChildId,
                                               /* aIsRoot */ false)) {
     return false;
   }
@@ -1233,7 +1234,7 @@ bool GPUProcessManager::CreateContentCompositorManager(
 }
 
 bool GPUProcessManager::CreateContentImageBridge(
-    base::ProcessId aOtherProcess,
+    base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
     ipc::Endpoint<PImageBridgeChild>* aOutEndpoint) {
   if (!EnsureImageBridgeChild()) {
     return false;
@@ -1258,9 +1259,9 @@ bool GPUProcessManager::CreateContentImageBridge(
   }
 
   if (mGPUChild) {
-    mGPUChild->SendNewContentImageBridge(std::move(parentPipe));
+    mGPUChild->SendNewContentImageBridge(std::move(parentPipe), aChildId);
   } else {
-    if (!ImageBridgeParent::CreateForContent(std::move(parentPipe))) {
+    if (!ImageBridgeParent::CreateForContent(std::move(parentPipe), aChildId)) {
       return false;
     }
   }
@@ -1310,7 +1311,7 @@ base::ProcessId GPUProcessManager::GPUProcessPid() {
 }
 
 bool GPUProcessManager::CreateContentVRManager(
-    base::ProcessId aOtherProcess,
+    base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
     ipc::Endpoint<PVRManagerChild>* aOutEndpoint) {
   if (NS_WARN_IF(!EnsureVRManager())) {
     return false;
@@ -1335,9 +1336,9 @@ bool GPUProcessManager::CreateContentVRManager(
   }
 
   if (mGPUChild) {
-    mGPUChild->SendNewContentVRManager(std::move(parentPipe));
+    mGPUChild->SendNewContentVRManager(std::move(parentPipe), aChildId);
   } else {
-    if (!VRManagerParent::CreateForContent(std::move(parentPipe))) {
+    if (!VRManagerParent::CreateForContent(std::move(parentPipe), aChildId)) {
       return false;
     }
   }
@@ -1347,7 +1348,7 @@ bool GPUProcessManager::CreateContentVRManager(
 }
 
 void GPUProcessManager::CreateContentRemoteDecoderManager(
-    base::ProcessId aOtherProcess,
+    base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
     ipc::Endpoint<PRemoteDecoderManagerChild>* aOutEndpoint) {
   nsresult rv = EnsureGPUReady();
   if (NS_WARN_IF(rv == NS_ERROR_ILLEGAL_DURING_SHUTDOWN)) {
@@ -1370,7 +1371,8 @@ void GPUProcessManager::CreateContentRemoteDecoderManager(
     return;
   }
 
-  mGPUChild->SendNewContentRemoteDecoderManager(std::move(parentPipe));
+  mGPUChild->SendNewContentRemoteDecoderManager(std::move(parentPipe),
+                                                aChildId);
 
   *aOutEndpoint = std::move(childPipe);
 }

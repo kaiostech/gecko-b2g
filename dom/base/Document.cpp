@@ -233,6 +233,8 @@
 #include "mozilla/dom/URL.h"
 #include "mozilla/dom/UseCounterMetrics.h"
 #include "mozilla/dom/UserActivation.h"
+#include "mozilla/dom/WakeLockJS.h"
+#include "mozilla/dom/WakeLockSentinel.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "mozilla/dom/WindowContext.h"
 #include "mozilla/dom/WindowGlobalChild.h"
@@ -2592,6 +2594,11 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(
         mPendingFrameStaticClones[i].mStaticCloneOf);
   }
+
+  for (auto& tableEntry : tmp->mActiveLocks) {
+    ImplCycleCollectionTraverse(cb, *tableEntry.GetModifiableData(),
+                                "mActiveLocks entry", 0);
+  }
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(Document)
@@ -2736,6 +2743,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   }
 
   tmp->mPendingFrameStaticClones.Clear();
+
+  tmp->mActiveLocks.Clear();
 
   tmp->mInUnlinkOrDeletion = false;
 
@@ -18248,6 +18257,49 @@ already_AddRefed<Promise> Document::CompleteStorageAccessRequestFromSite(
   return promise.forget();
 }
 
+nsTHashSet<RefPtr<WakeLockSentinel>>& Document::ActiveWakeLocks(
+    WakeLockType aType) {
+  return mActiveLocks.LookupOrInsert(aType);
+}
+
+class UnlockAllWakeLockRunnable final : public Runnable {
+ public:
+  UnlockAllWakeLockRunnable(WakeLockType aType, Document* aDoc)
+      : Runnable("UnlockAllWakeLocks"), mType(aType), mDoc(aDoc) {}
+
+  // MOZ_CAN_RUN_SCRIPT_BOUNDARY until Runnable::Run is MOZ_CAN_RUN_SCRIPT.  See
+  // bug 1535398.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  NS_IMETHOD Run() override {
+    // Move, as ReleaseWakeLock will try to remove from and possibly allow
+    // scripts via onrelease to add to document.[[ActiveLocks]]["screen"]
+    nsCOMPtr<Document> doc = mDoc;
+    nsTHashSet<RefPtr<WakeLockSentinel>> locks =
+        std::move(doc->ActiveWakeLocks(mType));
+    for (const auto& lock : locks) {
+      // ReleaseWakeLock runs script, which could release other locks
+      if (!lock->Released()) {
+        ReleaseWakeLock(doc, MOZ_KnownLive(lock), mType);
+      }
+    }
+    return NS_OK;
+  }
+
+ protected:
+  ~UnlockAllWakeLockRunnable() = default;
+
+ private:
+  WakeLockType mType;
+  nsCOMPtr<Document> mDoc;
+};
+
+void Document::UnlockAllWakeLocks(WakeLockType aType) {
+  // Perform unlock in a runnable to prevent UnlockAll being MOZ_CAN_RUN_SCRIPT
+  RefPtr<UnlockAllWakeLockRunnable> runnable =
+      MakeRefPtr<UnlockAllWakeLockRunnable>(aType, this);
+  NS_DispatchToMainThread(runnable);
+}
+
 RefPtr<Document::AutomaticStorageAccessPermissionGrantPromise>
 Document::AutomaticStorageAccessPermissionCanBeGranted(bool hasUserActivation) {
   // requestStorageAccessForOrigin may not require user activation. If we don't
@@ -18932,4 +18984,9 @@ RadioGroupContainer& Document::OwnedRadioGroupContainer() {
   return *mRadioGroupContainer;
 }
 
+void Document::UpdateHiddenByContentVisibilityForAnimations() {
+  for (AnimationTimeline* timeline : Timelines()) {
+    timeline->UpdateHiddenByContentVisibility();
+  }
+}
 }  // namespace mozilla::dom

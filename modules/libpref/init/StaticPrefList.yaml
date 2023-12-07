@@ -3626,6 +3626,18 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# Enable Screen Wake Lock API
+- name: dom.screenwakelock.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Prevent errors when using set_permission from permissions.sys.mjs
+- name: dom.screenwakelock.testing
+  type: bool
+  value: false
+  mirror: always
+
 # Whether to enable the JavaScript start-up cache. This causes one of the first
 # execution to record the bytecode of the JavaScript function used, and save it
 # in the existing cache entry. On the following loads of the same script, the
@@ -5166,6 +5178,7 @@
 
 # Whether the background.service_worker in the extension manifest.json file
 # is enabled.
+# all.js locks the pref to false when MOZ_WEBEXT_WEBIDL_ENABLED is false.
 - name: extensions.backgroundServiceWorker.enabled
   type: bool
   value: false
@@ -12216,12 +12229,12 @@
 
 - name: network.dns.max_high_priority_threads
   type: RelaxedAtomicUint32
-  value: 5
+  value: 40
   mirror: always
 
 - name: network.dns.max_any_priority_threads
   type: RelaxedAtomicUint32
-  value: 3
+  value: 24
   mirror: always
 
 # The proxy type. See nsIProtocolProxyService.idl
@@ -12551,6 +12564,14 @@
 - name: network.trr.async_connInfo
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# If true, a failed TRR request that contains an extended DNS error
+# matching the hardFail condition in DNSPacket.cpp will not be
+# retried with native DNS
+- name: network.trr.hard_fail_on_extended_error
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # The base URL of the `Learn more` button for skip reasons
@@ -13197,6 +13218,11 @@
 
 # 1-Accept, 2-Deny, Any other value: Accept
 - name: permissions.default.image
+  type: RelaxedAtomicUint32
+  value: 1
+  mirror: always
+
+- name: permissions.default.screen-wake-lock
   type: RelaxedAtomicUint32
   value: 1
   mirror: always
@@ -14215,11 +14241,7 @@
 # WebAuthn conditional mediation
 - name: security.webauthn.enable_conditional_mediation
   type: RelaxedAtomicBool
-#if defined(XP_MACOSX)
-  value: false
-#else
   value: @IS_EARLY_BETA_OR_EARLIER@
-#endif
   mirror: always
 
 # Dispatch WebAuthn requests to virtual authenticators (mutually exclusive

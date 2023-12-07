@@ -1206,8 +1206,91 @@ class BrowsingContextModule extends Module {
       );
     }
 
+    // If WaitCondition is Complete, we should try to wait for the corresponding
+    // responseCompleted event to be received.
+    let onNavigationRequestCompleted;
+
+    // However, a navigation will not necessarily have network events.
+    // For instance: same document navigation, or when using file or data
+    // protocols (for which we don't have network events yet).
+    // Therefore we will not unconditionally wait for a navigation request and
+    // this flag should only be set when a responseCompleted event should be
+    // expected.
+    let shouldWaitForNavigationRequest = false;
+
+    // Cleaning up the listeners will be done at the end of this method.
+    let unsubscribeNavigationListeners;
+
+    if (wait === WaitCondition.Complete) {
+      let resolveOnNetworkEvent;
+      onNavigationRequestCompleted = new Promise(
+        r => (resolveOnNetworkEvent = r)
+      );
+      const onBeforeRequestSent = (name, data) => {
+        if (data.navigation) {
+          shouldWaitForNavigationRequest = true;
+        }
+      };
+      const onResponseCompleted = (name, data) => {
+        if (data.navigation) {
+          resolveOnNetworkEvent();
+        }
+      };
+
+      await this.messageHandler.eventsDispatcher.on(
+        "network._beforeRequestSent",
+        contextDescriptor,
+        onBeforeRequestSent
+      );
+      await this.messageHandler.eventsDispatcher.on(
+        "network._responseCompleted",
+        contextDescriptor,
+        onResponseCompleted
+      );
+
+      unsubscribeNavigationListeners = async () => {
+        await this.messageHandler.eventsDispatcher.off(
+          "network._beforeRequestSent",
+          contextDescriptor,
+          onBeforeRequestSent
+        );
+
+        await this.messageHandler.eventsDispatcher.off(
+          "network._responseCompleted",
+          contextDescriptor,
+          onResponseCompleted
+        );
+      };
+    }
+
     const navigated = listener.start();
-    navigated.finally(async () => {
+
+    try {
+      const navigationId = lazy.registerNavigationId({
+        contextDetails: { context: webProgress.browsingContext },
+      });
+
+      await startNavigationFn();
+      await navigated;
+
+      if (shouldWaitForNavigationRequest) {
+        await onNavigationRequestCompleted;
+      }
+
+      let url;
+      if (wait === WaitCondition.None) {
+        // If wait condition is None, the navigation resolved before the current
+        // context has navigated.
+        url = listener.targetURI.spec;
+      } else {
+        url = listener.currentURI.spec;
+      }
+
+      return {
+        navigation: navigationId,
+        url,
+      };
+    } finally {
       if (listener.isStarted) {
         listener.stop();
       }
@@ -1218,29 +1301,13 @@ class BrowsingContextModule extends Module {
           contextDescriptor,
           onDocumentInteractive
         );
+      } else if (
+        wait === WaitCondition.Complete &&
+        shouldWaitForNavigationRequest
+      ) {
+        await unsubscribeNavigationListeners();
       }
-    });
-
-    const navigationId = lazy.registerNavigationId({
-      contextDetails: { context: webProgress.browsingContext },
-    });
-
-    await startNavigationFn();
-    await navigated;
-
-    let url;
-    if (wait === WaitCondition.None) {
-      // If wait condition is None, the navigation resolved before the current
-      // context has navigated.
-      url = listener.targetURI.spec;
-    } else {
-      url = listener.currentURI.spec;
     }
-
-    return {
-      navigation: navigationId,
-      url,
-    };
   }
 
   /**

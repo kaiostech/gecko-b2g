@@ -61,6 +61,7 @@
 #include "mozilla/dom/VRServiceTest.h"
 #include "mozilla/dom/XRSystem.h"
 #include "mozilla/dom/workerinternals/RuntimeService.h"
+#include "mozilla/dom/WakeLockJS.h"
 #include "mozilla/Hal.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/StaticPtr.h"
@@ -163,6 +164,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebGpu)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUserActivation)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWakeLock)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindow)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaKeySystemAccessManager)
@@ -257,6 +259,8 @@ void Navigator::Invalidate() {
   mUserActivation = nullptr;
 
   mSharePromise = nullptr;
+
+  mWakeLock = nullptr;
 }
 
 void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
@@ -2329,6 +2333,13 @@ already_AddRefed<dom::UserActivation> Navigator::UserActivation() {
     mUserActivation = new dom::UserActivation(GetWindow());
   }
   return do_AddRef(mUserActivation);
+}
+
+dom::WakeLockJS* Navigator::WakeLock() {
+  if (!mWakeLock) {
+    mWakeLock = new WakeLockJS(mWindow);
+  }
+  return mWakeLock;
 }
 
 }  // namespace mozilla::dom

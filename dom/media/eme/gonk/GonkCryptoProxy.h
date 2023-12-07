@@ -15,7 +15,18 @@ namespace android {
 
 class GonkDrmSharedData;
 
+#if ANDROID_VERSION >= 30
+class GonkCryptoProxy : public ICrypto {
+  using SourceBuffer = drm::V1_0::SharedBuffer;
+  using DestinationBuffer = drm::V1_0::DestinationBuffer;
+  using Memory = hardware::HidlMemory;
+#else
 class GonkCryptoProxy : public BnCrypto {
+  using SourceBuffer = ICrypto::SourceBuffer;
+  using DestinationBuffer = ICrypto::DestinationBuffer;
+  using Memory = IMemoryHeap;
+#endif
+
  public:
   GonkCryptoProxy(const nsAString& aKeySystem,
                   const sp<GonkDrmSharedData>& aSharedData);
@@ -42,9 +53,13 @@ class GonkCryptoProxy : public BnCrypto {
                   size_t numSubSamples, const DestinationBuffer& destination,
                   AString* errorDetailMsg) override;
 
-  int32_t setHeap(const sp<IMemoryHeap>& heap) override;
+  int32_t setHeap(const sp<Memory>& heap) override;
 
   void unsetHeap(int32_t seqNum) override;
+
+#if ANDROID_VERSION >= 31
+  status_t getLogMessages(Vector<drm::V1_4::LogMessage>& logs) const override;
+#endif
 
  private:
   ~GonkCryptoProxy();

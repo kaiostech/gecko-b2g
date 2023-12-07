@@ -114,7 +114,7 @@ ssize_t GonkCryptoProxy::decrypt(const uint8_t key[16], const uint8_t iv[16],
   return ret;
 }
 
-int32_t GonkCryptoProxy::setHeap(const sp<IMemoryHeap>& heap) {
+int32_t GonkCryptoProxy::setHeap(const sp<Memory>& heap) {
   return mCrypto ? mCrypto->setHeap(heap) : NO_INIT;
 }
 
@@ -123,5 +123,12 @@ void GonkCryptoProxy::unsetHeap(int32_t seqNum) {
     mCrypto->unsetHeap(seqNum);
   }
 }
+
+#if ANDROID_VERSION >= 31
+status_t GonkCryptoProxy::getLogMessages(
+    Vector<drm::V1_4::LogMessage>& logs) const {
+  return mCrypto ? mCrypto->getLogMessages(logs) : NO_INIT;
+}
+#endif
 
 }  // namespace android

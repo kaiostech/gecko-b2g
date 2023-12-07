@@ -14,11 +14,16 @@
 #include "nsIUUIDGenerator.h"
 #include "nsServiceManagerUtils.h"
 
-#include <binder/IServiceManager.h>
-#include <binder/Parcel.h>
 #include <mediadrm/ICrypto.h>
 #include <mediadrm/IDrm.h>
-#include <mediadrm/IMediaDrmService.h>
+
+#if ANDROID_VERSION >= 30
+#  include <mediadrm/CryptoHal.h>
+#  include <mediadrm/DrmHal.h>
+#else
+#  include <binder/IServiceManager.h>
+#  include <mediadrm/IMediaDrmService.h>
+#endif
 
 namespace mozilla {
 
@@ -142,6 +147,9 @@ const uint8_t* GonkDrmUtils::GetKeySystemUUID(const nsAString& aKeySystem) {
 }
 
 sp<IDrm> GonkDrmUtils::MakeDrm() {
+#if ANDROID_VERSION >= 30
+  sp<IDrm> drm = new DrmHal();
+#else
   sp<IServiceManager> sm = defaultServiceManager();
   sp<IBinder> binder = sm->getService(String16("media.drm"));
   sp<IMediaDrmService> service = interface_cast<IMediaDrmService>(binder);
@@ -151,6 +159,8 @@ sp<IDrm> GonkDrmUtils::MakeDrm() {
   }
 
   sp<IDrm> drm = service->makeDrm();
+#endif
+
   if (!drm || (drm->initCheck() != OK && drm->initCheck() != NO_INIT)) {
     GD_LOGE("GonkDrmUtils::MakeDrm, unable to create DRM");
     return nullptr;
@@ -173,6 +183,9 @@ sp<IDrm> GonkDrmUtils::MakeDrm(const nsAString& aKeySystem) {
 }
 
 sp<ICrypto> GonkDrmUtils::MakeCrypto() {
+#if ANDROID_VERSION >= 30
+  sp<ICrypto> crypto = new CryptoHal();
+#else
   sp<IServiceManager> sm = defaultServiceManager();
   sp<IBinder> binder = sm->getService(String16("media.drm"));
   sp<IMediaDrmService> service = interface_cast<IMediaDrmService>(binder);
@@ -182,6 +195,8 @@ sp<ICrypto> GonkDrmUtils::MakeCrypto() {
   }
 
   sp<ICrypto> crypto = service->makeCrypto();
+#endif
+
   if (!crypto ||
       (crypto->initCheck() != OK && crypto->initCheck() != NO_INIT)) {
     GD_LOGE("GonkDrmUtils::MakeCrypto, unable to create Crypto");
@@ -211,6 +226,7 @@ bool GonkDrmUtils::IsSchemeSupported(const nsAString& aKeySystem) {
     return false;
   }
 
+#if ANDROID_VERSION < 30
   // If mediadrmserver is disabled, MakeDrm() will be blocked for 5 seconds, so
   // a non-blocking service check here is needed.
   sp<IServiceManager> sm = defaultServiceManager();
@@ -219,6 +235,7 @@ bool GonkDrmUtils::IsSchemeSupported(const nsAString& aKeySystem) {
     GD_LOGE("GonkDrmUtils::IsSchemeSupported, unable to get media.drm service");
     return false;
   }
+#endif
 
   sp<IDrm> drm = MakeDrm();
   if (!drm) {

@@ -18,6 +18,7 @@ UNIFIED_SOURCES += [
     "GonkCryptoProxy.cpp",
     "GonkDrmCDMCallbackProxy.cpp",
     "GonkDrmCDMProxy.cpp",
+    "GonkDrmListener.cpp",
     "GonkDrmSessionInfo.cpp",
     "GonkDrmSharedData.cpp",
     "GonkDrmStorageProxy.cpp",

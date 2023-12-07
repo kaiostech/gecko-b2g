@@ -11,7 +11,11 @@
 #include "nsCOMPtr.h"
 #include "nsString.h"
 
-#include <mediadrm/IDrmClient.h>
+#include <utils/Errors.h>
+#include <utils/RefBase.h>
+#include <utils/Vector.h>
+
+#include <map>
 
 #define GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
 
@@ -24,16 +28,19 @@ class GonkDrmStorageProxy;
 
 namespace android {
 
+class GonkDrmListener;
 class GonkDrmSessionInfo;
 class GonkDrmSharedData;
 class IDrm;
 
-class GonkDrmSupport : public BnDrmClient {
+class GonkDrmSupport : public RefBase {
   typedef mozilla::dom::MediaKeyMessageType MediaKeyMessageType;
   typedef mozilla::dom::MediaKeySessionType MediaKeySessionType;
   typedef mozilla::CDMKeyInfo CDMKeyInfo;
   typedef mozilla::GonkDrmCDMCallbackProxy GonkDrmCDMCallbackProxy;
   typedef mozilla::GonkDrmStorageProxy GonkDrmStorageProxy;
+
+  friend class GonkDrmListener;
 
  public:
   GonkDrmSupport(nsISerialEventTarget* aOwnerThread, const nsAString& aOrigin,
@@ -104,17 +111,15 @@ class GonkDrmSupport : public BnDrmClient {
   void RemoveSession(const sp<GonkDrmSessionInfo>& aSession,
                      SuccessCallback aSuccessCb, FailureCallback aFailureCb);
 
-  // IDrmClient interface
-  void notify(DrmPlugin::EventType aEventType, int aExtra,
-              const Parcel* aObj) override;
+  void OnKeyNeeded(const Vector<uint8_t>& aSessionId,
+                   const nsTArray<uint8_t>& aData);
 
-  void Notify(DrmPlugin::EventType aEventType, int aExtra, const Parcel* aObj);
+  void OnExpirationUpdated(const Vector<uint8_t>& aSessionId,
+                           int64_t aExpirationTime);
 
-  void OnKeyNeeded(const Parcel* aParcel);
-
-  void OnExpirationUpdated(const Parcel* aParcel);
-
-  void OnKeyStatusChanged(const Parcel* aParcel);
+  void OnKeyStatusChanged(const Vector<uint8_t>& aSessionId,
+                          nsTArray<CDMKeyInfo>&& aKeyInfos,
+                          bool aHasNewUsableKey);
 
 #ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
   void PeekClearkeyKeyStatus(const sp<GonkDrmSessionInfo>& aSession,
@@ -134,6 +139,7 @@ class GonkDrmSupport : public BnDrmClient {
   GonkDrmCDMCallbackProxy* mCallback = nullptr;
   RefPtr<GonkDrmStorageProxy> mStorage;
   sp<GonkDrmSharedData> mSharedData;
+  sp<GonkDrmListener> mDrmListener;
   sp<IDrm> mDrm;
 
   class SessionManager final {

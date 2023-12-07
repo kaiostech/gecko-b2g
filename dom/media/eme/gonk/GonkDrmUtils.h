@@ -11,6 +11,8 @@
 #include "nsString.h"
 #include "nsTArray.h"
 
+#include <binder/Parcel.h>
+#include <hidl/HidlSupport.h>
 #include <utils/String8.h>
 #include <utils/Vector.h>
 
@@ -59,6 +61,8 @@ class GonkDrmUtils final {
   static bool IsSchemeSupported(const nsAString& aKeySystem);
 
   static Vector<uint8_t> ReadByteVectorFromParcel(const Parcel* aParcel);
+
+  static nsTArray<uint8_t> ReadNsByteArrayFromParcel(const Parcel* aParcel);
 
   static nsCString EncodeBase64(const Vector<uint8_t>& aVector);
 
@@ -128,6 +132,10 @@ class GonkDrmConverter final {
 
   static inline RawData GetRawData(const Vector<uint8_t>& aVector) {
     return RawData{aVector.array(), aVector.size()};
+  }
+
+  static inline RawData GetRawData(const hardware::hidl_vec<uint8_t>& aVector) {
+    return RawData{aVector.data(), aVector.size()};
   }
 
   static inline RawData GetRawData(const String8& aString) {

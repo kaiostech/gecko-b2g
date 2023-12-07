@@ -7,6 +7,7 @@
 #include "GonkDrmSupport.h"
 
 #include "GonkDrmCDMCallbackProxy.h"
+#include "GonkDrmListener.h"
 #include "GonkDrmSessionInfo.h"
 #include "GonkDrmSharedData.h"
 #include "GonkDrmUtils.h"
@@ -22,32 +23,6 @@ namespace android {
 
 using mozilla::dom::MediaKeyStatus;
 using mozilla::dom::Optional;
-
-enum class GonkDrmKeyStatus : int32_t {
-  USABLE = 0,
-  EXPIRED = 1,
-  OUTPUT_NOT_ALLOWED = 2,
-  PENDING = 3,
-  INTERNAL_ERROR = 4,
-  USABLE_IN_FUTURE = 5
-};
-
-static MediaKeyStatus ConvertToMediaKeyStatus(GonkDrmKeyStatus aKeyStatus) {
-  switch (aKeyStatus) {
-    case GonkDrmKeyStatus::USABLE:
-      return MediaKeyStatus::Usable;
-    case GonkDrmKeyStatus::EXPIRED:
-      return MediaKeyStatus::Expired;
-    case GonkDrmKeyStatus::OUTPUT_NOT_ALLOWED:
-      return MediaKeyStatus::Output_restricted;
-    case GonkDrmKeyStatus::PENDING:
-      return MediaKeyStatus::Status_pending;
-    case GonkDrmKeyStatus::INTERNAL_ERROR:
-    case GonkDrmKeyStatus::USABLE_IN_FUTURE:
-    default:
-      return MediaKeyStatus::Internal_error;
-  }
-}
 
 GonkDrmSupport::GonkDrmSupport(nsISerialEventTarget* aOwnerThread,
                                const nsAString& aOrigin,
@@ -70,6 +45,7 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
   mCallback = aCallback;
   mStorage = aStorage;
   mSharedData = aSharedData;
+  mDrmListener = new GonkDrmListener(this, mOwnerThread);
   mDrm = GonkDrmUtils::MakeDrm(mKeySystem);
   if (!mDrm) {
     GD_LOGE("%p GonkDrmSupport::Init, MakeDrm failed", this);
@@ -77,7 +53,7 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
     return;
   }
 
-  auto err = mDrm->setListener(this);
+  auto err = mDrm->setListener(mDrmListener);
   if (err != OK) {
     GD_LOGE("%p GonkDrmSupport::Init, DRM setListener failed(%d)", this, err);
     InitFailed();
@@ -263,8 +239,10 @@ void GonkDrmSupport::Reset() {
     for (const auto& session : mSessionManager.All()) {
       CloseDrmSession(session);
     }
+    mDrm->setListener(nullptr);
     mDrm->destroyPlugin();
     mDrm = nullptr;
+    mDrmListener = nullptr;
   }
   if (mSharedData) {
     mSharedData->SetCryptoSessionId(Vector<uint8_t>());
@@ -602,66 +580,21 @@ void GonkDrmSupport::SetServerCertificate(uint32_t aPromiseId,
   mCallback->ResolvePromise(aPromiseId);
 }
 
-// Called on binder thread.
-void GonkDrmSupport::notify(DrmPlugin::EventType aEventType, int aExtra,
-                            const Parcel* aObj) {
-  GD_LOGV("%p GonkDrmSupport::notify, event %d, extra %d, parcel %p", this,
-          aEventType, aExtra, aObj);
-
-  // Make a copy of the Parcel and dispatch it to owner thread.
-  std::unique_ptr<Parcel> parcel;
-  if (aObj) {
-    parcel.reset(new Parcel());
-    parcel->appendFrom(aObj, 0, aObj->dataSize());
-    parcel->setDataPosition(0);
-  }
-
-  mOwnerThread->Dispatch(NS_NewRunnableFunction(
-      "GonkDrmSupport::notify",
-      [aEventType, aExtra, obj = std::move(parcel), this, self = Self()]() {
-        Notify(aEventType, aExtra, obj.get());
-      }));
-}
-
-void GonkDrmSupport::Notify(DrmPlugin::EventType aEventType, int aExtra,
-                            const Parcel* aObj) {
+void GonkDrmSupport::OnKeyNeeded(const Vector<uint8_t>& aSessionId,
+                                 const nsTArray<uint8_t>& aData) {
   if (!mDrm) {
-    GD_LOGD("%p GonkDrmSupport::Notify, already shut down", this);
+    GD_LOGD("%p GonkDrmSupport::OnKeyNeeded, already shut down", this);
     return;
   }
 
-  switch (aEventType) {
-    case DrmPlugin::kDrmPluginEventKeyNeeded:
-      OnKeyNeeded(aObj);
-      break;
-    case DrmPlugin::kDrmPluginEventExpirationUpdate:
-      OnExpirationUpdated(aObj);
-      break;
-    case DrmPlugin::kDrmPluginEventKeysChange:
-      OnKeyStatusChanged(aObj);
-      break;
-    default:
-      break;
-  }
-}
-
-void GonkDrmSupport::OnKeyNeeded(const Parcel* aParcel) {
-  if (!aParcel) {
-    return;
-  }
-
-  auto sessionId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
-  auto session = mSessionManager.FindByDrmId(sessionId);
+  auto session = mSessionManager.FindByDrmId(aSessionId);
   if (!session) {
     GD_LOGE("%p GonkDrmSupport::OnKeyNeeded, session not found", this);
     return;
   }
 
-  auto data = GonkDrmConverter::ToNsByteArray(
-      GonkDrmUtils::ReadByteVectorFromParcel(aParcel));
-
   KeyRequest request;
-  if (!GetKeyRequest(session, data, &request)) {
+  if (!GetKeyRequest(session, aData, &request)) {
     GD_LOGE("%p GonkDrmSupport::OnKeyNeeded, GetKeyRequest failed", this);
     return;
   }
@@ -671,33 +604,30 @@ void GonkDrmSupport::OnKeyNeeded(const Parcel* aParcel) {
   SendKeyRequest(session, std::move(request));
 }
 
-void GonkDrmSupport::OnExpirationUpdated(const Parcel* aParcel) {
-  if (!aParcel) {
+void GonkDrmSupport::OnExpirationUpdated(const Vector<uint8_t>& aSessionId,
+                                         int64_t aExpirationTime) {
+  if (!mDrm) {
+    GD_LOGD("%p GonkDrmSupport::OnExpirationUpdated, already shut down", this);
     return;
   }
 
-  auto sessionId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
-  auto session = mSessionManager.FindByDrmId(sessionId);
+  auto session = mSessionManager.FindByDrmId(aSessionId);
   if (!session) {
     GD_LOGE("%p GonkDrmSupport::OnExpirationUpdate, session not found", this);
     return;
   }
 
-  auto expirationTime = aParcel->readInt64();
-
   GD_LOGD(
       "%p GonkDrmSupport::OnExpirationUpdate, session ID %s, expiration time "
       "%" PRIi64,
-      this, session->EmeId().Data(), expirationTime);
-  mCallback->ExpirationChange(session->EmeId(), expirationTime);
+      this, session->EmeId().Data(), aExpirationTime);
+  mCallback->ExpirationChange(session->EmeId(), aExpirationTime);
 }
 
-void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
+void GonkDrmSupport::OnKeyStatusChanged(const Vector<uint8_t>& aSessionId,
+                                        nsTArray<CDMKeyInfo>&& aKeyInfos,
+                                        bool aHasNewUsableKey) {
   GD_ASSERT(mCallback);
-
-  if (!aParcel) {
-    return;
-  }
 
 #ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS
   // MediaDrm ClearKey plugin only reports fake key status. Instead we use
@@ -707,25 +637,20 @@ void GonkDrmSupport::OnKeyStatusChanged(const Parcel* aParcel) {
   }
 #endif
 
-  nsTArray<CDMKeyInfo> keyInfos;
-  auto sessionId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
-  auto session = mSessionManager.FindByDrmId(sessionId);
+  if (!mDrm) {
+    GD_LOGD("%p GonkDrmSupport::OnKeyStatusChanged, already shut down", this);
+    return;
+  }
+
+  auto session = mSessionManager.FindByDrmId(aSessionId);
   if (!session) {
     GD_LOGE("%p GonkDrmSupport::OnKeyStatusChanged, session not found", this);
     return;
   }
 
-  for (auto num = aParcel->readInt32(); num > 0; num--) {
-    auto keyId = GonkDrmUtils::ReadByteVectorFromParcel(aParcel);
-    auto keyStatus = static_cast<GonkDrmKeyStatus>(aParcel->readInt32());
-    keyInfos.EmplaceBack(
-        GonkDrmConverter::ToNsByteArray(keyId),
-        Optional<MediaKeyStatus>(ConvertToMediaKeyStatus(keyStatus)));
-  }
-
   GD_LOGD("%p GonkDrmSupport::OnKeyStatusChanged, session ID %s", this,
           session->EmeId().Data());
-  NotifyKeyStatus(session, std::move(keyInfos));
+  NotifyKeyStatus(session, std::move(aKeyInfos));
 }
 
 #ifdef GONK_DRM_PEEK_CLEARKEY_KEY_STATUS

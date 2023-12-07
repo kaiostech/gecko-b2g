@@ -267,6 +267,18 @@ Vector<uint8_t> GonkDrmUtils::ReadByteVectorFromParcel(const Parcel* aParcel) {
   return vector;
 }
 
+nsTArray<uint8_t> GonkDrmUtils::ReadNsByteArrayFromParcel(
+    const Parcel* aParcel) {
+  GD_ASSERT(aParcel);
+  nsTArray<uint8_t> array;
+  auto len = aParcel->readInt32();
+  if (len > 0) {
+    auto* data = static_cast<const uint8_t*>(aParcel->readInplace(len));
+    array.AppendElements(data, len);
+  }
+  return array;
+}
+
 nsCString GonkDrmUtils::EncodeBase64(const Vector<uint8_t>& aVector) {
   nsCString base64;
   nsresult rv = mozilla::Base64Encode(

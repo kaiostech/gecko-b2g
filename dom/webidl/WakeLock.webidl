@@ -7,17 +7,8 @@
  * https://w3c.github.io/screen-wake-lock/
  */
 
-[SecureContext, Exposed=(Window), Pref="dom.wakelock.enabled", Func="B2G::HasWakeLockSupport"]
+[SecureContext, Exposed=(Window)]
 interface WakeLock {
-  readonly attribute DOMString topic;
-
-  /**
-   * Release the wake lock.
-   * @throw NS_ERROR_DOM_INVALID_STATE_ERR if already unlocked.
-   */
-  [Throws]
-  undefined unlock();
-
   [Throws]
   Promise<WakeLockSentinel> request(optional WakeLockType type = "screen");
 };

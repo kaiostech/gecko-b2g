@@ -7,7 +7,7 @@
 #include "WakeLock.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/Event.h"  // for Event
-#include "mozilla/dom/WakeLockBinding.h"
+#include "mozilla/dom/WakeLockInternalBinding.h"
 #include "mozilla/Hal.h"
 #include "mozilla/HalWakeLock.h"
 #include "nsError.h"
@@ -39,7 +39,7 @@ WakeLock::~WakeLock() {
 
 JSObject* WakeLock::WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) {
-  return WakeLock_Binding::Wrap(aCx, this, aGivenProto);
+  return WakeLockInternal_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 nsresult WakeLock::Init(const nsAString& aTopic, nsPIDOMWindowInner* aWindow) {

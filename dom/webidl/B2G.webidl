@@ -227,7 +227,7 @@ partial interface B2G {
    * @param aTopic resource name
    */
   [Throws, Pref="dom.wakelock.enabled", Func="B2G::HasWakeLockSupport", Exposed=Window]
-  WakeLock requestWakeLock(DOMString aTopic);
+  WakeLockInternal requestWakeLock(DOMString aTopic);
 
   /**
    * The listeners are notified when a resource changes its lock state to:

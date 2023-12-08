@@ -1041,6 +1041,7 @@ WEBIDL_FILES = [
     "VTTCue.webidl",
     "VTTRegion.webidl",
     "WakeLock.webidl",
+    "WakeLockInternal.webidl",
     "WakeLockSentinel.webidl",
     "WaveShaperNode.webidl",
     "WebActivity.webidl",

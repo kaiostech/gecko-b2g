@@ -31,7 +31,7 @@ status_t GonkAudioSystem::setMasterBalance(float balance) {
 
 status_t GonkAudioSystem::setMasterVolume(float value) {
   ALOGD("%s, %f", __func__, value);
-  return AudioSystem::setMasterBalance(value);
+  return AudioSystem::setMasterVolume(value);
 }
 
 status_t GonkAudioSystem::muteMicrophone(bool state) {

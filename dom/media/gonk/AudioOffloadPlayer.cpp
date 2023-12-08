@@ -223,7 +223,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
         audioFormat, &AudioOffloadPlayer::AudioSinkCallback, this,
         AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD, &offloadInfo);
     if (err == OK) {
-      SendMetaDataToHal(offloadInfo);
+      SendMetadataToHal(offloadInfo);
     }
   } else {
     auto audioFormat = AUDIO_FORMAT_PCM_FLOAT;
@@ -259,7 +259,7 @@ void AudioOffloadPlayer::OpenAudioSink() {
   }
 }
 
-void AudioOffloadPlayer::SendMetaDataToHal(audio_offload_info_t& aOffloadInfo) {
+void AudioOffloadPlayer::SendMetadataToHal(audio_offload_info_t& aOffloadInfo) {
   // If the playback is offloaded to h/w we pass the HAL some metadata
   // information. We don't want to do this for PCM because it will be going
   // through the AudioFlinger mixer before reaching the hardware

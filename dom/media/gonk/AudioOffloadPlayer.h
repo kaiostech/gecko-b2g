@@ -51,7 +51,7 @@ class AudioOffloadPlayer : public MediaOffloadPlayer,
   void PlaybackSettingsChanged();
   void ReaderBufferedUpdated() { mBuffered = mReaderBuffered; }
   void OpenAudioSink();
-  void SendMetaDataToHal(audio_offload_info_t& aOffloadInfo);
+  void SendMetadataToHal(audio_offload_info_t& aOffloadInfo);
   void MaybeStartDemuxing();
   void DemuxSamples();
   void MaybeStartDecoding();

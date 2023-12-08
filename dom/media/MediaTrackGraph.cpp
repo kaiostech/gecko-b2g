@@ -3476,7 +3476,7 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
           ? aSampleRate
           : CubebUtils::PreferredSampleRate(aShouldResistFingerprinting);
   return MediaTrackGraphImpl::GetInstance(aGraphDriverRequested, aWindowID,
-                                          aSampleRate, aOutputDeviceID,
+                                          sampleRate, aOutputDeviceID,
                                           aAudioChannel, aMainThread);
 }
 

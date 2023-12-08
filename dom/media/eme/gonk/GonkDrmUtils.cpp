@@ -13,6 +13,7 @@
 #include "nsIGonkDrmNetUtils.h"
 #include "nsIUUIDGenerator.h"
 #include "nsServiceManagerUtils.h"
+#include "nsThreadUtils.h"
 
 #include <mediadrm/ICrypto.h>
 #include <mediadrm/IDrm.h>
@@ -81,7 +82,7 @@ class GonkDrmProvisioningCallback : public nsIGonkDrmProvisioningCallback {
                               const ProvisioningCallback& aCallback)
       : mCbThread(aCbThread), mCallback(aCallback) {}
 
-  ~GonkDrmProvisioningCallback() = default;
+  virtual ~GonkDrmProvisioningCallback() = default;
 
   nsCOMPtr<nsISerialEventTarget> mCbThread;
   ProvisioningCallback mCallback;

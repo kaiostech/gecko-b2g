@@ -10,6 +10,7 @@
 #include "GonkDrmListener.h"
 #include "GonkDrmSessionInfo.h"
 #include "GonkDrmSharedData.h"
+#include "GonkDrmStorageProxy.h"
 #include "GonkDrmUtils.h"
 #include "json/json.h"
 #include "mozilla/EMEUtils.h"
@@ -266,8 +267,8 @@ void GonkDrmSupport::CreateSession(uint32_t aPromiseId,
                                    MediaKeySessionType aSessionType) {
   GD_ASSERT(mDrm);
   GD_LOGD(
-      "%p GonkDrmSupport::CreateSession, init data type %s, session type %hhu",
-      this, aInitDataType.Data(), aSessionType);
+      "%p GonkDrmSupport::CreateSession, init data type %s, session type %d",
+      this, aInitDataType.Data(), static_cast<int>(aSessionType));
 
   auto session = OpenDrmSession(aSessionType);
   if (!session) {

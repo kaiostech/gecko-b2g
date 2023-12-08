@@ -7,6 +7,7 @@
 #ifndef GonkDrmSupport_H
 #define GonkDrmSupport_H
 
+#include "mozilla/dom/MediaKeyMessageEventBinding.h"
 #include "mozilla/dom/MediaKeysBinding.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
@@ -22,6 +23,7 @@
 class nsISerialEventTarget;
 
 namespace mozilla {
+class CDMKeyInfo;
 class GonkDrmCDMCallbackProxy;
 class GonkDrmStorageProxy;
 }  // namespace mozilla

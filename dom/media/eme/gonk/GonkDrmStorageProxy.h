@@ -8,9 +8,8 @@
 #define GonkDrmStorageProxy_H
 
 #include "nsCOMPtr.h"
+#include "nsIGonkDrmStorage.h"
 #include "nsString.h"
-
-class nsIGonkDrmStorage;
 
 namespace mozilla {
 

@@ -211,8 +211,8 @@ void AudioOffloadPlayer::OpenAudioSink() {
 
     LOG("AudioOffloadPlayer::OpenAudioSink, offload info: sample_rate=%u, "
         "channel_mask=0x%x, format=0x%x, stream_type=%d, bit_rate=%u, "
-        "duration_us=%lu, has_video=%d, is_streaming=%d, bit_width=%u, "
-        "offload_buffer_size=%u",
+        "duration_us=%" PRId64
+        ", has_video=%d, is_streaming=%d, bit_width=%u, offload_buffer_size=%u",
         offloadInfo.sample_rate, offloadInfo.channel_mask, offloadInfo.format,
         offloadInfo.stream_type, offloadInfo.bit_rate, offloadInfo.duration_us,
         offloadInfo.has_video, offloadInfo.is_streaming, offloadInfo.bit_width,

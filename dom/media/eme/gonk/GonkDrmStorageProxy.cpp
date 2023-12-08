@@ -11,7 +11,6 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/Variant.h"
 #include "nsComponentManagerUtils.h"
-#include "nsIGonkDrmStorage.h"
 #include "nsThreadUtils.h"
 
 namespace mozilla {

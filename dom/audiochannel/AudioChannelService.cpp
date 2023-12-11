@@ -1119,12 +1119,29 @@ void AudioChannelService::AudioChannelWindow::RemoveAgentAndReduceAgentsNum(
   int32_t channel = aAgent->AudioChannelType();
   mAgents.RemoveElement(aAgent);
 
-  MOZ_ASSERT(mChannels[channel].mNumberOfAgents > 0);
-  --mChannels[channel].mNumberOfAgents;
+  auto reduceAgentsNum = [this, channel, windowID = aAgent->WindowID()]() {
+    if (sXPCOMShuttingDown) {
+      return;
+    }
+    MOZ_ASSERT(mChannels[channel].mNumberOfAgents > 0);
+    --mChannels[channel].mNumberOfAgents;
 
-  if (mChannels[channel].mNumberOfAgents == 0) {
-    NotifyChannelActive(aAgent->WindowID(), static_cast<AudioChannel>(channel),
-                        false);
+    if (mChannels[channel].mNumberOfAgents == 0) {
+      NotifyChannelActive(windowID, static_cast<AudioChannel>(channel), false);
+    }
+  };
+
+  uint32_t delayMs = StaticPrefs::dom_audiochannel_release_delay_ms();
+  if (delayMs == 0) {
+    reduceAgentsNum();
+  } else {
+    MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
+            ("AudioChannelService, delay releasing channel by %u ms", delayMs));
+    NS_DelayedDispatchToCurrentThread(
+        NS_NewRunnableFunction("AudioChannelService::AudioChannelWindow::"
+                               "RemoveAgentAndReduceAgentsNum",
+                               reduceAgentsNum),
+        delayMs);
   }
 }
 

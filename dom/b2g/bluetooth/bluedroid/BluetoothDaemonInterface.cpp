@@ -101,6 +101,8 @@ class BluetoothDaemonProtocol final : public DaemonSocketIOConsumer,
   already_AddRefed<DaemonSocketResultHandler> FetchResultHandler(
       const DaemonSocketPDUHeader& aHeader);
 
+  nsTArray<RefPtr<DaemonSocketResultHandler>> mResQ;
+
  private:
   void HandleSetupSvc(const DaemonSocketPDUHeader& aHeader,
                       DaemonSocketPDU& aPDU, DaemonSocketResultHandler* aRes);
@@ -124,7 +126,6 @@ class BluetoothDaemonProtocol final : public DaemonSocketIOConsumer,
                     DaemonSocketResultHandler* aRes);
 
   DaemonSocket* mConnection;
-  nsTArray<RefPtr<DaemonSocketResultHandler>> mResQ;
 };
 
 BluetoothDaemonProtocol::BluetoothDaemonProtocol() {}
@@ -395,6 +396,7 @@ void BluetoothDaemonInterface::Init(
   } else if (NS_WARN_IF(mCmdChannel->GetConnectionStatus() ==
                         SOCKET_CONNECTED)) {
     // Command channel should not be open; let's close it.
+    BT_LOGR("cmd channel should not open, close it");
     mCmdChannel->Close();
   }
 
@@ -409,6 +411,7 @@ void BluetoothDaemonInterface::Init(
   nsresult rv = mListenSocket->Listen(
       new DaemonSocketConnector(mListenSocketName), mCmdChannel);
   if (NS_FAILED(rv)) {
+    BT_LOGR("Cannot listen socket mListenSocket, onConnectError");
     OnConnectError(CMD_CHANNEL);
     return;
   }
@@ -440,9 +443,11 @@ class BluetoothDaemonInterface::CleanupResultHandler final
       mUnregisteredCoreModule = true;
       // Cleanup, step 2: Unregister Core module
       mInterface->mProtocol->UnregisterModuleCmd(SETUP_SERVICE_ID_CORE, this);
+      BT_LOGR("Unregister module");
     } else {
       // Cleanup, step 3: Close command channel
       mInterface->mCmdChannel->Close();
+      BT_LOGR("close cmd channel");
     }
   }
 
@@ -628,10 +633,12 @@ void BluetoothDaemonInterface::OnConnectSuccess(int aIndex) {
         mNtfChannel->Close();
       }
       if (NS_FAILED(mListenSocket->Listen(mNtfChannel))) {
+        BT_LOGR("CMD channel connect success. cannot listen socket on ntf channel");
         OnConnectError(NTF_CHANNEL);
       }
       break;
     case NTF_CHANNEL: {
+      BT_LOGR("NTF channel connect success. register core");
       RefPtr<BluetoothResultHandler> res = mResultHandlerQ.ElementAt(0);
       mResultHandlerQ.RemoveElementAt(0);
 
@@ -654,10 +661,12 @@ void BluetoothDaemonInterface::OnConnectError(int aIndex) {
   switch (aIndex) {
     case NTF_CHANNEL:
       // Close command channel
+      BT_LOGR("OnConnectError, NTF channel: cmd channel close");
       mCmdChannel->Close();
       [[fallthrough]];
     case CMD_CHANNEL:
       // Stop daemon and close listen socket
+      BT_LOGR("OnConnectError, CMD channel: mListenSocket close");
       if (mozilla::hal::SystemServiceIsRunning(mListenSocketName.get())) {
         mozilla::hal::StopSystemService(mListenSocketName.get());
       }
@@ -665,6 +674,7 @@ void BluetoothDaemonInterface::OnConnectError(int aIndex) {
       [[fallthrough]];
     case LISTEN_SOCKET:
       if (!mResultHandlerQ.IsEmpty()) {
+        BT_LOGR("OnConnectError, listen socket, remove mResultHandlerQ");
         // Signal error to caller
         RefPtr<BluetoothResultHandler> res = mResultHandlerQ.ElementAt(0);
         mResultHandlerQ.RemoveElementAt(0);
@@ -705,6 +715,16 @@ void BluetoothDaemonInterface::OnDisconnect(int aIndex) {
       mListenSocket->Close();
       break;
     case LISTEN_SOCKET:
+      // Clean up result handler queue.
+      if(mProtocol && !mProtocol->mResQ.IsEmpty()){
+        BT_LOGR("OnDisconnect: mResQ not empty. Clean up.");
+        uint32_t resQLength = mProtocol->mResQ.Length();
+        for (uint32_t i = 0; i < resQLength; i++) {
+          RefPtr<DaemonSocketResultHandler> userData = mProtocol->mResQ.ElementAt(0);
+          mProtocol->mResQ.RemoveElementAt(0);
+          userData.forget();
+        }
+      }
       if (!mResultHandlerQ.IsEmpty()) {
         RefPtr<BluetoothResultHandler> res = mResultHandlerQ.ElementAt(0);
         mResultHandlerQ.RemoveElementAt(0);

@@ -208,11 +208,15 @@ class BluetoothHidManager::UnregisterModuleResultHandler final
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for HID: %d",
                (int)aStatus);
 
-    sBluetoothHidInterface->SetNotificationHandler(nullptr);
-    sBluetoothHidInterface = nullptr;
+    if (sBluetoothHidInterface) {
+      sBluetoothHidInterface->SetNotificationHandler(nullptr);
+      sBluetoothHidInterface = nullptr;
+    }
 
-    sBluetoothHidManager->Uninit();
-    sBluetoothHidManager = nullptr;
+    if (sBluetoothHidManager) {
+      sBluetoothHidManager->Uninit();
+      sBluetoothHidManager = nullptr;
+    }
 
     if (mRes) {
       mRes->OnError(NS_ERROR_FAILURE);

@@ -341,8 +341,10 @@ class BluetoothMapSmsManager::UnregisterModuleResultHandler final
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for SDP: %d",
                (int)aStatus);
 
-    sBtSdpInterface->SetNotificationHandler(nullptr);
-    sBtSdpInterface = nullptr;
+    if (sBtSdpInterface) {
+      sBtSdpInterface->SetNotificationHandler(nullptr);
+      sBtSdpInterface = nullptr;
+    }
 
     if (sMapSmsManager) {
       sMapSmsManager->Uninit();
@@ -357,8 +359,10 @@ class BluetoothMapSmsManager::UnregisterModuleResultHandler final
   void UnregisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
-    sBtSdpInterface->SetNotificationHandler(nullptr);
-    sBtSdpInterface = nullptr;
+    if (sBtSdpInterface) {
+      sBtSdpInterface->SetNotificationHandler(nullptr);
+      sBtSdpInterface = nullptr;
+    }
 
     if (sMapSmsManager) {
       sMapSmsManager->Uninit();

@@ -436,11 +436,15 @@ class BluetoothHfpManager::UnregisterModuleResultHandler final
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for HFP: %d",
                (int)aStatus);
 
-    sBluetoothHfpInterface->SetNotificationHandler(nullptr);
-    sBluetoothHfpInterface = nullptr;
+    if (sBluetoothHfpInterface) {
+      sBluetoothHfpInterface->SetNotificationHandler(nullptr);
+      sBluetoothHfpInterface = nullptr;
+    }
 
-    sBluetoothHfpManager->Uninit();
-    sBluetoothHfpManager = nullptr;
+    if (sBluetoothHfpManager) {
+      sBluetoothHfpManager->Uninit();
+      sBluetoothHfpManager = nullptr;
+    }
 
     if (mRes) {
       mRes->OnError(NS_ERROR_FAILURE);
@@ -450,11 +454,15 @@ class BluetoothHfpManager::UnregisterModuleResultHandler final
   void UnregisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
-    sBluetoothHfpInterface->SetNotificationHandler(nullptr);
-    sBluetoothHfpInterface = nullptr;
+    if (sBluetoothHfpInterface) {
+      sBluetoothHfpInterface->SetNotificationHandler(nullptr);
+      sBluetoothHfpInterface = nullptr;
+    }
 
-    sBluetoothHfpManager->Uninit();
-    sBluetoothHfpManager = nullptr;
+    if (sBluetoothHfpManager) {
+      sBluetoothHfpManager->Uninit();
+      sBluetoothHfpManager = nullptr;
+    }
 
     if (mRes) {
       mRes->Deinit();

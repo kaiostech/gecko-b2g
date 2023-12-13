@@ -539,15 +539,20 @@ class BluetoothGattManager::UnregisterModuleResultHandler final
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for GATT: %d",
                (int)aStatus);
 
-    sBluetoothGattInterface->SetNotificationHandler(nullptr);
-    sBluetoothGattInterface = nullptr;
+    if (sBluetoothGattInterface) {
+      sBluetoothGattInterface->SetNotificationHandler(nullptr);
+      sBluetoothGattInterface = nullptr;
+    }
+
     sClients = nullptr;
     sServers = nullptr;
     sScanners = nullptr;
     sAdvertisers = nullptr;
 
-    sBluetoothGattManager->Uninit();
-    sBluetoothGattManager = nullptr;
+    if (sBluetoothGattManager) {
+      sBluetoothGattManager->Uninit();
+      sBluetoothGattManager = nullptr;
+    }
 
     if (mRes) {
       mRes->OnError(NS_ERROR_FAILURE);
@@ -557,15 +562,20 @@ class BluetoothGattManager::UnregisterModuleResultHandler final
   void UnregisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
-    sBluetoothGattInterface->SetNotificationHandler(nullptr);
-    sBluetoothGattInterface = nullptr;
+    if (sBluetoothGattInterface) {
+      sBluetoothGattInterface->SetNotificationHandler(nullptr);
+      sBluetoothGattInterface = nullptr;
+    }
+
     sClients = nullptr;
     sServers = nullptr;
     sScanners = nullptr;
     sAdvertisers = nullptr;
 
-    sBluetoothGattManager->Uninit();
-    sBluetoothGattManager = nullptr;
+    if (sBluetoothGattManager) {
+      sBluetoothGattManager->Uninit();
+      sBluetoothGattManager = nullptr;
+    }
 
     if (mRes) {
       mRes->Deinit();

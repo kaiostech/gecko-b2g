@@ -288,11 +288,15 @@ class BluetoothA2dpManager::UnregisterModuleResultHandler final
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for A2DP: %d",
                (int)aStatus);
 
-    sBtA2dpInterface->SetNotificationHandler(nullptr);
-    sBtA2dpInterface = nullptr;
+    if (sBtA2dpInterface) {
+      sBtA2dpInterface->SetNotificationHandler(nullptr);
+      sBtA2dpInterface = nullptr;
+    }
 
-    sBluetoothA2dpManager->Uninit();
-    sBluetoothA2dpManager = nullptr;
+    if (sBluetoothA2dpManager) {
+      sBluetoothA2dpManager->Uninit();
+      sBluetoothA2dpManager = nullptr;
+    }
 
     if (mRes) {
       mRes->OnError(NS_ERROR_FAILURE);

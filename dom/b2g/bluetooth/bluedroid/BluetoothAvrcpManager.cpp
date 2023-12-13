@@ -314,11 +314,15 @@ class BluetoothAvrcpManager::UnregisterModuleResultHandler final
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for AVRCP: %d",
                (int)aStatus);
 
-    sBtAvrcpInterface->SetNotificationHandler(nullptr);
-    sBtAvrcpInterface = nullptr;
+    if (sBtAvrcpInterface) {
+      sBtAvrcpInterface->SetNotificationHandler(nullptr);
+      sBtAvrcpInterface = nullptr;
+    }
 
-    sBluetoothAvrcpManager->Uninit();
-    sBluetoothAvrcpManager = nullptr;
+    if (sBluetoothAvrcpManager) {
+      sBluetoothAvrcpManager->Uninit();
+      sBluetoothAvrcpManager = nullptr;
+    }
 
     if (mRes) {
       mRes->OnError(NS_ERROR_FAILURE);

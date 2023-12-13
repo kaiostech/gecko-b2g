@@ -11,6 +11,7 @@ Please note that some targeting attributes require stricter controls on the tele
 * [activeNotifications](#activenotifications)
 * [addonsInfo](#addonsinfo)
 * [addressesSaved](#addressessaved)
+* [archBits](#archbits)
 * [attachedFxAOAuthClients](#attachedfxaoauthclients)
 * [attributionData](#attributiondata)
 * [backgroundTaskName](#backgroundtaskname)
@@ -44,8 +45,10 @@ Please note that some targeting attributes require stricter controls on the tele
 * [isMajorUpgrade](#ismajorupgrade)
 * [isRTAMO](#isrtamo)
 * [isWhatsNewPanelEnabled](#iswhatsnewpanelenabled)
+* [launchOnLoginEnabled](#launchonloginenabled)
 * [locale](#locale)
 * [localeLanguageCode](#localelanguagecode)
+* [memoryMB](#memorymb)
 * [messageImpressions](#messageimpressions)
 * [needsUpdate](#needsupdate)
 * [newtabSettings](#newtabsettings)
@@ -68,7 +71,7 @@ Please note that some targeting attributes require stricter controls on the tele
 * [userId](#userid)
 * [userMonthlyActivity](#usermonthlyactivity)
 * [userPrefersReducedMotion](#userprefersreducedmotion)
-* [useEmbeddedMigrationWizard][#useembeddedmigrationwizard]
+* [useEmbeddedMigrationWizard](#useembeddedmigrationwizard)
 * [userPrefs](#userprefs)
 * [usesFirefoxSync](#usesfirefoxsync)
 * [xpinstallEnabled](#xpinstallEnabled)
@@ -284,6 +287,14 @@ firefoxVersion > 63
 
 ```ts
 declare const firefoxVersion: number;
+```
+
+### `launchOnLoginEnabled`
+
+Is the launch on login option enabled?
+
+```ts
+declare const launchOnLoginEnabled: boolean;
 ```
 
 ### `locale`
@@ -579,6 +590,16 @@ addressesSaved > 1
 declare const addressesSaved: Promise<number>
 ```
 
+### `archBits`
+
+The number of bits used to represent a pointer in this build.
+
+#### Definition
+
+```ts
+declare const archBits: number;
+```
+
 ### `xpinstallEnabled`
 
 Pref used by system administrators to disallow add-ons from installed altogether.
@@ -698,6 +719,16 @@ declare const attachedFxAOAuthClients: Promise<OAuthClient[]>
 
 ```
 declare const platformName = "linux" | "win" | "macosx" | "android" | "other";
+```
+
+### `memoryMB`
+
+The amount of RAM available to Firefox, in megabytes.
+
+#### Definition
+
+```ts
+declare const memoryMB = number;
 ```
 
 ### `messageImpressions`

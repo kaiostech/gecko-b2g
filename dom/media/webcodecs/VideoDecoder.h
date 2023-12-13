@@ -54,7 +54,7 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
                RefPtr<VideoFrameOutputCallback>&& aOutputCallback);
 
  protected:
-  ~VideoDecoder();
+  virtual ~VideoDecoder() = default;
 
  public:
   JSObject* WrapObject(JSContext* aCx,
@@ -74,7 +74,7 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
       const VideoDecoderConfigInternal& aConfig) override;
 
   virtual nsTArray<RefPtr<VideoFrame>> DecodedDataToOutputType(
-      nsIGlobalObject* aGlobalObject, nsTArray<RefPtr<MediaData>>&& aData,
+      nsIGlobalObject* aGlobalObject, const nsTArray<RefPtr<MediaData>>&& aData,
       VideoDecoderConfigInternal& aConfig) override;
 };
 

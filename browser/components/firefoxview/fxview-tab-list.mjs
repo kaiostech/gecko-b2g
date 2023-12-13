@@ -333,6 +333,7 @@ export default class FxviewTabList extends MozLitElement {
 
   #emptySearchResultsTemplate() {
     return html` <fxview-empty-state
+      class="search-results"
       headerLabel="firefoxview-search-results-empty"
       .headerArgs=${{ query: this.searchQuery }}
       isInnerCard
@@ -685,10 +686,7 @@ export class VirtualList extends MozLitElement {
     this.itemHeightEstimate = FXVIEW_ROW_HEIGHT_PX;
     this.maxRenderCountEstimate = Math.max(
       40,
-      2 *
-        Math.ceil(
-          window.windowUtils.getRootBounds().height / this.itemHeightEstimate
-        )
+      2 * Math.ceil(window.innerHeight / this.itemHeightEstimate)
     );
     this.isSubList = false;
     this.isVisible = false;
@@ -702,11 +700,7 @@ export class VirtualList extends MozLitElement {
         this.parentElement.itemHeightEstimate = entry.contentRect.height;
         this.parentElement.maxRenderCountEstimate = Math.max(
           40,
-          2 *
-            Math.ceil(
-              window.windowUtils.getRootBounds().height /
-                this.itemHeightEstimate
-            )
+          2 * Math.ceil(window.innerHeight / this.itemHeightEstimate)
         );
       }
     });

@@ -3454,13 +3454,9 @@ nsresult nsFocusManager::DetermineElementToMoveFocus(
   int32_t tabIndex = forward ? 1 : 0;
   if (startContent) {
     nsIFrame* frame = startContent->GetPrimaryFrame();
-    if (startContent->IsHTMLElement(nsGkAtoms::area)) {
-      startContent->IsFocusable(&tabIndex);
-    } else if (frame) {
-      tabIndex = frame->IsFocusable().mTabIndex;
-    } else {
-      startContent->IsFocusable(&tabIndex);
-    }
+    tabIndex = (frame && !startContent->IsHTMLElement(nsGkAtoms::area))
+                   ? frame->IsFocusable().mTabIndex
+                   : startContent->IsFocusableWithoutStyle().mTabIndex;
 
     // if the current element isn't tabbable, ignore the tabindex and just
     // look for the next element. The root content won't have a tabindex
@@ -4115,7 +4111,7 @@ nsIContent* nsFocusManager::GetNextTabbableContentInAncestorScopes(
     } else if (nsIFrame* frame = startContent->GetPrimaryFrame()) {
       tabIndex = frame->IsFocusable().mTabIndex;
     } else {
-      startContent->IsFocusable(&tabIndex);
+      tabIndex = startContent->IsFocusableWithoutStyle().mTabIndex;
     }
     nsIContent* contentToFocus = GetNextTabbableContentInScope(
         owner, startContent, aOriginalStartContent, aForward, tabIndex,
@@ -4291,7 +4287,7 @@ nsresult nsFocusManager::GetNextTabbableContent(
       if (iterStartContent == aRootContent) {
         if (!aForward) {
           frameTraversal->Last();
-        } else if (aRootContent->IsFocusable()) {
+        } else if (aRootContent->IsFocusableWithoutStyle()) {
           frameTraversal->Next();
         }
         frame = frameTraversal->CurrentItem();
@@ -4359,11 +4355,12 @@ nsresult nsFocusManager::GetNextTabbableContent(
                 return rv;
               }
             }
-          } else {
-            if (invokerContent && invokerContent->IsFocusable()) {
-              invokerContent.forget(aResultContent);
-              return NS_OK;
-            }
+          } else if (invokerContent &&
+                     invokerContent->IsFocusableWithoutStyle()) {
+            // FIXME(emilio): The check above should probably use
+            // nsIFrame::IsFocusable, not IsFocusableWithoutStyle.
+            invokerContent.forget(aResultContent);
+            return NS_OK;
           }
         }
       }
@@ -4696,11 +4693,11 @@ nsIContent* nsFocusManager::GetNextTabbableMapArea(bool aForward,
     // First see if the the start content is in this map
     Maybe<uint32_t> indexOfStartContent =
         mapContent->ComputeIndexOf(aStartContent);
-    int32_t tabIndex;
     nsIContent* scanStartContent;
+    Focusable focusable;
     if (indexOfStartContent.isNothing() ||
-        (aStartContent->IsFocusable(&tabIndex) &&
-         tabIndex != aCurrentTabIndex)) {
+        ((focusable = aStartContent->IsFocusableWithoutStyle()) &&
+         focusable.mTabIndex != aCurrentTabIndex)) {
       // If aStartContent is in this map we must start iterating past it.
       // We skip the case where aStartContent has tabindex == aStartContent
       // since the next tab ordered element might be before it
@@ -4715,7 +4712,8 @@ nsIContent* nsFocusManager::GetNextTabbableMapArea(bool aForward,
     for (nsCOMPtr<nsIContent> areaContent = scanStartContent; areaContent;
          areaContent = aForward ? areaContent->GetNextSibling()
                                 : areaContent->GetPreviousSibling()) {
-      if (areaContent->IsFocusable(&tabIndex) && tabIndex == aCurrentTabIndex) {
+      focusable = areaContent->IsFocusableWithoutStyle();
+      if (focusable && focusable.mTabIndex == aCurrentTabIndex) {
         return areaContent;
       }
     }
@@ -5536,7 +5534,8 @@ Element* nsFocusManager::GetTheFocusableArea(Element* aTarget,
     // HTML areas do not have their own frame, and the img frame we get from
     // GetPrimaryFrame() is not relevant as to whether it is focusable or
     // not, so we have to do all the relevant checks manually for them.
-    return frame->IsVisibleConsideringAncestors() && aTarget->IsFocusable()
+    return frame->IsVisibleConsideringAncestors() &&
+                   aTarget->IsFocusableWithoutStyle()
                ? aTarget
                : nullptr;
   }

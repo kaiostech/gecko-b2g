@@ -7,6 +7,7 @@
 #define _include_gfx_ipc_CanvasManagerParent_h__
 
 #include "mozilla/gfx/PCanvasManagerParent.h"
+#include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/StaticMonitor.h"
 #include "mozilla/UniquePtr.h"
 #include "nsHashtablesFwd.h"
@@ -15,6 +16,8 @@
 namespace mozilla {
 namespace layers {
 class CanvasTranslator;
+class HostIPCAllocator;
+class SharedSurfacesHolder;
 class SurfaceDescriptor;
 }  // namespace layers
 
@@ -24,7 +27,9 @@ class CanvasManagerParent final : public PCanvasManagerParent {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CanvasManagerParent, override);
 
-  static void Init(Endpoint<PCanvasManagerParent>&& aEndpoint);
+  static void Init(Endpoint<PCanvasManagerParent>&& aEndpoint,
+                   layers::SharedSurfacesHolder* aSharedSurfacesHolder,
+                   const dom::ContentParentId& aContentId);
 
   static void Shutdown();
 
@@ -40,9 +45,10 @@ class CanvasManagerParent final : public PCanvasManagerParent {
   static void RemoveReplayTextures(layers::CanvasTranslator* aOwner);
 
   static UniquePtr<layers::SurfaceDescriptor> WaitForReplayTexture(
-      base::ProcessId aOtherPid, int64_t aTextureId);
+      layers::HostIPCAllocator* aAllocator, int64_t aTextureId);
 
-  CanvasManagerParent();
+  CanvasManagerParent(layers::SharedSurfacesHolder* aSharedSurfacesHolder,
+                      const dom::ContentParentId& aContentId);
 
   void Bind(Endpoint<PCanvasManagerParent>&& aEndpoint);
   void ActorDestroy(ActorDestroyReason aWhy) override;
@@ -59,7 +65,7 @@ class CanvasManagerParent final : public PCanvasManagerParent {
 
  private:
   static UniquePtr<layers::SurfaceDescriptor> TakeReplayTexture(
-      base::ProcessId aOtherPid, int64_t aTextureId)
+      const dom::ContentParentId& aContentId, int64_t aTextureId)
       MOZ_REQUIRES(sReplayTexturesMonitor);
 
   static void ShutdownInternal();
@@ -67,15 +73,18 @@ class CanvasManagerParent final : public PCanvasManagerParent {
 
   ~CanvasManagerParent() override;
 
+  RefPtr<layers::SharedSurfacesHolder> mSharedSurfacesHolder;
+  const dom::ContentParentId mContentId;
   uint32_t mId = 0;
 
   using ManagerSet = nsTHashSet<RefPtr<CanvasManagerParent>>;
   static ManagerSet sManagers;
 
   struct ReplayTexture {
-    RefPtr<layers::CanvasTranslator> mOwner;
-    int64_t mId;
     UniquePtr<layers::SurfaceDescriptor> mDesc;
+    dom::ContentParentId mContentId;
+    int64_t mTextureId;
+    uint32_t mManagerId;
   };
 
   static StaticMonitor sReplayTexturesMonitor;

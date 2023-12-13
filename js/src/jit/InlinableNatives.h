@@ -70,6 +70,9 @@
   _(IntlGuardToNumberFormat)                       \
   _(IntlGuardToPluralRules)                        \
   _(IntlGuardToRelativeTimeFormat)                 \
+  _(IntlGuardToSegmenter)                          \
+  _(IntlGuardToSegments)                           \
+  _(IntlGuardToSegmentIterator)                    \
                                                    \
   _(MapGet)                                        \
   _(MapHas)                                        \
@@ -149,6 +152,7 @@
   _(ObjectCreate)                                  \
   _(ObjectIs)                                      \
   _(ObjectIsPrototypeOf)                           \
+  _(ObjectKeys)                                    \
   _(ObjectToString)                                \
                                                    \
   _(TestBailout)                                   \

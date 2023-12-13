@@ -191,6 +191,13 @@ pref("pdfjs.enableXfa", true);
 // Enable adding an image in a pdf.
 pref("pdfjs.enableStampEditor", true);
 
+// Enable adding an image in a pdf.
+#if defined(EARLY_BETA_OR_EARLIER)
+  pref("pdfjs.enableHighlightEditor", true);
+#else
+  pref("pdfjs.enableHighlightEditor", false);
+#endif
+
 // Disable support for MathML
 pref("mathml.disabled",    false);
 
@@ -270,7 +277,7 @@ pref("media.videocontrols.keyboard-tab-to-all-controls", true);
     pref("media.peerconnection.sdp.parser", "sipcc");
     pref("media.peerconnection.sdp.alternate_parse_mode", "never");
     pref("media.peerconnection.sdp.strict_success", false);
-    pref("media.navigator.video.red_ulpfec_enabled", false);
+    pref("media.navigator.video.red_ulpfec_enabled", true);
   #endif
 
   pref("media.peerconnection.sdp.disable_stereo_fmtp", false);
@@ -953,13 +960,13 @@ pref("javascript.options.mem.gc_parallel_marking", false);
 // JSGC_PARALLEL_MARKING_THRESHOLD_MB
 // Minimum heap size at which to use parallel marking, if enabled.
 #if defined(XP_WIN)
-pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 20);
+pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 8);
 #elif defined(XP_MACOSX)
 pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 4);
 #elif defined(ANDROID)
-pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 200);
+pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 16);
 #elif defined(XP_UNIX)
-pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 200);
+pref("javascript.options.mem.gc_parallel_marking_threshold_mb", 16);
 #endif
 
 // JSGC_HIGH_FREQUENCY_TIME_LIMIT
@@ -3620,6 +3627,10 @@ pref("browser.sanitizer.loglevel", "Warn");
 // engine https://browser.mt/. See Bug 971044. Note that this pref can be turned
 // on in different apps like Firefox Desktop, even if it's disabled by default here.
 pref("browser.translations.enable", false);
+// Enable Firefox Select translations powered by the Bergamot translations
+// engine https://browser.mt/. Note that this pref can be turned on in different apps
+// like Firefox Desktop, even if it's disabled by default here.
+pref("browser.translations.select.enable", false);
 // Set to "All" to see all logs, which are useful for debugging. Set to "Info" to see
 // the application logic logs, and not all of the translated messages, which can be
 // slow and overwhelming.

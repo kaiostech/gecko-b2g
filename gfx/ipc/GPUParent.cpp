@@ -362,14 +362,15 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
   // here that would normally be initialized there.
   SkGraphics::Init();
 
-  if (gfxVars::RemoteCanvasEnabled()) {
+  bool useRemoteCanvas =
+      gfxVars::RemoteCanvasEnabled() || gfxVars::UseAcceleratedCanvas2D();
+  if (useRemoteCanvas) {
     gfxGradientCache::Init();
   }
 
 #if defined(XP_WIN)
   if (gfxConfig::IsEnabled(Feature::D3D11_COMPOSITING)) {
-    if (DeviceManagerDx::Get()->CreateCompositorDevices() &&
-        gfxVars::RemoteCanvasEnabled()) {
+    if (DeviceManagerDx::Get()->CreateCompositorDevices() && useRemoteCanvas) {
       if (DeviceManagerDx::Get()->CreateCanvasDevice()) {
         gfxDWriteFont::InitDWriteSupport();
       } else {
@@ -487,9 +488,9 @@ mozilla::ipc::IPCResult GPUParent::RecvInitSandboxTesting(
 #endif
 
 mozilla::ipc::IPCResult GPUParent::RecvInitCompositorManager(
-    Endpoint<PCompositorManagerParent>&& aEndpoint) {
+    Endpoint<PCompositorManagerParent>&& aEndpoint, uint32_t aNamespace) {
   CompositorManagerParent::Create(std::move(aEndpoint), ContentParentId(),
-                                  /* aIsRoot */ true);
+                                  aNamespace, /* aIsRoot */ true);
   return IPC_OK();
 }
 
@@ -621,8 +622,8 @@ mozilla::ipc::IPCResult GPUParent::RecvSimulateDeviceReset() {
 
 mozilla::ipc::IPCResult GPUParent::RecvNewContentCompositorManager(
     Endpoint<PCompositorManagerParent>&& aEndpoint,
-    const ContentParentId& aChildId) {
-  CompositorManagerParent::Create(std::move(aEndpoint), aChildId,
+    const ContentParentId& aChildId, uint32_t aNamespace) {
+  CompositorManagerParent::Create(std::move(aEndpoint), aChildId, aNamespace,
                                   /* aIsRoot */ false);
   return IPC_OK();
 }

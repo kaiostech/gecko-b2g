@@ -36,6 +36,15 @@ class MFCDMParent final : public PMFCDMParent {
 
   static void SetWidevineL1Path(const char* aPath);
 
+  // Perform clean-up when shutting down the MFCDM process.
+  static void Shutdown();
+
+  // Return capabilities from all key systems which the media foundation CDM
+  // supports.
+  using CapabilitiesPromise =
+      MozPromise<CopyableTArray<MFCDMCapabilitiesIPDL>, nsresult, true>;
+  static RefPtr<CapabilitiesPromise> GetAllKeySystemsCapabilities();
+
   static MFCDMParent* GetCDMById(uint64_t aId) {
     MOZ_ASSERT(sRegisteredCDMs.Contains(aId));
     return sRegisteredCDMs.Get(aId);
@@ -84,9 +93,20 @@ class MFCDMParent final : public PMFCDMParent {
  private:
   ~MFCDMParent();
 
-  LPCWSTR GetCDMLibraryName() const;
+  static LPCWSTR GetCDMLibraryName(const nsString& aKeySystem);
 
-  HRESULT LoadFactory();
+  static HRESULT GetOrCreateFactory(
+      const nsString& aKeySystem,
+      Microsoft::WRL::ComPtr<IMFContentDecryptionModuleFactory>& aFactoryOut);
+
+  static HRESULT LoadFactory(
+      const nsString& aKeySystem,
+      Microsoft::WRL::ComPtr<IMFContentDecryptionModuleFactory>& aFactoryOut);
+
+  static void GetCapabilities(const nsString& aKeySystem,
+                              const bool aIsHWSecure,
+                              IMFContentDecryptionModuleFactory* aFactory,
+                              MFCDMCapabilitiesIPDL& aCapabilitiesOut);
 
   void Register();
   void Unregister();
@@ -121,6 +141,16 @@ class MFCDMParent final : public PMFCDMParent {
   MediaEventListener mKeyMessageListener;
   MediaEventListener mKeyChangeListener;
   MediaEventListener mExpirationListener;
+};
+
+// A helper class to display CDM capabilites in `about:support`.
+class MFCDMCapabilities {
+ public:
+  static void GetAllKeySystemsCapabilities(dom::Promise* aPromise);
+
+ private:
+  static RefPtr<GenericNonExclusivePromise> LaunchMFCDMProcessIfNeeded(
+      ipc::SandboxingKind aSandbox);
 };
 
 }  // namespace mozilla

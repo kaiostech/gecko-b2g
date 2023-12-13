@@ -92,7 +92,7 @@ const AnnotationEditorParamsType = {
   INK_THICKNESS: 22,
   INK_OPACITY: 23,
   HIGHLIGHT_COLOR: 31,
-  HIGHLIGHT_OPACITY: 32
+  HIGHLIGHT_DEFAULT_COLOR: 32
 };
 const PermissionFlag = {
   PRINT: 0x04,
@@ -29275,6 +29275,9 @@ function generateFont({
   return result;
 }
 function getFontSubstitution(systemFontCache, idFactory, localFontPath, baseFontName, standardFontName) {
+  if (baseFontName.startsWith("InvalidPDFjsFont_")) {
+    return null;
+  }
   baseFontName = normalizeFontName(baseFontName);
   const key = baseFontName;
   let substitutionInfo = systemFontCache.get(key);
@@ -50966,11 +50969,13 @@ class Annotation {
     }
     if (borderStyle.has("BS")) {
       const dict = borderStyle.get("BS");
-      const dictType = dict.get("Type");
-      if (!dictType || isName(dictType, "Border")) {
-        this.borderStyle.setWidth(dict.get("W"), this.rectangle);
-        this.borderStyle.setStyle(dict.get("S"));
-        this.borderStyle.setDashArray(dict.getArray("D"));
+      if (dict instanceof Dict) {
+        const dictType = dict.get("Type");
+        if (!dictType || isName(dictType, "Border")) {
+          this.borderStyle.setWidth(dict.get("W"), this.rectangle);
+          this.borderStyle.setStyle(dict.get("S"));
+          this.borderStyle.setDashArray(dict.getArray("D"));
+        }
       }
     } else if (borderStyle.has("Border")) {
       const array = borderStyle.getArray("Border");
@@ -53735,6 +53740,7 @@ class XRef {
     this._pendingRefs = new RefSet();
     this._newPersistentRefNum = null;
     this._newTemporaryRefNum = null;
+    this._persistentRefsCache = null;
   }
   getNewPersistentRef(obj) {
     if (this._newPersistentRefNum === null) {
@@ -53747,11 +53753,24 @@ class XRef {
   getNewTemporaryRef() {
     if (this._newTemporaryRefNum === null) {
       this._newTemporaryRefNum = this.entries.length || 1;
+      if (this._newPersistentRefNum) {
+        this._persistentRefsCache = new Map();
+        for (let i = this._newTemporaryRefNum; i < this._newPersistentRefNum; i++) {
+          this._persistentRefsCache.set(i, this._cacheMap.get(i));
+          this._cacheMap.delete(i);
+        }
+      }
     }
     return Ref.get(this._newTemporaryRefNum++, 0);
   }
   resetNewTemporaryRef() {
     this._newTemporaryRefNum = null;
+    if (this._persistentRefsCache) {
+      for (const [num, obj] of this._persistentRefsCache) {
+        this._cacheMap.set(num, obj);
+      }
+    }
+    this._persistentRefsCache = null;
   }
   setStartXRef(startXRef) {
     this.startXRefQueue = [startXRef];
@@ -56512,7 +56531,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = '4.0.283';
+    const workerVersion = '4.0.347';
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -57073,8 +57092,8 @@ if (typeof window === "undefined" && !isNodeJS && typeof self !== "undefined" &&
 
 ;// CONCATENATED MODULE: ./src/pdf.worker.js
 
-const pdfjsVersion = '4.0.283';
-const pdfjsBuild = '59cf2ee5a';
+const pdfjsVersion = '4.0.347';
+const pdfjsBuild = '76e3e5202';
 
 var __webpack_exports__WorkerMessageHandler = __webpack_exports__.WorkerMessageHandler;
 export { __webpack_exports__WorkerMessageHandler as WorkerMessageHandler };

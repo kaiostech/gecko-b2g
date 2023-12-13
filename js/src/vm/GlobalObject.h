@@ -149,6 +149,8 @@ class GlobalObjectData {
     WrapForValidIteratorProto,
     IteratorHelperProto,
     AsyncIteratorHelperProto,
+    SegmentsProto,
+    SegmentIteratorProto,
 
     Limit
   };
@@ -854,6 +856,18 @@ class GlobalObject : public NativeObject {
                                    initSetIteratorProto);
   }
 
+  static JSObject* getOrCreateSegmentsPrototype(JSContext* cx,
+                                                Handle<GlobalObject*> global) {
+    return getOrCreateBuiltinProto(cx, global, ProtoKind::SegmentsProto,
+                                   initSegmentsProto);
+  }
+
+  static JSObject* getOrCreateSegmentIteratorPrototype(
+      JSContext* cx, Handle<GlobalObject*> global) {
+    return getOrCreateBuiltinProto(cx, global, ProtoKind::SegmentIteratorProto,
+                                   initSegmentIteratorProto);
+  }
+
   static JSObject* getOrCreateDataViewPrototype(JSContext* cx,
                                                 Handle<GlobalObject*> global) {
     if (!ensureConstructor(cx, global, JSProto_DataView)) {
@@ -994,6 +1008,11 @@ class GlobalObject : public NativeObject {
   // Implemented in builtin/MapObject.cpp.
   static bool initMapIteratorProto(JSContext* cx, Handle<GlobalObject*> global);
   static bool initSetIteratorProto(JSContext* cx, Handle<GlobalObject*> global);
+
+  // Implemented in builtin/intl/Segmenter.cpp.
+  static bool initSegmentsProto(JSContext* cx, Handle<GlobalObject*> global);
+  static bool initSegmentIteratorProto(JSContext* cx,
+                                       Handle<GlobalObject*> global);
 
   static bool initStandardClasses(JSContext* cx, Handle<GlobalObject*> global);
 

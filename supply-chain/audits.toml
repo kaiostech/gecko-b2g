@@ -357,12 +357,28 @@ start = "2022-05-05"
 end = "2024-06-21"
 notes = "Maintained by the Glean and Application Services teams"
 
+[[wildcard-audits.uniffi]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2021-10-27"
+end = "2024-12-11"
+notes = "Maintained by the Glean and Application Services teams"
+
 [[wildcard-audits.uniffi_bindgen]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 48 # Jan-Erik Rediger (badboy)
 start = "2022-05-05"
 end = "2024-06-21"
+notes = "Maintained by the Glean and Application Services teams"
+
+[[wildcard-audits.uniffi_bindgen]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2021-10-27"
+end = "2024-12-11"
 notes = "Maintained by the Glean and Application Services teams"
 
 [[wildcard-audits.uniffi_build]]
@@ -373,12 +389,28 @@ start = "2022-05-05"
 end = "2024-06-21"
 notes = "Maintained by the Glean and Application Services teams"
 
+[[wildcard-audits.uniffi_build]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2021-10-27"
+end = "2024-12-11"
+notes = "Maintained by the Glean and Application Services teams"
+
 [[wildcard-audits.uniffi_checksum_derive]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 48 # Jan-Erik Rediger (badboy)
 start = "2022-12-16"
 end = "2024-06-21"
+notes = "Maintained by the Glean and Application Services teams"
+
+[[wildcard-audits.uniffi_checksum_derive]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2023-01-27"
+end = "2024-12-11"
 notes = "Maintained by the Glean and Application Services teams"
 
 [[wildcard-audits.uniffi_core]]
@@ -389,12 +421,28 @@ start = "2023-06-21"
 end = "2024-06-21"
 notes = "Maintained by the Glean and Application Services teams"
 
+[[wildcard-audits.uniffi_core]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2023-01-27"
+end = "2024-12-11"
+notes = "Maintained by the Glean and Application Services teams"
+
 [[wildcard-audits.uniffi_macros]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 48 # Jan-Erik Rediger (badboy)
 start = "2022-05-05"
 end = "2024-06-21"
+notes = "Maintained by the Glean and Application Services teams"
+
+[[wildcard-audits.uniffi_macros]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2021-10-27"
+end = "2024-12-11"
 notes = "Maintained by the Glean and Application Services teams"
 
 [[wildcard-audits.uniffi_meta]]
@@ -405,12 +453,36 @@ start = "2022-08-31"
 end = "2024-06-21"
 notes = "Maintained by the Glean and Application Services teams"
 
+[[wildcard-audits.uniffi_meta]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2022-09-13"
+end = "2024-12-11"
+notes = "Maintained by the Glean and Application Services teams"
+
 [[wildcard-audits.uniffi_testing]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
 user-id = 48 # Jan-Erik Rediger (badboy)
 start = "2022-12-16"
 end = "2024-06-21"
+notes = "Maintained by the Glean and Application Services teams"
+
+[[wildcard-audits.uniffi_testing]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2023-01-27"
+end = "2024-12-11"
+notes = "Maintained by the Glean and Application Services teams"
+
+[[wildcard-audits.uniffi_udl]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+user-id = 127697 # bendk
+start = "2023-10-18"
+end = "2024-12-11"
 notes = "Maintained by the Glean and Application Services teams"
 
 [[wildcard-audits.utf8_iter]]
@@ -1200,6 +1272,11 @@ delta = "0.7.0@git:3ec547cdcaaa14488327d8f1b5f7736278c4178d -> 0.7.0@git:6e21f7a
 who = "Erich Gubler <egubler@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.7.0@git:6e21f7a9291db4395192d6b510d906978ae2d251 -> 0.7.0@git:a820a3ffba468cbb87c2a7e7bbe37065ed5207ee"
+
+[[audits.d3d12]]
+who = "Nicolas Silva <nical@fastmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.7.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec -> 0.7.0@git:ff7b2c399301cca9bcbc5b19a869feb3c29ef785"
 
 [[audits.d3d12]]
 who = "Nicolas Silva <nical@fastmail.com>"
@@ -2500,6 +2577,11 @@ delta = "0.14.0@git:6e21f7a9291db4395192d6b510d906978ae2d251 -> 0.14.0@git:a820a
 [[audits.naga]]
 who = "Nicolas Silva <nical@fastmail.com>"
 criteria = "safe-to-deploy"
+delta = "0.14.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec -> 0.14.0@git:ff7b2c399301cca9bcbc5b19a869feb3c29ef785"
+
+[[audits.naga]]
+who = "Nicolas Silva <nical@fastmail.com>"
+criteria = "safe-to-deploy"
 delta = "0.14.0@git:a820a3ffba468cbb87c2a7e7bbe37065ed5207ee -> 0.14.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec"
 
 [[audits.naga]]
@@ -2654,6 +2736,29 @@ delta = "1.13.1 -> 1.16.0"
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "1.16.0 -> 1.17.1"
+
+[[audits.oneshot]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.1.5"
+notes = "Small crate, reviewed by bendk.  There is a decent amount of unsafe code, but it's well tested and the crate has been well-used over the years."
+
+[[audits.oneshot]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.1.5@git:1f3c657c8073aec4f0b6ebac7be33b4851644745"
+notes = """
+Small crate, reviewed by bendk.  There is a decent amount of unsafe code, but it's well tested and the crate has been well-used over the years.
+
+The git branch is my fork of the official code that removes the `loom` target to avoid pulling in that crate and its dependencies into moz-central.
+This doesn't change any of the functionality -- the `loom` target is only used for testing.
+"""
+
+[[audits.oneshot-uniffi]]
+who = "Ben Dean-Kawamura <bdk@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.1.5"
+notes = "This is the essentially same code as `oneshot version 0.1.5` which has already been audited.  The only difference is that it won't pull in `loom` and related dependencies when `mach vendor rust` is run."
 
 [[audits.ordered-float]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
@@ -4080,6 +4185,11 @@ who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-run"
 delta = "0.3.3 -> 0.3.3@git:4af45fae95bc98b0eba1ef0db17e1dac471bb23d"
 
+[[audits.warp]]
+who = "Mike Hommey <mh+mozilla@glandium.org>"
+criteria = "safe-to-run"
+delta = "0.3.6 -> 0.3.6@git:9d081461ae1167eb321585ce424f4fef6cf0092b"
+
 [[audits.wasm-encoder]]
 who = "Ryan Hunt <rhunt@eqrion.net>"
 criteria = "safe-to-deploy"
@@ -4268,6 +4378,11 @@ delta = "0.18.0@git:6e21f7a9291db4395192d6b510d906978ae2d251 -> 0.18.0@git:a820a
 [[audits.wgpu-core]]
 who = "Nicolas Silva <nical@fastmail.com>"
 criteria = "safe-to-deploy"
+delta = "0.18.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec -> 0.18.0@git:ff7b2c399301cca9bcbc5b19a869feb3c29ef785"
+
+[[audits.wgpu-core]]
+who = "Nicolas Silva <nical@fastmail.com>"
+criteria = "safe-to-deploy"
 delta = "0.18.0@git:a820a3ffba468cbb87c2a7e7bbe37065ed5207ee -> 0.18.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec"
 
 [[audits.wgpu-core]]
@@ -4341,6 +4456,11 @@ delta = "0.18.0@git:6e21f7a9291db4395192d6b510d906978ae2d251 -> 0.18.0@git:a820a
 [[audits.wgpu-hal]]
 who = "Nicolas Silva <nical@fastmail.com>"
 criteria = "safe-to-deploy"
+delta = "0.18.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec -> 0.18.0@git:ff7b2c399301cca9bcbc5b19a869feb3c29ef785"
+
+[[audits.wgpu-hal]]
+who = "Nicolas Silva <nical@fastmail.com>"
+criteria = "safe-to-deploy"
 delta = "0.18.0@git:a820a3ffba468cbb87c2a7e7bbe37065ed5207ee -> 0.18.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec"
 
 [[audits.wgpu-hal]]
@@ -4410,6 +4530,11 @@ delta = "0.18.0@git:3ec547cdcaaa14488327d8f1b5f7736278c4178d -> 0.18.0@git:6e21f
 who = "Erich Gubler <egubler@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.18.0@git:6e21f7a9291db4395192d6b510d906978ae2d251 -> 0.18.0@git:a820a3ffba468cbb87c2a7e7bbe37065ed5207ee"
+
+[[audits.wgpu-types]]
+who = "Nicolas Silva <nical@fastmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.18.0@git:767ac03245ee937d3dc552edc13fe7ab0a860eec -> 0.18.0@git:ff7b2c399301cca9bcbc5b19a869feb3c29ef785"
 
 [[audits.wgpu-types]]
 who = "Nicolas Silva <nical@fastmail.com>"
@@ -4620,6 +4745,12 @@ criteria = "safe-to-deploy"
 user-id = 4333 # Josh Triplett (joshtriplett)
 start = "2020-09-30"
 end = "2024-05-05"
+
+[[trusted.h2]]
+criteria = "safe-to-deploy"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-03-13"
+end = "2024-12-05"
 
 [[trusted.hashbrown]]
 criteria = "safe-to-deploy"

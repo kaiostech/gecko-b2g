@@ -87,6 +87,7 @@ browsertime:
     - browsertime-tp6-bytecode
     - browsertime-tp6-live
     - browsertime-tp6-live-sheriffed
+    - browsertime-tp6-webextensions
     - browsertime-benchmark
     - browsertime-benchmark-wasm
     - browsertime-youtube-playback
@@ -107,6 +108,7 @@ browsertime-clang:
     - browsertime-tp6-bytecode
     - browsertime-tp6-live
     - browsertime-tp6-live-sheriffed
+    - browsertime-tp6-webextensions
     - browsertime-benchmark
     - browsertime-benchmark-wasm
     - browsertime-youtube-playback
@@ -477,6 +479,7 @@ android-hw-aarch64:
 android-hw-browsertime:
     - browsertime-tp6m
     - browsertime-tp6m-essential
+    - browsertime-tp6m-webextensions
     - browsertime-tp6m-live
     - browsertime-benchmark-speedometer-mobile
     - browsertime-benchmark-speedometer3-mobile

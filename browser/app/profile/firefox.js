@@ -1889,10 +1889,15 @@ pref("identity.fxaccounts.commands.missed.fetch_interval", 86400);
 #ifdef MOZ_WIDEVINE_EME
   pref("media.gmp-widevinecdm.visible", true);
   pref("media.gmp-widevinecdm.enabled", true);
-#ifdef MOZ_WMF_CDM
+#if defined(MOZ_WMF_CDM) && defined(_M_AMD64)
+  pref("media.gmp-widevinecdm-l1.forceInstall", false);
+#ifdef NIGHTLY_BUILD
+  pref("media.gmp-widevinecdm-l1.visible", true);
+  pref("media.gmp-widevinecdm-l1.enabled", true);
+#else
   pref("media.gmp-widevinecdm-l1.visible", false);
   pref("media.gmp-widevinecdm-l1.enabled", false);
-  pref("media.gmp-widevinecdm-l1.forceInstall", false);
+#endif
 #endif
 #endif
 
@@ -1914,6 +1919,13 @@ pref("browser.translation.neverForLanguages", "");
 // Enable Firefox translations powered by the Bergamot translations
 // engine https://browser.mt/.
 pref("browser.translations.enable", true);
+
+// Enable the new Firefox Translations Settings UI Design
+pref("browser.translations.newSettingsUI.enable", false);
+
+// Enable Firefox Select translations powered by Bergamot translations
+// engine https://browser.mt/.
+pref("browser.translations.select.enable", false);
 
 // Telemetry settings.
 // Determines if Telemetry pings can be archived locally.
@@ -2278,7 +2290,7 @@ pref("extensions.pocket.refresh.emailButton.enabled", false);
 // Hides the recently saved section in the home panel.
 pref("extensions.pocket.refresh.hideRecentSaves.enabled", false);
 
-pref("signon.management.page.fileImport.enabled", false);
+pref("signon.management.page.fileImport.enabled", true);
 
 #ifdef NIGHTLY_BUILD
 pref("signon.management.page.os-auth.enabled", true);
@@ -2430,6 +2442,7 @@ pref("browser.toolbars.bookmarks.showInPrivateBrowsing", false);
 pref("identity.fxaccounts.toolbar.enabled", true);
 pref("identity.fxaccounts.toolbar.accessed", false);
 pref("identity.fxaccounts.toolbar.defaultVisible", false);
+pref("identity.fxaccounts.toolbar.pxiToolbarEnabled", false);
 
 // Check bundled omni JARs for corruption.
 pref("corroborator.enabled", true);

@@ -83,8 +83,8 @@
           },
           "uniqueItems": true
         },
-        "channel": {
-          "title": "Release Channel",
+        "channels": {
+          "title": "Release Channels",
           "description": "An array of release channels that this section applies to (not set = everywhere).",
           "type": "array",
           "items": {
@@ -100,7 +100,7 @@
           "type": "string",
           "pattern": "^[a-zA-Z0-9-]{0,100}$"
         },
-        "applicationId": {
+        "applications": {
           "title": "Application Identifiers",
           "description": "The application(s) this section applies to (default/not specified is everywhere).",
           "type": "array",

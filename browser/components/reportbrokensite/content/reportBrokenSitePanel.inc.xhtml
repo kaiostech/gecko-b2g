@@ -2,17 +2,6 @@
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
-<panel id="report-broken-main-menu-panel"
-       class="cui-widget-panel panel-no-padding"
-       type="arrow"
-       role="document"
-       noautofocus="true"
-       tabspecific="true"
-       flip="slide"
-       orient="vertical">
-  <panelmultiview mainViewId="report-broken-site-popup-mainView"/>
-</panel>
-
 <panelview id="report-broken-site-popup-mainView"
            class="report-broken-site-view main-view PanelUI-subView"
            role="document"
@@ -20,8 +9,8 @@
            data-l10n-attrs="title"
            hidden="true"
            showheader="true">
-  <!-- Once bug 1864957 is fixed, the wants-back-button attribute here
-       should probably be removed, as well as in PanelMultiView.sys.mjs.
+  <!-- wants-back-button will be removed in bug 1869574
+       (and also from PanelMultiView.sys.mjs)
   -->
   <box class="panel-header" wants-back-button="true">
     <html:h1 role="heading" aria-level="1">
@@ -30,9 +19,7 @@
   </box>
   <toolbarseparator></toolbarseparator>
   <vbox id="report-broken-site-panel-container"
-        class="panel-subview-body"
-        role="alertdialog"
-        aria-labelledby="report-broken-site-panel-intro">
+        class="panel-subview-body">
     <html:p data-l10n-id="report-broken-site-panel-intro"/>
     <label id="report-broken-site-popup-url-label"
            control="report-broken-site-popup-url"
@@ -40,7 +27,11 @@
     <html:input id="report-broken-site-popup-url"
                 allow-arrow-navigation="true"
                 aria-describedby="report-broken-site-panel-intro"
-                type="url"/>
+                type="url" required="required" aria-required="true" />
+    <label id="report-broken-site-popup-invalid-url-msg"
+           class="invalid-message text-error"
+           role="alert"
+           data-l10n-id="report-broken-site-panel-invalid-url-label"/>
     <label id="report-broken-site-popup-reason-label"
            control="report-broken-site-popup-reason"
            hidden="true"
@@ -71,6 +62,12 @@
                   data-l10n-id="report-broken-site-panel-reason-other"/>
       </menupopup>
     </menulist>
+    <!-- menulist does not support :invalid, so we set custom validity on this input instead -->
+    <html:input id="report-broken-site-popup-missing-reason-validation-helper"/>
+    <label id="report-broken-site-popup-missing-reason-msg"
+           class="invalid-message text-error"
+           role="alert"
+           data-l10n-id="report-broken-site-panel-missing-reason-label"/>
     <label id="report-broken-site-popup-description-label"
            control="report-broken-site-popup-description"
            hidden="true"

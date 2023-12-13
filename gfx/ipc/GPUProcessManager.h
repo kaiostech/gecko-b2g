@@ -224,6 +224,7 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
 
   bool CreateContentCompositorManager(
       base::ProcessId aOtherProcess, dom::ContentParentId aChildId,
+      uint32_t aNamespace,
       mozilla::ipc::Endpoint<PCompositorManagerChild>* aOutEndpoint);
   bool CreateContentImageBridge(
       base::ProcessId aOtherProcess, dom::ContentParentId aChildId,

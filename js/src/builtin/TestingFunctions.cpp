@@ -3419,7 +3419,12 @@ static bool AddWatchtowerTarget(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 struct TestExternalString : public JSExternalStringCallbacks {
+  void finalize(JS::Latin1Char* chars) const override { js_free(chars); }
   void finalize(char16_t* chars) const override { js_free(chars); }
+  size_t sizeOfBuffer(const JS::Latin1Char* chars,
+                      mozilla::MallocSizeOf mallocSizeOf) const override {
+    return mallocSizeOf(chars);
+  }
   size_t sizeOfBuffer(const char16_t* chars,
                       mozilla::MallocSizeOf mallocSizeOf) const override {
     return mallocSizeOf(chars);
@@ -8736,6 +8741,8 @@ static bool GetAvailableLocalesOf(JSContext* cx, unsigned argc, Value* vp) {
       kind = SupportedLocaleKind::PluralRules;
     } else if (StringEqualsLiteral(typeStr, "RelativeTimeFormat")) {
       kind = SupportedLocaleKind::RelativeTimeFormat;
+    } else if (StringEqualsLiteral(typeStr, "Segmenter")) {
+      kind = SupportedLocaleKind::Segmenter;
     } else {
       ReportUsageErrorASCII(cx, callee, "Unsupported Intl constructor name");
       return false;

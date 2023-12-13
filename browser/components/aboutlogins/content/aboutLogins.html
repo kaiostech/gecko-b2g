@@ -183,7 +183,7 @@
       <div class="listHeader">
         <login-filter></login-filter>
         <div class="create-login-button-container">
-          <login-command-button class="create-login-button" data-l10n-id="create-login-button" icon="chrome://global/skin/icons/plus.svg" ></login-command-button>
+          <create-login-button></create-login-button>
         </div>
       </div>
       <div class="meta text-deemphasized">
@@ -279,15 +279,15 @@
               <img class="login-item-favicon" />
               <h2 class="title">
                 <span class="login-item-title"></span>
-                <span class="new-login-title" data-l10n-id="login-item-new-login-title"></span>
+                <span class="new-login-title" data-l10n-id="about-logins-login-item-new-login-title"></span>
               </h2>
               <div class="action-buttons">
-                <login-command-button class="edit-button" l10nId="login-item-edit-button" variant="ghost-button" icon="chrome://global/skin/icons/edit.svg" ></login-command-button>
+                <edit-button></edit-button>
                   <moz-button-group class="form-actions-row">
                     <button class="save-changes-button" type="submit"></button>
                     <button class="cancel-button" data-l10n-id="login-item-cancel-button" type="button"></button>
                   </moz-button-group>
-                <login-command-button class="delete-button" l10nId="about-logins-login-item-remove-button" variant="ghost-button" icon="chrome://global/skin/icons/delete.svg" ></login-command-button>
+                <delete-button></delete-button>
               </div>
            </div>
             <login-breach-alert></login-breach-alert>
@@ -318,8 +318,7 @@
                           dir="ltr"
                           readonly/>
                   </label>
-                  <login-command-button class="copy-button copy-username-button" l10nId="login-item-copy-username-button-text">
-                  </login-command-button>
+                  <copy-username-button class="copy-button"></copy-username-button>
                 </div>
                 <div class="detail-row">
                   <label class="detail-cell">
@@ -342,8 +341,7 @@
                       <password-warning></password-warning>
                     </div>
                   </label>
-                  <login-command-button class="copy-button copy-password-button" l10nId="login-item-copy-password-button-text" >
-                  </login-command-button>
+                  <copy-password-button class="copy-button"></copy-password-button>
                 </div>
               </div>
               <login-timeline hidden ></login-timeline>
@@ -368,7 +366,7 @@
         <button role="menuitem" class="menuitem-button menuitem-import-browser ghost-button" hidden data-supported-platforms="Win32,MacIntel" data-event-name="AboutLoginsImportFromBrowser" data-l10n-id="about-logins-menu-menuitem-import-from-another-browser"></button>
         <button role="menuitem" class="menuitem-button menuitem-import-file ghost-button" data-event-name="AboutLoginsImportFromFile" data-l10n-id="about-logins-menu-menuitem-import-from-a-file"></button>
         <button role="menuitem" class="menuitem-button menuitem-export ghost-button" data-event-name="AboutLoginsExportPasswordsDialog" data-l10n-id="about-logins-menu-menuitem-export-logins"></button>
-        <button role="menuitem" class="menuitem-button menuitem-remove-all-logins ghost-button" data-event-name="AboutLoginsRemoveAllLoginsDialog" data-l10n-id="about-logins-menu-menuitem-remove-all-logins"></button>
+        <button role="menuitem" class="menuitem-button menuitem-remove-all-logins ghost-button" data-event-name="AboutLoginsRemoveAllLoginsDialog" data-l10n-id="about-logins-menu-menuitem-remove-all-logins2"></button>
         <hr role="separator" class="menuitem-separator"></hr>
         <button role="menuitem" class="menuitem-button menuitem-preferences ghost-button" data-event-name="AboutLoginsOpenPreferences" data-l10n-id="menu-menuitem-preferences"></button>
         <button role="menuitem" class="menuitem-button menuitem-help ghost-button" data-event-name="AboutLoginsGetHelp" data-l10n-id="about-logins-menu-menuitem-help"></button>

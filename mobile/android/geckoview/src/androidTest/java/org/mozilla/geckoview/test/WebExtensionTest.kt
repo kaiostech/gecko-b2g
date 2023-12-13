@@ -269,7 +269,10 @@ class WebExtensionTest : BaseSessionTest() {
         assertBodyBorderEqualTo("")
 
         var borderify = sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+            controller.install(
+                "resource://android/assets/web_extensions/borderify.xpi",
+                null,
+            ),
         )
         checkDisabledState(borderify, userDisabled = false, appDisabled = false)
 
@@ -333,7 +336,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val borderify = sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+            controller.install(
+                "resource://android/assets/web_extensions/borderify.xpi",
+                null,
+            ),
         )
 
         mainSession.reload()
@@ -378,7 +384,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         var borderify = sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+            controller.install(
+                "resource://android/assets/web_extensions/borderify.xpi",
+                null,
+            ),
         )
 
         // Make sure private mode is enabled
@@ -453,7 +462,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val dummy = sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/dummy.xpi"),
+            controller.install(
+                "resource://android/assets/web_extensions/dummy.xpi",
+                null,
+            ),
         )
 
         // In the onReady AddonManagerDelegate optionsPageUrl metadata is asserted again
@@ -488,9 +500,11 @@ class WebExtensionTest : BaseSessionTest() {
         // Install in parallell borderify and dummy
         val borderifyResult = controller.install(
             "resource://android/assets/web_extensions/borderify.xpi",
+            null,
         )
         val dummyResult = controller.install(
             "resource://android/assets/web_extensions/dummy.xpi",
+            null,
         )
 
         val (borderify, dummy) = sessionRule.waitForResult(
@@ -552,7 +566,10 @@ class WebExtensionTest : BaseSessionTest() {
             },
         )
         sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/$name")
+            controller.install(
+                "resource://android/assets/web_extensions/$name",
+                null,
+            )
                 .accept({
                     // We should not be able to install an extension here.
                     assertTrue(false)
@@ -571,8 +588,10 @@ class WebExtensionTest : BaseSessionTest() {
         return map
     }
 
-    @Test
-    fun installUnsignedExtensionSignatureNotRequired() {
+    private fun testInstallUnsignedExtensionSignatureNotRequired(
+        extensionArchiveURL: String,
+        extensionName: String,
+    ) {
         sessionRule.setPrefsUntilTestEnd(
             mapOf(
                 "xpinstall.signatures.required" to false,
@@ -586,9 +605,7 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val borderify = sessionRule.waitForResult(
-            controller.install(
-                "resource://android/assets/web_extensions/borderify-unsigned.xpi",
-            )
+            controller.install(extensionArchiveURL, null)
                 .then { extension ->
                     assertEquals(
                         extension!!.metaData.signedState,
@@ -598,12 +615,28 @@ class WebExtensionTest : BaseSessionTest() {
                         extension.metaData.blocklistState,
                         WebExtension.BlocklistStateFlags.NOT_BLOCKED,
                     )
-                    assertEquals(extension.metaData.name, "Borderify")
+                    assertEquals(extension.metaData.name, extensionName)
                     GeckoResult.fromValue(extension)
                 },
         )
 
         sessionRule.waitForResult(controller.uninstall(borderify))
+    }
+
+    @Test
+    fun installUnsignedExtensionSignatureNotRequired() {
+        testInstallUnsignedExtensionSignatureNotRequired(
+            extensionArchiveURL = "resource://android/assets/web_extensions/borderify-unsigned.xpi",
+            extensionName = "Borderify",
+        )
+    }
+
+    @Test
+    fun installUnsignedExtensionAsZipFile() {
+        testInstallUnsignedExtensionSignatureNotRequired(
+            extensionArchiveURL = "resource://android/assets/web_extensions/borderify-unsigned.zip",
+            extensionName = "Borderify",
+        )
     }
 
     @Test
@@ -615,6 +648,21 @@ class WebExtensionTest : BaseSessionTest() {
         )
         testInstallError(
             name = "borderify-unsigned.xpi",
+            expectedError = InstallException.ErrorCodes.ERROR_SIGNEDSTATE_REQUIRED,
+            expectedExtensionID = null,
+            expectedExtension = false,
+        )
+    }
+
+    @Test
+    fun installUnsignedExtensionSignatureRequiredAsZipFile() {
+        sessionRule.setPrefsUntilTestEnd(
+            mapOf(
+                "xpinstall.signatures.required" to true,
+            ),
+        )
+        testInstallError(
+            name = "borderify-unsigned.zip",
             expectedError = InstallException.ErrorCodes.ERROR_SIGNEDSTATE_REQUIRED,
             expectedExtensionID = null,
             expectedExtension = false,
@@ -661,7 +709,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify-missing-id.xpi")
+            controller.install(
+                "resource://android/assets/web_extensions/borderify-missing-id.xpi",
+                null,
+            )
                 .accept({
                     // We should not be able to install extensions without an id.
                     assertTrue(false)
@@ -708,7 +759,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify.xpi").accept({
+            controller.install(
+                "resource://android/assets/web_extensions/borderify.xpi",
+                null,
+            ).accept({
                 // We should not be able to install the extension.
                 assertTrue(false)
             }, { exception ->
@@ -1311,7 +1365,7 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val extension = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/browsing-data.xpi"),
+            controller.install("https://example.org/tests/junit/browsing-data.xpi", null),
         )
 
         val accumulator = mutableListOf<String>()
@@ -1384,7 +1438,7 @@ class WebExtensionTest : BaseSessionTest() {
             }
         })
         val tabsExtension = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/tabs-activate-remove.xpi"),
+            controller.install("https://example.org/tests/junit/tabs-activate-remove.xpi", null),
         )
 
         sessionRule.delegateDuringNextWait(object : WebExtensionController.PromptDelegate {
@@ -1394,7 +1448,7 @@ class WebExtensionTest : BaseSessionTest() {
             }
         })
         var tabsExtensionPB = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/tabs-activate-remove-2.xpi"),
+            controller.install("https://example.org/tests/junit/tabs-activate-remove-2.xpi", null),
         )
 
         tabsExtensionPB = sessionRule.waitForResult(
@@ -2310,7 +2364,7 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val update1 = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-1.xpi"),
+            controller.install("https://example.org/tests/junit/update-1.xpi", null),
         )
 
         mainSession.reload()
@@ -2369,7 +2423,7 @@ class WebExtensionTest : BaseSessionTest() {
 
         // 1. Install
         val update1 = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-1.xpi"),
+            controller.install("https://example.org/tests/junit/update-1.xpi", null),
         )
         // 2. Update
         val update2 = sessionRule.waitForResult(controller.update(update1))
@@ -2411,7 +2465,7 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val update1 = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-with-perms-1.xpi"),
+            controller.install("https://example.org/tests/junit/update-with-perms-1.xpi", null),
         )
 
         mainSession.reload()
@@ -2482,7 +2536,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val update1 = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-2.xpi"),
+            controller.install(
+                "https://example.org/tests/junit/update-2.xpi",
+                null,
+            ),
         )
 
         mainSession.reload()
@@ -2531,7 +2588,7 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val update1 = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-with-perms-1.xpi"),
+            controller.install("https://example.org/tests/junit/update-with-perms-1.xpi", null),
         )
 
         mainSession.reload()
@@ -2583,7 +2640,8 @@ class WebExtensionTest : BaseSessionTest() {
 
     @Test(expected = CancellationException::class)
     fun cancelInstall() {
-        val install = controller.install("$TEST_ENDPOINT/stall/test.xpi")
+        val install =
+            controller.install("$TEST_ENDPOINT/stall/test.xpi", null)
         val cancel = sessionRule.waitForResult(install.cancel())
         assertTrue(cancel)
 
@@ -2599,7 +2657,10 @@ class WebExtensionTest : BaseSessionTest() {
             }
         })
 
-        var install = controller.install("resource://android/assets/web_extensions/borderify.xpi")
+        val install = controller.install(
+            "resource://android/assets/web_extensions/borderify.xpi",
+            null,
+        )
         val borderify = sessionRule.waitForResult(install)
 
         val cancel = sessionRule.waitForResult(install.cancel())
@@ -2634,7 +2695,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val update1 = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-postpone-1.xpi"),
+            controller.install(
+                "https://example.org/tests/junit/update-postpone-1.xpi",
+                null,
+            ),
         )
 
         mainSession.reload()
@@ -2721,7 +2785,10 @@ class WebExtensionTest : BaseSessionTest() {
         )
 
         val webExtension = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/update-1.xpi"),
+            controller.install(
+                "https://example.org/tests/junit/update-1.xpi",
+                null,
+            ),
         )
 
         mainSession.reload()
@@ -2839,7 +2906,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val webExtension = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/download-flags-true.xpi"),
+            controller.install(
+                "https://example.org/tests/junit/download-flags-true.xpi",
+                null,
+            ),
         )
 
         val assertOnDownloadCalled = GeckoResult<WebExtension.Download>()
@@ -2911,7 +2981,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val webExtension = sessionRule.waitForResult(
-            controller.install("https://example.org/tests/junit/download-flags-false.xpi"),
+            controller.install(
+                "https://example.org/tests/junit/download-flags-false.xpi",
+                null,
+            ),
         )
 
         val assertOnDownloadCalled = GeckoResult<WebExtension.Download>()
@@ -3209,7 +3282,10 @@ class WebExtensionTest : BaseSessionTest() {
         })
 
         val borderify = sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+            controller.install(
+                "resource://android/assets/web_extensions/borderify.xpi",
+                null,
+            ),
         )
 
         var jsCode = """
@@ -3348,7 +3424,10 @@ class WebExtensionTest : BaseSessionTest() {
         )
 
         val borderify = sessionRule.waitForResult(
-            controller.install("resource://android/assets/web_extensions/borderify.xpi"),
+            controller.install(
+                "resource://android/assets/web_extensions/borderify.xpi",
+                null,
+            ),
         )
 
         val list = extensionsMap(sessionRule.waitForResult(controller.list()))

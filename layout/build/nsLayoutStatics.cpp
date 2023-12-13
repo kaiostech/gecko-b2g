@@ -111,6 +111,7 @@
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/MIDIPlatformService.h"
 #include "mozilla/dom/quota/ActorsParent.h"
+#include "mozilla/dom/quota/StringifyUtils.h"
 #include "mozilla/dom/localstorage/ActorsParent.h"
 #include "mozilla/dom/VirtualCursorService.h"
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
@@ -276,6 +277,8 @@ nsresult nsLayoutStatics::Initialize() {
   ReportingHeader::Initialize();
 
   InitializeScopedLogExtraInfo();
+
+  Stringifyable::InitTLS();
 
   if (XRE_IsParentProcess()) {
     InitializeQuotaManager();

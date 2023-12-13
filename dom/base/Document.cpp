@@ -1394,6 +1394,7 @@ Document::Document(const char* aContentType)
       mHasUserInteractionTimerScheduled(false),
       mShouldResistFingerprinting(false),
       mCloningForSVGUse(false),
+      mAllowDeclarativeShadowRoots(false),
       mXMLDeclarationBits(0),
       mOnloadBlockCount(0),
       mWriteLevel(0),
@@ -2427,6 +2428,8 @@ Document::~Document() {
 
   UnregisterFromMemoryReportingForDataDocument();
 }
+
+void Document::DropStyleSet() { mStyleSet = nullptr; }
 
 NS_INTERFACE_TABLE_HEAD(Document)
   NS_WRAPPERCACHE_INTERFACE_TABLE_ENTRY
@@ -6148,8 +6151,9 @@ nsresult Document::EditingStateChanged() {
           getter_AddRefs(focusedWindow));
       if (focusedContent) {
         nsIFrame* focusedFrame = focusedContent->GetPrimaryFrame();
-        bool clearFocus = focusedFrame ? !focusedFrame->IsFocusable()
-                                       : !focusedContent->IsFocusable();
+        bool clearFocus = focusedFrame
+                              ? !focusedFrame->IsFocusable()
+                              : !focusedContent->IsFocusableWithoutStyle();
         if (clearFocus) {
           if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
             fm->ClearFocus(window);
@@ -11518,6 +11522,9 @@ void Document::Destroy() {
   if (mDocumentL10n) {
     mDocumentL10n->Destroy();
   }
+
+  MOZ_DIAGNOSTIC_ASSERT(!mPresShell);
+  DropStyleSet();
 }
 
 void Document::RemovedFromDocShell() {
@@ -14159,9 +14166,7 @@ class FullscreenRoots {
   MOZ_COUNTED_DEFAULT_CTOR(FullscreenRoots)
   MOZ_COUNTED_DTOR(FullscreenRoots)
 
-  enum : uint32_t { NotFound = uint32_t(-1) };
-  // Looks in mRoots for aRoot. Returns the index if found, otherwise NotFound.
-  static uint32_t Find(Document* aRoot);
+  using RootsArray = nsTArray<WeakPtr<Document>>;
 
   // Returns true if aRoot is in the list of fullscreen roots.
   static bool Contains(Document* aRoot);
@@ -14171,7 +14176,7 @@ class FullscreenRoots {
   static FullscreenRoots* sInstance;
 
   // List of weak pointers to roots.
-  nsTArray<nsWeakPtr> mRoots;
+  RootsArray mRoots;
 };
 
 FullscreenRoots* FullscreenRoots::sInstance = nullptr;
@@ -14183,10 +14188,10 @@ void FullscreenRoots::ForEach(void (*aFunction)(Document* aDoc)) {
   }
   // Create a copy of the roots array, and iterate over the copy. This is so
   // that if an element is removed from mRoots we don't mess up our iteration.
-  nsTArray<nsWeakPtr> roots(sInstance->mRoots.Clone());
+  RootsArray roots(sInstance->mRoots.Clone());
   // Call aFunction on all entries.
   for (uint32_t i = 0; i < roots.Length(); i++) {
-    nsCOMPtr<Document> root = do_QueryReferent(roots[i]);
+    nsCOMPtr<Document> root(roots[i]);
     // Check that the root isn't in the manager. This is so that new additions
     // while we were running don't get traversed.
     if (root && FullscreenRoots::Contains(root)) {
@@ -14197,7 +14202,7 @@ void FullscreenRoots::ForEach(void (*aFunction)(Document* aDoc)) {
 
 /* static */
 bool FullscreenRoots::Contains(Document* aRoot) {
-  return FullscreenRoots::Find(aRoot) != NotFound;
+  return sInstance && sInstance->mRoots.Contains(aRoot);
 }
 
 /* static */
@@ -14208,36 +14213,18 @@ void FullscreenRoots::Add(Document* aDoc) {
     if (!sInstance) {
       sInstance = new FullscreenRoots();
     }
-    sInstance->mRoots.AppendElement(do_GetWeakReference(root));
+    sInstance->mRoots.AppendElement(root);
   }
-}
-
-/* static */
-uint32_t FullscreenRoots::Find(Document* aRoot) {
-  if (!sInstance) {
-    return NotFound;
-  }
-  nsTArray<nsWeakPtr>& roots = sInstance->mRoots;
-  for (uint32_t i = 0; i < roots.Length(); i++) {
-    nsCOMPtr<Document> otherRoot(do_QueryReferent(roots[i]));
-    if (otherRoot == aRoot) {
-      return i;
-    }
-  }
-  return NotFound;
 }
 
 /* static */
 void FullscreenRoots::Remove(Document* aDoc) {
   nsCOMPtr<Document> root =
       nsContentUtils::GetInProcessSubtreeRootDocument(aDoc);
-  uint32_t index = Find(root);
-  NS_ASSERTION(index != NotFound,
-               "Should only try to remove roots which are still added!");
-  if (index == NotFound || !sInstance) {
+  if (!sInstance || !sInstance->mRoots.RemoveElement(root)) {
+    NS_ERROR("Should only try to remove roots which are still added!");
     return;
   }
-  sInstance->mRoots.RemoveElementAt(index);
   if (sInstance->mRoots.IsEmpty()) {
     delete sInstance;
     sInstance = nullptr;
@@ -14355,11 +14342,6 @@ class PendingFullscreenChangeList {
 /* static */
 LinkedList<FullscreenChange> PendingFullscreenChangeList::sList;
 
-Document* Document::GetFullscreenRoot() {
-  nsCOMPtr<Document> root = do_QueryReferent(mFullscreenRoot);
-  return root;
-}
-
 size_t Document::CountFullscreenElements() const {
   size_t count = 0;
   for (const nsWeakPtr& ptr : mTopLayer) {
@@ -14370,10 +14352,6 @@ size_t Document::CountFullscreenElements() const {
     }
   }
   return count;
-}
-
-void Document::SetFullscreenRoot(Document* aRoot) {
-  mFullscreenRoot = do_GetWeakReference(aRoot);
 }
 
 // https://github.com/whatwg/html/issues/9143
@@ -16963,7 +16941,7 @@ class UserInteractionTimer final : public Runnable,
   explicit UserInteractionTimer(Document* aDocument)
       : Runnable("UserInteractionTimer"),
         mPrincipal(aDocument->NodePrincipal()),
-        mDocument(do_GetWeakReference(aDocument)) {
+        mDocument(aDocument) {
     static int32_t userInteractionTimerId = 0;
     // Blocker names must be unique. Let's create it now because when needed,
     // the document could be already gone.
@@ -17040,7 +17018,7 @@ class UserInteractionTimer final : public Runnable,
     }
 
     // If the document is not gone, let's reset its timer flag.
-    nsCOMPtr<Document> document = do_QueryReferent(mDocument);
+    nsCOMPtr<Document> document(mDocument);
     if (document) {
       ContentBlockingUserInteraction::Observe(mPrincipal);
       document->ResetUserInteractionTimer();
@@ -17068,7 +17046,7 @@ class UserInteractionTimer final : public Runnable,
   }
 
   nsCOMPtr<nsIPrincipal> mPrincipal;
-  nsWeakPtr mDocument;
+  WeakPtr<Document> mDocument;
 
   nsCOMPtr<nsITimer> mTimer;
 
@@ -18989,4 +18967,41 @@ void Document::UpdateHiddenByContentVisibilityForAnimations() {
     timeline->UpdateHiddenByContentVisibility();
   }
 }
+
+void Document::SetAllowDeclarativeShadowRoots(
+    bool aAllowDeclarativeShadowRoots) {
+  mAllowDeclarativeShadowRoots = aAllowDeclarativeShadowRoots;
+}
+
+bool Document::AllowsDeclarativeShadowRoots() const {
+  return mAllowDeclarativeShadowRoots;
+}
+
+/* static */
+already_AddRefed<Document> Document::ParseHTMLUnsafe(GlobalObject& aGlobal,
+                                                     const nsAString& aHTML) {
+  nsCOMPtr<nsIURI> uri;
+  NS_NewURI(getter_AddRefs(uri), "about:blank");
+  if (!uri) {
+    return nullptr;
+  }
+
+  nsCOMPtr<Document> doc;
+  nsresult rv =
+      NS_NewHTMLDocument(getter_AddRefs(doc), aGlobal.GetSubjectPrincipal(),
+                         aGlobal.GetSubjectPrincipal());
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return nullptr;
+  }
+
+  doc->SetAllowDeclarativeShadowRoots(true);
+  doc->SetDocumentURI(uri);
+  rv = nsContentUtils::ParseDocumentHTML(aHTML, doc, false);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return nullptr;
+  }
+
+  return doc.forget();
+}
+
 }  // namespace mozilla::dom

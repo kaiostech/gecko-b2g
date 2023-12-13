@@ -1902,7 +1902,7 @@ class Document : public nsINode,
    * in the in-process document tree. Returns nullptr if the document isn't
    * fullscreen.
    */
-  Document* GetFullscreenRoot();
+  Document* GetFullscreenRoot() const { return mFullscreenRoot; }
 
   size_t CountFullscreenElements() const;
 
@@ -1910,7 +1910,7 @@ class Document : public nsINode,
    * Sets the fullscreen root to aRoot. This stores a weak reference to aRoot
    * in this document.
    */
-  void SetFullscreenRoot(Document* aRoot);
+  void SetFullscreenRoot(Document* aRoot) { mFullscreenRoot = aRoot; }
 
   /**
    * Synchronously cleans up the fullscreen state on the given document.
@@ -3867,6 +3867,9 @@ class Document : public nsINode,
    */
   bool AllowsL10n() const;
 
+  void SetAllowDeclarativeShadowRoots(bool aAllowDeclarativeShadowRoots);
+  bool AllowsDeclarativeShadowRoots() const;
+
  protected:
   RefPtr<DocumentL10n> mDocumentL10n;
 
@@ -4094,6 +4097,8 @@ class Document : public nsINode,
   void RecordFontFingerprinting();
 
   bool MayHaveDOMActivateListeners() const;
+
+  void DropStyleSet();
 
  protected:
   // Returns the WindowContext for the document that we will contribute
@@ -4829,6 +4834,8 @@ class Document : public nsINode,
   // Whether we're cloning the contents of an SVG use element.
   bool mCloningForSVGUse : 1;
 
+  bool mAllowDeclarativeShadowRoots : 1;
+
   // The fingerprinting protections overrides for this document. The value will
   // override the default enabled fingerprinting protections for this document.
   // This will only get populated if these is one that comes from the local
@@ -5134,7 +5141,7 @@ class Document : public nsINode,
 
   // The root of the doc tree in which this document is in. This is only
   // non-null when this document is in fullscreen mode.
-  nsWeakPtr mFullscreenRoot;
+  WeakPtr<Document> mFullscreenRoot;
 
   RefPtr<DOMImplementation> mDOMImplementation;
 
@@ -5343,6 +5350,9 @@ class Document : public nsINode,
   void LoadEventFired();
 
   RadioGroupContainer& OwnedRadioGroupContainer();
+
+  static already_AddRefed<Document> ParseHTMLUnsafe(GlobalObject& aGlobal,
+                                                    const nsAString& aHTML);
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(Document, NS_IDOCUMENT_IID)

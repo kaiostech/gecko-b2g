@@ -153,14 +153,19 @@ class DecoderTemplate : public DOMEventTargetHelper {
   uint32_t DecodeQueueSize() const { return mDecodeQueueSize; };
 
   // TODO: Replace virtual with MOZ_EXPORT (visibility("default"))
+  MOZ_CAN_RUN_SCRIPT
   void Configure(const ConfigType& aConfig, ErrorResult& aRv);
 
+  MOZ_CAN_RUN_SCRIPT
   void Decode(InputType& aInput, ErrorResult& aRv);
 
+  MOZ_CAN_RUN_SCRIPT
   already_AddRefed<Promise> Flush(ErrorResult& aRv);
 
+  MOZ_CAN_RUN_SCRIPT
   void Reset(ErrorResult& aRv);
 
+  MOZ_CAN_RUN_SCRIPT
   void Close(ErrorResult& aRv);
 
   /* Type conversion functions for the Decoder implementation */
@@ -169,51 +174,57 @@ class DecoderTemplate : public DOMEventTargetHelper {
       UniquePtr<InputTypeInternal>&& aData, TrackInfo& aInfo,
       const ConfigTypeInternal& aConfig) = 0;
   virtual nsTArray<RefPtr<OutputType>> DecodedDataToOutputType(
-      nsIGlobalObject* aGlobalObject, nsTArray<RefPtr<MediaData>>&& aData,
+      nsIGlobalObject* aGlobalObject, const nsTArray<RefPtr<MediaData>>&& aData,
       ConfigTypeInternal& aConfig) = 0;
 
-  /* Internal member variables and functions */
  protected:
   // DecoderTemplate can run on either main thread or worker thread.
   void AssertIsOnOwningThread() const {
     NS_ASSERT_OWNINGTHREAD(DecoderTemplate);
   }
 
+  MOZ_CAN_RUN_SCRIPT
   Result<Ok, nsresult> ResetInternal(const nsresult& aResult);
-  Result<Ok, nsresult> CloseInternal(const nsresult& aResult);
+  // Calling this method calls the error callback synchronously.
+  MOZ_CAN_RUN_SCRIPT
+  void CloseInternal(const nsresult& aResult);
+  MOZ_CAN_RUN_SCRIPT
+  // Calling this method doesn't call the error calback.
+  Result<Ok, nsresult> CloseInternalWithAbort();
 
   MOZ_CAN_RUN_SCRIPT void ReportError(const nsresult& aResult);
   MOZ_CAN_RUN_SCRIPT void OutputDecodedData(
-      nsTArray<RefPtr<MediaData>>&& aData);
+      const nsTArray<RefPtr<MediaData>>&& aData);
 
   class ErrorRunnable;
   void ScheduleReportError(const nsresult& aResult);
 
-  class OutputRunnable;
-  void ScheduleOutputDecodedData(nsTArray<RefPtr<MediaData>>&& aData,
-                                 const nsACString& aLabel);
-
-  void ScheduleClose(const nsresult& aResult);
-
-  void ScheduleDequeueEvent();
+  MOZ_CAN_RUN_SCRIPT
+  void ScheduleDequeueEventIfNeeded();
   nsresult FireEvent(nsAtom* aTypeWithOn, const nsAString& aEventType);
 
-  void SchedulePromiseResolveOrReject(already_AddRefed<Promise> aPromise,
-                                      const nsresult& aResult);
-
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void ProcessControlMessageQueue();
   void CancelPendingControlMessages(const nsresult& aResult);
+
+  // Queue a task to the control thread. This is to be used when a task needs to
+  // perform multiple steps.
+  template <typename Func>
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void QueueATask(const char* aName, Func&& aSteps);
 
   MessageProcessedResult ProcessConfigureMessage(
       UniquePtr<ControlMessage>& aMessage);
 
+  MOZ_CAN_RUN_SCRIPT
   MessageProcessedResult ProcessDecodeMessage(
       UniquePtr<ControlMessage>& aMessage);
 
+  MOZ_CAN_RUN_SCRIPT
   MessageProcessedResult ProcessFlushMessage(
       UniquePtr<ControlMessage>& aMessage);
 
   // Returns true when mAgent can be created.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   bool CreateDecoderAgent(DecoderAgent::Id aId,
                           UniquePtr<ConfigTypeInternal>&& aConfig,
                           UniquePtr<TrackInfo>&& aInfo);

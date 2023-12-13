@@ -2594,10 +2594,11 @@
   value: true
   mirror: always
 
-# Disable clipboard.read(), clipboard.write() and ClipboardItem by default
+# Control whether clipboard.read(), clipboard.write() and ClipboardItem are exposed
+# to content.
 - name: dom.events.asyncClipboard.clipboardItem
   type: bool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Skips checking permission and user activation when accessing the clipboard.
@@ -2610,10 +2611,9 @@
   do_not_use_directly: true
 
 # Control whether `navigator.clipboard.readText()` is exposed to content.
-# Currently not supported by GeckoView, see bug 1776829.
 - name: dom.events.asyncClipboard.readText
   type: bool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
   do_not_use_directly: true
 
@@ -4728,6 +4728,12 @@
   value: false
   mirror: always
 
+# Is support for Declarative ShadowDOM enabled?
+- name: dom.webcomponents.shadowdom.declarative.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Is support for the Web GPU API enabled?
 - name: dom.webgpu.enabled
   type: RelaxedAtomicBool
@@ -4932,14 +4938,6 @@
 - name: dom.wakelock.enabled
   type: bool
   value: true
-  mirror: always
-
-# about:home and about:newtab include remote snippets that contain arbitrarily
-# placed anchor tags in their content; we want sanitization to be turned off
-# in order to render them correctly
-- name: dom.about_newtab_sanitization.enabled
-  type: bool
-  value: false
   mirror: always
 
 # Hide the confirm dialog when a POST request is reloaded.
@@ -5867,13 +5865,13 @@
   mirror: always
 
 - name: gfx.canvas.accelerated.max-draw-target-count
-  type: RelaxedAtomicInt32
+  type: RelaxedAtomicUint32
   value: 200
   mirror: always
 
 - name: gfx.canvas.accelerated.max-size
   type: RelaxedAtomicInt32
-  value: 0
+  value: 8192
   mirror: always
 
 - name: gfx.canvas.accelerated.min-size
@@ -5977,6 +5975,36 @@
   value: 0
 #endif
   mirror: once
+
+# Default size of the shmem buffers used for recording
+- name: gfx.canvas.remote.default-buffer-size
+  type: RelaxedAtomicUint32
+  value: 32 * 1024
+  mirror: always
+
+# How many times to spin before waiting in remote canvas
+- name: gfx.canvas.remote.max-spin-count
+  type: RelaxedAtomicUint32
+  value: 500
+  mirror: always
+
+# How long to wait in milliseconds for the next event while in a transaction
+- name: gfx.canvas.remote.event-timeout-ms
+  type: RelaxedAtomicUint32
+  value: 2
+  mirror: always
+
+# How many times we have a spare buffer before we drop one
+- name: gfx.canvas.remote.drop-buffer-limit
+  type: RelaxedAtomicUint32
+  value: 100
+  mirror: always
+
+# Delay in milliseconds to drop buffers when there have been no non-empty transactions
+- name: gfx.canvas.remote.drop-buffer-milliseconds
+  type: RelaxedAtomicUint32
+  value: 10000
+  mirror: always
 
 - name: gfx.canvas.willreadfrequently.enabled
   type: bool
@@ -7733,18 +7761,18 @@
     value: false
     mirror: always
 
-  # Experimental support for ArrayBuffer.prototype.transfer{,ToFixedLength}() in JavaScript.
--   name: javascript.options.experimental.arraybuffer_transfer
-    type: bool
-    value: false
-    mirror: always
-
-  # Experimental support for Symbols as WeakMap keys in JavaScript.
+      # Experimental support for Symbols as WeakMap keys in JavaScript.
 -   name: javascript.options.experimental.symbols_as_weakmap_keys
     type: bool
     value: false
     mirror: always
 #endif  // NIGHTLY_BUILD
+
+# Experimental support for ArrayBuffer.prototype.transfer{,ToFixedLength}() in JavaScript.
+-   name: javascript.options.arraybuffer_transfer
+    type: bool
+    value: true
+    mirror: always
 
 #ifdef NIGHTLY_BUILD
   # Experimental support for Import Assertions in JavaScript.
@@ -8430,7 +8458,7 @@
 # Whether content-box and stroke-box are enabled for transform-box.
 - name: layout.css.transform-box-content-stroke.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8610,14 +8638,14 @@
 # Is support for rect() enabled?
 - name: layout.css.basic-shape-rect.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Is support for xywh() enabled?
 - name: layout.css.basic-shape-xywh.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8792,7 +8820,7 @@
 # https://drafts.fxtf.org/motion-1/#valdef-offset-path-basic-shape
 - name: layout.css.motion-path-basic-shapes.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8800,28 +8828,28 @@
 # https://drafts.fxtf.org/motion-1/#valdef-offset-path-coord-box
 - name: layout.css.motion-path-coord-box.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Is support for motion-path ray() enabled?
 - name: layout.css.motion-path-ray.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Is support for motion-path offset-position enabled?
 - name: layout.css.motion-path-offset-position.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
 # Is support for motion-path url enabled?
 - name: layout.css.motion-path-url.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8897,6 +8925,13 @@
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
+
+# Enables support for @margin rules.
+- name: layout.css.margin-rules.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # Whether Properties and Values is enabled
 - name: layout.css.properties-and-values.enabled
@@ -9728,14 +9763,10 @@
 - name: media.cubeb.sandbox
   type: bool
   mirror: always
-#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID) || defined(XP_WIN) || defined(XP_MACOSX)
+#if defined(XP_LINUX) || defined(XP_WIN) || defined(XP_MACOSX)
   value: true
 #else
-#if defined(MOZ_WIDGET_ANDROID)
-  value: @IS_NIGHTLY_BUILD@
-#else
   value: false
-#endif
 #endif
 
 # Whether or not to pass AUDCLNT_STREAMOPTIONS_RAW when initializing audio
@@ -10324,6 +10355,12 @@
     value: false
     mirror: always
 #endif  # MOZ_FFMPEG
+
+# Allow using ffmpeg encoder
+-   name: media.ffmpeg.encoder.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
 
 #if defined(MOZ_FFMPEG) || defined(MOZ_FFVPX)
 # Allow using openh264 decoding with ffmpeg
@@ -10984,10 +11021,28 @@
 
 # WebRTC prefs follow
 
-# Enables auto refresh of stats by default
-- name: media.aboutwebrtc.auto_refresh
+# Enables auto refresh of peerconnection stats by default
+- name: media.aboutwebrtc.auto_refresh.peerconnection_section
   type: bool
   value: @IS_NOT_NIGHTLY_BUILD@
+  mirror: always
+
+# Enables auto refresh of the transport connection log by default
+- name: media.aboutwebrtc.auto_refresh.connection_log_section
+  type: bool
+  value: false
+  mirror: always
+
+# Enables auto refresh of user config by default
+- name: media.aboutwebrtc.auto_refresh.user_modified_config_section
+  type: bool
+  value: true
+  mirror: always
+
+# Enables auto refresh of media context by default
+- name: media.aboutwebrtc.auto_refresh.media_ctx_section
+  type: bool
+  value: false
   mirror: always
 
 # Enables RTCPeerConnection support. Note that, when true, this pref enables
@@ -11458,6 +11513,11 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+- name: memory.phc.min_ram_mb
+  type: uint32_t
+  value: 8000
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "midi."
 #---------------------------------------------------------------------------
@@ -11670,6 +11730,12 @@
 - name: network.cookie.cookieBehavior.pbmode
   type: RelaxedAtomicInt32
   value: 0 # accept all cookies
+  mirror: always
+
+# Changes cookieBehavior=5 to block third-party cookies by default
+- name: network.cookie.cookieBehavior.optInPartitioning
+  type: bool
+  value: false
   mirror: always
 
 # Stale threshold for cookies in seconds.
@@ -12669,7 +12735,7 @@
 # Whether to use the rust implemented DefaultURI for unknown scheme types
 - name: network.url.useDefaultURI
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # The maximum allowed length for a URL - 32MB default.
@@ -14261,7 +14327,7 @@
 # Dispatch WebAuthn requests to the macOS platform API
 - name: security.webauthn.enable_macos_passkeys
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Dispatch WebAuthn requests to authenticator-rs
@@ -16198,6 +16264,12 @@
   value: false
 #endif
   mirror: always
+
+# Whether to render in to a child SurfaceControl rather than directly into the SurfaceView
+- name: widget.android.use-surfacecontrol
+  type: bool
+  value: false
+  mirror: once
 
 #---------------------------------------------------------------------------
 # Prefs starting with "zoom."

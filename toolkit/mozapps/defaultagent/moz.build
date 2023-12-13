@@ -21,6 +21,7 @@ UNIFIED_SOURCES += [
     "SetDefaultBrowser.cpp",
     "Telemetry.cpp",
     "UtfConvert.cpp",
+    "WindowsMutex.cpp",
 ]
 
 SOURCES += [
@@ -40,6 +41,7 @@ SOURCES["Notification.cpp"].flags += [
 
 EXPORTS.mozilla += [
     "DefaultAgent.h",
+    "WindowsMutex.h",
 ]
 
 USE_LIBS += [
@@ -75,6 +77,7 @@ OS_LIBS += [
 
 XPIDL_SOURCES += [
     "nsIDefaultAgent.idl",
+    "nsIWindowsMutex.idl",
 ]
 
 XPIDL_MODULE = "default-agent"
@@ -82,6 +85,8 @@ XPIDL_MODULE = "default-agent"
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
+
+XPCSHELL_TESTS_MANIFESTS += ["tests/xpcshell/xpcshell.toml"]
 
 # If defines are added to this list that are required by the Cache,
 # SetDefaultBrowser, or their dependencies (Registry, EventLog, common),

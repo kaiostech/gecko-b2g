@@ -10,6 +10,7 @@ const EXIT_CODE = {
   ...EXIT_CODE_BASE,
   DISABLED_BY_POLICY: EXIT_CODE_BASE.LAST_RESERVED + 1,
   INVALID_ARGUMENT: EXIT_CODE_BASE.LAST_RESERVED + 2,
+  MUTEX_NOT_LOCKABLE: EXIT_CODE_BASE.LAST_RESERVED + 3,
 };
 
 // Should be slightly longer than NOTIFICATION_WAIT_TIMEOUT_MS in
@@ -99,10 +100,18 @@ export async function runBackgroundTask(commandLine) {
     case "do-task": {
       let aumid = commandLine.getArgument(1);
       let force = commandLine.findFlag("force", true) != -1;
-      defaultAgent.doTask(aumid, force);
+
+      try {
+        defaultAgent.doTask(aumid, force);
+      } catch (e) {
+        if (e.result == Cr.NS_ERROR_NOT_AVAILABLE) {
+          return EXIT_CODE.MUTEX_NOT_LOCKABLE;
+        }
+        return EXIT_CODE.EXCEPTION;
+      }
 
       // Bug 1857333: We wait for arbitrary time for Glean to submit telemetry.
-      console.error("Pinged glean, waiting for submission.");
+      console.info("Pinged glean, waiting for submission.");
       await new Promise(resolve => setTimeout(resolve, 5000));
 
       return EXIT_CODE.SUCCESS;

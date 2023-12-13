@@ -399,8 +399,8 @@ Context::QuotaInitRunnable::Run() {
         QuotaManager* quotaManager = QuotaManager::Get();
         MOZ_DIAGNOSTIC_ASSERT(quotaManager);
 
-        QM_TRY(
-            MOZ_TO_RESULT(quotaManager->EnsureTemporaryStorageIsInitialized()));
+        QM_TRY(MOZ_TO_RESULT(
+            quotaManager->EnsureTemporaryStorageIsInitializedInternal()));
 
         QM_TRY_UNWRAP(
             mDirectoryMetadata->mDir,
@@ -566,6 +566,22 @@ class Context::ActionRunnable final : public nsIRunnable,
     MOZ_DIAGNOSTIC_ASSERT(mState == STATE_COMPLETE);
     MOZ_DIAGNOSTIC_ASSERT(!mContext);
     MOZ_DIAGNOSTIC_ASSERT(!mAction);
+  }
+
+  void DoStringify(nsACString& aData) override {
+    aData.Append("ActionRunnable ("_ns +
+                 //
+                 "State:"_ns + IntToCString(mState) + kStringifyDelimiter +
+                 //
+                 "Action:"_ns + IntToCString(static_cast<bool>(mAction)) +
+                 kStringifyDelimiter +
+                 // TODO: We might want to have Action::Stringify, too.
+                 //
+                 "Context:"_ns + IntToCString(static_cast<bool>(mContext)) +
+                 kStringifyDelimiter +
+                 // We do not print out mContext as we most probably were called
+                 // by its Stringify.
+                 ")"_ns);
   }
 
   void Clear() {
@@ -1113,32 +1129,54 @@ void Context::DoomTargetData() {
   MOZ_DIAGNOSTIC_ASSERT(!mData);
 }
 
-void Context::Stringify(nsACString& aData) {
+void Context::DoStringify(nsACString& aData) {
   NS_ASSERT_OWNINGTHREAD(Context);
 
-  constexpr auto kQuotaGenericDelimiterString = "|"_ns;
-
   aData.Append(
-      "Context ("_ns +
+      "Context "_ns + kStringifyStartInstance +
       //
-      "State:"_ns + IntToCString(mState) + kQuotaGenericDelimiterString +
+      "State:"_ns + IntToCString(mState) + kStringifyDelimiter +
       //
-      "OrphanedData:"_ns + IntToCString(mOrphanedData) +
-      kQuotaGenericDelimiterString +
+      "OrphanedData:"_ns + IntToCString(mOrphanedData) + kStringifyDelimiter +
+      //
+      "InitRunnable:"_ns + IntToCString(static_cast<bool>(mInitRunnable)) +
+      kStringifyDelimiter +
+      //
+      "InitAction:"_ns + IntToCString(static_cast<bool>(mInitAction)) +
+      kStringifyDelimiter +
       //
       "PendingActions:"_ns +
       IntToCString(static_cast<uint64_t>(mPendingActions.Length())) +
-      kQuotaGenericDelimiterString +
+      kStringifyDelimiter +
+      //
+      "ActivityList:"_ns +
+      IntToCString(static_cast<uint64_t>(mActivityList.Length())));
+
+  if (mActivityList.Length() > 0) {
+    aData.Append(kStringifyStartSet);
+    for (auto activity : mActivityList.ForwardRange()) {
+      activity->Stringify(aData);
+      aData.Append(kStringifyDelimiter);
+    }
+    aData.Append(kStringifyEndSet);
+  };
+
+  aData.Append(
+      kStringifyDelimiter +
       //
       "DirectoryLock:"_ns + IntToCString(static_cast<bool>(mDirectoryLock)) +
-      kQuotaGenericDelimiterString +
+      kStringifyDelimiter +
       //
-      "NextContext:"_ns + IntToCString(static_cast<bool>(mNextContext)));
+      "NextContext:"_ns + IntToCString(static_cast<bool>(mNextContext)) +
+      //
+      kStringifyEndInstance);
 
   if (mNextContext) {
-    aData.Append(kQuotaGenericDelimiterString);
+    aData.Append(kStringifyDelimiter);
     mNextContext->Stringify(aData);
   };
+
+  aData.Append(kStringifyEndInstance);
 }
 
 }  // namespace mozilla::dom::cache

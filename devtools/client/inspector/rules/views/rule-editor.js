@@ -45,6 +45,10 @@ const STYLE_INSPECTOR_PROPERTIES =
 const { LocalizationHelper } = require("resource://devtools/shared/l10n.js");
 const STYLE_INSPECTOR_L10N = new LocalizationHelper(STYLE_INSPECTOR_PROPERTIES);
 
+loader.lazyGetter(this, "NEW_PROPERTY_NAME_INPUT_LABEL", function () {
+  return STYLE_INSPECTOR_L10N.getStr("rule.newPropertyName.label");
+});
+
 const INDENT_SIZE = 2;
 const INDENT_STR = " ".repeat(INDENT_SIZE);
 
@@ -624,11 +628,16 @@ RuleEditor.prototype = {
           });
         }
 
-        const desugaredSelector = desugaredSelectors[i];
-        const matchedSelector =
-          this.rule.matchedDesugaredSelectors.includes(desugaredSelector);
-        const containerClass =
-          "ruleview-selector " + (matchedSelector ? "matched" : "unmatched");
+        let containerClass = "ruleview-selector ";
+
+        // Only add matched/unmatched class when the rule does have some matched
+        // selectors. We don't always have some (e.g. rules for pseudo elements)
+        if (this.rule.matchedDesugaredSelectors.length) {
+          const desugaredSelector = desugaredSelectors[i];
+          const matchedSelector =
+            this.rule.matchedDesugaredSelectors.includes(desugaredSelector);
+          containerClass += matchedSelector ? "matched" : "unmatched";
+        }
 
         const selectorContainer = createChild(this.selectorText, "span", {
           class: containerClass,
@@ -827,6 +836,7 @@ RuleEditor.prototype = {
       contentType: InplaceEditor.CONTENT_TYPES.CSS_PROPERTY,
       popup: this.ruleView.popup,
       cssProperties: this.rule.cssProperties,
+      inputAriaLabel: NEW_PROPERTY_NAME_INPUT_LABEL,
     });
 
     // Auto-close the input if multiple rules get pasted into new property.

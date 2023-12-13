@@ -171,7 +171,7 @@ struct MIMECreateParam {
   const Maybe<uint32_t> mHeight;
 };
 
-static nsTArray<nsCString> GuessMIMETypes(MIMECreateParam aParam) {
+static nsTArray<nsCString> GuessMIMETypes(const MIMECreateParam& aParam) {
   const auto codec = NS_ConvertUTF16toUTF8(aParam.mParsedCodec);
   nsTArray<nsCString> types;
   for (const nsCString& container : GuessContainers(aParam.mParsedCodec)) {
@@ -709,11 +709,6 @@ VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
   LOG("VideoDecoder %p ctor", this);
 }
 
-VideoDecoder::~VideoDecoder() {
-  LOG("VideoDecoder %p dtor", this);
-  Unused << ResetInternal(NS_ERROR_DOM_ABORT_ERR);
-}
-
 JSObject* VideoDecoder::WrapObject(JSContext* aCx,
                                    JS::Handle<JSObject*> aGivenProto) {
   AssertIsOnOwningThread();
@@ -820,12 +815,12 @@ already_AddRefed<MediaRawData> VideoDecoder::InputDataToMediaRawData(
 }
 
 nsTArray<RefPtr<VideoFrame>> VideoDecoder::DecodedDataToOutputType(
-    nsIGlobalObject* aGlobalObject, nsTArray<RefPtr<MediaData>>&& aData,
+    nsIGlobalObject* aGlobalObject, const nsTArray<RefPtr<MediaData>>&& aData,
     VideoDecoderConfigInternal& aConfig) {
   AssertIsOnOwningThread();
 
   nsTArray<RefPtr<VideoFrame>> frames;
-  for (RefPtr<MediaData>& data : aData) {
+  for (const RefPtr<MediaData>& data : aData) {
     MOZ_RELEASE_ASSERT(data->mType == MediaData::Type::VIDEO_DATA);
     RefPtr<const VideoData> d(data->As<const VideoData>());
     VideoColorSpaceInternal colorSpace = GuessColorSpace(d->mImage.get());

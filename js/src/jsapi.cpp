@@ -1463,7 +1463,15 @@ JS_PUBLIC_API void JS_SetGCParametersBasedOnAvailableMemory(
   }
 }
 
-JS_PUBLIC_API JSString* JS_NewExternalString(
+JS_PUBLIC_API JSString* JS_NewExternalStringLatin1(
+    JSContext* cx, const Latin1Char* chars, size_t length,
+    const JSExternalStringCallbacks* callbacks) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  return JSExternalString::new_(cx, chars, length, callbacks);
+}
+
+JS_PUBLIC_API JSString* JS_NewExternalUCString(
     JSContext* cx, const char16_t* chars, size_t length,
     const JSExternalStringCallbacks* callbacks) {
   AssertHeapIsIdle();
@@ -1471,7 +1479,16 @@ JS_PUBLIC_API JSString* JS_NewExternalString(
   return JSExternalString::new_(cx, chars, length, callbacks);
 }
 
-JS_PUBLIC_API JSString* JS_NewMaybeExternalString(
+JS_PUBLIC_API JSString* JS_NewMaybeExternalStringLatin1(
+    JSContext* cx, const JS::Latin1Char* chars, size_t length,
+    const JSExternalStringCallbacks* callbacks, bool* allocatedExternal) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  return NewMaybeExternalString(cx, chars, length, callbacks,
+                                allocatedExternal);
+}
+
+JS_PUBLIC_API JSString* JS_NewMaybeExternalUCString(
     JSContext* cx, const char16_t* chars, size_t length,
     const JSExternalStringCallbacks* callbacks, bool* allocatedExternal) {
   AssertHeapIsIdle();

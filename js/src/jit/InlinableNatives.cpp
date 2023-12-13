@@ -14,6 +14,7 @@
 #  include "builtin/intl/NumberFormat.h"
 #  include "builtin/intl/PluralRules.h"
 #  include "builtin/intl/RelativeTimeFormat.h"
+#  include "builtin/intl/Segmenter.h"
 #endif
 #include "builtin/MapObject.h"
 #include "js/experimental/JitInfo.h"
@@ -52,6 +53,12 @@ const JSClass* js::jit::InlinableNativeGuardToClass(InlinableNative native) {
       return &PluralRulesObject::class_;
     case InlinableNative::IntlGuardToRelativeTimeFormat:
       return &RelativeTimeFormatObject::class_;
+    case InlinableNative::IntlGuardToSegmenter:
+      return &SegmenterObject::class_;
+    case InlinableNative::IntlGuardToSegments:
+      return &SegmentsObject::class_;
+    case InlinableNative::IntlGuardToSegmentIterator:
+      return &SegmentIteratorObject::class_;
 #else
     case InlinableNative::IntlGuardToCollator:
     case InlinableNative::IntlGuardToDateTimeFormat:
@@ -60,6 +67,9 @@ const JSClass* js::jit::InlinableNativeGuardToClass(InlinableNative native) {
     case InlinableNative::IntlGuardToNumberFormat:
     case InlinableNative::IntlGuardToPluralRules:
     case InlinableNative::IntlGuardToRelativeTimeFormat:
+    case InlinableNative::IntlGuardToSegmenter:
+    case InlinableNative::IntlGuardToSegments:
+    case InlinableNative::IntlGuardToSegmentIterator:
       MOZ_CRASH("Intl API disabled");
 #endif
 
@@ -158,6 +168,9 @@ bool js::jit::CanInlineNativeCrossRealm(InlinableNative native) {
     case InlinableNative::IntlGuardToNumberFormat:
     case InlinableNative::IntlGuardToPluralRules:
     case InlinableNative::IntlGuardToRelativeTimeFormat:
+    case InlinableNative::IntlGuardToSegmenter:
+    case InlinableNative::IntlGuardToSegments:
+    case InlinableNative::IntlGuardToSegmentIterator:
     case InlinableNative::IsRegExpObject:
     case InlinableNative::IsPossiblyWrappedRegExpObject:
     case InlinableNative::RegExpMatcher:
@@ -288,6 +301,7 @@ bool js::jit::CanInlineNativeCrossRealm(InlinableNative native) {
     case InlinableNative::ObjectCreate:
     case InlinableNative::ObjectIs:
     case InlinableNative::ObjectIsPrototypeOf:
+    case InlinableNative::ObjectKeys:
     case InlinableNative::ObjectToString:
     case InlinableNative::TypedArrayConstructor:
 #ifdef FUZZING_JS_FUZZILLI

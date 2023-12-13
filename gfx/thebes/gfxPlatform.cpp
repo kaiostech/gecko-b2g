@@ -1079,8 +1079,6 @@ void gfxPlatform::ReportTelemetry() {
                          uint32_t(rect.Height()));
     Telemetry::ScalarSet(Telemetry::ScalarID::GFX_DISPLAY_PRIMARY_WIDTH,
                          uint32_t(rect.Width()));
-    mozilla::glean::fog_validation::gvsv_primary_height.Set(rect.Height());
-    mozilla::glean::fog_validation::gvsv_primary_width.Set(rect.Width());
   }
 
   nsString adapterDesc;
@@ -1210,7 +1208,8 @@ bool gfxPlatform::IsHeadless() {
 
 /* static */
 bool gfxPlatform::UseRemoteCanvas() {
-  return XRE_IsContentProcess() && gfx::gfxVars::RemoteCanvasEnabled();
+  return XRE_IsContentProcess() && (gfx::gfxVars::RemoteCanvasEnabled() ||
+                                    gfx::gfxVars::UseAcceleratedCanvas2D());
 }
 
 /* static */
@@ -3893,13 +3892,18 @@ void gfxPlatform::DisableGPUProcess() {
 }
 
 /* static */ void gfxPlatform::DisableRemoteCanvas() {
-  if (!gfxVars::RemoteCanvasEnabled()) {
-    return;
+  if (gfxVars::RemoteCanvasEnabled()) {
+    gfxConfig::ForceDisable(Feature::REMOTE_CANVAS, FeatureStatus::Failed,
+                            "Disabled by runtime error",
+                            "FEATURE_REMOTE_CANVAS_RUNTIME_ERROR"_ns);
+    gfxVars::SetRemoteCanvasEnabled(false);
   }
-  gfxConfig::ForceDisable(Feature::REMOTE_CANVAS, FeatureStatus::Failed,
-                          "Disabled by runtime error",
-                          "FEATURE_REMOTE_CANVAS_RUNTIME_ERROR"_ns);
-  gfxVars::SetRemoteCanvasEnabled(false);
+  if (gfxVars::UseAcceleratedCanvas2D()) {
+    gfxConfig::ForceDisable(Feature::ACCELERATED_CANVAS2D,
+                            FeatureStatus::Failed, "Disabled by runtime error",
+                            "FEATURE_ACCELERATED_CANVAS2D_RUNTIME_ERROR"_ns);
+    gfxVars::SetUseAcceleratedCanvas2D(false);
+  }
 }
 
 void gfxPlatform::ImportCachedContentDeviceData() {

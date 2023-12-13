@@ -241,6 +241,7 @@
   MACRO_(GetTypeError, "GetTypeError")                                         \
   MACRO_(global, "global")                                                     \
   MACRO_(globalThis, "globalThis")                                             \
+  MACRO_(granularity, "granularity")                                           \
   MACRO_(group, "group")                                                       \
   MACRO_(groupBy, "groupBy")                                                   \
   MACRO_(groups, "groups")                                                     \
@@ -283,6 +284,7 @@
   MACRO_(InitializeNumberFormat, "InitializeNumberFormat")                     \
   MACRO_(InitializePluralRules, "InitializePluralRules")                       \
   MACRO_(InitializeRelativeTimeFormat, "InitializeRelativeTimeFormat")         \
+  MACRO_(InitializeSegmenter, "InitializeSegmenter")                           \
   MACRO_(inLeapYear, "inLeapYear")                                             \
   MACRO_(innermost, "innermost")                                               \
   MACRO_(inNursery, "inNursery")                                               \

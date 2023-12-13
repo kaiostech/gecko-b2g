@@ -517,7 +517,7 @@ PTextureChild* CompositorBridgeChild::CreateTexture(
 }
 
 already_AddRefed<CanvasChild> CompositorBridgeChild::GetCanvasChild() {
-  MOZ_ASSERT(gfx::gfxVars::RemoteCanvasEnabled());
+  MOZ_ASSERT(gfxPlatform::UseRemoteCanvas());
   if (auto* cm = gfx::CanvasManagerChild::Get()) {
     return cm->GetCanvasChild().forget();
   }
@@ -531,7 +531,9 @@ void CompositorBridgeChild::EndCanvasTransaction() {
 }
 
 void CompositorBridgeChild::ClearCachedResources() {
-  CanvasChild::ClearCachedResources();
+  if (auto* cm = gfx::CanvasManagerChild::Get()) {
+    cm->ClearCachedResources();
+  }
 }
 
 bool CompositorBridgeChild::AllocUnsafeShmem(size_t aSize, ipc::Shmem* aShmem) {

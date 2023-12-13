@@ -990,7 +990,8 @@ const BASE_MESSAGES = () => [
       lifetime: 1,
     },
     trigger: { id: "defaultBrowserCheck" },
-    targeting: `source == 'newtab' && 'browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt'|preferenceValue == false
+    targeting: `source == 'newtab' && !launchOnLoginEnabled
+    && 'browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt'|preferenceValue == false
     && 'browser.startup.windowsLaunchOnLogin.enabled'|preferenceValue == true && isDefaultBrowser && !activeNotifications`,
   },
   {
@@ -1053,11 +1054,87 @@ const BASE_MESSAGES = () => [
       lifetime: 1,
     },
     trigger: { id: "defaultBrowserCheck" },
-    targeting: `source == 'newtab' && 'browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt'|preferenceValue == false
+    targeting: `source == 'newtab' && !launchOnLoginEnabled
+    && 'browser.startup.windowsLaunchOnLogin.disableLaunchOnLoginPrompt'|preferenceValue == false
     && 'browser.startup.windowsLaunchOnLogin.enabled'|preferenceValue == true && isDefaultBrowser && !activeNotifications
     && messageImpressions.INFOBAR_LAUNCH_ON_LOGIN[messageImpressions.INFOBAR_LAUNCH_ON_LOGIN | length - 1]
     && messageImpressions.INFOBAR_LAUNCH_ON_LOGIN[messageImpressions.INFOBAR_LAUNCH_ON_LOGIN | length - 1] <
       currentDate|date - ${FOURTEEN_DAYS_IN_MS}`,
+  },
+  {
+    id: "FOX_DOODLE_SET_DEFAULT",
+    template: "spotlight",
+    groups: ["eco"],
+    skip_in_tests: "it fails unrelated tests",
+    content: {
+      backdrop: "transparent",
+      id: "FOX_DOODLE_SET_DEFAULT",
+      screens: [
+        {
+          content: {
+            logo: {
+              height: "125px",
+              imageURL:
+                "chrome://activity-stream/content/data/content/assets/fox-doodle-waving.gif",
+              reducedMotionImageURL:
+                "chrome://activity-stream/content/data/content/assets/fox-doodle-waving-static.png",
+            },
+            title: {
+              fontSize: "22px",
+              fontWeight: 590,
+              letterSpacing: 0,
+              paddingInline: "24px",
+              paddingBlock: "4px 0",
+              string_id: "fox-doodle-pin-headline",
+            },
+            subtitle: {
+              fontSize: "15px",
+              letterSpacing: 0,
+              lineHeight: "1.4",
+              marginBlock: "8px 16px",
+              paddingInline: "24px",
+              string_id: "fox-doodle-pin-body",
+            },
+            primary_button: {
+              action: {
+                navigate: true,
+                type: "SET_DEFAULT_BROWSER",
+              },
+              label: {
+                paddingBlock: "0",
+                paddingInline: "16px",
+                marginBlock: "4px 0",
+                string_id: "fox-doodle-pin-primary",
+              },
+            },
+            secondary_button: {
+              action: {
+                navigate: true,
+              },
+              label: {
+                marginBlock: "0 -20px",
+                string_id: "fox-doodle-pin-secondary",
+              },
+            },
+            dismiss_button: {
+              action: {
+                navigate: true,
+              },
+            },
+          },
+        },
+      ],
+      template: "multistage",
+      transitions: true,
+    },
+    frequency: {
+      lifetime: 2,
+    },
+    targeting:
+      "source == 'startup' && !isMajorUpgrade && !activeNotifications && !isDefaultBrowser && !willShowDefaultPrompt && (currentDate|date - profileAgeCreated|date) / 86400000 >= 28",
+    trigger: {
+      id: "defaultBrowserCheck",
+    },
   },
 ];
 

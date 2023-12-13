@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { GeckoViewUtils } from "resource://gre/modules/GeckoViewUtils.sys.mjs";
 import { EventEmitter } from "resource://gre/modules/EventEmitter.sys.mjs";
 
@@ -26,13 +25,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Management: "resource://gre/modules/Extension.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
-
-XPCOMUtils.defineLazyServiceGetter(
-  lazy,
-  "mimeService",
-  "@mozilla.org/mime;1",
-  "nsIMIMEService"
-);
 
 const { debug, warn } = GeckoViewUtils.initLogging("Console");
 
@@ -934,10 +926,11 @@ export var GeckoViewWebExtension = {
     return { extension: exported };
   },
 
-  async installWebExtension(aInstallId, aUri) {
+  async installWebExtension(aInstallId, aUri, installMethod) {
     const install = await lazy.AddonManager.getInstallForURL(aUri.spec, {
       telemetryInfo: {
         source: "geckoview-app",
+        method: installMethod || undefined,
       },
     });
     const promise = new Promise(resolve => {
@@ -946,14 +939,7 @@ export var GeckoViewWebExtension = {
       );
     });
 
-    const systemPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
-    const mimeType = lazy.mimeService.getTypeFromURI(aUri);
-    lazy.AddonManager.installAddonFromWebpage(
-      mimeType,
-      null,
-      systemPrincipal,
-      install
-    );
+    lazy.AddonManager.installAddonFromAOM(null, aUri, install);
 
     return promise;
   },
@@ -1202,7 +1188,7 @@ export var GeckoViewWebExtension = {
       }
 
       case "GeckoView:WebExtension:Install": {
-        const { locationUri, installId } = aData;
+        const { locationUri, installId, installMethod } = aData;
         let uri;
         try {
           uri = Services.io.newURI(locationUri);
@@ -1212,7 +1198,11 @@ export var GeckoViewWebExtension = {
         }
 
         try {
-          const result = await this.installWebExtension(installId, uri);
+          const result = await this.installWebExtension(
+            installId,
+            uri,
+            installMethod
+          );
           if (result.extension) {
             aCallback.onSuccess(result);
           } else {

@@ -993,7 +993,8 @@ class nsContextMenu {
         this.onLink &&
         !this.onMailtoLink &&
         !this.onTelLink &&
-        !this.onMozExtLink
+        !this.onMozExtLink &&
+        !this.isSecureAboutPage()
     );
 
     let copyLinkSeparator = document.getElementById("context-sep-copylink");
@@ -1153,18 +1154,10 @@ class nsContextMenu {
 
       // Set the correct label for the fill menu
       let fillMenu = document.getElementById("fill-login");
-      if (onPasswordLikeField) {
-        document.l10n.setAttributes(
-          fillMenu,
-          "main-context-menu-use-saved-password"
-        );
-      } else {
-        // On a username field
-        document.l10n.setAttributes(
-          fillMenu,
-          "main-context-menu-use-saved-login"
-        );
-      }
+      document.l10n.setAttributes(
+        fillMenu,
+        "main-context-menu-use-saved-password"
+      );
 
       let documentURI = this.contentData?.documentURIObject;
       let formOrigin = LoginHelper.getLoginOrigin(documentURI?.spec);
@@ -2294,6 +2287,23 @@ class nsContextMenu {
     // If nothing can be stripped, we return the original URI
     // so the feature can still be used.
     return strippedLinkURI ?? this.linkURI;
+  }
+
+  /**
+   * Checks if a webpage is a secure interal webpage
+   * @returns {Boolean}
+   *
+   */
+  isSecureAboutPage() {
+    let { currentURI } = this.browser;
+    if (currentURI?.schemeIs("about")) {
+      let module = E10SUtils.getAboutModule(currentURI);
+      if (module) {
+        let flags = module.getURIFlags(currentURI);
+        return !!(flags & Ci.nsIAboutModule.IS_SECURE_CHROME_UI);
+      }
+    }
+    return false;
   }
 
   // Kept for addon compat

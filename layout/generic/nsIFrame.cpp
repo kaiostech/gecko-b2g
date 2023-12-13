@@ -10665,8 +10665,7 @@ bool nsIFrame::IsFocusableDueToScrollFrame() {
   return true;
 }
 
-nsIFrame::Focusable nsIFrame::IsFocusable(bool aWithMouse,
-                                          bool aCheckVisibility) {
+Focusable nsIFrame::IsFocusable(bool aWithMouse, bool aCheckVisibility) {
   // cannot focus content in print preview mode. Only the root can be focused,
   // but that's handled elsewhere.
   if (PresContext()->Type() == nsPresContext::eContext_PrintPreview) {
@@ -10681,26 +10680,34 @@ nsIFrame::Focusable nsIFrame::IsFocusable(bool aWithMouse,
     return {};
   }
 
-  const nsStyleUI& ui = *StyleUI();
-  if (ui.IsInert()) {
+  const StyleUserFocus uf = StyleUI()->UserFocus();
+  if (uf == StyleUserFocus::None) {
     return {};
   }
+  MOZ_ASSERT(!StyleUI()->IsInert(), "inert implies -moz-user-focus: none");
 
-  PseudoStyleType pseudo = Style()->GetPseudoType();
+  const PseudoStyleType pseudo = Style()->GetPseudoType();
   if (pseudo == PseudoStyleType::anonymousItem) {
     return {};
   }
 
-  int32_t tabIndex = -1;
-  if (ui.UserFocus() != StyleUserFocus::Ignore &&
-      ui.UserFocus() != StyleUserFocus::None) {
-    // Pass in default tabindex of -1 for nonfocusable and 0 for focusable
-    tabIndex = 0;
+  Focusable focusable;
+  if (auto* xul = nsXULElement::FromNode(mContent)) {
+    // As a legacy special-case, -moz-user-focus controls focusability and
+    // tabability of XUL elements in some circumstances (which default to
+    // -moz-user-focus: ignore).
+    auto focusability = xul->GetXULFocusability(aWithMouse);
+    focusable.mFocusable =
+        focusability.mForcedFocusable.valueOr(uf == StyleUserFocus::Normal);
+    if (focusable) {
+      focusable.mTabIndex = focusability.mForcedTabIndexIfFocusable.valueOr(0);
+    }
+  } else {
+    focusable = mContent->IsFocusableWithoutStyle(aWithMouse);
   }
 
-  if (mContent->IsFocusable(&tabIndex, aWithMouse)) {
-    // If the content is focusable, then we're done.
-    return {true, tabIndex};
+  if (focusable) {
+    return focusable;
   }
 
   // If we're focusing with the mouse we never focus scroll areas.
@@ -10708,7 +10715,10 @@ nsIFrame::Focusable nsIFrame::IsFocusable(bool aWithMouse,
     return {true, 0};
   }
 
-  return {false, tabIndex};
+  // FIXME(emilio): some callers rely on somewhat broken return values
+  // (focusable = false, but non-negative tab-index) from
+  // IsFocusableWithoutStyle (for image maps in particular).
+  return focusable;
 }
 
 /**

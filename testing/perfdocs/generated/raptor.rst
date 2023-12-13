@@ -3375,7 +3375,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-speedometer-mobile-cstm-car-m-nofis**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3454,7 +3454,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3512,7 +3512,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3543,7 +3543,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3638,7 +3638,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3702,7 +3702,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-speedometer-mobile-cstm-car-m-nofis**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3781,7 +3781,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3839,7 +3839,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3870,7 +3870,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3965,7 +3965,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -3984,10 +3984,8 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 
    * **alert threshold**: 2.0
    * **apps**: firefox, chrome, chromium, safari, custom-car
-   * **browser cycles**: 1
-   * **browsertime args**: --browsertime.speedometer_iterations=5
+   * **browser cycles**: 5
    * **cold**: true
-   * **custom data**: true
    * **expected**: pass
    * **expose browser profiler**: true
    * **gecko profile entries**: 14000000
@@ -3998,12 +3996,10 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **page timeout**: 600000
    * **repository**: https://github.com/WebKit/Speedometer
    * **repository revision**: abea7b89b97028d61e8f0536cd92bba4fe5fc17a
-   * **submetric summary method**: mean
    * **subtest lower is better**: true
-   * **subtest name filters**: tests/,s3/
    * **subtest unit**: ms
+   * **support class**: speedometer3.py
    * **test script**: speedometer3.js
-   * **test summary**: flatten
    * **test url**: `<http://\<host\>:\<port\>/index.html>`__
    * **type**: benchmark
    * **unit**: score
@@ -4045,7 +4041,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-speedometer3-mobile-cstm-car-m-nofis**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4124,7 +4120,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4182,7 +4178,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4208,7 +4204,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4303,7 +4299,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4318,10 +4314,8 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
 
    * **alert threshold**: 2.0
    * **apps**: fenix, geckoview, refbrow, chrome-m, cstm-car-m
-   * **browser cycles**: 1
-   * **browsertime args**: --browsertime.speedometer_iterations=5
+   * **browser cycles**: 5
    * **cold**: true
-   * **custom data**: true
    * **expected**: pass
    * **gecko profile entries**: 14000000
    * **gecko profile interval**: 1
@@ -4331,12 +4325,10 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
    * **page timeout**: 420000
    * **repository**: https://github.com/WebKit/Speedometer
    * **repository revision**: abea7b89b97028d61e8f0536cd92bba4fe5fc17a
-   * **submetric summary method**: mean
    * **subtest lower is better**: true
-   * **subtest name filters**: tests/,s3/
    * **subtest unit**: ms
+   * **support class**: speedometer3.py
    * **test script**: speedometer3.js
-   * **test summary**: flatten
    * **test url**: `<http://\<host\>:\<port\>/index.html>`__
    * **type**: benchmark
    * **unit**: score
@@ -4378,7 +4370,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-speedometer3-mobile-cstm-car-m-nofis**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4457,7 +4449,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4515,7 +4507,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4541,7 +4533,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -4636,7 +4628,7 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
         - ❌
         - ❌
       * - **browsertime-benchmark-custom-car-speedometer3**
-        - ❌
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -15543,6 +15535,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-linux1804-64-nightlyasrelease-qr/opt**
@@ -15569,6 +15566,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-linux1804-64-qr/opt**
@@ -15591,6 +15593,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -15641,6 +15648,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-macosx1015-64-nightlyasrelease-qr/opt**
@@ -15667,6 +15679,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-macosx1015-64-qr/opt**
@@ -15689,6 +15706,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -15744,6 +15766,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-32-qr/opt**
@@ -15766,6 +15793,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -15806,6 +15838,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-64-nightlyasrelease-qr/opt**
@@ -15832,6 +15869,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-64-qr/opt**
@@ -15854,6 +15896,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -15897,6 +15944,11 @@ Tests for page-load performance. The links direct to the actual websites that ar
       * - **browsertime-tp6-live-firefox-amazon**
         - ❌
         - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
         - ❌
         - ❌
 
@@ -30157,6 +30209,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-linux1804-64-nightlyasrelease-qr/opt**
@@ -30183,6 +30240,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-linux1804-64-qr/opt**
@@ -30205,6 +30267,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -30255,6 +30322,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-macosx1015-64-nightlyasrelease-qr/opt**
@@ -30281,6 +30353,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-macosx1015-64-qr/opt**
@@ -30303,6 +30380,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -30358,6 +30440,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-32-qr/opt**
@@ -30380,6 +30467,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -30420,6 +30512,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-64-nightlyasrelease-qr/opt**
@@ -30446,6 +30543,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-64-qr/opt**
@@ -30468,6 +30570,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -30511,6 +30618,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
       * - **browsertime-tp6-live-firefox-amazon**
         - ❌
         - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
         - ❌
         - ❌
 
@@ -30567,6 +30679,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6m-webextensions-fenix-amazon-search-nofis**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-android-hw-a51-11-0-aarch64-shippable-qr/opt**
@@ -30605,6 +30722,11 @@ Page-load performance test suite on Android. The links direct to the actual webs
         - ❌
       * - **browsertime-tp6m-live-geckoview-amazon-search-nofis**
         - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6m-webextensions-fenix-amazon-search-nofis**
+        - ✅
         - ❌
         - ❌
         - ❌
@@ -36134,6 +36256,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-linux1804-64-nightlyasrelease-qr/opt**
@@ -36160,6 +36287,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-linux1804-64-qr/opt**
@@ -36182,6 +36314,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -36232,6 +36369,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-macosx1015-64-nightlyasrelease-qr/opt**
@@ -36258,6 +36400,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-macosx1015-64-qr/opt**
@@ -36280,6 +36427,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -36335,6 +36487,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-32-qr/opt**
@@ -36357,6 +36514,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -36397,6 +36559,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-64-nightlyasrelease-qr/opt**
@@ -36423,6 +36590,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
         - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
 
 
    .. list-table:: **test-windows10-64-qr/opt**
@@ -36445,6 +36617,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
         - ❌
         - ❌
       * - **browsertime-tp6-live-firefox-amazon**
+        - ❌
+        - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
         - ❌
         - ❌
         - ❌
@@ -36488,6 +36665,11 @@ These tests aren't used in standard testing, they are only used in the Raptor un
       * - **browsertime-tp6-live-firefox-amazon**
         - ❌
         - ❌
+        - ❌
+        - ❌
+      * - **browsertime-tp6-webextensions-firefox-amazon**
+        - ✅
+        - ✅
         - ❌
         - ❌
 

@@ -18,11 +18,11 @@ SOURCES += [
     "BootAnimation.cpp",
 ]
 
-if CONFIG["CPU_ARCH"] == "arm" and CONFIG["BUILD_ARM_NEON"]:
+if CONFIG["TARGET_CPU"] == "arm" and CONFIG["BUILD_ARM_NEON"]:
     SOURCES += ["rgb8888_to_rgb565_neon.cpp"]
     SOURCES["rgb8888_to_rgb565_neon.cpp"].flags += ["-mfpu=neon"]
 
-if CONFIG["CPU_ARCH"] in ("x86", "x86_64"):
+if CONFIG["TARGET_CPU"] in ("x86", "x86_64"):
     CFLAGS += ["-DANDROID_EMULATOR"]
     CXXFLAGS += ["-DANDROID_EMULATOR"]
 

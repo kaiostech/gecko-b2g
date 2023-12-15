@@ -89,8 +89,9 @@ class CanvasContext final : public nsICanvasRenderingContextInternal,
 
   RefPtr<Texture> GetCurrentTexture(ErrorResult& aRv);
   void MaybeQueueSwapChainPresent();
-  void SwapChainPresent();
+  Maybe<layers::SurfaceDescriptor> SwapChainPresent();
   void ForceNewFrame();
+  void InvalidateCanvasContent();
 
  private:
   gfx::IntSize mCanvasSize;

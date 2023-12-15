@@ -158,6 +158,38 @@ export class ViewPage extends ViewPageContent {
     );
   }
 
+  toggleVisibilityInCardContainer(isOpenTabs) {
+    let cards = [];
+    let tabLists = [];
+    if (!isOpenTabs) {
+      cards = this.shadowRoot.querySelectorAll("card-container");
+      tabLists = this.shadowRoot.querySelectorAll("fxview-tab-list");
+    } else {
+      this.viewCards.forEach(viewCard => {
+        if (viewCard.cardEl) {
+          cards.push(viewCard.cardEl);
+          tabLists.push(viewCard.tabList);
+        }
+      });
+    }
+    if (tabLists.length && cards.length) {
+      cards.forEach(cardEl => {
+        if (cardEl.visible !== !this.paused) {
+          cardEl.visible = !this.paused;
+        } else if (
+          cardEl.isExpanded &&
+          tabLists[0].updatesPaused !== this.paused
+        ) {
+          // If card is already visible and expanded but tab-list has updatesPaused,
+          // update the tab-list updatesPaused prop from here instead of card-container
+          tabLists.forEach(tabList => {
+            tabList.updatesPaused = this.paused;
+          });
+        }
+      });
+    }
+  }
+
   enter() {
     this.selectedTab = true;
     if (this.isVisible) {

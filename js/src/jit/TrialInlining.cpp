@@ -6,6 +6,8 @@
 
 #include "jit/TrialInlining.h"
 
+#include "mozilla/DebugOnly.h"
+
 #include "jit/BaselineCacheIRCompiler.h"
 #include "jit/BaselineFrame.h"
 #include "jit/BaselineIC.h"
@@ -687,8 +689,9 @@ ICScript* TrialInliner::createInlinedICScript(JSFunction* target,
   uint32_t initialWarmUpCount = JitOptions.trialInliningInitialWarmUpCount;
 
   uint32_t depth = icScript_->depth() + 1;
-  UniquePtr<ICScript> inlinedICScript(new (raw) ICScript(
-      initialWarmUpCount, fallbackStubsOffset, allocSize, depth, root));
+  UniquePtr<ICScript> inlinedICScript(
+      new (raw) ICScript(initialWarmUpCount, fallbackStubsOffset, allocSize,
+                         depth, targetScript->length(), root));
 
   inlinedICScript->initICEntries(cx(), targetScript);
 
@@ -950,16 +953,29 @@ bool InliningRoot::traceWeak(JSTracer* trc) {
   return allSurvived;
 }
 
-void InliningRoot::purgeStubs(Zone* zone) {
-  for (auto& inlinedScript : inlinedScripts_) {
-    inlinedScript->purgeStubs(zone);
-  }
-}
+void InliningRoot::purgeInactiveICScripts() {
+  mozilla::DebugOnly<uint32_t> totalSize = owningScript_->length();
 
-void InliningRoot::resetWarmUpCounts(uint32_t count) {
   for (auto& inlinedScript : inlinedScripts_) {
-    inlinedScript->resetWarmUpCount(count);
+    if (inlinedScript->active()) {
+      totalSize += inlinedScript->bytecodeSize();
+    } else {
+      MOZ_ASSERT(inlinedScript->bytecodeSize() < totalBytecodeSize_);
+      totalBytecodeSize_ -= inlinedScript->bytecodeSize();
+    }
   }
+
+  MOZ_ASSERT(totalBytecodeSize_ == totalSize);
+
+  Zone* zone = owningScript_->zone();
+
+  inlinedScripts_.eraseIf([zone](auto& inlinedScript) {
+    if (inlinedScript->active()) {
+      return false;
+    }
+    inlinedScript->prepareForDestruction(zone);
+    return true;
+  });
 }
 
 }  // namespace jit

@@ -11,42 +11,62 @@ const CONFIG_EVERYWHERE = [
   {
     recordType: "engine",
     identifier: "engine-everywhere",
-    base: {
-      environment: {
-        allRegionsAndLocales: true,
+    base: {},
+    variants: [
+      {
+        environment: {
+          allRegionsAndLocales: true,
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-everywhere-except-en-US",
-    base: {
-      environment: {
-        allRegionsAndLocales: true,
-        excludedLocales: ["en-US"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          allRegionsAndLocales: true,
+          excludedLocales: ["en-US"],
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-everywhere-except-FI",
-    base: {
-      environment: {
-        allRegionsAndLocales: true,
-        excludedRegions: ["FI"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          allRegionsAndLocales: true,
+          excludedRegions: ["FI"],
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-everywhere-except-en-CA-and-CA",
-    base: {
-      environment: {
-        allRegionsAndLocales: true,
-        excludedRegions: ["CA"],
-        excludedLocales: ["en-CA"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          allRegionsAndLocales: true,
+          excludedRegions: ["CA"],
+          excludedLocales: ["en-CA"],
+        },
       },
-    },
+    ],
+  },
+  {
+    recordType: "defaultEngines",
+    specificDefaults: [],
+  },
+  {
+    recordType: "engineOrders",
+    orders: [],
   },
 ];
 
@@ -54,12 +74,23 @@ const CONFIG_EXPERIMENT = [
   {
     recordType: "engine",
     identifier: "engine-experiment",
-    base: {
-      environment: {
-        allRegionsAndLocales: true,
-        experiment: "experiment",
+    base: {},
+    variants: [
+      {
+        environment: {
+          allRegionsAndLocales: true,
+          experiment: "experiment",
+        },
       },
-    },
+    ],
+  },
+  {
+    recordType: "defaultEngines",
+    specificDefaults: [],
+  },
+  {
+    recordType: "engineOrders",
+    orders: [],
   },
 ];
 
@@ -67,50 +98,148 @@ const CONFIG_LOCALES_AND_REGIONS = [
   {
     recordType: "engine",
     identifier: "engine-canada",
-    base: {
-      environment: {
-        locales: ["en-CA"],
-        regions: ["CA"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          locales: ["en-CA"],
+          regions: ["CA"],
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-exclude-regions",
-    base: {
-      environment: {
-        locales: ["en-GB"],
-        excludedRegions: ["US"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          locales: ["en-GB"],
+          excludedRegions: ["US"],
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-specific-locale-in-all-regions",
-    base: {
-      environment: {
-        locales: ["en-US"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          locales: ["en-US"],
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-exclude-locale",
-    base: {
-      environment: {
-        excludedLocales: ["fr"],
-        regions: ["BE"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          excludedLocales: ["fr"],
+          regions: ["BE"],
+        },
       },
-    },
+    ],
   },
   {
     recordType: "engine",
     identifier: "engine-specific-region-with-any-locales",
-    base: {
-      environment: {
-        regions: ["FI"],
+    base: {},
+    variants: [
+      {
+        environment: {
+          regions: ["FI"],
+        },
       },
-    },
+    ],
+  },
+  {
+    recordType: "defaultEngines",
+    specificDefaults: [],
+  },
+  {
+    recordType: "engineOrders",
+    orders: [],
+  },
+];
+
+const CONFIG_DISTRIBUTION = [
+  {
+    recordType: "engine",
+    identifier: "engine-distribution-1",
+    base: {},
+    variants: [
+      {
+        environment: {
+          distributions: ["distribution-1"],
+        },
+      },
+    ],
+  },
+  {
+    recordType: "engine",
+    identifier: "engine-multiple-distributions",
+    base: {},
+    variants: [
+      {
+        environment: {
+          distributions: ["distribution-2", "distribution-3"],
+        },
+      },
+    ],
+  },
+  {
+    recordType: "engine",
+    identifier: "engine-distribution-region-locales",
+    base: {},
+    variants: [
+      {
+        environment: {
+          distributions: ["distribution-4"],
+          locales: ["fi"],
+          regions: ["FI"],
+        },
+      },
+    ],
+  },
+  {
+    recordType: "engine",
+    identifier: "engine-distribution-experiment",
+    base: {},
+    variants: [
+      {
+        environment: {
+          distributions: ["distribution-5"],
+          experiment: "experiment",
+        },
+      },
+    ],
+  },
+  {
+    recordType: "engine",
+    identifier: "engine-distribution-excluded",
+    base: {},
+    variants: [
+      {
+        environment: {
+          distributions: ["distribution-include"],
+          excludedDistributions: ["distribution-exclude"],
+        },
+      },
+    ],
+  },
+  {
+    recordType: "defaultEngines",
+    specificDefaults: [],
+  },
+  {
+    recordType: "engineOrders",
+    orders: [],
   },
 ];
 
@@ -302,5 +431,108 @@ add_task(async function test_selector_locales_and_regions() {
     },
     ["engine-specific-region-with-any-locales"],
     "Should match engine with specified region with any locale."
+  );
+});
+
+add_task(async function test_selector_match_distribution() {
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-1",
+    },
+    ["engine-distribution-1"],
+    "Should match engine with the same distribution."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-2",
+    },
+    ["engine-multiple-distributions"],
+    "Should match engine with multiple distributions."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-3",
+    },
+    ["engine-multiple-distributions"],
+    "Should match engine with multiple distributions."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "fi",
+      region: "FI",
+      distroID: "distribution-4",
+    },
+    ["engine-distribution-region-locales"],
+    "Should match engine with distribution, specific region and locale."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-4",
+    },
+    [],
+    "Should not match any engines with no matching distribution, region and locale."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-5",
+      experiment: "experiment",
+    },
+    ["engine-distribution-experiment"],
+    "Should match engine with distribution and experiment."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-5",
+      experiment: "no-match-experiment",
+    },
+    [],
+    "Should not match any engines with no matching distribution and experiment."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-include",
+    },
+    ["engine-distribution-excluded"],
+    "Should match engines with included distributions."
+  );
+
+  assertActualEnginesEqualsExpected(
+    CONFIG_DISTRIBUTION,
+    {
+      locale: "en-CA",
+      region: "CA",
+      distroID: "distribution-exclude",
+    },
+    [],
+    "Should not match any engines with excluded distribution."
   );
 });

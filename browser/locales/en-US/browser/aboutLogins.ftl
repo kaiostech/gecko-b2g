@@ -24,9 +24,10 @@ menu =
 # This menuitem is only visible on Windows and macOS
 about-logins-menu-menuitem-import-from-another-browser = Import from Another Browser…
 about-logins-menu-menuitem-import-from-a-file = Import from a File…
-about-logins-menu-menuitem-export-logins = Export Logins…
-# Item that appears when the user clicks the ⋯  menu
+
+about-logins-menu-menuitem-export-logins2 = Export Passwords…
 about-logins-menu-menuitem-remove-all-logins2 = Remove All Passwords…
+
 menu-menuitem-preferences =
   { PLATFORM() ->
       [windows] Options
@@ -84,14 +85,13 @@ about-logins-list-section-week = Last 7 days
 
 ## Introduction screen
 
-about-logins-login-intro-heading-logged-out2 = Looking for your saved logins? Turn on sync or import them.
-about-logins-login-intro-heading-logged-in = No synced logins found.
-login-intro-description = If you saved your logins to { -brand-product-name } on a different device, here’s how to get them here:
+about-logins-login-intro-heading-message = Save your passwords to a safe spot
+login-intro-description2 = All passwords you save to { -brand-product-name } are encrypted. Plus, we watch out for breaches and alert you if you’re affected. <a data-l10n-name="breach-alert-link">Learn more</a>
 login-intro-instructions-fxa2 = Create or sign in to your account on the device where your logins are saved.
 login-intro-instructions-fxa-settings = Go to Settings > Sync > Turn on syncing… Select the Logins and passwords checkbox.
 login-intro-instructions-fxa-passwords-help = Visit <a data-l10n-name="passwords-help-link">passwords support</a> for more help.
 about-logins-intro-browser-only-import = If your logins are saved in another browser, you can <a data-l10n-name="import-link">import them into { -brand-product-name }</a>
-about-logins-intro-import2 = If your logins are saved outside of { -brand-product-name }, you can <a data-l10n-name="import-browser-link">import them from another browser</a> or <a data-l10n-name="import-file-link">from a file</a>
+about-logins-intro-import3 = Select the plus sign button above to add a password now. You can also <a data-l10n-name="import-browser-link">import passwords from another browser</a> or <a data-l10n-name="import-file-link">from a file</a>.
 
 ## Login
 
@@ -222,15 +222,16 @@ about-logins-confirm-remove-all-sync-dialog-title2 =
 # Message for modal to confirm the removal of saved passwords when user IS synced.
 about-logins-confirm-remove-all-sync-dialog-message3 =
   { $count ->
-    [1] This will remove the passwords saved to { -brand-short-name } on all your synced devices. This will also remove any breach alerts that appear here. You cannot undo this action.
+    [1] This will remove the password saved to { -brand-short-name } on all your synced devices. This will also remove any breach alerts that appear here. You cannot undo this action.
     *[other] This will remove all passwords saved to { -brand-short-name } on all your synced devices. This will also remove any breach alerts that appear here. You cannot undo this action.
   }
 
 ##
 
-about-logins-confirm-export-dialog-title = Export logins and passwords
-about-logins-confirm-export-dialog-message = Your passwords will be saved as readable text (e.g., BadP@ssw0rd) so anyone who can open the exported file can view them.
-about-logins-confirm-export-dialog-confirm-button = Export…
+about-logins-confirm-export-dialog-title2 = A note about exporting passwords
+about-logins-confirm-export-dialog-message2 = When you export, your passwords are saved to a file with readable text.
+    When you’re done using the file, we recommend deleting it so others who use this device can’t see your passwords.
+about-logins-confirm-export-dialog-confirm-button2 = Continue with export
 
 about-logins-alert-import-title = Import Complete
 about-logins-alert-import-message = View detailed Import Summary
@@ -271,10 +272,10 @@ about-logins-error-message-default = An error occurred while trying to save this
 ## Login Export Dialog
 
 # Title of the file picker dialog
-about-logins-export-file-picker-title = Export Logins File
+about-logins-export-file-picker-title2 = Export Passwords from { -brand-short-name }
 # The default file name shown in the file picker when exporting saved logins.
 # This must end in .csv
-about-logins-export-file-picker-default-filename = logins.csv
+about-logins-export-file-picker-default-filename2 = passwords.csv
 about-logins-export-file-picker-export-button = Export
 # A description for the .csv file format that may be shown as the file type
 # filter by the operating system.

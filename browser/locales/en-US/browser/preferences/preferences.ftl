@@ -1004,7 +1004,7 @@ forms-ask-to-save-passwords =
     .label = Ask to save passwords
     .accesskey = A
 forms-exceptions =
-    .label = Exceptions
+    .label = Exceptions…
     .accesskey = x
 forms-suggest-passwords =
     .label = Suggest strong passwords
@@ -1049,6 +1049,8 @@ forms-windows-sso =
     .label = Allow Windows single sign-on for Microsoft, work, and school accounts
 forms-windows-sso-learn-more-link = Learn more
 forms-windows-sso-desc = Manage accounts in your device settings
+
+windows-passkey-settings-label = Manage passkeys in system settings
 
 ## OS Authentication dialog
 

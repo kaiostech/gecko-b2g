@@ -837,8 +837,6 @@ var gSync = {
     // the pxi panel to the existing toolbar
     if (this.PXI_TOOLBAR_ENABLED) {
       this.updateCTAPanel();
-    } else {
-      PanelUI.showSubView("PanelUI-fxa", anchor, aEvent);
     }
 
     if (!gFxaToolbarAccessed) {

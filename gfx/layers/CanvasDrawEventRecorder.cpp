@@ -43,7 +43,6 @@ CanvasDrawEventRecorder::CanvasDrawEventRecorder() {
 }
 
 bool CanvasDrawEventRecorder::Init(TextureType aTextureType,
-                                   gfx::BackendType aBackendType,
                                    UniquePtr<Helpers> aHelpers) {
   mHelpers = std::move(aHelpers);
 
@@ -92,8 +91,7 @@ bool CanvasDrawEventRecorder::Init(TextureType aTextureType,
     return false;
   }
 
-  if (!mHelpers->InitTranslator(aTextureType, aBackendType,
-                                std::move(header->handle),
+  if (!mHelpers->InitTranslator(aTextureType, std::move(header->handle),
                                 std::move(bufferHandles), mDefaultBufferSize,
                                 std::move(readerSem), std::move(writerSem),
                                 /* aUseIPDLThread */ false)) {
@@ -155,6 +153,12 @@ void CanvasDrawEventRecorder::WriteInternalEvent(EventType aEventType) {
 
 gfx::ContiguousBuffer& CanvasDrawEventRecorder::GetContiguousBuffer(
     size_t aSize) {
+  if (!mCurrentBuffer.IsValid()) {
+    // If the current buffer is invalid then we've already failed previously.
+    MOZ_ASSERT(mHeader->writerState == State::Failed);
+    return mCurrentBuffer;
+  }
+
   // We make sure that our buffer can hold aSize + 1 to ensure we always have
   // room for the end of buffer event.
 
@@ -210,13 +214,13 @@ gfx::ContiguousBuffer& CanvasDrawEventRecorder::GetContiguousBuffer(
   auto newBuffer = CreateAndMapShmem(bufferSize);
   if (NS_WARN_IF(newBuffer.isNothing())) {
     mHeader->writerState = State::Failed;
-    mCurrentBuffer = CanvasBuffer(nullptr);
+    mCurrentBuffer = CanvasBuffer();
     return mCurrentBuffer;
   }
 
   if (!mHelpers->AddBuffer(std::move(newBuffer->handle), bufferSize)) {
     mHeader->writerState = State::Failed;
-    mCurrentBuffer = CanvasBuffer(nullptr);
+    mCurrentBuffer = CanvasBuffer();
     return mCurrentBuffer;
   }
 

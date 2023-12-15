@@ -16,47 +16,6 @@ ChromeUtils.defineLazyGetter(lazy, "logConsole", () => {
   });
 });
 
-// function hasAppKey(config, key) {
-//   return "application" in config && key in config.application;
-// }
-
-// function sectionExcludes(config, key, value) {
-//   return hasAppKey(config, key) && !config.application[key].includes(value);
-// }
-
-// function sectionIncludes(config, key, value) {
-//   return hasAppKey(config, key) && config.application[key].includes(value);
-// }
-
-// function isDistroExcluded(config, key, distroID) {
-//   // Should be excluded when:
-//   // - There's a distroID and that is not in the non-empty distroID list.
-//   // - There's no distroID and the distroID list is not empty.
-//   const appKey = hasAppKey(config, key);
-//   if (!appKey) {
-//     return false;
-//   }
-//   const distroList = config.application[key];
-//   if (distroID) {
-//     return distroList.length && !distroList.includes(distroID);
-//   }
-//   return !!distroList.length;
-// }
-
-// function belowMinVersion(config, version) {
-//   return (
-//     hasAppKey(config, "minVersion") &&
-//     Services.vc.compare(version, config.application.minVersion) < 0
-//   );
-// }
-
-// function aboveMaxVersion(config, version) {
-//   return (
-//     hasAppKey(config, "maxVersion") &&
-//     Services.vc.compare(version, config.application.maxVersion) > 0
-//   );
-// }
-
 /**
  * SearchEngineSelector parses the JSON configuration for
  * search engines and returns the applicable engines depending
@@ -194,48 +153,83 @@ export class SearchEngineSelector {
     if (!this._configuration) {
       await this.getEngineConfiguration();
     }
+
     lazy.logConsole.debug(
       `fetchEngineConfiguration ${locale}:${region}:${channel}:${distroID}:${experiment}:${appName}:${version}`
     );
-    let engines = [];
 
     appName = appName.toLowerCase();
     version = version.toLowerCase();
     locale = locale.toLowerCase();
     region = region.toLowerCase();
 
+    let engines = [];
+    let defaultsConfig;
+    let engineOrders;
+    let userEnv = {
+      appName,
+      version,
+      locale,
+      region,
+      channel,
+      distroID,
+      experiment,
+    };
+
     for (let config of this._configuration) {
+      if (config.recordType == "defaultEngines") {
+        defaultsConfig = config;
+      }
+
+      if (config.recordType == "engineOrders") {
+        engineOrders = config;
+      }
+
       if (config.recordType !== "engine") {
         continue;
       }
 
-      if (
-        this.#matchesUserEnvironment(config.base, {
-          appName,
-          version,
-          locale,
-          region,
-          channel,
-          distroID,
-          experiment,
-        })
-      ) {
-        let engine = this.#copyObject({}, config.base);
-        engine.identifier = config.identifier;
-        engines.push(engine);
+      let variants =
+        config.variants?.filter(variant =>
+          this.#matchesUserEnvironment(variant, userEnv)
+        ) ?? [];
+
+      if (!variants.length) {
+        continue;
+      }
+
+      let engine = this.#copyObject({}, config.base);
+      engine.identifier = config.identifier;
+
+      // Variants are applied to the base engine cumulatively.
+      for (let variant of variants) {
+        engine = this.#copyObject(engine, variant);
+      }
+
+      engines.push(engine);
+    }
+
+    let { defaultEngine, privateDefault } = this.#defaultEngines(
+      engines,
+      defaultsConfig,
+      userEnv
+    );
+
+    for (const orderData of engineOrders.orders) {
+      let environment = orderData.environment;
+
+      if (this.#matchesUserEnvironment({ environment }, userEnv)) {
+        this.#setEngineOrders(engines, orderData.order, userEnv);
       }
     }
 
-    // let defaultEngine;
-    // let privateEngine;
-
-    // engines.sort(this._sort.bind(this, defaultEngine, privateEngine));
+    engines.sort(this._sort.bind(this, defaultEngine, privateDefault));
 
     let result = { engines };
 
-    // if (privateEngine) {
-    //   result.privateDefault = privateEngine;
-    // }
+    if (privateDefault) {
+      result.privateDefault = privateDefault;
+    }
 
     if (lazy.SearchUtils.loggingEnabled) {
       lazy.logConsole.debug(
@@ -245,10 +239,10 @@ export class SearchEngineSelector {
     return result;
   }
 
-  _sort(defaultEngine, privateEngine, a, b) {
+  _sort(defaultEngine, defaultPrivateEngine, a, b) {
     return (
-      this._sortIndex(b, defaultEngine, privateEngine) -
-      this._sortIndex(a, defaultEngine, privateEngine)
+      this._sortIndex(b, defaultEngine, defaultPrivateEngine) -
+      this._sortIndex(a, defaultEngine, defaultPrivateEngine)
     );
   }
 
@@ -257,39 +251,29 @@ export class SearchEngineSelector {
    * engines are ordered correctly.
    *
    * @param {object} obj
-   *   Object representing the engine configation.
+   *   Object representing the engine configuration.
    * @param {object} defaultEngine
    *   The default engine, for comparison to obj.
-   * @param {object} privateEngine
-   *   The private engine, for comparison to obj.
+   * @param {object} defaultPrivateEngine
+   *   The default private engine, for comparison to obj.
    * @returns {integer}
    *  Number indicating how this engine should be sorted.
    */
-  _sortIndex(obj, defaultEngine, privateEngine) {
+  _sortIndex(obj, defaultEngine, defaultPrivateEngine) {
     if (obj == defaultEngine) {
       return Number.MAX_SAFE_INTEGER;
     }
-    if (obj == privateEngine) {
+    if (obj == defaultPrivateEngine) {
       return Number.MAX_SAFE_INTEGER - 1;
     }
     return obj.orderHint || 0;
   }
 
   /**
-   * Is the engine marked to be the default search engine.
-   *
-   * @param {object} obj - Object representing the engine configation.
-   * @returns {boolean} - Whether the engine should be default.
-   */
-  _isDefault(obj) {
-    return "default" in obj && obj.default === "yes";
-  }
-
-  /**
    * Object.assign but ignore some keys
    *
    * @param {object} target - Object to copy to.
-   * @param {object} source - Object top copy from.
+   * @param {object} source - Object to copy from.
    * @returns {object} - The source object.
    */
   #copyObject(target, source) {
@@ -345,31 +329,106 @@ export class SearchEngineSelector {
       }
     }
 
-    // const distroExcluded =
-    //   (distroID &&
-    //     sectionIncludes(section, "excludedDistributions", distroID)) ||
-    //   isDistroExcluded(section, "distributions", distroID);
-    // if (distroID && !distroExcluded && section.override) {
-    //   if ("included" in section || "excluded" in section) {
-    //     return shouldInclude();
-    //   }
-    //   return true;
-    // }
-    // if (
-    //   sectionExcludes(section, "channel", channel) ||
-    //   sectionExcludes(section, "name", lcAppName) ||
-    //   distroExcluded ||
-    //   belowMinVersion(section, lcVersion) ||
-    //   aboveMaxVersion(section, lcVersion)
-    // ) {
-    //   return false;
-    // }
+    if ("excludedDistributions" in config.environment) {
+      if (config.environment.excludedDistributions.includes(user.distroID)) {
+        return false;
+      }
+    }
 
-    return this.#matchesRegionAndLocale(
-      user.region,
-      user.locale,
-      config.environment
+    return (
+      this.#matchesRegionAndLocale(
+        user.region,
+        user.locale,
+        config.environment
+      ) &&
+      this.#matchesDistribution(
+        user.distroID,
+        config.environment.distributions
+      ) &&
+      this.#matchesVersions(
+        config.environment.minVersion,
+        config.environment.maxVersion,
+        user.version
+      ) &&
+      this.#matchesChannel(config.environment.channels, user.channel) &&
+      this.#matchesApplication(config.environment.applications, user.appName)
     );
+  }
+
+  /**
+   * @param {string} userDistro
+   *  The distribution from the user's environment.
+   * @param {Array} configDistro
+   *  An array of distributions for the particular environment in the config.
+   * @returns {boolean}
+   *  True if the user's distribution is included in the config distribution
+   *  list.
+   */
+  #matchesDistribution(userDistro, configDistro) {
+    // If there's no distribution for this engineConfig, ignore the check.
+    if (!configDistro) {
+      return true;
+    }
+
+    return configDistro?.includes(userDistro);
+  }
+
+  /**
+   * @param {string} minVersion
+   *  The minimum version supported.
+   * @param {string} maxVersion
+   *  The maximum version supported.
+   * @param {string} userVersion
+   *  The user's version.
+   * @returns {boolean}
+   *  True if the user's version is within the range of the min and max versions
+   *  supported.
+   */
+  #matchesVersions(minVersion, maxVersion, userVersion) {
+    // If there's no versions for this engineConfig, ignore the check.
+    if (!minVersion && !maxVersion) {
+      return true;
+    }
+
+    return (
+      (minVersion && Services.vc.compare(userVersion, minVersion) < 0) ||
+      (maxVersion && Services.vc.compare(userVersion, maxVersion) > 0)
+    );
+  }
+
+  /**
+   * @param {Array} configChannels
+   *  Release channels such as nightly, beta, release, esr.
+   * @param {string} userChannel
+   *  The user's channel.
+   * @returns {boolean}
+   *  True if the user's channel is included in the config channels.
+   */
+  #matchesChannel(configChannels, userChannel) {
+    // If there's no channels for this engineConfig, ignore the check.
+    if (!configChannels) {
+      return true;
+    }
+
+    return configChannels.includes(userChannel);
+  }
+
+  /**
+   * @param {Array} configApps
+   *  The applications such as firefox, firefox-android, firefox-ios,
+   *  focus-android, and focus-ios.
+   * @param {string} userApp
+   *  The user's application.
+   * @returns {boolean}
+   *  True if the user's application is included in the config applications.
+   */
+  #matchesApplication(configApps, userApp) {
+    // If there's no config Applications for this engineConfig, ignore the check.
+    if (!configApps) {
+      return true;
+    }
+
+    return configApps.includes(userApp);
   }
 
   /**
@@ -395,6 +454,16 @@ export class SearchEngineSelector {
     }
 
     if (configEnv.allRegionsAndLocales) {
+      return true;
+    }
+
+    // When none of the regions and locales are set. This implies its available
+    // everywhere.
+    if (
+      !Object.hasOwn(configEnv, "allRegionsAndLocales") &&
+      !Object.hasOwn(configEnv, "regions") &&
+      !Object.hasOwn(configEnv, "locales")
+    ) {
       return true;
     }
 
@@ -443,5 +512,129 @@ export class SearchEngineSelector {
     return configArray.find(
       configItem => configItem.toLowerCase() === compareItem
     );
+  }
+
+  /**
+   * Gets the default engine and default private engine based on the user's
+   * environment.
+   *
+   * @param {Array} engines
+   *   An array that contains the engines for the user environment.
+   * @param {object} defaultsConfig
+   *   The defaultEngines record type from the search config.
+   * @param {object} userEnv
+   *   The user's environment.
+   * @returns {object}
+   *   An object with default engine and default private engine.
+   */
+  #defaultEngines(engines, defaultsConfig, userEnv) {
+    let defaultEngine, privateDefault;
+
+    for (let data of defaultsConfig.specificDefaults) {
+      let environment = data.environment;
+
+      if (this.#matchesUserEnvironment({ environment }, userEnv)) {
+        defaultEngine = this.#findDefault(engines, data) ?? defaultEngine;
+        privateDefault =
+          this.#findDefault(engines, data, "private") ?? privateDefault;
+      }
+    }
+
+    defaultEngine ??= this.#findGlobalDefault(engines, defaultsConfig);
+    privateDefault ??= this.#findGlobalDefault(
+      engines,
+      defaultsConfig,
+      "private"
+    );
+
+    return { defaultEngine, privateDefault };
+  }
+
+  /**
+   * Finds the global default engine or global default private engine.
+   *
+   * @param {Array} engines
+   *   The engines for the user environment.
+   * @param {string} config
+   *   The defaultEngines record from the config.
+   * @param {string} [engineType]
+   *   A string to identify default or default private.
+   * @returns {object}
+   *   The global default engine or global default private engine.
+   */
+  #findGlobalDefault(engines, config, engineType = "default") {
+    let engine;
+    if (config.globalDefault && engineType == "default") {
+      engine = engines.find(e => e.identifier == config.globalDefault);
+    }
+
+    if (config.globalDefaultPrivate && engineType == "private") {
+      engine = engines.find(e => e.identifier == config.globalDefaultPrivate);
+    }
+
+    return engine;
+  }
+
+  /**
+   * Finds the default engine or default private engine from the list of
+   * engines that match the user's environment.
+   *
+   * @param {Array} engines
+   *   The engines for the user environment.
+   * @param {string} config
+   *   The specific defaults record that contains the default engine or default
+   *   private engine identifer for the environment.
+   * @param {string} [engineType]
+   *   A string to identify default engine or default private engine.
+   * @returns {object}
+   *   The default engine or default private engine.
+   */
+  #findDefault(engines, config, engineType = "default") {
+    let defaultMatch =
+      engineType == "default" ? config.default : config.defaultPrivate;
+
+    let startsWith =
+      engineType == "default"
+        ? config.defaultStartsWith
+        : config.defaultPrivateStartsWith;
+
+    let engine = engines.find(
+      e =>
+        (defaultMatch && e.identifier == defaultMatch) ||
+        (startsWith && e.identifier.startsWith(startsWith))
+    );
+
+    return engine;
+  }
+
+  /**
+   * Sets the orderHint number for the engines.
+   *
+   * @param {Array} engines
+   *  The engines for the user environment.
+   * @param {Array} orderedEngines
+   *  The ordering of engines. Engines in the beginning of the list get a higher
+   *  orderHint number.
+   * @param {object} userEnv
+   *   The user's environment.
+   */
+  #setEngineOrders(engines, orderedEngines, userEnv) {
+    let orderNumber = orderedEngines.length;
+
+    for (const engine of orderedEngines) {
+      let foundEngine;
+
+      if (engine.endsWith("*")) {
+        let match = engine.slice(0, -1);
+        foundEngine = engines.find(e => e.identifier.startsWith(match));
+      } else {
+        foundEngine = engines.find(e => e.identifier == engine);
+      }
+
+      if (foundEngine) {
+        foundEngine.orderHint = orderNumber;
+        orderNumber -= 1;
+      }
+    }
   }
 }

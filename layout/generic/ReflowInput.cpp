@@ -2365,11 +2365,10 @@ void ReflowInput::InitConstraints(
       }
 
       nsIFrame* alignCB = mFrame->GetParent();
-      if (alignCB->IsTableWrapperFrame() && alignCB->GetParent()) {
-        // XXX grid-specific for now; maybe remove this check after we address
-        // bug 799725
-        if (alignCB->GetParent()->IsGridContainerFrame()) {
-          alignCB = alignCB->GetParent();
+      if (alignCB->IsTableWrapperFrame()) {
+        nsIFrame* alignCBParent = alignCB->GetParent();
+        if (alignCBParent && alignCBParent->IsGridContainerFrame()) {
+          alignCB = alignCBParent;
         }
       }
       if (alignCB->IsGridContainerFrame()) {
@@ -2389,10 +2388,6 @@ void ReflowInput::InitConstraints(
         // Shrink-wrap blocks that are orthogonal to their container.
         if (isBlockLevel && mCBReflowInput &&
             mCBReflowInput->GetWritingMode().IsOrthogonalTo(mWritingMode)) {
-          mComputeSizeFlags += ComputeSizeFlag::ShrinkWrap;
-        }
-
-        if (alignCB->IsFlexContainerFrame()) {
           mComputeSizeFlags += ComputeSizeFlag::ShrinkWrap;
         }
       }

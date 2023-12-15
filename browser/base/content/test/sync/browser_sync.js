@@ -177,6 +177,12 @@ add_task(async function test_ui_state_signedin() {
 
   checkMenuBarItem("sync-syncnowitem");
   checkPanelHeader();
+  ok(
+    BrowserTestUtils.is_visible(
+      document.getElementById("fxa-menu-header-title")
+    ),
+    "expected toolbar to be visible after opening"
+  );
   checkFxaToolbarButtonPanel({
     headerTitle: "Manage account",
     headerDescription: state.displayName,
@@ -668,6 +674,12 @@ add_task(async function test_experiment_ui_state_signedin() {
 
   checkMenuBarItem("sync-syncnowitem");
   checkPanelHeader();
+  ok(
+    BrowserTestUtils.is_visible(
+      document.getElementById("fxa-menu-header-title")
+    ),
+    "expected toolbar to be visible after opening"
+  );
   checkFxaToolbarButtonPanel({
     headerTitle: "Manage account",
     headerDescription: state.displayName,

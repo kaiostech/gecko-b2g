@@ -11,59 +11,8 @@ const RICH_SUGGESTIONS_PREF = "browser.urlbar.richSuggestions.featureGate";
 
 const QUICKACTIONS_URLBAR_PREF = "quickactions.enabled";
 
-var suggestionsFn;
-var previousSuggestionsFn;
-
-/**
- * Set the current suggestion funciton.
- *
- * @param {Function} fn
- *   A function that that a search string and returns an array of strings that
- *   will be used as search suggestions.
- *   Note: `fn` should return > 1 suggestion in most cases. Otherwise, you may
- *         encounter unexceptede behaviour with UrlbarProviderSuggestion's
- *         _lastLowResultsSearchSuggestion safeguard.
- */
-function setSuggestionsFn(fn) {
-  previousSuggestionsFn = suggestionsFn;
-  suggestionsFn = fn;
-}
-
-async function cleanUpSuggestions() {
-  if (previousSuggestionsFn) {
-    suggestionsFn = previousSuggestionsFn;
-    previousSuggestionsFn = null;
-  }
-}
-
 add_setup(async function () {
-  let engine = await addTestTailSuggestionsEngine(searchStr => {
-    return suggestionsFn(searchStr);
-  });
-  setSuggestionsFn(searchStr => {
-    let suffixes = ["toronto", "tunisia", "tacoma", "taipei"];
-    return [
-      "what time is it in t",
-      suffixes.map(s => searchStr + s.slice(1)),
-      [],
-      {
-        "google:irrelevantparameter": [],
-        "google:suggestdetail": suffixes.map((suffix, i) => {
-          // Set every other suggestion as a rich suggestion so we can
-          // test how they are handled and ordered when interleaved.
-          if (i % 2) {
-            return {};
-          }
-          return {
-            a: "description",
-            dc: "#FFFFFF",
-            i: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
-            t: "Title",
-          };
-        }),
-      },
-    ];
-  });
+  let engine = await addTestTailSuggestionsEngine(defaultRichSuggestionsFn);
 
   // Install the test engine.
   let oldDefaultEngine = await Services.search.getDefault();
@@ -92,7 +41,6 @@ add_task(async function test_richsuggestions_order() {
 
   let defaultRichResult = {
     engineName: TAIL_SUGGESTIONS_ENGINE_NAME,
-    tail: "Title",
     isRichSuggestion: true,
   };
 
@@ -125,6 +73,4 @@ add_task(async function test_richsuggestions_order() {
       }),
     ],
   });
-
-  await cleanUpSuggestions();
 });

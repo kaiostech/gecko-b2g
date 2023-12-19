@@ -43,10 +43,16 @@ enum class CodecType {
 // TODO: Automatically generate this (Bug 1865896)
 const char* GetCodecTypeString(const CodecType& aCodecType);
 
+enum class H264BitStreamFormat { AVC, ANNEXB };
+
 struct H264Specific final {
   const H264_PROFILE mProfile;
+  const H264_LEVEL mLevel;
+  const H264BitStreamFormat mFormat;
 
-  explicit H264Specific(H264_PROFILE aProfile) : mProfile(aProfile) {}
+  H264Specific(H264_PROFILE aProfile, H264_LEVEL aLevel,
+               H264BitStreamFormat aFormat)
+      : mProfile(aProfile), mLevel(aLevel), mFormat(aFormat) {}
 };
 
 struct OpusSpecific final {
@@ -234,7 +240,8 @@ class EncoderConfig final {
         mFramerate(aConfig.mFramerate),
         mKeyframeInterval(aConfig.mKeyframeInterval),
         mBitrate(aConfig.mBitrate),
-        mBitrateMode(aConfig.mBitrateMode) {}
+        mBitrateMode(aConfig.mBitrateMode),
+        mCodecSpecific(aConfig.mCodecSpecific) {}
 
   template <typename... Ts>
   EncoderConfig(const CodecType aCodecType, gfx::IntSize aSize,

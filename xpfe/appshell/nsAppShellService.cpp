@@ -743,7 +743,6 @@ nsresult nsAppShellService::JustCreateTopWindow(
   }
 
   window.forget(aResult);
-  if (parent) parent->AddChildWindow(*aResult);
 
   if (center) rv = (*aResult)->Center(parent, parent ? false : true, false);
 

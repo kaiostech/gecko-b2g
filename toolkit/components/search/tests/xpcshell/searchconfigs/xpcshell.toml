@@ -42,10 +42,16 @@ requesttimeoutfactor = 2
 
 ["test_searchconfig_validates.js"]
 support-files = [
-  "../../../schema/search-engine-config-schema.json",
-  "../../../schema/search-engine-config-ui-schema.json",
-  "../../../schema/search-engine-config-v2-schema.json",
-  "../../../schema/search-engine-config-v2-ui-schema.json",
+  "../../../schema/search-config-schema.json",
+  "../../../schema/search-config-ui-schema.json",
+  "../../../schema/search-config-v2-schema.json",
+  "../../../schema/search-config-v2-ui-schema.json",
+]
+
+["test_searchicons_validates.js"]
+support-files = [
+  "../../../schema/search-config-icons-schema.json",
+  "../../../schema/search-config-icons-ui-schema.json",
 ]
 
 ["test_selector_db_out_of_date.js"]

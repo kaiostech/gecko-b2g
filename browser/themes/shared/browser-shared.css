@@ -159,9 +159,6 @@
 
     &:-moz-window-inactive {
       background-color: var(--lwt-accent-color-inactive, var(--lwt-accent-color));
-      :root[tabsintitlebar] & {
-        color: color-mix(in srgb, currentColor 60%, transparent);
-      }
     }
   }
 
@@ -172,6 +169,22 @@
     background-repeat: no-repeat, var(--lwt-background-tiling);
     background-position: right top, var(--lwt-background-alignment);
   }
+}
+
+.browser-toolbar {
+  appearance: none;
+  /* Reset linux padding */
+  padding: 0;
+
+  &:not(.titlebar-color) {
+    background-color: var(--toolbar-bgcolor);
+    color: var(--toolbar-color);
+    border-style: none;
+  }
+}
+
+:root[tabsintitlebar] #titlebar:-moz-window-inactive {
+  opacity: .6;
 }
 
 /* Add space to beginning of toolbar and make that space click the first <toolbarbutton> */
@@ -1166,4 +1179,5 @@ shopping-sidebar {
   min-width: 16.92em;
   max-width: 32.31em;
   width: 320px;
+  box-sizing: content-box;
 }

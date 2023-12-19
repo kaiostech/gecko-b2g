@@ -331,9 +331,9 @@ bool GetMethod(JSContext* cx, JS::Handle<JSObject*> object,
 /**
  * GetMethod ( V, P )
  */
-bool GetMethodForCall(JSContext* cx, JS::Handle<JSObject*> object,
-                      JS::Handle<PropertyName*> name,
-                      JS::MutableHandle<JS::Value> result);
+bool GetMethod(JSContext* cx, JS::Handle<JSObject*> object,
+               JS::Handle<PropertyName*> name,
+               JS::MutableHandle<JSObject*> result);
 
 /**
  * SnapshotOwnProperties ( source, proto [ , excludedKeys [ , excludedValues ] ]
@@ -372,7 +372,7 @@ struct DifferenceSettings final {
  * fallbackSmallestUnit, smallestLargestDefaultUnit )
  */
 bool GetDifferenceSettings(JSContext* cx, TemporalDifference operation,
-                           JS::Handle<JSObject*> options,
+                           JS::Handle<PlainObject*> options,
                            TemporalUnitGroup unitGroup,
                            TemporalUnit smallestAllowedUnit,
                            TemporalUnit fallbackSmallestUnit,
@@ -384,7 +384,7 @@ bool GetDifferenceSettings(JSContext* cx, TemporalDifference operation,
  * fallbackSmallestUnit, smallestLargestDefaultUnit )
  */
 inline bool GetDifferenceSettings(JSContext* cx, TemporalDifference operation,
-                                  JS::Handle<JSObject*> options,
+                                  JS::Handle<PlainObject*> options,
                                   TemporalUnitGroup unitGroup,
                                   TemporalUnit fallbackSmallestUnit,
                                   TemporalUnit smallestLargestDefaultUnit,

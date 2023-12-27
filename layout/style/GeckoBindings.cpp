@@ -497,21 +497,6 @@ bool Gecko_StyleViewTimelinesEquals(
   return *aA == *aB;
 }
 
-void Gecko_CopyAnimationNames(nsStyleAutoArray<StyleAnimation>* aDest,
-                              const nsStyleAutoArray<StyleAnimation>* aSrc) {
-  size_t srcLength = aSrc->Length();
-  aDest->EnsureLengthAtLeast(srcLength);
-
-  for (size_t index = 0; index < srcLength; index++) {
-    (*aDest)[index].SetName((*aSrc)[index].GetName());
-  }
-}
-
-void Gecko_SetAnimationName(StyleAnimation* aStyleAnimation, nsAtom* aAtom) {
-  MOZ_ASSERT(aStyleAnimation);
-  aStyleAnimation->SetName(already_AddRefed<nsAtom>(aAtom));
-}
-
 void Gecko_UpdateAnimations(const Element* aElement,
                             const ComputedStyle* aOldComputedData,
                             const ComputedStyle* aComputedData,
@@ -1044,13 +1029,7 @@ void Gecko_EnsureImageLayersLength(nsStyleImageLayers* aLayers, size_t aLen,
 
 template <typename StyleType>
 static void EnsureStyleAutoArrayLength(StyleType* aArray, size_t aLen) {
-  size_t oldLength = aArray->Length();
-
   aArray->EnsureLengthAtLeast(aLen);
-
-  for (size_t i = oldLength; i < aLen; ++i) {
-    (*aArray)[i].SetInitialValues();
-  }
 }
 
 void Gecko_EnsureStyleAnimationArrayLength(void* aArray, size_t aLen) {
@@ -1649,6 +1628,10 @@ bool Gecko_ComputeBoolPrefMediaQuery(nsAtom* aPref) {
   // controlled by us so it's not expected to be big.
   static StaticAutoPtr<nsTHashMap<RefPtr<nsAtom>, bool>> sRegisteredPrefs;
   if (!sRegisteredPrefs) {
+    if (PastShutdownPhase(ShutdownPhase::XPCOMShutdownFinal)) {
+      // Styling doesn't really matter much at this point, don't bother.
+      return false;
+    }
     sRegisteredPrefs = new nsTHashMap<RefPtr<nsAtom>, bool>();
     ClearOnShutdown(&sRegisteredPrefs);
   }

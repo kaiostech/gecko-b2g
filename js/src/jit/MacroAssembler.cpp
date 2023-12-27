@@ -641,12 +641,11 @@ void MacroAssembler::bumpPointerAllocate(Register result, Register temp,
     storePtr(ImmWord(headerWord),
              Address(result, -js::Nursery::nurseryCellHeaderSize()));
 
-    // Update the catch all allocation site for strings or if the profiler is
-    // enabled. This is used to calculate the nursery allocation count. The
-    // string data is used to determine whether to disable nursery string
-    // allocation.
-    if (traceKind == JS::TraceKind::String ||
+    if (traceKind != JS::TraceKind::Object ||
         runtime()->geckoProfiler().enabled()) {
+      // Update the catch all allocation site, which his is used to calculate
+      // nursery allocation counts so we can determine whether to disable
+      // nursery allocation of strings and bigints.
       uint32_t* countAddress = site->nurseryAllocCountAddress();
       CheckedInt<int32_t> counterOffset =
           (CheckedInt<uintptr_t>(uintptr_t(countAddress)) -
@@ -2300,6 +2299,13 @@ void MacroAssembler::loadGlobalObjectData(Register dest) {
 
 void MacroAssembler::switchToRealm(Register realm) {
   storePtr(realm, AbsoluteAddress(ContextRealmPtr(runtime())));
+}
+
+void MacroAssembler::loadRealmFuse(RealmFuses::FuseIndex index, Register dest) {
+  // Load Realm pointer
+  loadPtr(AbsoluteAddress(ContextRealmPtr(runtime())), dest);
+  loadPtr(Address(dest, RealmFuses::offsetOfFuseWordRelativeToRealm(index)),
+          dest);
 }
 
 void MacroAssembler::switchToRealm(const void* realm, Register scratch) {
@@ -7680,6 +7686,10 @@ void MacroAssembler::prepareHashString(Register str, Register result,
   bind(&ok);
 #endif
 
+#ifdef JS_64BIT
+  static_assert(FatInlineAtom::offsetOfHash() == NormalAtom::offsetOfHash());
+  load32(Address(str, NormalAtom::offsetOfHash()), result);
+#else
   move32(Imm32(JSString::FAT_INLINE_MASK), temp);
   and32(Address(str, JSString::offsetOfFlags()), temp);
 
@@ -7705,6 +7715,7 @@ void MacroAssembler::prepareHashString(Register str, Register result,
     load32(BaseIndex(str, result, TimesOne, NormalAtom::offsetOfHash()),
            result);
   }
+#endif
 
   scrambleHashCode(result);
 }

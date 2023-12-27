@@ -32,6 +32,7 @@ enum class CodecType {
   H264,
   VP8,
   VP9,
+  AV1,
   _EndVideo_,
   _BeginAudio_ = _EndVideo_,
   Opus,
@@ -149,6 +150,7 @@ class MediaDataEncoder {
   };
   using PixelFormat = dom::ImageBitmapFormat;
   enum BitrateMode { Constant, Variable };
+  enum ScalabilityMode { None, L1T2, L1T3 };
 
   enum class HardwarePreference { RequireHardware, RequireSoftware, None };
 
@@ -237,6 +239,7 @@ class EncoderConfig final {
         mHardwarePreference(aConfig.mHardwarePreference),
         mPixelFormat(aConfig.mPixelFormat),
         mSourcePixelFormat(aConfig.mSourcePixelFormat),
+        mScalabilityMode(aConfig.mScalabilityMode),
         mFramerate(aConfig.mFramerate),
         mKeyframeInterval(aConfig.mKeyframeInterval),
         mBitrate(aConfig.mBitrate),
@@ -252,6 +255,7 @@ class EncoderConfig final {
                 const uint32_t aBitrate,
                 const MediaDataEncoder::BitrateMode aBitrateMode,
                 const MediaDataEncoder::HardwarePreference aHardwarePreference,
+                const MediaDataEncoder::ScalabilityMode aScalabilityMode,
                 const Maybe<CodecSpecific>& aCodecSpecific)
       : mCodec(aCodecType),
         mSize(aSize),
@@ -259,6 +263,7 @@ class EncoderConfig final {
         mHardwarePreference(aHardwarePreference),
         mPixelFormat(aPixelFormat),
         mSourcePixelFormat(aSourcePixelFormat),
+        mScalabilityMode(aScalabilityMode),
         mFramerate(aFramerate),
         mKeyframeInterval(aKeyframeInterval),
         mBitrate(aBitrate),
@@ -293,6 +298,7 @@ class EncoderConfig final {
   MediaDataEncoder::HardwarePreference mHardwarePreference;
   MediaDataEncoder::PixelFormat mPixelFormat;
   MediaDataEncoder::PixelFormat mSourcePixelFormat;
+  MediaDataEncoder::ScalabilityMode mScalabilityMode;
   uint8_t mFramerate{};
   size_t mKeyframeInterval{};
   uint32_t mBitrate{};
@@ -365,6 +371,12 @@ struct EncoderConfigurationChangeList {
  private:
   ~EncoderConfigurationChangeList() = default;
 };
+
+// Just by inspecting the configuration and before asking the PEM, it's
+// sometimes possible to know that a media won't be able to be encoded. For
+// example, VP8 encodes the frame size on 14 bits, so a resolution of more than
+// 16383x16383 pixels cannot work.
+bool CanLikelyEncode(const EncoderConfig& aConfig);
 
 }  // namespace mozilla
 

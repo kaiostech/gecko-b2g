@@ -64,18 +64,17 @@ static bool SetAverageBitrate(VTCompressionSessionRef& aSession,
 
 static bool SetConstantBitrate(VTCompressionSessionRef& aSession,
                                uint32_t aBitsPerSec) {
-  int64_t bps(aBitsPerSec);
+  int32_t bps(aBitsPerSec);
   AutoCFRelease<CFNumberRef> bitrate(
-      CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &bps));
-  // Not available before macOS 13 -- this will fail cleanly when not supported
-  // but the symbol kVTCompressionPropertyKey_ConstantBitRate isn't available
-  // return VTSessionSetProperty(aSession,
-  //                             bitrate) == noErr;
+      CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &bps));
 
   if (__builtin_available(macos 13.0, *)) {
-    return VTSessionSetProperty(aSession,
-                                kVTCompressionPropertyKey_ConstantBitRate,
-                                bitrate) == noErr;
+    int rv = VTSessionSetProperty(aSession,
+                                  kVTCompressionPropertyKey_ConstantBitRate,
+                                  bitrate) == noErr;
+    if (rv == kVTPropertyNotSupportedErr) {
+      LOGE("Constant bitrate not supported.");
+    }
   }
   return false;
 }
@@ -121,6 +120,9 @@ static bool SetProfileLevel(VTCompressionSessionRef& aSession,
       break;
     case H264_PROFILE::H264_PROFILE_MAIN:
       profileLevel = kVTProfileLevel_H264_Main_AutoLevel;
+      break;
+    case H264_PROFILE::H264_PROFILE_HIGH:
+      profileLevel = kVTProfileLevel_H264_High_AutoLevel;
       break;
     default:
       LOGE("Profile %d not handled", static_cast<int>(aValue));
@@ -457,7 +459,13 @@ void AppleVTEncoder::OutputFrame(CMSampleBufferRef aBuffer) {
   LOGD("::OutputFrame");
   RefPtr<MediaRawData> output(new MediaRawData());
 
-  bool asAnnexB = mConfig.mUsage == Usage::Realtime;
+
+  bool forceAvcc = false;
+  if (mConfig.mCodecSpecific->is<H264Specific>()) {
+    forceAvcc = mConfig.mCodecSpecific->as<H264Specific>().mFormat ==
+      H264BitStreamFormat::AVC;
+  }
+  bool asAnnexB = mConfig.mUsage == Usage::Realtime && !forceAvcc;
   bool succeeded = WriteExtraData(output, aBuffer, asAnnexB) &&
                    WriteNALUs(output, aBuffer, asAnnexB);
 

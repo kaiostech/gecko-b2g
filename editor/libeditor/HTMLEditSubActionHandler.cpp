@@ -1627,7 +1627,8 @@ nsresult HTMLEditor::InsertLineBreakAsSubAction() {
         backwardScanFromBeforeBRElementResult.ReachedBlockBoundary();
     const bool brElementIsBeforeBlock =
         forwardScanFromAfterBRElementResult.ReachedBlockBoundary();
-    const bool isEmptyEditingHost = HTMLEditUtils::IsEmptyNode(*editingHost);
+    const bool isEmptyEditingHost = HTMLEditUtils::IsEmptyNode(
+        *editingHost, {EmptyCheckOption::TreatNonEditableContentAsInvisible});
     if (brElementIsBeforeBlock &&
         (isEmptyEditingHost || !brElementIsAfterBlock)) {
       // Empty last line is invisible if it's immediately before either parent
@@ -2249,7 +2250,8 @@ Result<CreateElementResult, nsresult> HTMLEditor::HandleInsertBRElement(
   MOZ_ASSERT(aPointToBreak.IsSet());
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  const bool editingHostIsEmpty = HTMLEditUtils::IsEmptyNode(aEditingHost);
+  const bool editingHostIsEmpty = HTMLEditUtils::IsEmptyNode(
+      aEditingHost, {EmptyCheckOption::TreatNonEditableContentAsInvisible});
   WSRunScanner wsRunScanner(&aEditingHost, aPointToBreak,
                             BlockInlineCheck::UseComputedDisplayStyle);
   WSScanResult backwardScanResult =
@@ -2592,7 +2594,9 @@ HTMLEditor::HandleInsertParagraphInMailCiteElement(
     const Element& aEditingHost) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(aPointToSplit.IsSet());
-  NS_ASSERTION(!HTMLEditUtils::IsEmptyNode(aMailCiteElement),
+  NS_ASSERTION(!HTMLEditUtils::IsEmptyNode(
+                   aMailCiteElement,
+                   {EmptyCheckOption::TreatNonEditableContentAsInvisible}),
                "The mail-cite element will be deleted, does it expected result "
                "for you?");
 
@@ -2776,7 +2780,10 @@ HTMLEditor::HandleInsertParagraphInMailCiteElement(
     }
   }
 
-  if (leftCiteElement && HTMLEditUtils::IsEmptyNode(*leftCiteElement)) {
+  if (leftCiteElement &&
+      HTMLEditUtils::IsEmptyNode(
+          *leftCiteElement,
+          {EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
     // MOZ_KnownLive(leftCiteElement) because it's grabbed by
     // unwrappedSplitCiteElementResult.
     nsresult rv = DeleteNodeWithTransaction(MOZ_KnownLive(*leftCiteElement));
@@ -2786,7 +2793,10 @@ HTMLEditor::HandleInsertParagraphInMailCiteElement(
     }
   }
 
-  if (rightCiteElement && HTMLEditUtils::IsEmptyNode(*rightCiteElement)) {
+  if (rightCiteElement &&
+      HTMLEditUtils::IsEmptyNode(
+          *rightCiteElement,
+          {EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
     // MOZ_KnownLive(rightCiteElement) because it's grabbed by
     // unwrappedSplitCiteElementResult.
     nsresult rv = DeleteNodeWithTransaction(MOZ_KnownLive(*rightCiteElement));
@@ -3667,7 +3677,9 @@ bool HTMLEditor::AutoListElementCreator::
     // XXX Should we handle line breaks in preformatted text node?
     if (!content->IsHTMLElement(nsGkAtoms::br) &&
         !HTMLEditUtils::IsEmptyInlineContainer(
-            content, {EmptyCheckOption::TreatSingleBRElementAsVisible},
+            content,
+            {EmptyCheckOption::TreatSingleBRElementAsVisible,
+             EmptyCheckOption::TreatNonEditableContentAsInvisible},
             BlockInlineCheck::UseComputedDisplayStyle)) {
       return false;
     }
@@ -3808,7 +3820,9 @@ nsresult HTMLEditor::AutoListElementCreator::HandleChildContent(
   if (EditorUtils::IsEditableContent(aHandlingContent, EditorType::HTML) &&
       (aHandlingContent.IsHTMLElement(nsGkAtoms::br) ||
        HTMLEditUtils::IsEmptyInlineContainer(
-           aHandlingContent, {EmptyCheckOption::TreatSingleBRElementAsVisible},
+           aHandlingContent,
+           {EmptyCheckOption::TreatSingleBRElementAsVisible,
+            EmptyCheckOption::TreatNonEditableContentAsInvisible},
            BlockInlineCheck::UseHTMLDefaultStyle))) {
     nsresult rv = aHTMLEditor.DeleteNodeWithTransaction(aHandlingContent);
     if (NS_FAILED(rv)) {
@@ -4143,8 +4157,7 @@ nsresult HTMLEditor::AutoListElementCreator::HandleChildDivOrParagraphElement(
   // If the <div> or <p> is empty, we should replace it with a list element
   // and/or a list item element.
   if (HTMLEditUtils::IsEmptyNode(aHandlingDivOrParagraphElement,
-                                 {EmptyCheckOption::IgnoreEditableState,
-                                  EmptyCheckOption::TreatListItemAsVisible,
+                                 {EmptyCheckOption::TreatListItemAsVisible,
                                   EmptyCheckOption::TreatTableCellAsVisible})) {
     if (!aState.mCurrentListElement) {
       nsresult rv = CreateAndUpdateCurrentListElement(
@@ -7318,7 +7331,9 @@ Result<CreateElementResult, nsresult> HTMLEditor::AlignNodesAndDescendants(
           !HTMLEditUtils::IsTableCellOrCaption(*atContent.GetContainer())) ||
          HTMLEditUtils::IsAnyListElement(atContent.GetContainer()) ||
          HTMLEditUtils::IsEmptyNode(
-             *content, {EmptyCheckOption::TreatSingleBRElementAsVisible}))) {
+             *content,
+             {EmptyCheckOption::TreatSingleBRElementAsVisible,
+              EmptyCheckOption::TreatNonEditableContentAsInvisible}))) {
       continue;
     }
 
@@ -8106,7 +8121,8 @@ HTMLEditor::HandleInsertParagraphInHeadingElement(
   MOZ_DIAGNOSTIC_ASSERT(HTMLEditUtils::IsHeader(*leftHeadingElement));
   if (HTMLEditUtils::IsEmptyNode(
           *leftHeadingElement,
-          {EmptyCheckOption::TreatSingleBRElementAsVisible})) {
+          {EmptyCheckOption::TreatSingleBRElementAsVisible,
+           EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
     Result<CreateElementResult, nsresult> insertPaddingBRElementResult =
         InsertPaddingBRElementForEmptyLastLineWithTransaction(
             EditorDOMPoint(leftHeadingElement, 0u));
@@ -8126,7 +8142,8 @@ HTMLEditor::HandleInsertParagraphInHeadingElement(
              "SplitNodeResult::GetNextContent() should return something if "
              "DidSplit() returns true");
   if (!HTMLEditUtils::IsEmptyBlockElement(
-          *rightHeadingElement, {},
+          *rightHeadingElement,
+          {EmptyCheckOption::TreatNonEditableContentAsInvisible},
           BlockInlineCheck::UseComputedDisplayOutsideStyle)) {
     return InsertParagraphResult(rightHeadingElement,
                                  EditorDOMPoint(rightHeadingElement, 0u));
@@ -8714,7 +8731,8 @@ HTMLEditor::HandleInsertParagraphInListItemElement(
   // If aListItemElement is empty, then we want to outdent its content.
   if (&aEditingHost != aListItemElement.GetParentElement() &&
       HTMLEditUtils::IsEmptyBlockElement(
-          aListItemElement, {},
+          aListItemElement,
+          {EmptyCheckOption::TreatNonEditableContentAsInvisible},
           BlockInlineCheck::UseComputedDisplayOutsideStyle)) {
     RefPtr<Element> leftListElement = aListItemElement.GetParentElement();
     // If the given list item element is not the last list item element of
@@ -8843,7 +8861,8 @@ HTMLEditor::HandleInsertParagraphInListItemElement(
   // left empty.
   if (HTMLEditUtils::IsEmptyNode(
           leftListItemElement,
-          {EmptyCheckOption::TreatSingleBRElementAsVisible})) {
+          {EmptyCheckOption::TreatSingleBRElementAsVisible,
+           EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
     Result<CreateElementResult, nsresult> insertPaddingBRElementResult =
         InsertPaddingBRElementForEmptyLastLineWithTransaction(
             EditorDOMPoint(&leftListItemElement, 0u));
@@ -8860,7 +8879,9 @@ HTMLEditor::HandleInsertParagraphInListItemElement(
                                  EditorDOMPoint(&rightListItemElement, 0u));
   }
 
-  if (HTMLEditUtils::IsEmptyNode(rightListItemElement)) {
+  if (HTMLEditUtils::IsEmptyNode(
+          rightListItemElement,
+          {EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
     // If aListItemElement is a <dd> or a <dt> and the right list item is empty
     // or a direct child of the editing host, replace it a new list item element
     // whose type is the other one.
@@ -10004,7 +10025,8 @@ nsresult HTMLEditor::InsertBRElementToEmptyListItemsAndTableCellsInRange(
           return false;
         }
         return HTMLEditUtils::IsEmptyNode(
-            *element, {EmptyCheckOption::TreatSingleBRElementAsVisible});
+            *element, {EmptyCheckOption::TreatSingleBRElementAsVisible,
+                       EmptyCheckOption::TreatNonEditableContentAsInvisible});
       },
       arrayOfEmptyElements, this);
 
@@ -10399,8 +10421,10 @@ nsresult HTMLEditor::RemoveEmptyNodesIn(const EditorDOMRange& aRange) {
       if (aRange.StartRef().ContainerAs<nsIContent>() == content) {
         break;
       }
-      EmptyCheckOptions options = {EmptyCheckOption::TreatListItemAsVisible,
-                                   EmptyCheckOption::TreatTableCellAsVisible};
+      EmptyCheckOptions options = {
+          EmptyCheckOption::TreatListItemAsVisible,
+          EmptyCheckOption::TreatTableCellAsVisible,
+          EmptyCheckOption::TreatNonEditableContentAsInvisible};
       if (!HTMLEditUtils::IsBlockElement(
               *content, BlockInlineCheck::UseComputedDisplayStyle)) {
         options += EmptyCheckOption::TreatSingleBRElementAsVisible;
@@ -10493,6 +10517,9 @@ nsresult HTMLEditor::RemoveEmptyNodesIn(const EditorDOMRange& aRange) {
             EmptyCheckOption::TreatTableCellAsVisible};
         if (!isMailCite) {
           options += EmptyCheckOption::TreatSingleBRElementAsVisible;
+        } else {
+          // XXX Maybe unnecessary to specify this.
+          options += EmptyCheckOption::TreatNonEditableContentAsInvisible;
         }
         if (!HTMLEditUtils::IsEmptyNode(*content, options)) {
           return false;
@@ -10534,9 +10561,11 @@ nsresult HTMLEditor::RemoveEmptyNodesIn(const EditorDOMRange& aRange) {
   EditorDOMPoint pointToPutCaret;
   for (OwningNonNull<nsIContent>& emptyCite : arrayOfEmptyCites) {
     if (!HTMLEditUtils::IsEmptyNode(
-            emptyCite, {EmptyCheckOption::TreatSingleBRElementAsVisible,
-                        EmptyCheckOption::TreatListItemAsVisible,
-                        EmptyCheckOption::TreatTableCellAsVisible})) {
+            emptyCite,
+            {EmptyCheckOption::TreatSingleBRElementAsVisible,
+             EmptyCheckOption::TreatListItemAsVisible,
+             EmptyCheckOption::TreatTableCellAsVisible,
+             EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
       // We are deleting a cite that has just a `<br>`.  We want to delete cite,
       // but preserve `<br>`.
       Result<CreateElementResult, nsresult> insertBRElementResult =
@@ -10867,7 +10896,8 @@ nsresult HTMLEditor::InsertPaddingBRElementForEmptyLastLineIfNeeded(
   }
 
   if (!HTMLEditUtils::IsEmptyNode(
-          aElement, {EmptyCheckOption::TreatSingleBRElementAsVisible})) {
+          aElement, {EmptyCheckOption::TreatSingleBRElementAsVisible,
+                     EmptyCheckOption::TreatNonEditableContentAsInvisible})) {
     return NS_OK;
   }
 

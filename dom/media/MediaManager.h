@@ -44,6 +44,10 @@
 class AudioDeviceInfo;
 class nsIPrefBranch;
 
+#ifdef MOZ_WEBRTC
+class WebrtcLogSinkHandle;
+#endif
+
 namespace mozilla {
 class MediaEngine;
 class MediaEngineSource;
@@ -353,13 +357,54 @@ class MediaManager final : public nsIMediaManagerService,
     ForceFakes,
   };
   using EnumerationFlags = EnumSet<EnumerationFlag>;
-  RefPtr<LocalDeviceSetPromise> EnumerateDevicesImpl(
-      nsPIDOMWindowInner* aWindow, dom::MediaSourceEnum aVideoInputType,
-      dom::MediaSourceEnum aAudioInputType, EnumerationFlags aFlags);
 
-  RefPtr<DeviceSetPromise> EnumerateRawDevices(
+  enum class DeviceType { Real, Fake };
+
+  struct DeviceEnumerationParams {
+    DeviceEnumerationParams(dom::MediaSourceEnum aInputType, DeviceType aType,
+                            nsAutoCString aForcedDeviceName);
+    dom::MediaSourceEnum mInputType;
+    DeviceType mType;
+    nsAutoCString mForcedDeviceName;
+  };
+
+  struct VideoDeviceEnumerationParams : public DeviceEnumerationParams {
+    VideoDeviceEnumerationParams(dom::MediaSourceEnum aInputType,
+                                 DeviceType aType,
+                                 nsAutoCString aForcedDeviceName,
+                                 nsAutoCString aForcedMicrophoneName);
+
+    // The by-pref forced microphone device name, used for groupId correlation
+    // of camera devices.
+    nsAutoCString mForcedMicrophoneName;
+  };
+
+  struct EnumerationParams {
+    EnumerationParams(EnumerationFlags aFlags,
+                      Maybe<VideoDeviceEnumerationParams> aVideo,
+                      Maybe<DeviceEnumerationParams> aAudio);
+    bool HasFakeCams() const;
+    bool HasFakeMics() const;
+    bool RealDeviceRequested() const;
+    dom::MediaSourceEnum VideoInputType() const;
+    dom::MediaSourceEnum AudioInputType() const;
+    EnumerationFlags mFlags;
+    Maybe<VideoDeviceEnumerationParams> mVideo;
+    Maybe<DeviceEnumerationParams> mAudio;
+  };
+
+  static EnumerationParams CreateEnumerationParams(
       dom::MediaSourceEnum aVideoInputType,
       dom::MediaSourceEnum aAudioInputType, EnumerationFlags aFlags);
+
+  RefPtr<LocalDeviceSetPromise> EnumerateDevicesImpl(
+      nsPIDOMWindowInner* aWindow, EnumerationParams aParams);
+
+  RefPtr<DeviceSetPromise> MaybeRequestPermissionAndEnumerateRawDevices(
+      EnumerationParams aParams);
+
+  static RefPtr<MediaDeviceSetRefCnt> EnumerateRawDevices(
+      EnumerationParams aParams);
 
   RefPtr<LocalDeviceSetPromise> SelectSettings(
       const dom::MediaStreamConstraints& aConstraints,
@@ -411,6 +456,9 @@ class MediaManager final : public nsIMediaManagerService,
   nsRefPtrHashtable<nsStringHashKey, GetUserMediaTask> mActiveCallbacks;
   nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mCallIds;
   nsTArray<RefPtr<dom::GetUserMediaRequest>> mPendingGUMRequest;
+#ifdef MOZ_WEBRTC
+  RefPtr<WebrtcLogSinkHandle> mLogHandle;
+#endif
   // non-null if a device enumeration is in progress and was started after the
   // last device-change invalidation
   RefPtr<media::Refcountable<nsTArray<MozPromiseHolder<ConstDeviceSetPromise>>>>

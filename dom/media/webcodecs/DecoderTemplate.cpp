@@ -137,8 +137,9 @@ void DecoderTemplate<DecoderType>::Configure(const ConfigType& aConfig,
   LOG("%s %p, Configure: codec %s", DecoderType::Name.get(), this,
       NS_ConvertUTF16toUTF8(aConfig.mCodec).get());
 
-  if (!DecoderType::Validate(aConfig)) {
-    aRv.ThrowTypeError("config is invalid");
+  nsCString errorMessage;
+  if (!DecoderType::Validate(aConfig, errorMessage)) {
+    aRv.ThrowTypeError(nsPrintfCString("config is invalid: %s", errorMessage.get()));
     return;
   }
 
@@ -324,6 +325,7 @@ void DecoderTemplate<DecoderType>::OutputDecodedData(
       GetParentObject(), std::move(aData), *mActiveConfig);
   RefPtr<VideoFrameOutputCallback> cb(mOutputCallback);
   for (RefPtr<VideoFrame>& frame : frames) {
+    LOG("Outputing decoded data: ts: %" PRId64, frame->Timestamp());
     RefPtr<VideoFrame> f = frame;
     cb->Call((VideoFrame&)(*f));
   }

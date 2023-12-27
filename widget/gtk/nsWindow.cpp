@@ -408,7 +408,6 @@ nsWindow::nsWindow()
       mRetryPointerGrab(false),
       mPanInProgress(false),
       mTitlebarBackdropState(false),
-      mIsWaylandPanelWindow(false),
       mIsChildWindow(false),
       mAlwaysOnTop(false),
       mNoAutoHide(false),
@@ -4768,7 +4767,7 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
 
   nsIWidget::ContentAndAPZEventStatus eventStatus = DispatchInputEvent(&event);
 
-  if ((mIsWaylandPanelWindow || mDraggableRegion.Contains(refPoint)) &&
+  if (mDraggableRegion.Contains(refPoint) &&
       domButton == MouseButton::ePrimary &&
       eventStatus.mContentStatus != nsEventStatus_eConsumeNoDefault) {
     mWindowShouldStartDragging = true;
@@ -5975,16 +5974,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
     LOG("  child widget, switch to popup. parent nsWindow %p", parentnsWindow);
   }
 
-  if (mWindowType == WindowType::Popup && !parentnsWindow) {
-    LOG("  popup window without parent!");
-    if (GdkIsWaylandDisplay()) {
-      LOG("  switch to toplevel on Wayland.");
-      // Wayland does not allow to create popup without parent so switch to
-      // toplevel and mark as wayland panel.
-      mIsWaylandPanelWindow = true;
-      mWindowType = WindowType::TopLevel;
-    }
-  }
+  MOZ_ASSERT_IF(mWindowType == WindowType::Popup, parentnsWindow);
 
   if (mWindowType != WindowType::Dialog && mWindowType != WindowType::Popup &&
       mWindowType != WindowType::TopLevel &&
@@ -8918,7 +8908,7 @@ nsresult nsWindow::SetNonClientMargins(const LayoutDeviceIntMargin& aMargins) {
 }
 
 bool nsWindow::IsAlwaysUndecoratedWindow() const {
-  if (mIsPIPWindow || mIsWaylandPanelWindow || gKioskMode) {
+  if (mIsPIPWindow || gKioskMode) {
     return true;
   }
   if (mWindowType == WindowType::Dialog &&

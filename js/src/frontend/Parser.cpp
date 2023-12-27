@@ -7611,6 +7611,11 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
       classInitializedMembers.staticFields++;
     } else {
       classInitializedMembers.instanceFields++;
+#ifdef ENABLE_DECORATORS
+      if (decorators) {
+        classInitializedMembers.hasInstanceDecorators = true;
+      }
+#endif
     }
 
     TokenPos propNamePos(propNameOffset, pos().end);
@@ -7781,6 +7786,12 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
     }
   }
 
+#ifdef ENABLE_DECORATORS
+  if (decorators) {
+    classInitializedMembers.hasInstanceDecorators = true;
+  }
+#endif
+
   Node method;
   MOZ_TRY_VAR_OR_RETURN(
       method,
@@ -7904,13 +7915,6 @@ GeneralParser<ParseHandler, Unit>::classDefinition(
       return errorResult();
     }
   }
-
-  // See Bug 1868461, we should only do this if there are decorators present.
-  MOZ_TRY_VAR(
-      addInitializerFunction,
-      synthesizeAddInitializerFunction(
-          TaggedParserAtomIndex::WellKnown::dot_instanceExtraInitializers_(),
-          yieldHandling));
 #else
   MOZ_ASSERT(anyChars.isCurrentTokenType(TokenKind::Class));
 #endif
@@ -8015,6 +8019,15 @@ GeneralParser<ParseHandler, Unit>::classDefinition(
           break;
         }
       }
+#ifdef ENABLE_DECORATORS
+      if (classInitializedMembers.hasInstanceDecorators) {
+        MOZ_TRY_VAR(addInitializerFunction,
+                    synthesizeAddInitializerFunction(
+                        TaggedParserAtomIndex::WellKnown::
+                            dot_instanceExtraInitializers_(),
+                        yieldHandling));
+      }
+#endif
 
       if (classInitializedMembers.privateMethods +
               classInitializedMembers.privateAccessors >

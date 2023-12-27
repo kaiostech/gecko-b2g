@@ -268,19 +268,6 @@ class nsTableFrame : public nsContainerFrame {
       mozilla::Maybe<mozilla::LogicalMargin>& aBorder,
       mozilla::Maybe<mozilla::LogicalMargin>& aPadding) const;
 
-  /**
-   * In quirks mode, the size of the table background is reduced
-   * by the outer BC border. Compute the reduction needed.
-   */
-  nsMargin GetDeflationForBackground(nsPresContext* aPresContext) const;
-
-  /** Get width of table + colgroup + col collapse: elements that
-   *  continue along the length of the whole iStart side.
-   *  see nsTablePainter about continuous borders
-   */
-  nscoord GetContinuousIStartBCBorderWidth() const;
-  void SetContinuousIStartBCBorderWidth(nscoord aValue);
-
   friend class nsDelayedCalcBCBorders;
 
   void AddBCDamageArea(const mozilla::TableArea& aValue);
@@ -843,7 +830,6 @@ class nsTableFrame : public nsContainerFrame {
     uint32_t mRowInserted : 1;
     uint32_t mNeedToCalcBCBorders : 1;
     uint32_t mGeometryDirty : 1;
-    uint32_t mIStartContBCBorder : 8;
     uint32_t mNeedToCollapse : 1;  // rows, cols that have visibility:collapse
                                    // need to be collapsed
     uint32_t mResizedColumns : 1;  // have we resized columns since last reflow?
@@ -949,15 +935,6 @@ inline bool nsTableFrame::HasBCBorders() {
 
 inline void nsTableFrame::SetHasBCBorders(bool aValue) {
   mBits.mHasBCBorders = (unsigned)aValue;
-}
-
-inline nscoord nsTableFrame::GetContinuousIStartBCBorderWidth() const {
-  int32_t d2a = PresContext()->AppUnitsPerDevPixel();
-  return BC_BORDER_END_HALF_COORD(d2a, mBits.mIStartContBCBorder);
-}
-
-inline void nsTableFrame::SetContinuousIStartBCBorderWidth(nscoord aValue) {
-  mBits.mIStartContBCBorder = (unsigned)aValue;
 }
 
 #define ABORT0()                                       \

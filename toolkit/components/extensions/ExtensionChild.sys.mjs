@@ -39,7 +39,7 @@ import { ExtensionUtils } from "resource://gre/modules/ExtensionUtils.sys.mjs";
 const { DefaultMap, ExtensionError, LimitedSet, getUniqueId } = ExtensionUtils;
 
 const {
-  defineLazyGetter,
+  redefineGetter,
   EventEmitter,
   EventManager,
   LocalAPIImplementation,
@@ -156,6 +156,7 @@ class SimpleEventAPI extends EventManager {
     super({ context, name, register });
     this.fires = fires;
   }
+  /** @returns {any} */
   emit(...args) {
     return [...this.fires].map(fire => fire.asyncWithoutClone(...args));
   }
@@ -298,12 +299,13 @@ class Port {
     }
     throw new this.context.Error("Attempt to postMessage on disconnected port");
   }
-}
 
-defineLazyGetter(Port.prototype, "api", function () {
-  let api = this.getAPI();
-  return Cu.cloneInto(api, this.context.cloneScope, { cloneFunctions: true });
-});
+  get api() {
+    const scope = this.context.cloneScope;
+    const value = Cu.cloneInto(this.getAPI(), scope, { cloneFunctions: true });
+    return redefineGetter(this, "api", value);
+  }
+}
 
 /**
  * Each extension context gets its own Messenger object. It handles the
@@ -479,6 +481,7 @@ class BrowserExtensionContent extends EventEmitter {
   }
 
   getAPIManager() {
+    /** @type {InstanceType<typeof ExtensionCommon.LazyAPIManager>[]} */
     let apiManagers = [lazy.ExtensionPageChild.apiManager];
 
     if (this.dependencies) {
@@ -520,7 +523,7 @@ class BrowserExtensionContent extends EventEmitter {
 
   emit(event, ...args) {
     Services.cpmm.sendAsyncMessage(this.MESSAGE_EMIT_EVENT, { event, args });
-    super.emit(event, ...args);
+    return super.emit(event, ...args);
   }
 
   // TODO(Bug 1768471): consider folding this back into emit if we will change it to
@@ -870,8 +873,8 @@ class ChildAPIManager {
    *
    * @param {string} path The full name of the method, e.g. "tabs.create".
    * @param {Array} args The parameters for the function.
-   * @param {function(*)} [callback] The callback to be called when the function
-   *     completes.
+   * @param {callback} [callback] The callback to be called when the
+   *      function completes.
    * @param {object} [options] Extra options.
    * @returns {Promise|undefined} Must be void if `callback` is set, and a
    *     promise otherwise. The promise is resolved when the function completes.
@@ -912,10 +915,10 @@ class ChildAPIManager {
    *   hasListener methods. See SchemaAPIInterface for documentation.
    */
   getParentEvent(path) {
-    path = path.split(".");
+    let parts = path.split(".");
 
-    let name = path.pop();
-    let namespace = path.join(".");
+    let name = parts.pop();
+    let namespace = parts.join(".");
 
     let impl = new ProxyAPIImplementation(namespace, name, this, true);
     return {

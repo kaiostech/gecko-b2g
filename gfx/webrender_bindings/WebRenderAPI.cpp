@@ -319,6 +319,13 @@ void TransactionWrapper::UpdateIsTransformAsyncZooming(uint64_t aAnimationId,
   wr_transaction_set_is_transform_async_zooming(mTxn, aAnimationId, aIsZooming);
 }
 
+void TransactionWrapper::AddMinimapData(
+    const wr::WrPipelineId& aPipelineId,
+    const layers::ScrollableLayerGuid::ViewID& aScrollId,
+    const MinimapData& aMinimapData) {
+  wr_transaction_add_minimap_data(mTxn, aPipelineId, aScrollId, aMinimapData);
+}
+
 /*static*/
 already_AddRefed<WebRenderAPI> WebRenderAPI::Create(
     layers::CompositorBridgeParent* aBridge,
@@ -339,7 +346,7 @@ already_AddRefed<WebRenderAPI> WebRenderAPI::Create(
   bool useDComp = false;
   bool useTripleBuffering = false;
   bool supportsExternalBufferTextures = false;
-  layers::SyncHandle syncHandle = 0;
+  layers::SyncHandle syncHandle = {};
 
   // Dispatch a synchronous task because the DocumentHandle object needs to be
   // created on the render thread. If need be we could delay waiting on this

@@ -162,7 +162,7 @@ flatpak build-finish build                                      \
         --env=GTK_PATH=/app/lib/gtkmodules                      \
         --socket=pulseaudio                                     \
         --socket=wayland                                        \
-        --socket=x11                                            \
+        --socket=fallback-x11                                   \
         --socket=pcsc                                           \
         --socket=cups                                           \
         --require-version=0.11.1                                \
@@ -173,8 +173,6 @@ flatpak build-finish build                                      \
         --talk-name=org.freedesktop.FileManager1                \
         --system-talk-name=org.freedesktop.NetworkManager       \
         --talk-name=org.a11y.Bus                                \
-        --talk-name=org.gnome.SessionManager                    \
-        --talk-name=org.freedesktop.ScreenSaver                 \
         --talk-name="org.gtk.vfs.*"                             \
         --own-name="org.mpris.MediaPlayer2.firefox.*"           \
         --own-name="org.mozilla.firefox.*"                      \

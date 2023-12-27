@@ -40,10 +40,11 @@ template <typename CharT>
 static MOZ_ALWAYS_INLINE JSAtom* AllocateInlineAtom(JSContext* cx, size_t len,
                                                     CharT** chars,
                                                     js::HashNumber hash) {
-  MOZ_ASSERT(JSInlineString::lengthFits<CharT>(len));
-
-  if (JSThinInlineString::lengthFits<CharT>(len)) {
-    return cx->newCell<js::NormalAtom, js::NoGC>(len, chars, hash);
+  MOZ_ASSERT(JSAtom::lengthFitsInline<CharT>(len));
+  if constexpr (js::ThinInlineAtom::EverInstantiated) {
+    if (js::ThinInlineAtom::lengthFits<CharT>(len)) {
+      return cx->newCell<js::ThinInlineAtom, js::NoGC>(len, chars, hash);
+    }
   }
   return cx->newCell<js::FatInlineAtom, js::NoGC>(len, chars, hash);
 }
@@ -633,23 +634,6 @@ MOZ_ALWAYS_INLINE JSExternalString* JSExternalString::new_(
   return newImpl(cx, chars, length, callbacks);
 }
 
-inline js::NormalAtom::NormalAtom(size_t length, JS::Latin1Char** chars,
-                                  js::HashNumber hash)
-    : hash_(hash) {
-  MOZ_ASSERT(JSInlineString::lengthFits<JS::Latin1Char>(length));
-  setLengthAndFlags(length,
-                    INIT_THIN_INLINE_FLAGS | LATIN1_CHARS_BIT | ATOM_BIT);
-  *chars = d.inlineStorageLatin1;
-}
-
-inline js::NormalAtom::NormalAtom(size_t length, char16_t** chars,
-                                  js::HashNumber hash)
-    : hash_(hash) {
-  MOZ_ASSERT(JSInlineString::lengthFits<char16_t>(length));
-  setLengthAndFlags(length, INIT_THIN_INLINE_FLAGS | ATOM_BIT);
-  *chars = d.inlineStorageTwoByte;
-}
-
 inline js::NormalAtom::NormalAtom(const char16_t* chars, size_t length,
                                   js::HashNumber hash)
     : hash_(hash) {
@@ -668,10 +652,27 @@ inline js::NormalAtom::NormalAtom(const JS::Latin1Char* chars, size_t length,
   d.s.u2.nonInlineCharsLatin1 = chars;
 }
 
+#ifndef JS_64BIT
+inline js::ThinInlineAtom::ThinInlineAtom(size_t length, JS::Latin1Char** chars,
+                                          js::HashNumber hash)
+    : NormalAtom(hash) {
+  setLengthAndFlags(length,
+                    INIT_THIN_INLINE_FLAGS | LATIN1_CHARS_BIT | ATOM_BIT);
+  *chars = d.inlineStorageLatin1;
+}
+
+inline js::ThinInlineAtom::ThinInlineAtom(size_t length, char16_t** chars,
+                                          js::HashNumber hash)
+    : NormalAtom(hash) {
+  setLengthAndFlags(length, INIT_THIN_INLINE_FLAGS | ATOM_BIT);
+  *chars = d.inlineStorageTwoByte;
+}
+#endif
+
 inline js::FatInlineAtom::FatInlineAtom(size_t length, JS::Latin1Char** chars,
                                         js::HashNumber hash)
     : hash_(hash) {
-  MOZ_ASSERT(JSFatInlineString::lengthFits<JS::Latin1Char>(length));
+  MOZ_ASSERT(lengthFits<JS::Latin1Char>(length));
   setLengthAndFlags(length,
                     INIT_FAT_INLINE_FLAGS | LATIN1_CHARS_BIT | ATOM_BIT);
   *chars = d.inlineStorageLatin1;
@@ -680,7 +681,7 @@ inline js::FatInlineAtom::FatInlineAtom(size_t length, JS::Latin1Char** chars,
 inline js::FatInlineAtom::FatInlineAtom(size_t length, char16_t** chars,
                                         js::HashNumber hash)
     : hash_(hash) {
-  MOZ_ASSERT(JSFatInlineString::lengthFits<char16_t>(length));
+  MOZ_ASSERT(lengthFits<char16_t>(length));
   setLengthAndFlags(length, INIT_FAT_INLINE_FLAGS | ATOM_BIT);
   *chars = d.inlineStorageTwoByte;
 }

@@ -12,11 +12,17 @@ loader.lazyRequireGetter(
 );
 
 loader.lazyGetter(this, "l10n", () => {
-  return new Localization(["devtools/shared/webconsole-commands.ftl"], true);
+  return new Localization(
+    [
+      "devtools/shared/webconsole-commands.ftl",
+      "devtools/server/actors/webconsole/commands/experimental-commands.ftl",
+    ],
+    true
+  );
 });
 const USAGE_STRING_MAPPING = {
   block: "webconsole-commands-usage-block",
-  trace: "webconsole-commands-usage-trace",
+  trace: "webconsole-commands-usage-trace3",
   unblock: "webconsole-commands-usage-unblock",
 };
 
@@ -871,6 +877,8 @@ WebConsoleCommandsManager.register({
     const enabled = tracerActor.toggleTracing({
       logMethod,
       prefix: args.prefix || null,
+      traceValues: !!args.values,
+      traceOnNextInteraction: args["on-next-interaction"] || null,
     });
 
     owner.helperResult = {
@@ -879,5 +887,5 @@ WebConsoleCommandsManager.register({
       logMethod,
     };
   },
-  validArguments: ["logMethod", "prefix"],
+  validArguments: ["logMethod", "prefix", "values", "on-next-interaction"],
 });

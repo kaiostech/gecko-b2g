@@ -6,10 +6,12 @@
 
 #include "PersistentBufferProvider.h"
 
+#include "mozilla/layers/KnowsCompositor.h"
 #include "mozilla/layers/RemoteTextureMap.h"
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/layers/TextureForwarder.h"
 #include "mozilla/gfx/gfxVars.h"
+#include "mozilla/gfx/CanvasManagerChild.h"
 #include "mozilla/gfx/DrawTargetWebgl.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/Maybe.h"
@@ -124,13 +126,22 @@ already_AddRefed<PersistentBufferProviderAccelerated>
 PersistentBufferProviderAccelerated::Create(gfx::IntSize aSize,
                                             gfx::SurfaceFormat aFormat,
                                             KnowsCompositor* aKnowsCompositor) {
-  if (!DrawTargetWebgl::CanCreate(aSize, aFormat)) {
-    return nullptr;
-  }
-
   if (!aKnowsCompositor || !aKnowsCompositor->GetTextureForwarder() ||
       !aKnowsCompositor->GetTextureForwarder()->IPCOpen()) {
     return nullptr;
+  }
+
+  if (!DrawTargetWebgl::CanCreate(aSize, aFormat)) {
+#ifdef XP_WIN
+    // Direct2D acceleration does not require DrawTargetWebgl, but still
+    // requires PersistentBufferProviderAccelerated.
+    if (!TextureData::IsRemote(aKnowsCompositor, BackendSelector::Canvas,
+                               aFormat, aSize)) {
+      return nullptr;
+    }
+#else
+    return nullptr;
+#endif
   }
 
   auto remoteTextureOwnerId = RemoteTextureOwnerId::GetNext();
@@ -259,12 +270,8 @@ PersistentBufferProviderShared::Create(gfx::IntSize aSize,
 
 #ifdef XP_WIN
   // Bug 1285271 - Disable shared buffer provider on Windows with D2D due to
-  // instability, unless we are remoting the canvas drawing to the GPU process.
-  if (gfxPlatform::GetPlatform()->GetPreferredCanvasBackend() ==
-          BackendType::DIRECT2D1_1 &&
-      !TextureData::IsRemote(aKnowsCompositor, BackendSelector::Canvas)) {
-    return nullptr;
-  }
+  // instability.
+  aWillReadFrequently = true;
 #endif
 
   RefPtr<TextureClient> texture =
@@ -305,7 +312,11 @@ PersistentBufferProviderShared::~PersistentBufferProviderShared() {
   MOZ_COUNT_DTOR(PersistentBufferProviderShared);
 
   if (IsActivityTracked()) {
-    mKnowsCompositor->GetActiveResourceTracker()->RemoveObject(this);
+    if (auto* cm = CanvasManagerChild::Get()) {
+      cm->GetActiveResourceTracker()->RemoveObject(this);
+    } else {
+      MOZ_ASSERT_UNREACHABLE("Tracked but no CanvasManagerChild!");
+    }
   }
 
   Destroy();
@@ -325,7 +336,11 @@ bool PersistentBufferProviderShared::SetKnowsCompositor(
   }
 
   if (IsActivityTracked()) {
-    mKnowsCompositor->GetActiveResourceTracker()->RemoveObject(this);
+    if (auto* cm = CanvasManagerChild::Get()) {
+      cm->GetActiveResourceTracker()->RemoveObject(this);
+    } else {
+      MOZ_ASSERT_UNREACHABLE("Tracked but no CanvasManagerChild!");
+    }
   }
 
   if (mKnowsCompositor->GetTextureForwarder() !=
@@ -406,12 +421,17 @@ PersistentBufferProviderShared::BorrowDrawTarget(
     return nullptr;
   }
 
+  auto* cm = CanvasManagerChild::Get();
+  if (NS_WARN_IF(!cm)) {
+    return nullptr;
+  }
+
   MOZ_ASSERT(!mSnapshot);
 
   if (IsActivityTracked()) {
-    mKnowsCompositor->GetActiveResourceTracker()->MarkUsed(this);
+    cm->GetActiveResourceTracker()->MarkUsed(this);
   } else {
-    mKnowsCompositor->GetActiveResourceTracker()->AddObject(this);
+    cm->GetActiveResourceTracker()->AddObject(this);
   }
 
   if (mDrawTarget) {
@@ -738,20 +758,6 @@ void PersistentBufferProviderShared::Destroy() {
   }
 
   mTextures.clear();
-}
-
-bool PersistentBufferProviderShared::IsAccelerated() const {
-#ifdef XP_WIN
-  // Detect if we're using D2D canvas.
-  if (mWillReadFrequently || mTextures.empty() || !mTextures[0]) {
-    return false;
-  }
-  auto* data = mTextures[0]->GetInternalData();
-  if (data && data->AsD3D11TextureData()) {
-    return true;
-  }
-#endif
-  return false;
 }
 
 }  // namespace layers

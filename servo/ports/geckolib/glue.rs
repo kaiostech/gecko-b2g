@@ -6487,7 +6487,7 @@ pub unsafe extern "C" fn Servo_StyleSet_GetKeyframesForName(
     keyframes: &mut nsTArray<structs::Keyframe>,
 ) -> bool {
     use style::gecko_bindings::structs::CompositeOperationOrAuto;
-    use style::properties::longhands::animation_composition::single_value::computed_value::T as Composition;
+    use style::values::computed::AnimationComposition;
 
     debug_assert!(keyframes.len() == 0, "keyframes should be initially empty");
 
@@ -6531,9 +6531,9 @@ pub unsafe extern "C" fn Servo_StyleSet_GetKeyframesForName(
         let composition =
             step.get_animation_composition(&guard)
                 .map_or(CompositeOperationOrAuto::Auto, |val| match val {
-                    Composition::Replace => CompositeOperationOrAuto::Replace,
-                    Composition::Add => CompositeOperationOrAuto::Add,
-                    Composition::Accumulate => CompositeOperationOrAuto::Accumulate,
+                    AnimationComposition::Replace => CompositeOperationOrAuto::Replace,
+                    AnimationComposition::Add => CompositeOperationOrAuto::Add,
+                    AnimationComposition::Accumulate => CompositeOperationOrAuto::Accumulate,
                 });
 
         // Look for an existing keyframe with the same offset, timing function, and compsition, or
@@ -8763,7 +8763,7 @@ pub extern "C" fn Servo_RegisterCustomProperty(
             let parsed = Parser::new(&mut input)
                 .parse_entirely(|input| {
                     input.skip_whitespace();
-                    SpecifiedValue::parse(input, url_data)
+                    SpecifiedValue::parse(input, url_data).map(Arc::new)
                 })
                 .ok();
             if parsed.is_none() {
@@ -8775,7 +8775,7 @@ pub extern "C" fn Servo_RegisterCustomProperty(
     };
 
     if let Err(error) =
-        PropertyRegistration::validate_initial_value(&syntax, initial_value.as_ref())
+        PropertyRegistration::validate_initial_value(&syntax, initial_value.as_deref())
     {
         return match error {
             PropertyRegistrationError::InitialValueNotComputationallyIndependent => {

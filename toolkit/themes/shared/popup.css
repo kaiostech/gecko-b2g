@@ -29,7 +29,7 @@ panel {
 
   @media (-moz-platform: linux) {
     --panel-border-radius: 8px;
-    --panel-padding-block: max(0px, var(--panel-border-radius) / 2 - 1px);
+    --panel-padding-block: 3px;
 
     @media (prefers-contrast) {
       --panel-border-color: color-mix(in srgb, currentColor 60%, transparent);
@@ -52,6 +52,8 @@ panel {
     background-color: Menu;
     --panel-background: none;
     --panel-border-color: transparent;
+    /* This should be kept in sync with GetMenuMaskImage() */
+    --panel-border-radius: 8px;
   }
 
   &::part(content) {
@@ -74,6 +76,8 @@ panel {
      * causing overflow, see bug 1846050 */
     max-height: round(up, 100% - 2 * var(--panel-shadow-margin), 1px);
     max-width: round(up, 100% - 2 * var(--panel-shadow-margin), 1px);
+
+    overflow: clip; /* Don't let panel content overflow the border */
   }
 
   &[orient=vertical]::part(content) {
@@ -88,14 +92,6 @@ panel {
 
     &.panel-no-padding::part(content) {
       padding: 0;
-      overflow: hidden; /* Don't let panel content overflow the border */
-    }
-
-    @media (-moz-platform: macos) {
-      &::part(content) {
-        /* FIXME: why? */
-        margin: 1px;
-      }
     }
   }
 }

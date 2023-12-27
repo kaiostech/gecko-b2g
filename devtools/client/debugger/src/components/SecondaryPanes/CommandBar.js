@@ -16,6 +16,8 @@ import {
   getIsCurrentThreadPaused,
   getIsThreadCurrentlyTracing,
   getJavascriptTracingLogMethod,
+  getJavascriptTracingValues,
+  getJavascriptTracingOnNextInteraction,
 } from "../../selectors";
 import { formatKeyShortcut } from "../../utils/text";
 import actions from "../../actions";
@@ -117,6 +119,8 @@ class CommandBar extends Component {
       topFrameSelected: PropTypes.bool.isRequired,
       toggleTracing: PropTypes.func.isRequired,
       logMethod: PropTypes.string.isRequired,
+      logValues: PropTypes.bool.isRequired,
+      traceOnNextInteraction: PropTypes.bool.isRequired,
       setJavascriptTracingLogMethod: PropTypes.func.isRequired,
       setHideOrShowIgnoredSources: PropTypes.func.isRequired,
       toggleSourceMapIgnoreList: PropTypes.func.isRequired,
@@ -230,6 +234,7 @@ class CommandBar extends Component {
             id: "debugger-trace-menu-item-console",
             label: L10N.getStr("traceInWebConsole"),
             checked: this.props.logMethod == LOG_METHODS.CONSOLE,
+            type: "radio",
             click: () => {
               this.props.setJavascriptTracingLogMethod(LOG_METHODS.CONSOLE);
             },
@@ -237,9 +242,29 @@ class CommandBar extends Component {
           {
             id: "debugger-trace-menu-item-stdout",
             label: L10N.getStr("traceInStdout"),
+            type: "radio",
             checked: this.props.logMethod == LOG_METHODS.STDOUT,
             click: () => {
               this.props.setJavascriptTracingLogMethod(LOG_METHODS.STDOUT);
+            },
+          },
+          { type: "separator" },
+          {
+            id: "debugger-trace-menu-item-log-values",
+            label: L10N.getStr("traceValues"),
+            type: "checkbox",
+            checked: this.props.logValues,
+            click: () => {
+              this.props.toggleJavascriptTracingValues();
+            },
+          },
+          {
+            id: "debugger-trace-menu-item-next-interaction",
+            label: L10N.getStr("traceOnNextInteraction"),
+            type: "checkbox",
+            checked: this.props.traceOnNextInteraction,
+            click: () => {
+              this.props.toggleJavascriptTracingOnNextInteraction();
             },
           },
         ];
@@ -410,11 +435,16 @@ const mapStateToProps = state => ({
   isPaused: getIsCurrentThreadPaused(state),
   isTracingEnabled: getIsThreadCurrentlyTracing(state, getCurrentThread(state)),
   logMethod: getJavascriptTracingLogMethod(state),
+  logValues: getJavascriptTracingValues(state),
+  traceOnNextInteraction: getJavascriptTracingOnNextInteraction(state),
 });
 
 export default connect(mapStateToProps, {
   toggleTracing: actions.toggleTracing,
   setJavascriptTracingLogMethod: actions.setJavascriptTracingLogMethod,
+  toggleJavascriptTracingValues: actions.toggleJavascriptTracingValues,
+  toggleJavascriptTracingOnNextInteraction:
+    actions.toggleJavascriptTracingOnNextInteraction,
   resume: actions.resume,
   stepIn: actions.stepIn,
   stepOut: actions.stepOut,

@@ -194,12 +194,6 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   // Per-zone data for use by an embedder.
   js::MainThreadData<void*> data;
 
-  js::MainThreadData<uint32_t> tenuredBigInts;
-
-  // Number of marked/finalized JSStrings/JSFatInlineStrings during major GC.
-  js::MainThreadOrGCTaskData<size_t> markedStrings;
-  js::MainThreadOrGCTaskData<size_t> finalizedStrings;
-
   // When true, skip calling the metadata callback. We use this:
   // - to avoid invoking the callback recursively;
   // - to avoid observing lazy prototype setup (which confuses callbacks that

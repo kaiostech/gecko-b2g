@@ -211,6 +211,8 @@ support-files = [
   "dynamicResult1.css",
 ]
 
+["browser_editAndEnterWithSlowQuery.js"]
+
 ["browser_edit_invalid_url.js"]
 
 ["browser_engagement.js"]
@@ -281,9 +283,6 @@ support-files = [
 
 ["browser_locationBarCommand.js"]
 https_first_disabled = true
-skip-if = [
-  "os == 'linux' && bits == 64 && !debug", # Bug 1787020
-]
 
 ["browser_locationBarExternalLoad.js"]
 
@@ -678,7 +677,10 @@ support-files = [
 ]
 
 ["browser_view_selectionByMouse.js"]
-skip-if = ["os == 'linux' && asan"] # Bug 1789051
+skip-if = [
+  "os == 'linux' && asan", # Bug 1789051
+  "a11y_checks", # Bug 1789051,1867430
+]
 
 ["browser_waitForLoadStartOrTimeout.js"]
 https_first_disabled = true

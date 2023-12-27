@@ -51,9 +51,22 @@ bool RecordedTextureData::Lock(OpenMode aMode) {
     return false;
   }
 
-  if (mRemoteTextureOwnerId.IsValid()) {
-    mLastRemoteTextureId = RemoteTextureId::GetNext();
+  if (!mRemoteTextureOwnerId.IsValid()) {
+    MOZ_ASSERT(false);
+    return false;
   }
+
+  // By the time we allocate a new remote texture id, the previous texture id
+  // should have been used. Since we're overwriting its id, if it hasn't been
+  // used yet, then it is safe to preemptively remove it since nothing can
+  // actually composite it. This prevents accumulation of a series of canvas
+  // frames that never get shown.
+  RemoteTextureId obsoleteRemoteTextureId;
+  if (!mUsedRemoteTexture) {
+    obsoleteRemoteTextureId = mLastRemoteTextureId;
+  }
+  mLastRemoteTextureId = RemoteTextureId::GetNext();
+  mUsedRemoteTexture = false;
 
   if (!mDT) {
     mTextureId = sNextRecordedTextureId++;
@@ -65,16 +78,12 @@ bool RecordedTextureData::Lock(OpenMode aMode) {
     }
 
     // We lock the TextureData when we create it to get the remote DrawTarget.
-    mCanvasChild->OnTextureWriteLock();
     mLockedMode = aMode;
     return true;
   }
 
-  mCanvasChild->RecordEvent(
-      RecordedTextureLock(mTextureId, aMode, mLastRemoteTextureId));
-  if (aMode & OpenMode::OPEN_WRITE) {
-    mCanvasChild->OnTextureWriteLock();
-  }
+  mCanvasChild->RecordEvent(RecordedTextureLock(
+      mTextureId, aMode, mLastRemoteTextureId, obsoleteRemoteTextureId));
   mLockedMode = aMode;
   return true;
 }
@@ -140,17 +149,20 @@ void RecordedTextureData::ReturnSnapshot(
 void RecordedTextureData::Deallocate(LayersIPCChannel* aAllocator) {}
 
 bool RecordedTextureData::Serialize(SurfaceDescriptor& aDescriptor) {
-  if (mRemoteTextureOwnerId.IsValid()) {
-    aDescriptor = SurfaceDescriptorRemoteTexture(mLastRemoteTextureId,
-                                                 mRemoteTextureOwnerId);
-  } else {
-    aDescriptor = SurfaceDescriptorRecorded(mTextureId);
+  if (!mRemoteTextureOwnerId.IsValid() || !mLastRemoteTextureId.IsValid()) {
+    MOZ_ASSERT_UNREACHABLE("Missing remote texture ids!");
+    return false;
   }
+  aDescriptor = SurfaceDescriptorRemoteTexture(mLastRemoteTextureId,
+                                               mRemoteTextureOwnerId);
+  // If something is querying the id, assume it is going to be composited.
+  mUsedRemoteTexture = true;
   return true;
 }
 
 void RecordedTextureData::OnForwardedToHost() {
-  mCanvasChild->OnTextureForwarded();
+  // Compositing with RecordedTextureData requires RemoteTextureMap.
+  MOZ_CRASH("OnForwardedToHost not supported!");
 }
 
 TextureFlags RecordedTextureData::GetTextureFlags() const {

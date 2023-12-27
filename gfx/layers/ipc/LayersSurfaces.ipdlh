@@ -24,6 +24,7 @@ using mozilla::gfx::IntRect from "mozilla/gfx/Rect.h";
 using mozilla::gfx::IntSize from "mozilla/gfx/Point.h";
 using mozilla::gfx::Matrix4x4 from "mozilla/gfx/Matrix.h";
 using mozilla::gfx::FenceInfo from "mozilla/gfx/FileHandleWrapper.h";
+[RefCounted] using mozilla::gfx::FileHandleWrapper from "mozilla/gfx/FileHandleWrapper.h";
 [MoveOnly] using mozilla::ipc::SharedMemoryBasic::Handle from "mozilla/ipc/SharedMemoryBasic.h";
 using gfxImageFormat from "gfxTypes.h";
 using mozilla::layers::GonkNativeHandle from "mozilla/layers/GonkNativeHandleUtils.h";
@@ -55,7 +56,7 @@ struct OverlaySource {
 };
 
 [Comparable] struct SurfaceDescriptorD3D10 {
-  WindowsHandle handle;
+  nullable FileHandleWrapper handle;
   GpuProcessTextureId? gpuProcessTextureId;
   uint32_t arrayIndex;
   SurfaceFormat format;
@@ -67,9 +68,9 @@ struct OverlaySource {
 };
 
 [Comparable] struct SurfaceDescriptorDXGIYCbCr {
-  WindowsHandle handleY;
-  WindowsHandle handleCb;
-  WindowsHandle handleCr;
+  nullable FileHandleWrapper handleY;
+  nullable FileHandleWrapper handleCb;
+  nullable FileHandleWrapper handleCr;
   IntSize size;
   IntSize sizeY;
   IntSize sizeCbCr;
@@ -213,10 +214,6 @@ struct OverlaySource {
   ExternalImageId id;
 };
 
-[Comparable] struct SurfaceDescriptorRecorded {
-  int64_t textureId;
-};
-
 [Comparable] struct SurfaceDescriptorRemoteTexture {
   RemoteTextureId textureId;
   RemoteTextureOwnerId ownerId;
@@ -234,7 +231,6 @@ struct OverlaySource {
   SurfaceDescriptorGralloc;
   SurfaceDescriptorSharedGLTexture;
   SurfaceDescriptorGPUVideo;
-  SurfaceDescriptorRecorded;
   SurfaceDescriptorRemoteTexture;
   SurfaceDescriptorDcompSurface;
   SurfaceDescriptorExternalImage;

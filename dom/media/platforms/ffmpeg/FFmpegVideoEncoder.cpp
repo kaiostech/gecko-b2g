@@ -19,6 +19,8 @@
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/ImageUtils.h"
 #include "nsPrintfCString.h"
+#include "ImageToI420.h"
+#include "libyuv.h"
 
 // The ffmpeg namespace is introduced to avoid the PixelFormat's name conflicts
 // with MediaDataEncoder::PixelFormat in MediaDataEncoder class scope.
@@ -122,38 +124,6 @@ const FFmpegPixelFormat FFMPEG_PIX_FMT_NV21 =
 
 // TODO: WebCodecs' I420A should map to MediaDataEncoder::PixelFormat and then
 // to AV_PIX_FMT_YUVA420P here.
-static FFmpegPixelFormat ToSupportedFFmpegPixelFormat(
-    const mozilla::dom::ImageBitmapFormat& aFormat) {
-  switch (aFormat) {
-    case mozilla::dom::ImageBitmapFormat::RGBA32:
-      return FFMPEG_PIX_FMT_RGBA;
-    case mozilla::dom::ImageBitmapFormat::BGRA32:
-      return FFMPEG_PIX_FMT_BGRA;
-    case mozilla::dom::ImageBitmapFormat::RGB24:
-      return FFMPEG_PIX_FMT_RGB24;
-    case mozilla::dom::ImageBitmapFormat::BGR24:
-      return FFMPEG_PIX_FMT_BGR24;
-    case mozilla::dom::ImageBitmapFormat::YUV444P:
-      return FFMPEG_PIX_FMT_YUV444P;
-    case mozilla::dom::ImageBitmapFormat::YUV422P:
-      return FFMPEG_PIX_FMT_YUV422P;
-    case mozilla::dom::ImageBitmapFormat::YUV420P:
-      return FFMPEG_PIX_FMT_YUV420P;
-    case mozilla::dom::ImageBitmapFormat::YUV420SP_NV12:
-      return FFMPEG_PIX_FMT_NV12;
-    case mozilla::dom::ImageBitmapFormat::YUV420SP_NV21:
-      return FFMPEG_PIX_FMT_NV21;
-    case mozilla::dom::ImageBitmapFormat::GRAY8:
-      // Although GRAY8 can be map to a AVPixelFormat, it's unsupported for now.
-    case mozilla::dom::ImageBitmapFormat::HSV:
-    case mozilla::dom::ImageBitmapFormat::Lab:
-    case mozilla::dom::ImageBitmapFormat::DEPTH:
-    case mozilla::dom::ImageBitmapFormat::EndGuard_:
-      break;
-  }
-  return FFMPEG_PIX_FMT_NONE;
-}
-
 static const char* GetPixelFormatString(FFmpegPixelFormat aFormat) {
   switch (aFormat) {
     case FFMPEG_PIX_FMT_NONE:
@@ -214,6 +184,9 @@ AVCodecID GetFFmpegEncoderCodecId<LIBAV_VER>(CodecType aCodec) {
   }
 #  endif
 
+  if (aCodec == CodecType::AV1) {
+    return AV_CODEC_ID_AV1;
+  }
 #endif
   return AV_CODEC_ID_NONE;
 }
@@ -257,7 +230,7 @@ RefPtr<MediaDataEncoder::EncodePromise> FFmpegVideoEncoder<LIBAV_VER>::Encode(
 RefPtr<MediaDataEncoder::ReconfigurationPromise>
 FFmpegVideoEncoder<LIBAV_VER>::Reconfigure(
     const RefPtr<const EncoderConfigurationChangeList>& aConfigurationChanges) {
-  return InvokeAsync<const RefPtr<const EncoderConfigurationChangeList>&>(
+  return InvokeAsync<const RefPtr<const EncoderConfigurationChangeList>>(
       mTaskQueue, this, __func__,
       &FFmpegVideoEncoder<LIBAV_VER>::ProcessReconfigure,
       aConfigurationChanges);
@@ -326,43 +299,45 @@ FFmpegVideoEncoder<LIBAV_VER>::ProcessEncode(RefPtr<const MediaData> aSample) {
 
 RefPtr<MediaDataEncoder::ReconfigurationPromise>
 FFmpegVideoEncoder<LIBAV_VER>::ProcessReconfigure(
-    const RefPtr<const EncoderConfigurationChangeList>& aConfigurationChanges) {
+    const RefPtr<const EncoderConfigurationChangeList> aConfigurationChanges) {
   MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
 
   FFMPEGV_LOG("ProcessReconfigure");
 
-  bool ok = false;
-  for (const auto& confChange : aConfigurationChanges->mChanges) {
-    ok |= confChange.match(
-        // Not supported yet
-        [&](const DimensionsChange& aChange) -> bool { return false; },
-        [&](const DisplayDimensionsChange& aChange) -> bool { return false; },
-        [&](const BitrateModeChange& aChange) -> bool {
-          mConfig.mBitrateMode = aChange.get();
-          // TODO
-          return false;
-        },
-        [&](const BitrateChange& aChange) -> bool {
-          mConfig.mBitrate = aChange.get().refOr(0);
-          // TODO
-          return false;
-        },
-        [&](const FramerateChange& aChange) -> bool {
-          // TODO
-          return false;
-        },
-        [&](const UsageChange& aChange) -> bool {
-          // TODO
-          mConfig.mUsage = aChange.get();
-          return false;
-        },
-        [&](const ContentHintChange& aChange) -> bool { return false; });
-  };
+  // Tracked in bug 1869583 -- for now this encoder always reports it cannot be
+  // reconfigured on the fly
+  // bool ok = false;
+  // for (const auto& confChange : aConfigurationChanges->mChanges) {
+  //   ok |= confChange.match(
+  //       // Not supported yet
+  //       [&](const DimensionsChange& aChange) -> bool { return false; },
+  //       [&](const DisplayDimensionsChange& aChange) -> bool { return false; },
+  //       [&](const BitrateModeChange& aChange) -> bool {
+  //         mConfig.mBitrateMode = aChange.get();
+  //         // TODO
+  //         return false;
+  //       },
+  //       [&](const BitrateChange& aChange) -> bool {
+  //         mConfig.mBitrate = aChange.get().refOr(0);
+  //         // TODO
+  //         return false;
+  //       },
+  //       [&](const FramerateChange& aChange) -> bool {
+  //         // TODO
+  //         return false;
+  //       },
+  //       [&](const UsageChange& aChange) -> bool {
+  //         // TODO
+  //         mConfig.mUsage = aChange.get();
+  //         return false;
+  //       },
+  //       [&](const ContentHintChange& aChange) -> bool { return false; });
+  // };
   using P = MediaDataEncoder::ReconfigurationPromise;
-  if (ok) {
-    return P::CreateAndResolve(true, __func__);
-  }
-  return P::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
+  // if (ok) {
+  //   return P::CreateAndResolve(true, __func__);
+  // }
+  return P::CreateAndReject(NS_ERROR_NOT_IMPLEMENTED, __func__);
 }
 
 RefPtr<MediaDataEncoder::EncodePromise>
@@ -415,17 +390,6 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitInternal() {
 
   ForceEnablingFFmpegDebugLogs();
 
-  ffmpeg::FFmpegPixelFormat fmt =
-      ffmpeg::ToSupportedFFmpegPixelFormat(mConfig.mSourcePixelFormat);
-  if (fmt == ffmpeg::FFMPEG_PIX_FMT_NONE) {
-    FFMPEGV_LOG(
-        "%s is unsupported format",
-        dom::ImageBitmapFormatValues::GetString(mConfig.mSourcePixelFormat)
-            .data());
-    return MediaResult(NS_ERROR_DOM_MEDIA_NOT_SUPPORTED_ERR,
-                       RESULT_DETAIL("Pixel format is not supported"));
-  }
-
   MOZ_ASSERT(!mCodecContext);
   if (!(mCodecContext = mLib->avcodec_alloc_context3(codec))) {
     FFMPEGV_LOG("failed to allocate ffmpeg context for codec %s", codec->name);
@@ -434,13 +398,19 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitInternal() {
   }
 
   // Set up AVCodecContext.
-  mCodecContext->pix_fmt = fmt;
+  mCodecContext->pix_fmt = ffmpeg::FFMPEG_PIX_FMT_YUV420P;
   mCodecContext->bit_rate =
       static_cast<ffmpeg::FFmpegBitRate>(mConfig.mBitrate);
   mCodecContext->width = static_cast<int>(mConfig.mSize.width);
   mCodecContext->height = static_cast<int>(mConfig.mSize.height);
-  mCodecContext->time_base =
-      AVRational{.num = 1, .den = static_cast<int>(mConfig.mFramerate)};
+  if (mConfig.mFramerate) {
+    mCodecContext->time_base =
+        AVRational{.num = 1, .den = static_cast<int>(mConfig.mFramerate)};
+  } else {
+    // Choose something typical if we don't know
+    mCodecContext->time_base =
+        AVRational{.num = 1, .den = 90000};
+  }
 #if LIBAVCODEC_VERSION_MAJOR >= 57
   mCodecContext->framerate =
       AVRational{.num = static_cast<int>(mConfig.mFramerate), .den = 1};
@@ -558,6 +528,13 @@ int FFmpegVideoEncoder<LIBAV_VER>::OpenCodecContext(const AVCodec* aCodec,
   MOZ_ASSERT(mCodecContext);
 
   StaticMutexAutoLock mon(sMutex);
+  // Our old version of libaom-av1 is considered experimental by the recent
+  // ffmpeg we use. Allow experimental codecs for now until we decide on an AV1
+  // encoder.
+  mCodecContext->strict_std_compliance = -2;
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+  mCodecContext->flags |= AV_CODEC_FLAG_FRAME_DURATION;
+#endif
   return mLib->avcodec_open2(mCodecContext, aCodec, aOptions);
 }
 
@@ -606,27 +583,50 @@ void FFmpegVideoEncoder<LIBAV_VER>::DestroyFrame() {
   }
 }
 
-// avcodec_send_frame and avcodec_receive_packet were introduced in version 58.
-#if LIBAVCODEC_VERSION_MAJOR >= 58
-// TODO: Bug 1868907 - Avoid copy in FFmpegVideoEncoder::Encode.
-static bool CopyPlane(uint8_t* aDst, const uint8_t* aSrc,
-                      const gfx::IntSize& aSize, int32_t aStride) {
-  int32_t height = aSize.height;
-  int32_t width = aSize.width;
-
-  MOZ_RELEASE_ASSERT(width <= aStride);
-
-  CheckedInt<size_t> size(height);
-  size *= aStride;
-
-  if (!size.isValid()) {
+bool FFmpegVideoEncoder<LIBAV_VER>::ScaleInputFrame() {
+  AVFrame* source = mFrame;
+  mFrame = nullptr;
+  // Allocate AVFrame.
+  if (!PrepareFrame()) {
+    FFMPEGV_LOG("failed to allocate frame");
     return false;
   }
 
-  PodCopy(aDst, aSrc, size.value());
+  // Set AVFrame properties for its internal data allocation. For now, we always
+  // convert into ffmpeg's buffer.
+  mFrame->format = ffmpeg::FFMPEG_PIX_FMT_YUV420P;
+  mFrame->width = static_cast<int>(mConfig.mSize.Width());
+  mFrame->height = static_cast<int>(mConfig.mSize.Height());
+
+  // Allocate AVFrame data.
+  if (int ret = mLib->av_frame_get_buffer(mFrame, 16); ret < 0) {
+    FFMPEGV_LOG("failed to allocate frame data: %s",
+                MakeErrorString(mLib, ret).get());
+    return false;
+  }
+
+  // Make sure AVFrame is writable.
+  if (int ret = mLib->av_frame_make_writable(mFrame); ret < 0) {
+    FFMPEGV_LOG("failed to make frame writable: %s",
+                MakeErrorString(mLib, ret).get());
+    return false;
+  }
+  int rv = I420Scale(source->data[0], source->linesize[0], source->data[1],
+                     source->linesize[1], source->data[2], source->linesize[2],
+                     source->width, source->height, mFrame->data[0],
+                     mFrame->linesize[0], mFrame->data[1], mFrame->linesize[1],
+                     mFrame->data[2], mFrame->linesize[2], mFrame->width,
+                     mFrame->height, libyuv::FilterMode::kFilterBox);
+  if (!rv) {
+    FFMPEGV_LOG("YUV scale error");
+  }
+  mLib->av_frame_unref(source);
+  mLib->av_frame_free(&source);
   return true;
 }
 
+// avcodec_send_frame and avcodec_receive_packet were introduced in version 58.
+#if LIBAVCODEC_VERSION_MAJOR >= 58
 RefPtr<MediaDataEncoder::EncodePromise> FFmpegVideoEncoder<
     LIBAV_VER>::EncodeWithModernAPIs(RefPtr<const VideoData> aSample) {
   MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
@@ -648,20 +648,6 @@ RefPtr<MediaDataEncoder::EncodePromise> FFmpegVideoEncoder<
         __func__);
   }
 
-  // Check image format.
-  const dom::ImageUtils imageUtils(aSample->mImage);
-  ffmpeg::FFmpegPixelFormat imgFmt =
-      ffmpeg::ToSupportedFFmpegPixelFormat(imageUtils.GetFormat());
-  if (imgFmt == ffmpeg::FFMPEG_PIX_FMT_NONE) {
-    FFMPEGV_LOG(
-        "image type %s is unsupported",
-        dom::ImageBitmapFormatValues::GetString(imageUtils.GetFormat()).data());
-    return EncodePromise::CreateAndReject(
-        MediaResult(NS_ERROR_DOM_MEDIA_NOT_SUPPORTED_ERR,
-                    RESULT_DETAIL("Unsupport image type")),
-        __func__);
-  }
-
   // Allocate AVFrame.
   if (!PrepareFrame()) {
     FFMPEGV_LOG("failed to allocate frame");
@@ -671,10 +657,9 @@ RefPtr<MediaDataEncoder::EncodePromise> FFmpegVideoEncoder<
         __func__);
   }
 
-  // Set AVFrame properties for its internal data allocation.
-  // TODO: Need to convert image data into mConfig.mSourcePixelFormat format if
-  // their formats mismatch.
-  mFrame->format = imgFmt;
+  // Set AVFrame properties for its internal data allocation. For now, we always
+  // convert into ffmpeg's buffer.
+  mFrame->format = ffmpeg::FFMPEG_PIX_FMT_YUV420P;
   mFrame->width = static_cast<int>(aSample->mImage->GetSize().width);
   mFrame->height = static_cast<int>(aSample->mImage->GetSize().height);
 
@@ -698,131 +683,44 @@ RefPtr<MediaDataEncoder::EncodePromise> FFmpegVideoEncoder<
         __func__);
   }
 
-  // Fill AVFrame data.
-  if (aSample->mImage->AsPlanarYCbCrImage()) {
-    const layers::PlanarYCbCrData* data =
-        aSample->mImage->AsPlanarYCbCrImage()->GetData();
-    if (!data) {
-      FFMPEGV_LOG("No data in YCbCr image");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_ILLEGAL_INPUT,
-                      RESULT_DETAIL("Unable to get image data")),
-          __func__);
-    }
+  nsresult rv = ConvertToI420(
+      aSample->mImage, mFrame->data[0], mFrame->linesize[0], mFrame->data[1],
+      mFrame->linesize[1], mFrame->data[2], mFrame->linesize[2]);
+  if (NS_FAILED(rv)) {
+    FFMPEGV_LOG("Conversion error!");
+    return EncodePromise::CreateAndReject(
+        MediaResult(NS_ERROR_ILLEGAL_INPUT,
+                    RESULT_DETAIL("libyuv conversion error")),
+        __func__);
+  }
 
-    uint8_t* yPlane = mFrame->data[0];
-    uint8_t* uPlane = mFrame->data[1];
-    uint8_t* vPlane = mFrame->data[2];
-    // TODO: Handle alpha channel when AV_PIX_FMT_YUVA* is supported.
-
-    // TODO: Check mFrame->linesize?
-
-    // TODO: Evaluate if we need to take data->mYSkip, data->mCbSkip, and
-    // data->mCrSkip into account when cloning the data.
-    if (!CopyPlane(yPlane, data->mYChannel, data->YDataSize(),
-                   data->mYStride) ||
-        !CopyPlane(uPlane, data->mCbChannel, data->CbCrDataSize(),
-                   data->mCbCrStride) ||
-        !CopyPlane(vPlane, data->mCrChannel, data->CbCrDataSize(),
-                   data->mCbCrStride)) {
-      FFMPEGV_LOG("Input YCbCr image is too big");
+  // Scale the YUV input frame if needed -- the encoded frame will have the
+  // dimensions configured at encoded initialization.
+  if (mFrame->width != mConfig.mSize.Width() ||
+      mFrame->height != mConfig.mSize.Height()) {
+    if (!ScaleInputFrame()) {
       return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_DOM_MEDIA_OVERFLOW_ERR,
-                      RESULT_DETAIL("Input image is too big")),
-          __func__);
-    }
-  } else if (aSample->mImage->AsNVImage()) {
-    const layers::PlanarYCbCrData* data =
-        aSample->mImage->AsNVImage()->GetData();
-    if (!data) {
-      FFMPEGV_LOG("No data in NV image");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_ILLEGAL_INPUT,
-                      RESULT_DETAIL("Input image is too big")),
-          __func__);
-    }
-
-    uint8_t* yPlane = mFrame->data[0];
-    uint8_t* uvPlane = mFrame->data[1];
-
-    // TODO: Evaluate if we need to take data->mYSkip, data->mCbSkip, and
-    // data->mCrSkip into account when cloning the data.
-    if (!CopyPlane(yPlane, data->mYChannel, data->YDataSize(),
-                   data->mYStride) ||
-        !CopyPlane(uvPlane, data->mCbChannel, data->CbCrDataSize(),
-                   data->mCbCrStride)) {
-      FFMPEGV_LOG("Input NV image is too big");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_DOM_MEDIA_OVERFLOW_ERR,
-                      RESULT_DETAIL("Input image is too big")),
-          __func__);
-    }
-  } else {
-    RefPtr<gfx::SourceSurface> surface = aSample->mImage->GetAsSourceSurface();
-    if (!surface) {
-      FFMPEGV_LOG("failed to get source surface of the image");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_NOT_AVAILABLE,
-                      RESULT_DETAIL("Unable to get source surface ")),
-          __func__);
-    }
-
-    RefPtr<gfx::DataSourceSurface> dataSurface = surface->GetDataSurface();
-    if (!dataSurface) {
-      FFMPEGV_LOG("failed to get data source surface of the image");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_NOT_AVAILABLE,
-                      RESULT_DETAIL("Unable to get data source surface ")),
-          __func__);
-    }
-
-    const gfx::SurfaceFormat format = dataSurface->GetFormat();
-    if (format != gfx::SurfaceFormat::R8G8B8A8 &&
-        format != gfx::SurfaceFormat::R8G8B8X8 &&
-        format != gfx::SurfaceFormat::B8G8R8A8 &&
-        format != gfx::SurfaceFormat::B8G8R8X8 &&
-        format != gfx::SurfaceFormat::R8G8B8 &&
-        format != gfx::SurfaceFormat::B8G8R8) {
-      FFMPEGV_LOG("surface format is unsupported");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_DOM_MEDIA_NOT_SUPPORTED_ERR,
-                      RESULT_DETAIL("Unsupported surface format")),
-          __func__);
-    }
-
-    gfx::DataSourceSurface::ScopedMap map(dataSurface,
-                                          gfx::DataSourceSurface::READ);
-    if (!map.IsMapped()) {
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_NOT_AVAILABLE,
-                      RESULT_DETAIL("Unable to read image data")),
-          __func__);
-    }
-
-    // TODO: Gecko prefers BGRA. Does format always match
-    // mConfig.mSourcePixelFormat? gfx::SwizzleData if they mismatch.
-    uint8_t* buf = mFrame->data[0];
-    if (!CopyPlane(buf, map.GetData(), dataSurface->GetSize(),
-                   map.GetStride())) {
-      FFMPEGV_LOG("Input RGB-type image is too big");
-      return EncodePromise::CreateAndReject(
-          MediaResult(NS_ERROR_DOM_MEDIA_OVERFLOW_ERR,
-                      RESULT_DETAIL("Input RGB-type image is too big")),
+          MediaResult(NS_ERROR_OUT_OF_MEMORY,
+                      RESULT_DETAIL("libyuv scaling error")),
           __func__);
     }
   }
 
-  FFMPEGV_LOG(
-      "Fill AVFrame with %s image data",
-      dom::ImageBitmapFormatValues::GetString(imageUtils.GetFormat()).data());
-
-  // Set presentation timestamp of the AVFrame.
-  // The unit of pts is AVCodecContext's time_base, which is the reciprocal of
-  // the frame rate.
-  mFrame->pts = aSample->mTime.ToTicksAtRate(mConfig.mFramerate);
+  // Everything in microsecond for now: bug 1869560
+  mFrame->pts = aSample->mTime.ToMicroseconds();
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+  mFrame->duration = aSample->mDuration.ToMicroseconds();
+  mFrame->pkt_duration = aSample->mDuration.ToMicroseconds();
+#else
+  mFrame->pkt_duration = aSample->mDuration.ToMicroseconds();
+#endif
+#if LIBAVCODEC_VERSION_MAJOR >= 59
+  mFrame->time_base = {1, USECS_PER_S};
+#endif
 
   // Initialize AVPacket.
   AVPacket* pkt = mLib->av_packet_alloc();
+
   if (!pkt) {
     FFMPEGV_LOG("failed to allocate packet");
     return EncodePromise::CreateAndReject(
@@ -830,6 +728,9 @@ RefPtr<MediaDataEncoder::EncodePromise> FFmpegVideoEncoder<
                     RESULT_DETAIL("Unable to allocate packet")),
         __func__);
   }
+
+  auto freePacket =
+   MakeScopeExit( [this, &pkt] { mLib->av_packet_free(&pkt); } );
 
   // Send frame and receive packets.
 
@@ -900,6 +801,8 @@ FFmpegVideoEncoder<LIBAV_VER>::DrainWithModernAPIs() {
                     RESULT_DETAIL("Unable to allocate packet")),
         __func__);
   }
+  auto freePacket =
+   MakeScopeExit( [this, &pkt] { mLib->av_packet_free(&pkt); } );
 
   // Enter draining mode by sending NULL to the avcodec_send_frame(). Note that
   // this can leave the encoder in a permanent EOF state after draining. As a
@@ -985,14 +888,10 @@ RefPtr<MediaRawData> FFmpegVideoEncoder<LIBAV_VER>::ToMediaRawData(
   }
 
   data->mKeyframe = (aPacket->flags & AV_PKT_FLAG_KEY) != 0;
-  // The unit of pts, dts, and duration is AVCodecContext's time_base, which is
-  // the reciprocal of the frame rate.
-  data->mTime =
-      media::TimeUnit(aPacket->pts, static_cast<int64_t>(mConfig.mFramerate));
-  data->mDuration = media::TimeUnit(aPacket->duration,
-                                    static_cast<int64_t>(mConfig.mFramerate));
-  data->mTimecode =
-      media::TimeUnit(aPacket->dts, static_cast<int64_t>(mConfig.mFramerate));
+  // Everything in microseconds for now: bug 1869560
+  data->mTime = media::TimeUnit::FromMicroseconds(aPacket->pts);
+  data->mDuration = media::TimeUnit::FromMicroseconds(aPacket->duration);
+  data->mTimecode = media::TimeUnit::FromMicroseconds(aPacket->dts);
 
   if (auto r = GetExtraData(aPacket); r.isOk()) {
     data->mExtraData = r.unwrap();

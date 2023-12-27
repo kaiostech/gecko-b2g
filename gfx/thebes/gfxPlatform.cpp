@@ -950,6 +950,10 @@ void gfxPlatform::Init() {
   }
 #endif
 
+  mozilla::glean::gpu_process::feature_status.Set(
+      gfxConfig::GetFeature(Feature::GPU_PROCESS)
+          .GetStatusAndFailureIdString());
+
   if (gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
     GPUProcessManager* gpu = GPUProcessManager::Get();
     Unused << gpu->LaunchGPUProcess();
@@ -3072,7 +3076,7 @@ void gfxPlatform::InitWebGLConfig() {
   gfxVars::SetUseCanvasRenderThread(feature.IsEnabled());
 
   bool webglOopAsyncPresentForceSync =
-      !gfxVars::UseCanvasRenderThread() ||
+      (threadsafeGL && !gfxVars::UseCanvasRenderThread()) ||
       StaticPrefs::webgl_out_of_process_async_present_force_sync();
   gfxVars::SetWebglOopAsyncPresentForceSync(webglOopAsyncPresentForceSync);
 

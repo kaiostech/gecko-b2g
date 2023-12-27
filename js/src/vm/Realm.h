@@ -23,8 +23,10 @@
 #include "js/TelemetryTimers.h"
 #include "js/UniquePtr.h"
 #include "vm/ArrayBufferObject.h"
+#include "vm/GuardFuse.h"
 #include "vm/JSContext.h"
 #include "vm/PromiseLookup.h"  // js::PromiseLookup
+#include "vm/RealmFuses.h"
 #include "vm/SavedStacks.h"
 #include "wasm/WasmRealm.h"
 
@@ -401,6 +403,9 @@ class JS::Realm : public JS::shadow::Realm {
 
   // Counter for shouldCaptureStackForThrow.
   uint16_t numStacksCapturedForThrow_ = 0;
+
+  // Count the number of allocation sites pretenured, for testing purposes.
+  uint16_t numAllocSitesPretenured = 0;
 
 #ifdef DEBUG
   bool firedOnNewGlobalObject = false;
@@ -784,6 +789,8 @@ class JS::Realm : public JS::shadow::Realm {
                   "JIT code assumes field is pointer-sized");
     return offsetof(JS::Realm, global_);
   }
+
+  js::RealmFuses realmFuses;
 
  private:
   void purgeForOfPicChain();

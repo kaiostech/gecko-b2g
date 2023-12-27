@@ -143,13 +143,13 @@ bool CheckStringIsIndex(const CharT* s, size_t length, uint32_t* indexp);
  *  | \
  *  | JSRope                    leftChild, rightChild / -
  *  |
- * JSLinearString (abstract)    latin1Chars, twoByteChars / -
+ * JSLinearString               latin1Chars, twoByteChars / -
  *  |
  *  +-- JSDependentString       base / -
  *  |
  *  +-- JSExternalString        - / char array memory managed by embedding
  *  |
- *  +-- JSExtensibleString      tracks total buffer capacity (including current text)
+ *  +-- JSExtensibleString      - / tracks total buffer capacity (including current text)
  *  |
  *  +-- JSInlineString (abstract) - / chars stored in header
  *  |   |
@@ -159,9 +159,12 @@ bool CheckStringIsIndex(const CharT* s, size_t length, uint32_t* indexp);
  *  |
  * JSAtom (abstract)            - / string equality === pointer equality
  *  |  |
- *  |  +-- js::NormalAtom       - JSLinearString + atom hash code
+ *  |  +-- js::NormalAtom       JSLinearString + atom hash code / -
+ *  |  |   |
+ *  |  |   +-- js::ThinInlineAtom
+ *  |  |                        possibly larger JSThinInlineString + atom hash code / -
  *  |  |
- *  |  +-- js::FatInlineAtom    - JSFatInlineString + atom hash code
+ *  |  +-- js::FatInlineAtom    JSFatInlineString w/atom hash code / -
  *  |
  * js::PropertyName             - / chars don't contain an index (uint32_t)
  *
@@ -180,13 +183,15 @@ bool CheckStringIsIndex(const CharT* s, size_t length, uint32_t* indexp);
  * Derived string types can be queried from ancestor types via isX() and
  * retrieved with asX() debug-only-checked casts.
  *
- * The ensureX() operations mutate 'this' in place to effectively the type to be
- * at least X (e.g., ensureLinear will change a JSRope to be a JSLinearString).
+ * The ensureX() operations mutate 'this' in place to effectively make the type
+ * be at least X (e.g., ensureLinear will change a JSRope to be a JSLinearString).
  */
 // clang-format on
 
 class JSString : public js::gc::CellWithLengthAndFlags {
  protected:
+  using Base = js::gc::CellWithLengthAndFlags;
+
   static const size_t NUM_INLINE_CHARS_LATIN1 =
       2 * sizeof(void*) / sizeof(JS::Latin1Char);
   static const size_t NUM_INLINE_CHARS_TWO_BYTE =
@@ -305,20 +310,31 @@ class JSString : public js::gc::CellWithLengthAndFlags {
    * the predicate used to query whether a JSString instance is subtype
    * (reflexively) of that type.
    *
-   *   String        Instance         Subtype
-   *   type          encoding         predicate
+   *   String         Instance        Subtype
+   *   type           encoding        predicate
    *   -----------------------------------------
-   *   Rope          000000 000       xxxx0x xxx
-   *   Linear        -                xxxx1x xxx
-   *   Dependent     000110 000       xxx1xx xxx
-   *   External      100010 000       100010 xxx
-   *   Extensible    010010 000       010010 xxx
-   *   Inline        001010 000       xx1xxx xxx
-   *   FatInline     011010 000       x11xxx xxx
-   *   NormalAtom    000011 000       xxxxx1 xxx
-   *   PermanentAtom 100011 000       1xxxx1 xxx
-   *   InlineAtom    -                xx1xx1 xxx
-   *   FatInlineAtom -                x11xx1 xxx
+   *   Rope           000000 000      xxxx0x xxx
+   *   Linear         000010 000      xxxx1x xxx
+   *   Dependent      000110 000      xxx1xx xxx
+   *   External       100010 000      100010 xxx
+   *   Extensible     010010 000      010010 xxx
+   *   Inline         001010 000      xx1xxx xxx
+   *   FatInline      011010 000      x11xxx xxx
+   *   JSAtom         -               xxxxx1 xxx
+   *   NormalAtom     000011 000      xx0xx1 xxx
+   *   PermanentAtom  100011 000      1xxxx1 xxx
+   *   ThinInlineAtom 001011 000      x01xx1 xxx
+   *   FatInlineAtom  011011 000      x11xx1 xxx
+   *                                  |||||| |||
+   *                                  |||||| ||\- [0] reserved (FORWARD_BIT)
+   *                                  |||||| |\-- [1] reserved
+   *                                  |||||| \--- [2] reserved
+   *                                  |||||\----- [3] IsAtom
+   *                                  ||||\------ [4] IsLinear
+   *                                  |||\------- [5] IsDependent
+   *                                  ||\-------- [6] IsInline
+   *                                  |\--------- [7] FatInlineAtom/Extensible
+   *                                  \---------- [8] External/Permanent
    *
    * Bits 0..2 are reserved for use by the GC (see
    * gc::CellFlagBitsReservedForGC). In particular, bit 0 is currently used for
@@ -331,7 +347,7 @@ class JSString : public js::gc::CellWithLengthAndFlags {
    *   Bit 3: IsAtom (Atom, PermanentAtom)
    *   Bit 4: IsLinear
    *   Bit 5: IsDependent
-   *   Bit 6: IsInline (Inline, FatInline)
+   *   Bit 6: IsInline (Inline, FatInline, ThinInlineAtom, FatInlineAtom)
    *
    * If INDEX_VALUE_BIT is set, bits 16 and up will also hold an integer index.
    */
@@ -1185,6 +1201,8 @@ class JSThinInlineString : public JSInlineString {
   JSThinInlineString() = default;
 
  public:
+  static constexpr size_t InlineBytes = NUM_INLINE_CHARS_LATIN1;
+
   static const size_t MAX_LENGTH_LATIN1 = NUM_INLINE_CHARS_LATIN1;
   static const size_t MAX_LENGTH_TWO_BYTE = NUM_INLINE_CHARS_TWO_BYTE;
 
@@ -1358,14 +1376,14 @@ class JSAtom : public JSLinearString {
   inline js::HashNumber hash() const;
   inline void initHash(js::HashNumber hash);
 
+  template <typename CharT>
+  static bool lengthFitsInline(size_t length);
+
 #if defined(DEBUG) || defined(JS_JITSPEW) || defined(JS_CACHEIR_SPEW)
   void dump(js::GenericPrinter& out);
   void dump();
 #endif
 };
-
-static_assert(sizeof(JSAtom) == sizeof(JSString),
-              "string subclasses must be binary-compatible with JSString");
 
 namespace js {
 
@@ -1373,12 +1391,14 @@ class NormalAtom : public JSAtom {
   friend class gc::CellAllocator;
 
  protected:
+  static constexpr size_t ExtensionBytes =
+      js::gc::CellAlignBytes - sizeof(js::HashNumber);
+
+  char inlineStorage_[ExtensionBytes];
   HashNumber hash_;
 
-  // Inline atoms, mimicking JSThinInlineString constructors.
-  explicit NormalAtom(size_t length, JS::Latin1Char** chars,
-                      js::HashNumber hash);
-  explicit NormalAtom(size_t length, char16_t** chars, js::HashNumber hash);
+  // For subclasses to call.
+  explicit NormalAtom(js::HashNumber hash) : hash_(hash) {}
 
   // Out of line atoms, mimicking JSLinearString constructors.
   NormalAtom(const char16_t* chars, size_t length, js::HashNumber hash);
@@ -1391,15 +1411,71 @@ class NormalAtom : public JSAtom {
   static constexpr size_t offsetOfHash() { return offsetof(NormalAtom, hash_); }
 };
 
-static_assert(sizeof(NormalAtom) == sizeof(JSString) + sizeof(uint64_t),
+static_assert(sizeof(NormalAtom) ==
+                  js::RoundUp(sizeof(JSString) + sizeof(js::HashNumber),
+                              js::gc::CellAlignBytes),
               "NormalAtom must have size of a string + HashNumber, "
               "aligned to gc::CellAlignBytes");
 
+class ThinInlineAtom : public NormalAtom {
+  friend class gc::CellAllocator;
+
+ public:
+  static constexpr size_t MAX_LENGTH_LATIN1 =
+      NUM_INLINE_CHARS_LATIN1 + ExtensionBytes / sizeof(JS::Latin1Char);
+  static constexpr size_t MAX_LENGTH_TWO_BYTE =
+      NUM_INLINE_CHARS_TWO_BYTE + ExtensionBytes / sizeof(char16_t);
+
+#ifdef JS_64BIT
+  // Fat and Thin inline atoms are the same size. Only use fat.
+  static constexpr bool EverInstantiated = false;
+#else
+  static constexpr bool EverInstantiated = true;
+#endif
+
+ protected:
+  // Mimicking JSThinInlineString constructors.
+#ifdef JS_64BIT
+  ThinInlineAtom(size_t length, JS::Latin1Char** chars,
+                 js::HashNumber hash) = delete;
+  ThinInlineAtom(size_t length, char16_t** chars, js::HashNumber hash) = delete;
+#else
+  ThinInlineAtom(size_t length, JS::Latin1Char** chars, js::HashNumber hash);
+  ThinInlineAtom(size_t length, char16_t** chars, js::HashNumber hash);
+#endif
+
+ public:
+  template <typename CharT>
+  static bool lengthFits(size_t length) {
+    if constexpr (sizeof(CharT) == sizeof(JS::Latin1Char)) {
+      return length <= MAX_LENGTH_LATIN1;
+    } else {
+      return length <= MAX_LENGTH_TWO_BYTE;
+    }
+  }
+};
+
+// FatInlineAtom is basically a JSFatInlineString, except it has a hash value in
+// the last word that reduces the inline char storage.
 class FatInlineAtom : public JSAtom {
   friend class gc::CellAllocator;
 
+  // The space available for storing inline characters. It's the same amount of
+  // space as a JSFatInlineString, except we take the hash value out of it.
+  static constexpr size_t InlineBytes = sizeof(JSFatInlineString) -
+                                        sizeof(JSString::Base) -
+                                        sizeof(js::HashNumber);
+
+  static constexpr size_t ExtensionBytes =
+      InlineBytes - JSThinInlineString::InlineBytes;
+
+ public:
+  static constexpr size_t MAX_LENGTH_LATIN1 =
+      InlineBytes / sizeof(JS::Latin1Char);
+  static constexpr size_t MAX_LENGTH_TWO_BYTE = InlineBytes / sizeof(char16_t);
+
  protected:  // Silence Clang unused-field warning.
-  char inlineStorage_[sizeof(JSFatInlineString) - sizeof(JSString)];
+  char inlineStorage_[ExtensionBytes];
   HashNumber hash_;
 
   // Mimicking JSFatInlineString constructors.
@@ -1414,14 +1490,26 @@ class FatInlineAtom : public JSAtom {
   inline void finalize(JS::GCContext* gcx);
 
   static constexpr size_t offsetOfHash() {
+    static_assert(
+        sizeof(FatInlineAtom) ==
+            js::RoundUp(sizeof(JSThinInlineString) +
+                            FatInlineAtom::ExtensionBytes + sizeof(HashNumber),
+                        gc::CellAlignBytes),
+        "FatInlineAtom must have size of a thin inline string + "
+        "extension bytes if any + HashNumber, "
+        "aligned to gc::CellAlignBytes");
+
     return offsetof(FatInlineAtom, hash_);
+  }
+
+  template <typename CharT>
+  static bool lengthFits(size_t length) {
+    return length * sizeof(CharT) <= InlineBytes;
   }
 };
 
-static_assert(
-    sizeof(FatInlineAtom) == sizeof(JSFatInlineString) + sizeof(uint64_t),
-    "FatInlineAtom must have size of a fat inline string + HashNumber, "
-    "aligned to gc::CellAlignBytes");
+static_assert(sizeof(FatInlineAtom) == sizeof(JSFatInlineString),
+              "FatInlineAtom must be the same size as a fat inline string");
 
 // When an algorithm does not need a string represented as a single linear
 // array of characters, this range utility may be used to traverse the string a
@@ -1999,6 +2087,40 @@ template <>
 MOZ_ALWAYS_INLINE bool JSInlineString::lengthFits<char16_t>(size_t length) {
   // If it fits in a fat inline string, it fits in any inline string.
   return JSFatInlineString::lengthFits<char16_t>(length);
+}
+
+template <>
+MOZ_ALWAYS_INLINE bool js::ThinInlineAtom::lengthFits<JS::Latin1Char>(
+    size_t length) {
+  return length <= MAX_LENGTH_LATIN1;
+}
+
+template <>
+MOZ_ALWAYS_INLINE bool js::ThinInlineAtom::lengthFits<char16_t>(size_t length) {
+  return length <= MAX_LENGTH_TWO_BYTE;
+}
+
+template <>
+MOZ_ALWAYS_INLINE bool js::FatInlineAtom::lengthFits<JS::Latin1Char>(
+    size_t length) {
+  return length <= MAX_LENGTH_LATIN1;
+}
+
+template <>
+MOZ_ALWAYS_INLINE bool js::FatInlineAtom::lengthFits<char16_t>(size_t length) {
+  return length <= MAX_LENGTH_TWO_BYTE;
+}
+
+template <>
+MOZ_ALWAYS_INLINE bool JSAtom::lengthFitsInline<JS::Latin1Char>(size_t length) {
+  // If it fits in a fat inline atom, it fits in any inline atom.
+  return js::FatInlineAtom::lengthFits<JS::Latin1Char>(length);
+}
+
+template <>
+MOZ_ALWAYS_INLINE bool JSAtom::lengthFitsInline<char16_t>(size_t length) {
+  // If it fits in a fat inline atom, it fits in any inline atom.
+  return js::FatInlineAtom::lengthFits<char16_t>(length);
 }
 
 template <>

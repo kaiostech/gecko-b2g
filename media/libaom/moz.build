@@ -73,7 +73,8 @@ else:
 # We allow warnings for third-party code that can be updated from upstream.
 AllowCompilerWarnings()
 
-FINAL_LIBRARY = 'gkmedias'
+FINAL_LIBRARY = 'gkcodecs'
+NoVisibilityFlags()
 
 if CONFIG['OS_TARGET'] == 'Android':
     # Older versions of the Android NDK don't pre-define anything to indicate
@@ -93,6 +94,8 @@ for f in SOURCES:
         SOURCES[f].flags += ['-mavx']
     elif f.endswith('avx2.c'):
         SOURCES[f].flags += ['-mavx2']
+
+SOURCES += [ 'build_config.c' ]
 
 # Suppress warnings in third-party code.
 CFLAGS += [
@@ -116,10 +119,11 @@ LOCAL_INCLUDES += [
     '/third_party/aom',
 ]
 
-if CONFIG['OS_TARGET'] == 'Linux':
-    # For fuzzing, We only support building on Linux currently.
-    include('/tools/fuzzing/libfuzzer-config.mozbuild')
-    if CONFIG['FUZZING_INTERFACES']:
-        TEST_DIRS += [
-            'test/fuzztest'
-    ]
+# Disabled for now, see https://bugzilla.mozilla.org/show_bug.cgi?id=1869986
+# if CONFIG['OS_TARGET'] == 'Linux':
+#     # For fuzzing, We only support building on Linux currently.
+#     include('/tools/fuzzing/libfuzzer-config.mozbuild')
+#     if CONFIG['FUZZING_INTERFACES']:
+#         TEST_DIRS += [
+#             'test/fuzztest'
+#     ]

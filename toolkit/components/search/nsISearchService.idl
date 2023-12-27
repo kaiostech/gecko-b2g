@@ -93,22 +93,13 @@ interface nsISearchEngine : nsISupports
 
   /**
    * Returns a string with the URL to an engine's icon matching both width and
-   * height. Returns null if icon with specified dimensions is not found.
+   * height. Returns undefined if icon with specified dimensions is not found.
    *
-   * @param width
-   *        Width of the requested icon.
-   * @param height
-   *        Height of the requested icon.
+   * @param preferredWidth
+   *   Width of the requested icon. If not specified, it is assumed that
+   *   16x16 is desired.
    */
-  AString getIconURLBySize(in long width, in long height);
-
-  /**
-   * Gets an array of all available icons. Each entry is an object with
-   * width, height and url properties. width and height are numeric and
-   * represent the icon's dimensions. url is a string with the URL for
-   * the icon.
-   */
-  jsval getIcons();
+  jsval getIconURL([optional] in unsigned short preferredWidth);
 
   /**
    * Opens a speculative connection to the engine's search URI
@@ -150,11 +141,6 @@ interface nsISearchEngine : nsISupports
    * Whether the associated one off button should be hidden from the user.
    */
   attribute boolean hideOneOffButton;
-
-  /**
-   * A nsIURI corresponding to the engine's icon, stored locally. May be null.
-   */
-  readonly attribute nsIURI iconURI;
 
   /**
    * The display name of the search engine. This is a unique identifier.

@@ -667,6 +667,11 @@
   value: 1.0f
   mirror: always
 
+- name: apz.minimap.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: apz.mvm.force-enabled
   type: RelaxedAtomicBool
   value: true
@@ -5966,12 +5971,6 @@
   value: false
   mirror: once
 
-# How long to wait in milliseconds for a texture to be resolved
-- name: gfx.canvas.remote.texture-timeout-ms
-  type: RelaxedAtomicUint32
-  value: 10000
-  mirror: always
-
 # How many worker threads spawned for remote canvas
 #  -1 - Calculate based on processor cores
 #   0 - No worker threads spawned, will do work on CanvasRenderThread
@@ -9665,7 +9664,7 @@
 
 # Whether to disable layer pixel alignment in scroll related stuff.
 - name: layout.scroll.disable-pixel-alignment
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -12297,6 +12296,19 @@
   value: false
   mirror: always
 
+# Use platform DNS APIs (where available) to resolve HTTPS queries
+- name: network.dns.native_https_query
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# When resolving a native HTTPS query with native APIs
+# the Android implementation has a max timeout
+- name: network.dns.native_https_timeout_android
+  type: RelaxedAtomicInt32
+  value: 20000
+  mirror: always
+
 # When this pref is true, we copy the host name to a fresh string before
 # calling into getaddrinfo.
 - name: network.dns.copy_string_before_call
@@ -12328,7 +12340,7 @@
 # Whether the SOCKS proxy should be in charge of DNS resolution.
 - name: network.proxy.socks_remote_dns
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # When receiving a network change event, the time (in ms) we wait to reload the
@@ -13182,6 +13194,12 @@
 - name: network.debugging.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+  # If true, HTTP response content-type headers will be parsed using the standards-compliant MimeType parser
+- name: network.standard_content_type_parsing.response_headers
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # The maximum count that we allow socket prrocess to crash. If this count is
@@ -15861,7 +15879,7 @@
 # controls). Maybe it's just fine.
 - name: widget.non-native-theme.use-theme-accent
   type: RelaxedAtomicBool
-#ifdef XP_WIN
+#if defined(XP_WIN) && !defined(MOZ_THUNDERBIRD)
   value: false
 #else
   value: true

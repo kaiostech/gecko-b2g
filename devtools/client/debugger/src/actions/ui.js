@@ -234,6 +234,18 @@ export function setJavascriptTracingLogMethod(value) {
   };
 }
 
+export function toggleJavascriptTracingValues() {
+  return {
+    type: "TOGGLE_JAVASCRIPT_TRACING_VALUES",
+  };
+}
+
+export function toggleJavascriptTracingOnNextInteraction() {
+  return {
+    type: "TOGGLE_JAVASCRIPT_TRACING_ON_NEXT_INTERACTION",
+  };
+}
+
 export function setHideOrShowIgnoredSources(shouldHide) {
   return ({ dispatch, getState }) => {
     dispatch({ type: "HIDE_IGNORED_SOURCES", shouldHide });

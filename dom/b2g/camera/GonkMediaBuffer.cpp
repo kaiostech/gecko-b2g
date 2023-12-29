@@ -73,7 +73,7 @@ GonkMediaBuffer::GonkMediaBuffer(size_t size)
       }
     } else {
       getSharedControl()->clear();
-      mData = (uint8_t*)mMemory->pointer() + sizeof(SharedControl);
+      mData = (uint8_t*)IMEMORY_POINTER(mMemory) + sizeof(SharedControl);
       ALOGV("Allocated shared mem buffer of size %zu @ %p", size, mData);
     }
   }

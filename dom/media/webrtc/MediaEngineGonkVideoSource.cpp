@@ -13,6 +13,7 @@
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/widget/ScreenManager.h"
+#include "nsIObserverService.h"
 #include "ScreenOrientation.h"
 
 namespace mozilla {

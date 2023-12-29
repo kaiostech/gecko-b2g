@@ -856,8 +856,15 @@ status_t GonkRecorder::start() {
 
 #if defined(MOZ_WIDGET_GONK)
 sp<MediaSource> GonkRecorder::createAudioSource() {
+#  if ANDROID_VERSION >= 30
+  audio_attributes_t attr = AUDIO_ATTRIBUTES_INITIALIZER;
+  attr.source = mAudioSource;
+  sp<AudioSource> audioSource =
+      new AudioSource(&attr, String16(), mSampleRate, mAudioChannels);
+#  else
   sp<AudioSource> audioSource =
       new AudioSource(mAudioSource, String16(), mSampleRate, mAudioChannels);
+#  endif
 
   status_t err = audioSource->initCheck();
 
@@ -1681,7 +1688,9 @@ void GonkRecorder::setupMPEG4MetaData(int64_t startTimeUs, int32_t totalBitRate,
   (*meta)->setInt64(kKeyTime, startTimeUs);
   (*meta)->setInt32(kKeyFileType, mOutputFormat);
   (*meta)->setInt32(kKeyBitRate, totalBitRate);
+#if ANDROID_VERSION < 30
   (*meta)->setInt32(kKey64BitFileOffset, mUse64BitFileOffset);
+#endif
   if (mMovieTimeScale > 0) {
     (*meta)->setInt32(kKeyTimeScale, mMovieTimeScale);
   }

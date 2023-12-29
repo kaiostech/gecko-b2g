@@ -43,4 +43,10 @@ enum {
 #define DOM_CAMERA_LOGW(...) DOM_CAMERA_LOG(DOM_CAMERA_LOG_WARNING, __VA_ARGS__)
 #define DOM_CAMERA_LOGE(...) DOM_CAMERA_LOG(DOM_CAMERA_LOG_ERROR, __VA_ARGS__)
 
+#if ANDROID_VERSION >= 30
+#  define IMEMORY_POINTER(mem) ((mem)->unsecurePointer())
+#else
+#  define IMEMORY_POINTER(mem) ((mem)->pointer())
+#endif
+
 #endif  // DOM_CAMERA_CAMERACOMMON_H

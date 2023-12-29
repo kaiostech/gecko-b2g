@@ -46,7 +46,12 @@ nsresult ICameraControl::GetCameraName(uint32_t aDeviceNum,
   }
 
   android::CameraInfo info;
+#if ANDROID_VERSION >= 33
+  int rv = android::Camera::getCameraInfo(
+      deviceNum, /* overrideToPortrait */ false, &info);
+#else
   int rv = android::Camera::getCameraInfo(deviceNum, &info);
+#endif
   if (rv != 0) {
     DOM_CAMERA_LOGE("GetCameraName : get_camera_info(%d) failed: %d\n",
                     deviceNum, rv);

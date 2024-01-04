@@ -873,7 +873,7 @@ interface nsIImsRegistrationListener : nsISupports
 
   void onRegistering(in long imsRadioTech);
 
-  void onDeregistered(in long reasonInfo);
+  void onDeregistered(in long reasonInfo, in AString extraMessage);
 
   void onTechnologyChangeFailed(in long imsRadioTech, in nsIImsReasonInfo reason);
 };

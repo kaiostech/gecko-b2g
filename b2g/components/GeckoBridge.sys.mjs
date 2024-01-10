@@ -114,18 +114,20 @@ export const GeckoBridge = {
       return;
     }
 
-    // Add a pref change listener for each of the watched prefs and sync the
-    // initial value.
-    kWatchedPrefs.forEach(pref => {
-      Services.prefs.addObserver(pref, this);
-      this.setPref(pref);
-    });
-
     this.setAppsServiceDelegate();
     this.setPowerManagerDelegate();
     this.setPreferenceDelegate();
     this.setMobileManagerDelegate();
     this.setNetworkManagerDelegate();
+
+    // Add a pref change listener for each of the watched prefs and sync the
+    // initial value.
+    // The gecko bridge server(daemon) set the precondition: first set one of the delegates,
+    // then call other interfaces of nsIGeckoBridge after bug#135119.
+    kWatchedPrefs.forEach(pref => {
+      Services.prefs.addObserver(pref, this);
+      this.setPref(pref);
+    });
 
     Services.obs.addObserver(this, "api-daemon-reconnected");
     Services.obs.addObserver(this, "preference-delegate-notify");

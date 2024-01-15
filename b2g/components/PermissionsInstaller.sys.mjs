@@ -243,7 +243,7 @@ ChromeUtils.registerWindowActor("PermissionsManager", {
   includeChrome: true,
   allFrames: true,
   parent: {
-    moduleURI: "resource://gre/modules/PermissionsManagerParent.sys.mjs",
+    esModuleURI: "resource://gre/modules/PermissionsManagerParent.sys.mjs",
     messages: [
       "PermissionsManager:AddPermission",
       "PermissionsManager:GetPermission",
@@ -251,6 +251,6 @@ ChromeUtils.registerWindowActor("PermissionsManager", {
     ],
   },
   child: {
-    moduleURI: "resource://gre/modules/PermissionsManagerChild.sys.mjs",
+    esModuleURI: "resource://gre/modules/PermissionsManagerChild.sys.mjs",
   },
 });

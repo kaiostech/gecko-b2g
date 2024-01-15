@@ -171,8 +171,6 @@ ac_add_options --enable-sandbox
 ac_add_options --enable-wasm-function-references
 ac_add_options --enable-wasm-gc
 
-ac_add_options --disable-accessibility
-
 # Disable WASM libraries sandboxing for now until we figure out build failures.
 ac_add_options --without-wasm-sandboxed-libraries
 # ac_add_options --wasi-sysroot=${HOME}/.mozbuild/wasi-sysroot/

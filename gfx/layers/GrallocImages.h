@@ -6,8 +6,6 @@
 #ifndef GRALLOCIMAGES_H
 #define GRALLOCIMAGES_H
 
-#ifdef MOZ_WIDGET_GONK
-
 #include "ImageContainer.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/layers/AtomicRefCountedWithFinalize.h"
@@ -50,7 +48,7 @@ GetDataSourceSurfaceFrom(android::sp<android::GraphicBuffer>& aGraphicBuffer,
 class GrallocImage : public RecyclingPlanarYCbCrImage
 {
   typedef PlanarYCbCrData Data;
-  static int32_t sColorIdMap[];
+
 public:
   GrallocImage();
 
@@ -97,15 +95,9 @@ public:
   };
 #endif
 
-  enum {
-    GRALLOC_SW_UAGE = android::GraphicBuffer::USAGE_SOFTWARE_MASK,
-  };
-
   virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
 
   android::sp<android::GraphicBuffer> GetGraphicBuffer() const;
-
-  void* GetNativeBuffer();
 
   virtual bool IsValid() const override { return !!mTextureClient; }
 
@@ -116,37 +108,11 @@ public:
     return this;
   }
 
-  virtual uint8_t* GetBuffer()
-  {
-    return static_cast<uint8_t*>(GetNativeBuffer());
-  }
-
-  int GetUsage()
-  {
-    return (static_cast<ANativeWindowBuffer*>(GetNativeBuffer()))->usage;
-  }
-
-  static int GetOmxFormat(int aFormat)
-  {
-    uint32_t omxFormat = 0;
-
-    for (int i = 0; sColorIdMap[i]; i += 2) {
-      if (sColorIdMap[i] == aFormat) {
-        omxFormat = sColorIdMap[i + 1];
-        break;
-      }
-    }
-
-    return omxFormat;
-  }
-
 private:
   RefPtr<TextureClient> mTextureClient;
 };
 
 } // namespace layers
 } // namespace mozilla
-
-#endif
 
 #endif /* GRALLOCIMAGES_H */

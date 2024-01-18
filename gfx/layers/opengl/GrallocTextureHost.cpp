@@ -8,8 +8,8 @@
 #include "GLContextEGL.h"
 #include "gfx2DGlue.h"
 #include <ui/GraphicBuffer.h>
-#include "GrallocImages.h"  // for GrallocImage
-#include "GLLibraryEGL.h"   // for GLLibraryEGL
+#include "GrallocImages.h"
+#include "GLLibraryEGL.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "mozilla/layers/GrallocTextureHost.h"
@@ -47,9 +47,7 @@ static gfx::SurfaceFormat SurfaceFormatForAndroidPixelFormat(
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP:
     case HAL_PIXEL_FORMAT_YV12:
-#if defined(MOZ_WIDGET_GONK)
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-#endif
       return gfx::SurfaceFormat::R8G8B8A8;  // yup, use SurfaceFormat::R8G8B8A8
                                             // even though it's a YUV texture.
                                             // This is an external texture.
@@ -78,9 +76,7 @@ static GLenum TextureTargetForAndroidPixelFormat(android::PixelFormat aFormat) {
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
     case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_YV12:
-#if defined(MOZ_WIDGET_GONK)
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-#endif
       return LOCAL_GL_TEXTURE_EXTERNAL;
     case android::PIXEL_FORMAT_BGRA_8888:
     case android::PIXEL_FORMAT_RGBA_8888:
@@ -177,28 +173,6 @@ void GrallocTextureHostOGL::DeallocateDeviceData() {
   DestroyEGLImage();
 }
 
-LayerRenderState GrallocTextureHostOGL::GetRenderState() {
-  android::GraphicBuffer* graphicBuffer =
-      GetGraphicBufferFromDesc(mGrallocHandle).get();
-
-  if (graphicBuffer) {
-    LayerRenderStateFlags flags =
-        LayerRenderStateFlags::LAYER_RENDER_STATE_DEFAULT;
-    if (mIsOpaque) {
-      flags |= LayerRenderStateFlags::OPAQUE;
-    }
-    if (mFlags & TextureFlags::ORIGIN_BOTTOM_LEFT) {
-      flags |= LayerRenderStateFlags::ORIGIN_BOTTOM_LEFT;
-    }
-    if (mFlags & TextureFlags::RB_SWAPPED) {
-      flags |= LayerRenderStateFlags::FORMAT_RB_SWAP;
-    }
-    return LayerRenderState(graphicBuffer, mCropSize, flags, this);
-  }
-
-  return LayerRenderState();
-}
-
 already_AddRefed<gfx::DataSourceSurface> GrallocTextureHostOGL::GetAsSurface() {
   android::GraphicBuffer* graphicBuffer =
       GetGraphicBufferFromDesc(mGrallocHandle).get();
@@ -271,37 +245,6 @@ void GrallocTextureHostOGL::DestroyEGLImage() {
     EGLImageDestroy(nullptr, mEGLImage);
     mEGLImage = EGL_NO_IMAGE;
   }
-}
-
-void GrallocTextureHostOGL::WaitAcquireFenceHandleSyncComplete() {
-  if (!mAcquireFenceHandle.IsValid()) {
-    return;
-  }
-
-  RefPtr<FenceHandle::FdObj> fence = mAcquireFenceHandle.GetAndResetFdObj();
-  int fenceFd = fence->GetAndResetFd();
-
-  EGLint attribs[] = {LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fenceFd,
-                      LOCAL_EGL_NONE};
-
-  nsCString ignored;
-  const auto egl = gl::DefaultEglDisplay(&ignored);
-  // auto* egl = gl::GLLibraryEGL::Get();
-
-  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
-  if (!sync) {
-    NS_WARNING("failed to create native fence sync");
-    return;
-  }
-
-  // Wait sync complete with timeout.
-  // If a source of the fence becomes invalid because of error,
-  // fene complete is not signaled. See Bug 1061435.
-  EGLint status = egl->fClientWaitSync(sync, 0, 400000000 /*400 msec*/);
-  if (status != LOCAL_EGL_CONDITION_SATISFIED) {
-    NS_ERROR("failed to wait native fence sync");
-  }
-  MOZ_ALWAYS_TRUE(egl->fDestroySync(sync));
 }
 
 void GrallocTextureHostOGL::SetCropRect(nsIntRect aCropRect) {

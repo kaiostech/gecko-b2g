@@ -5,7 +5,6 @@
 
 #ifndef MOZILLA_GFX_GRALLOCTEXTUREHOST_H
 #define MOZILLA_GFX_GRALLOCTEXTUREHOST_H
-#ifdef MOZ_WIDGET_GONK
 
 #include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/TextureHostOGL.h"
@@ -50,28 +49,13 @@ public:
 
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 
-  virtual LayerRenderState GetRenderState() override;
-
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
-
-  virtual void WaitAcquireFenceHandleSyncComplete() override;
 
   virtual void SetCropRect(nsIntRect aCropRect) override;
 
   bool IsValid() const;
 
   virtual const char* Name() override { return "GrallocTextureHostOGL"; }
-
-  gl::GLContext* GetGLContext() const { return mCompositor ? mCompositor->gl() : nullptr; }
-
-  bool NeedsFenceHandle()
-  {
-#if defined(MOZ_WIDGET_GONK)
-    return true;
-#else
-    return false;
-#endif
-  }
 
   virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
 
@@ -96,5 +80,4 @@ private:
 } // namespace layers
 } // namespace mozilla
 
-#endif
 #endif

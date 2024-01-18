@@ -5,10 +5,9 @@
 
 #ifndef MOZILLA_GFX_GRALLOCTEXTURECLIENT_H
 #define MOZILLA_GFX_GRALLOCTEXTURECLIENT_H
-#ifdef MOZ_WIDGET_GONK
 
 #include "mozilla/layers/TextureClient.h"
-#include "mozilla/layers/FenceUtils.h" // for FenceHandle
+#include "mozilla/layers/FenceUtils.h"
 #include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include <ui/GraphicBuffer.h>
 
@@ -80,15 +79,6 @@ public:
   // use TextureClient's default implementation
   virtual bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
 
-  /// Hold android::MediaBuffer.
-  /// MediaBuffer needs to be add refed to keep MediaBuffer alive while the texture
-  /// is in use.
-  ///
-  /// TODO - ideally we should be able to put the MediaBuffer in the texture's
-  /// constructor and not expose these methods.
-  void SetMediaBuffer(android::MediaBuffer* aMediaBuffer) { mMediaBuffer = aMediaBuffer; }
-  android::MediaBuffer* GetMediaBuffer() { return mMediaBuffer; }
-
   // Hold a strong reference to any private object from media framework. This
   // API replaces SetMediaBuffer(), because MediaBuffer doesn't support
   // android::sp and it can only be kept as a raw pointer, which may cause
@@ -151,7 +141,6 @@ protected:
   // Should be null outside of the lock-unlock pair.
   uint8_t* mMappedBuffer;
 
-  android::MediaBuffer* mMediaBuffer;
   android::sp<android::RefBase> mMediaPrivate;
 };
 
@@ -160,5 +149,4 @@ gfx::SurfaceFormat SurfaceFormatForPixelFormat(android::PixelFormat aFormat);
 } // namespace layers
 } // namespace mozilla
 
-#endif // MOZ_WIDGET_GONK
 #endif

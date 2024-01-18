@@ -3,13 +3,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifdef MOZ_WIDGET_GONK
-
 #include "gfxAndroidPlatform.h"
 #include "libyuv.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/gfxVars.h"
-//#include "mozilla/layers/AsyncTransactionTracker.h" // for AsyncTransactionTracker
 #include "mozilla/layers/GrallocTextureClient.h"
 #include "mozilla/layers/CompositableForwarder.h"
 #include "mozilla/layers/ISurfaceAllocator.h"
@@ -18,9 +15,7 @@
 #include "mozilla/layers/TextureForwarder.h"
 #include "gfx2DGlue.h"
 
-#if defined(MOZ_WIDGET_GONK)
 #include <ui/Fence.h>
-#endif
 
 namespace mozilla {
 namespace layers {
@@ -100,7 +95,6 @@ GrallocTextureData::GrallocTextureData(MaybeMagicGrallocBufferHandle aGrallocHan
 , mMoz2DBackend(aMoz2DBackend)
 , mGrallocHandle(aGrallocHandle)
 , mMappedBuffer(nullptr)
-, mMediaBuffer(nullptr)
 {
   mGraphicBuffer = GetGraphicBufferFrom(aGrallocHandle);
   MOZ_COUNT_CTOR(GrallocTextureData);
@@ -155,14 +149,12 @@ GrallocTextureData::Serialize(SurfaceDescriptor& aOutDescriptor)
 void
 GrallocTextureData::WaitForBufferOwnership()
 {
-#if defined(MOZ_WIDGET_GONK)
    if (mReleaseFenceHandle.IsValid()) {
      RefPtr<FenceHandle::FdObj> fdObj = mReleaseFenceHandle.GetAndResetFdObj();
      android::sp<android::Fence> fence = new android::Fence(fdObj->GetAndResetFd());
      fence->waitForever("GrallocTextureClientOGL::Lock");
      mReleaseFenceHandle = FenceHandle();
    }
-#endif
 }
 
 void
@@ -188,7 +180,6 @@ GrallocTextureData::Lock(OpenMode aMode)
   void** mappedBufferPtr = reinterpret_cast<void**>(&mMappedBuffer);
 
   int32_t rv = 0;
-#if defined(MOZ_WIDGET_GONK)
   if (aReleaseFence) {
     RefPtr<FenceHandle::FdObj> fdObj = aReleaseFence->GetAndResetFdObj();
     rv = mGraphicBuffer->lockAsync(usage, mappedBufferPtr,
@@ -196,7 +187,6 @@ GrallocTextureData::Lock(OpenMode aMode)
   } else {
     rv = mGraphicBuffer->lock(usage, mappedBufferPtr);
   }
-#endif
 
   if (rv) {
     mMappedBuffer = nullptr;
@@ -442,5 +432,3 @@ TextureData* GrallocTextureData::CreateSimilar(
 
 } // namesapace layers
 } // namesapace mozilla
-
-#endif // MOZ_WIDGET_GONK

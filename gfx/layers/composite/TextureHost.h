@@ -37,11 +37,6 @@
 #include "nscore.h"         // for nsACString
 #include "mozilla/layers/AtomicRefCountedWithFinalize.h"
 
-#ifdef MOZ_WIDGET_GONK
-#  include "mozilla/layers/FenceUtils.h"
-#  include "mozilla/layers/LayerRenderState.h"
-#endif
-
 class MacIOSurface;
 namespace mozilla {
 namespace gfx {
@@ -697,21 +692,6 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
 
   virtual bool NeedsYFlip() const;
 
-#ifdef MOZ_WIDGET_GONK
-  virtual void WaitAcquireFenceHandleSyncComplete() {};
-
-  /**
-   * Specific to B2G's Composer2D
-   * XXX - more doc here
-   */
-  virtual LayerRenderState GetRenderState()
-  {
-    // By default we return an empty render state, this should be overridden
-    // by the TextureHost implementations that are used on B2G with Composer2D
-    return LayerRenderState();
-  }
-#endif
-
   virtual void SetAcquireFence(mozilla::ipc::FileDescriptor&& aFenceFd) {}
 
   virtual void SetReleaseFence(mozilla::ipc::FileDescriptor&& aFenceFd) {}
@@ -782,11 +762,6 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   uint64_t mFwdTransactionId;
   bool mReadLocked;
   wr::MaybeExternalImageId mExternalImageId;
-
-#ifdef MOZ_WIDGET_GONK
-  FenceHandle mReleaseFenceHandle;
-  FenceHandle mAcquireFenceHandle;
-#endif
 
   std::function<void()> mDestroyedCallback;
 

@@ -19,10 +19,6 @@ namespace layers {
 
 class TextureClient;
 
-already_AddRefed<gfx::DataSourceSurface> GetDataSourceSurfaceFrom(
-    android::sp<android::GraphicBuffer>& aGraphicBuffer, gfx::IntSize aSize,
-    const layers::PlanarYCbCrData& aYcbcrData);
-
 /**
  * The YUV format supported by Android HAL
  *
@@ -45,8 +41,6 @@ already_AddRefed<gfx::DataSourceSurface> GetDataSourceSurfaceFrom(
  * mPicSize, not mYSize or mCbCrSize.
  */
 class GrallocImage : public RecyclingPlanarYCbCrImage {
-  typedef PlanarYCbCrData Data;
-
  public:
   GrallocImage();
 
@@ -56,7 +50,7 @@ class GrallocImage : public RecyclingPlanarYCbCrImage {
    * This makes a copy of the data buffers, in order to support functioning
    * in all different layer managers.
    */
-  virtual bool SetData(const Data& aData);
+  bool SetData(const PlanarYCbCrData& aData);
 
   using RecyclingPlanarYCbCrImage::AdoptData;
   /**

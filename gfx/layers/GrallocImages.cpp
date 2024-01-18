@@ -39,7 +39,7 @@ GrallocImage::GrallocImage() : RecyclingPlanarYCbCrImage(nullptr) {
 
 GrallocImage::~GrallocImage() {}
 
-bool GrallocImage::SetData(const Data& aData) {
+bool GrallocImage::SetData(const PlanarYCbCrData& aData) {
   MOZ_ASSERT(!mTextureClient, "TextureClient is already set");
   NS_ASSERTION(aData.YDataSize().width % 2 == 0,
                "Image should have even width");
@@ -331,13 +331,14 @@ static status_t ConvertOmxYUVFormatToRGB565(
   return BAD_VALUE;
 }
 
-already_AddRefed<gfx::DataSourceSurface> GetDataSourceSurfaceFrom(
-    android::sp<android::GraphicBuffer>& aGraphicBuffer, gfx::IntSize aSize,
-    const layers::PlanarYCbCrData& aYcbcrData) {
-  MOZ_ASSERT(aGraphicBuffer.get());
+already_AddRefed<gfx::SourceSurface> GrallocImage::GetAsSourceSurface() {
+  auto graphicBuffer = GetGraphicBuffer();
+  if (!graphicBuffer) {
+    return nullptr;
+  }
 
   RefPtr<gfx::DataSourceSurface> surface =
-      gfx::Factory::CreateDataSourceSurface(aSize,
+      gfx::Factory::CreateDataSourceSurface(mSize,
                                             gfx::SurfaceFormat::R5G6B5_UINT16);
   if (NS_WARN_IF(!surface)) {
     return nullptr;
@@ -350,14 +351,14 @@ already_AddRefed<gfx::DataSourceSurface> GetDataSourceSurfaceFrom(
   }
 
   int32_t rv;
-  rv = ConvertOmxYUVFormatToRGB565(aGraphicBuffer, surface, &mappedSurface,
-                                   aYcbcrData);
+  rv = ConvertOmxYUVFormatToRGB565(graphicBuffer, surface, &mappedSurface,
+                                   mData);
   if (rv == OK) {
     surface->Unmap();
     return surface.forget();
   }
 
-  rv = ConvertVendorYUVFormatToRGB565(aGraphicBuffer, surface, &mappedSurface);
+  rv = ConvertVendorYUVFormatToRGB565(graphicBuffer, surface, &mappedSurface);
   surface->Unmap();
   if (rv != OK) {
     NS_WARNING("Unknown color format");
@@ -367,24 +368,12 @@ already_AddRefed<gfx::DataSourceSurface> GetDataSourceSurfaceFrom(
   return surface.forget();
 }
 
-already_AddRefed<gfx::SourceSurface> GrallocImage::GetAsSourceSurface() {
-  if (!mTextureClient) {
-    return nullptr;
-  }
-
-  android::sp<GraphicBuffer> graphicBuffer = GetGraphicBuffer();
-
-  RefPtr<gfx::DataSourceSurface> surface =
-      GetDataSourceSurfaceFrom(graphicBuffer, mSize, mData);
-
-  return surface.forget();
-}
-
 android::sp<android::GraphicBuffer> GrallocImage::GetGraphicBuffer() const {
   if (!mTextureClient) {
     return nullptr;
   }
-  return static_cast<GrallocTextureData*>(mTextureClient->GetInternalData())
+  return mTextureClient->GetInternalData()
+      ->AsGrallocTextureData()
       ->GetGraphicBuffer();
 }
 

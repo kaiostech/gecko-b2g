@@ -108,8 +108,7 @@ GrallocTextureHostOGL::GrallocTextureHostOGL(
       mFormat(gfx::SurfaceFormat::UNKNOWN),
       mEGLImage(EGL_NO_IMAGE),
       mIsOpaque(aDescriptor.isOpaque()) {
-  android::GraphicBuffer* graphicBuffer =
-      GetGraphicBufferFromDesc(mGrallocHandle).get();
+  auto graphicBuffer = GetGraphicBuffer();
   MOZ_ASSERT(graphicBuffer);
 
   if (graphicBuffer) {
@@ -124,11 +123,7 @@ GrallocTextureHostOGL::GrallocTextureHostOGL(
 
 GrallocTextureHostOGL::~GrallocTextureHostOGL() { DestroyEGLImage(); }
 
-bool GrallocTextureHostOGL::IsValid() const {
-  android::GraphicBuffer* graphicBuffer =
-      GetGraphicBufferFromDesc(mGrallocHandle).get();
-  return graphicBuffer != nullptr;
-}
+bool GrallocTextureHostOGL::IsValid() { return !!GetGraphicBuffer(); }
 
 gfx::SurfaceFormat GrallocTextureHostOGL::GetFormat() const { return mFormat; }
 
@@ -174,8 +169,7 @@ void GrallocTextureHostOGL::DeallocateDeviceData() {
 }
 
 already_AddRefed<gfx::DataSourceSurface> GrallocTextureHostOGL::GetAsSurface() {
-  android::GraphicBuffer* graphicBuffer =
-      GetGraphicBufferFromDesc(mGrallocHandle).get();
+  auto graphicBuffer = GetGraphicBuffer();
   if (!graphicBuffer) {
     return nullptr;
   }
@@ -222,8 +216,7 @@ void GrallocTextureHostOGL::CreateEGLImage() {
   gfx::IntSize cropSize = (mCropSize != mSize) ? mCropSize : mSize;
 
   if (mEGLImage == EGL_NO_IMAGE) {
-    android::GraphicBuffer* graphicBuffer =
-        GetGraphicBufferFromDesc(mGrallocHandle).get();
+    auto graphicBuffer = GetGraphicBuffer();
     MOZ_ASSERT(graphicBuffer);
 
     mEGLImage = EGLImageCreateFromNativeBuffer(
@@ -245,6 +238,10 @@ void GrallocTextureHostOGL::DestroyEGLImage() {
     EGLImageDestroy(nullptr, mEGLImage);
     mEGLImage = EGL_NO_IMAGE;
   }
+}
+
+android::sp<android::GraphicBuffer> GrallocTextureHostOGL::GetGraphicBuffer() {
+  return GetGraphicBufferFromDesc(mGrallocHandle);
 }
 
 void GrallocTextureHostOGL::SetCropRect(nsIntRect aCropRect) {

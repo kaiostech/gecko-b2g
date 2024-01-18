@@ -51,7 +51,7 @@ class GrallocTextureHostOGL : public TextureHost {
 
   void SetCropRect(nsIntRect aCropRect) override;
 
-  bool IsValid() const;
+  bool IsValid() override;
 
   const char* Name() override { return "GrallocTextureHostOGL"; }
 
@@ -60,6 +60,7 @@ class GrallocTextureHostOGL : public TextureHost {
  private:
   void CreateEGLImage();
   void DestroyEGLImage();
+  android::sp<android::GraphicBuffer> GetGraphicBuffer();
 
   SurfaceDescriptorGralloc mGrallocHandle;
   RefPtr<GLTextureSource> mGLTextureSource;

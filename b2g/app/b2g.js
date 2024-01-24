@@ -946,6 +946,9 @@ pref("layout.event-regions.enabled", true);
 // on the canvas frequently. See bug 884226.
 pref("gfx.canvas.willReadFrequently.enable", true);
 
+// Resolution is 256x512 or 512x512, set 512 or 1024.
+pref("gfx.webrender.max-shared-surface-size", 512);
+
 // Disable autofocus until we can have it not bring up the keyboard.
 // https://bugzilla.mozilla.org/show_bug.cgi?id=965763
 pref("browser.autofocus", false);

@@ -473,6 +473,9 @@ pref("gfx.webrender.batched-texture-uploads", false);
 pref("gfx.webrender.draw-calls-for-texture-copy", false);
 #endif
 
+// Move this value from modules/libpref/init/StaticPrefList.yaml
+// for b2g projects.
+pref("gfx.webrender.max-shared-surface-size", 2048);
 
 pref("accessibility.warn_on_browsewithcaret", true);
 

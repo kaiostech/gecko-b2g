@@ -1478,8 +1478,8 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo,
 
   // Type of active network could be MOBILE, WiFi or ETHERNET, apn is only
   // needed when the type is MOBILE.
-  auto apn = type == nsINetworkInfo::NETWORK_TYPE_MOBILE ? sRilDataApn.get()
-                                                         : EmptyCString().get();
+  auto apn =
+      type == nsINetworkInfo::NETWORK_TYPE_MOBILE ? sRilDataApn.get() : "";
 
   if (mAGnssRilHal_V2_0) {
     IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
@@ -1488,9 +1488,12 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo,
         .capabilities = capabilities,
         .apn = apn,
     };
-    DBG("updateNetworkState_2_0, netId: %d, netHandle: %lu, connected: %d, "
-        "capabilities: %u, apn: %s)",
-        netId, netHandle, connected, capabilities, apn);
+
+    DBG("updateNetworkState_2_0, netId: %d, netHandle: %llu, connected: %d, "
+        "capabilities: %u, apn:: %s)",
+        netId, netHandle, static_cast<int>(connected),
+        static_cast<unsigned int>(capabilities), apn);
+
     auto result = mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
     if (!result.isOk() || !result) {
       ERR("failed to update network state to IAGnssRil");

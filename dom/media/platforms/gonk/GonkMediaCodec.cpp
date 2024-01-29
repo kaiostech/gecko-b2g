@@ -48,99 +48,109 @@ static std::vector<std::string> SplitMultilineString(const std::string& aStr) {
   return lines;
 }
 
+struct TextureHolder : public RefBase {
+  using TextureClient = mozilla::layers::TextureClient;
+
+  RefPtr<TextureClient> mTexture;
+
+  static sp<TextureHolder> Create(TextureClient* aTexture) {
+    sp<TextureHolder> holder = new TextureHolder;
+    holder->mTexture = aTexture;
+    return holder;
+  }
+};
+
 class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
   using TextureClient = mozilla::layers::TextureClient;
 
  public:
-  CodecNativeWindow(const sp<GonkMediaCodec>& aCodec,
-                    const sp<IGonkGraphicBufferConsumer>& aConsumer,
-                    int aMaxAcquiredCount)
-      : GonkNativeWindow(aConsumer),
-        mCodec(aCodec),
-        mMaxAcquiredCount(aMaxAcquiredCount) {
-    mConsumer->setMaxAcquiredBufferCount(mMaxAcquiredCount);
+  CodecNativeWindow(const sp<IGonkGraphicBufferConsumer>& aConsumer,
+                    const sp<AMessage>& aReleaseOutput, int aMaxAcquiredCount)
+      : GonkNativeWindow(aConsumer, aMaxAcquiredCount),
+        mReleaseOutput(aReleaseOutput),
+        mMaxAcquiredCount(aMaxAcquiredCount) {}
+
+  void QueueOutputMessage(const sp<AMessage>& aMsg) {
+    CHECK(aMsg->contains("inputInfo") || aMsg->contains("format") ||
+          aMsg->contains("eos"));
+    Mutex::Autolock lock(mMutex);
+    mOutputMessages.push_back(aMsg);
+    ProcessOutputMessages(nullptr);
   }
 
-  already_AddRefed<TextureClient> GetCurrentFrame(int64_t* aTimeNs,
-                                                  bool aFlushing) {
-    *aTimeNs = INT64_MIN;
-
-    // GonkBufferQueue allows the max acquired buffer count to be exceeded by
-    // one. Here we reserve that one for flushing.
-    int maxAcquiredCount = mMaxAcquiredCount + aFlushing;
-    if (mConsumer->getAcquiredBufferCount() >= maxAcquiredCount) {
-      return nullptr;
+  // Called when flushing. We can't just clear the message queue because any
+  // pending texture in the BufferQueue is 1-to-1 mapped to an message with
+  // inputInfo in the message queue.
+  void CancelPendingOutputMessages() {
+    Mutex::Autolock lock(mMutex);
+    for (auto& msg : mOutputMessages) {
+      msg->setInt32("canceled", true);
     }
+  }
 
-    RefPtr<TextureClient> textureClient;
+  bool CanAcquire() {
+    Mutex::Autolock lock(mMutex);
+    // GonkBufferQueue allows the max buffer count to be exceeded by one.
+    return mConsumer->getAcquiredBufferCount() + GetBufferMessageCount() <
+           mMaxAcquiredCount + 1;
+  }
+
+  void Release() {
     {
-      Mutex::Autolock _l(mMutex);
-      BufferItem item;
-
-      // In asynchronous mode the list is guaranteed to be one buffer
-      // deep, while in synchronous mode we use the oldest buffer.
-      status_t err = acquireBufferLocked(&item, 0);
-      if (err != NO_ERROR) {
-        return nullptr;
-      }
-
-      textureClient =
-          mConsumer->getTextureClientFromBuffer(item.mGraphicBuffer.get());
-      if (!textureClient) {
-        return nullptr;
-      }
-      textureClient->SetRecycleCallback(GonkNativeWindow::RecycleCallback,
-                                        static_cast<GonkNativeWindow*>(this));
-
-      // Recover the corresponding timestamp.
-      while (!mBufferInfos.empty()) {
-        auto [number, timestamp] = mBufferInfos.front();
-        mBufferInfos.pop_front();
-        if (item.mFrameNumber == static_cast<uint64_t>(number)) {
-          *aTimeNs = timestamp;
-          break;
-        }
-      }
+      Mutex::Autolock lock(mMutex);
+      mOutputMessages.clear();
     }
-
-    if (*aTimeNs == INT64_MIN) {
-      return nullptr;
-    }
-    return textureClient.forget();
+    abandon();
   }
 
  private:
-  status_t releaseBufferLocked(int slot,
-                               const sp<GraphicBuffer> graphicBuffer) override {
-    status_t err = GonkConsumerBase::releaseBufferLocked(slot, graphicBuffer);
-    if (auto codec = mCodec.promote()) {
-      // A frame has just been returned to GonkBufferQueue. Signal the codec to
-      // get queued frames, in case we have reached max acquired buffer count
-      // and can't get those frames earlier.
-      codec->BufferQueueUpdated();
-    }
-    return err;
+  void returnBuffer(TextureClient* aBuffer) override {
+    GonkNativeWindow::returnBuffer(aBuffer);
+    // Notify codec to release an output buffer into BufferQueue.
+    sp<AMessage> msg = mReleaseOutput->dup();
+    msg->post();
   }
 
   void onFrameAvailable(const ::android::BufferItem& aItem) override {
-    GonkConsumerBase::onFrameAvailable(aItem);
-    {
-      Mutex::Autolock lock(mMutex);
-      auto& item = reinterpret_cast<const GonkBufferItem&>(aItem);
-      // Store the mapping between frame number and timestamp. We will use this
-      // information to recover the timestamp of each GraphicBuffer in
-      // GetCurrentFrame().
-      mBufferInfos.push_back({item.mFrameNumber, item.mTimestamp});
-    }
-    if (auto codec = mCodec.promote()) {
-      // Signal the codec to get the queued frames.
-      codec->BufferQueueUpdated();
+    GonkNativeWindow::onFrameAvailable(aItem);
+    // Acquire an buffer from BufferQueue and send it to codec.
+    RefPtr<TextureClient> texture = getCurrentBuffer();
+    Mutex::Autolock lock(mMutex);
+    ProcessOutputMessages(texture);
+  }
+
+  void ProcessOutputMessages(TextureClient* aTexture) {
+    RefPtr<TextureClient> texture = aTexture;
+    while (!mOutputMessages.empty()) {
+      sp<AMessage> msg = mOutputMessages.front();
+      // We need to attach the pending texture to the message that contains
+      // inputInfo. If there is no pending texture, only process the messages
+      // without inputInfo.
+      if (msg->contains("inputInfo")) {
+        if (!texture) {
+          return;
+        }
+        msg->setObject("texture", TextureHolder::Create(texture));
+        texture = nullptr;
+      }
+      mOutputMessages.pop_front();
+      if (!msg->contains("canceled")) {
+        msg->post();
+      }
     }
   }
 
-  wp<GonkMediaCodec> mCodec;
+  int GetBufferMessageCount() {
+    int count = 0;
+    for (auto msg : mOutputMessages) {
+      count += msg->contains("inputInfo");
+    }
+    return count;
+  }
+
+  const sp<AMessage> mReleaseOutput;
   const int mMaxAcquiredCount;
-  std::deque<std::pair<int64_t, int64_t>> mBufferInfos;
+  std::list<sp<AMessage>> mOutputMessages;
 };
 
 // InputInfoQueue is used to store the input metadata, which is opaque to us.
@@ -189,50 +199,6 @@ class GonkMediaCodec::InputInfoQueue {
   };
 
   std::priority_queue<Item, std::vector<Item>, Compare> mQueue;
-};
-
-// When using BufferQueue, OutputInfoQueue is used to make sure each frame, new
-// output format and EOS flag are notified in correct order.
-class GonkMediaCodec::OutputInfoQueue {
- public:
-  void Push(int64_t aTimeUs) {
-    CHECK(!mIsFinished);
-    mQueue.push_back({aTimeUs, mPendingFormat});
-    mPendingFormat = nullptr;
-  }
-
-  void PushFormat(const sp<AMessage>& aFormat) {
-    CHECK(aFormat);
-    CHECK(!mIsFinished);
-    mPendingFormat = aFormat;
-  }
-
-  void Finish() { mIsFinished = true; }
-
-  bool AtEndOfStream() { return mIsFinished && mQueue.empty(); }
-
-  sp<AMessage> Find(int64_t aTimeUs) {
-    sp<AMessage> lastFormat;
-    while (!mQueue.empty() && mQueue.front().first <= aTimeUs) {
-      if (auto format = mQueue.front().second) {
-        // Overwrite any outdated format.
-        lastFormat = format;
-      }
-      mQueue.pop_front();
-    }
-    return lastFormat;
-  }
-
-  void Clear() {
-    mQueue.clear();
-    mPendingFormat = nullptr;
-    mIsFinished = false;
-  }
-
- private:
-  std::deque<std::pair<int64_t, sp<AMessage>>> mQueue;
-  sp<AMessage> mPendingFormat;
-  bool mIsFinished = false;
 };
 
 GonkMediaCodec::GonkMediaCodec() {
@@ -302,11 +268,6 @@ void GonkMediaCodec::InputUpdated() {
   msg->post();
 }
 
-void GonkMediaCodec::BufferQueueUpdated() {
-  sp<AMessage> msg = new AMessage(kWhatBufferQueueUpdated, this);
-  msg->post();
-}
-
 void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
   if (IsVerboseLoggingEnabled()) {
     auto lines = SplitMultilineString(aMsg->debugString().c_str());
@@ -331,6 +292,12 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
         }
 
         case MediaCodec::CB_OUTPUT_AVAILABLE: {
+          if (mNativeWindow) {
+            mOutputBuffers.push_back(aMsg);
+            OnReleaseOutput();
+            break;
+          }
+
           int32_t index;
           size_t offset;
           size_t size;
@@ -357,7 +324,9 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
           if (mNativeWindow) {
             // Delay notifying new format until all old frames have been pulled
             // from the BufferQueue.
-            mOutputInfoQueue->PushFormat(format);
+            sp<AMessage> notify = new AMessage(kWhatNotifyOutput, this);
+            notify->setMessage("format", format);
+            mNativeWindow->QueueOutputMessage(notify);
           } else {
             mCallback->NotifyOutputFormat(format);
           }
@@ -438,8 +407,13 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
       break;
     }
 
-    case kWhatBufferQueueUpdated: {
-      OnBufferQueueUpdated();
+    case kWhatReleaseOutput: {
+      OnReleaseOutput();
+      break;
+    }
+
+    case kWhatNotifyOutput: {
+      OnNotifyOutput(aMsg);
       break;
     }
 
@@ -486,7 +460,6 @@ status_t GonkMediaCodec::OnConfigure(const sp<Callback>& aCallback,
       LOGE("%p failed to init buffer queue", this);
       return UNKNOWN_ERROR;
     }
-    mOutputInfoQueue.reset(new OutputInfoQueue);
   }
 
   auto matches = GonkMediaUtils::FindMatchingCodecs(mime.c_str(), aEncoder);
@@ -544,7 +517,7 @@ status_t GonkMediaCodec::OnShutdown() {
     mCodec = nullptr;
   }
   if (mNativeWindow) {
-    mNativeWindow->abandon();
+    mNativeWindow->Release();
     mNativeWindow = nullptr;
   }
   if (mResourceClient) {
@@ -554,8 +527,8 @@ status_t GonkMediaCodec::OnShutdown() {
   mLooper->stop();
   mLooper->unregisterHandler(id());
   mInputBuffers.clear();
+  mOutputBuffers.clear();
   mInputInfoQueue = nullptr;
-  mOutputInfoQueue = nullptr;
   mCallback = nullptr;
   mConfigMsg = nullptr;
   return OK;
@@ -568,20 +541,10 @@ status_t GonkMediaCodec::OnFlush() {
   }
 
   mInputBuffers.clear();
+  mOutputBuffers.clear();
   mInputInfoQueue->Clear();
-  if (mOutputInfoQueue) {
-    mOutputInfoQueue->Clear();
-  }
-
-  // Flush BufferQueue.
   if (mNativeWindow) {
-    RefPtr<TextureClient> buffer;
-    int64_t timeNs;
-    int frameCnt = 0;
-    while ((buffer = mNativeWindow->GetCurrentFrame(&timeNs, true))) {
-      frameCnt++;
-    }
-    LOGD("%p flushed %d graphic buffers", this, frameCnt);
+    mNativeWindow->CancelPendingOutputMessages();
   }
 
   err = mCodec->start();
@@ -636,29 +599,11 @@ void GonkMediaCodec::OnInputUpdated() {
 void GonkMediaCodec::OnOutputAvailable(int32_t aIndex, size_t aOffset,
                                        size_t aSize, int64_t aTimeUs,
                                        int32_t aFlags) {
-  bool eos = aFlags & MediaCodec::BUFFER_FLAG_EOS;
-
-  if (mNativeWindow) {
-    CHECK(mOutputInfoQueue);
-    // Will get graphic buffer in OnBufferQueueUpdated().
-    mCodec->renderOutputBufferAndRelease(aIndex);
-    if (aSize > 0) {
-      mOutputInfoQueue->Push(aTimeUs);
-    }
-    if (eos) {
-      mOutputInfoQueue->Finish();
-    }
-    // Notify EOS now if there is no more frames to be output.
-    if (mOutputInfoQueue->AtEndOfStream()) {
-      mCallback->NotifyOutputEnded();
-    }
-    return;
-  }
-
+  CHECK(!mNativeWindow);
   sp<MediaCodecBuffer> buffer;
   mCodec->getOutputBuffer(aIndex, &buffer);
   if (!buffer) {
-    LOGE("%p failed to get output buffer", this);
+    LOGE("%p failed to get output buffer %d", this, aIndex);
     return;
   }
 
@@ -667,32 +612,70 @@ void GonkMediaCodec::OnOutputAvailable(int32_t aIndex, size_t aOffset,
     mCallback->Output(buffer, mInputInfoQueue->Find(aTimeUs), aTimeUs);
   }
   mCodec->releaseOutputBuffer(aIndex);
-  if (eos) {
+  if (aFlags & MediaCodec::BUFFER_FLAG_EOS) {
     mCallback->NotifyOutputEnded();
   }
 }
 
-void GonkMediaCodec::OnBufferQueueUpdated() {
+void GonkMediaCodec::OnReleaseOutput() {
   CHECK(mNativeWindow);
-  CHECK(mOutputInfoQueue);
-  while (true) {
-    int64_t timeNs = INT64_MIN;
-    RefPtr<TextureClient> buffer =
-        mNativeWindow->GetCurrentFrame(&timeNs, false);
-    if (!buffer) {
-      break;
-    }
+  while (mOutputBuffers.size() && mNativeWindow->CanAcquire()) {
+    sp<AMessage> msg = mOutputBuffers.front();
+    mOutputBuffers.pop_front();
 
-    int64_t timeUs = timeNs / 1000;
-    // Notify new format before sending output buffer.
-    if (auto format = mOutputInfoQueue->Find(timeUs)) {
-      mCallback->NotifyOutputFormat(format);
+    int32_t index, flags;
+    int64_t timeUs;
+    size_t size;
+    CHECK(msg->findInt32("index", &index));
+    CHECK(msg->findSize("size", &size));
+    CHECK(msg->findInt64("timeUs", &timeUs));
+    CHECK(msg->findInt32("flags", &flags));
+
+    if (size > 0) {
+      sp<MediaCodecBuffer> buffer;
+      mCodec->getOutputBuffer(index, &buffer);
+      if (!buffer) {
+        LOGE("%p failed to get output buffer %d", this, index);
+        continue;
+      }
+
+      sp<AMessage> notify = new AMessage(kWhatNotifyOutput, this);
+      notify->setInt64("timeUs", timeUs);
+      notify->setObject("inputInfo", mInputInfoQueue->Find(timeUs));
+      mNativeWindow->QueueOutputMessage(notify);
+      status_t err = mCodec->renderOutputBufferAndRelease(index);
+      CHECK_EQ(OK, err);
     }
-    mCallback->Output(buffer, mInputInfoQueue->Find(timeUs), timeUs);
-    if (mOutputInfoQueue->AtEndOfStream()) {
-      mCallback->NotifyOutputEnded();
+    if (flags & MediaCodec::BUFFER_FLAG_EOS) {
+      sp<AMessage> notify = new AMessage(kWhatNotifyOutput, this);
+      notify->setInt32("eos", true);
+      mNativeWindow->QueueOutputMessage(notify);
+      mOutputBuffers.clear();
       break;
     }
+  }
+}
+
+void GonkMediaCodec::OnNotifyOutput(const sp<AMessage>& aMsg) {
+  CHECK(mNativeWindow);
+  if (aMsg->contains("format")) {
+    sp<AMessage> format;
+    CHECK(aMsg->findMessage("format", &format));
+    mCallback->NotifyOutputFormat(format);
+  }
+  if (aMsg->contains("inputInfo")) {
+    int64_t timeUs;
+    sp<RefBase> inputInfo;
+    sp<RefBase> obj;
+    RefPtr<TextureClient> texture;
+    CHECK(aMsg->findInt64("timeUs", &timeUs));
+    CHECK(aMsg->findObject("inputInfo", &inputInfo));
+    CHECK(aMsg->findObject("texture", &obj));
+    texture = static_cast<TextureHolder*>(obj.get())->mTexture;
+    mCallback->Output(texture, inputInfo, timeUs);
+  }
+  if (aMsg->contains("eos")) {
+    mCallback->NotifyOutputEnded();
   }
 }
 
@@ -706,7 +689,8 @@ sp<Surface> GonkMediaCodec::InitBufferQueue() {
   int maxAcquiredCount = mozilla::StaticPrefs::
       media_gonkmediacodec_bufferqueue_max_acquired_count();
 
-  mNativeWindow = new CodecNativeWindow(this, consumer, maxAcquiredCount);
+  mNativeWindow = new CodecNativeWindow(
+      consumer, new AMessage(kWhatReleaseOutput, this), maxAcquiredCount);
   return new Surface(producer);
 }
 
@@ -725,7 +709,7 @@ void GonkMediaCodec::ReserveResource(const sp<AMessage>& aFormat,
                    : mozilla::MediaSystemResourceType::AUDIO_DECODER;
   }
 
-  LOGD("%p reserving resource type %d", this, type);
+  LOGD("%p reserving resource type %d", this, int(type));
 
   // Currently only video supports resource management.
   if (!isVideo) {

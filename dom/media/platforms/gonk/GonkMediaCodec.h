@@ -68,12 +68,9 @@ class GonkMediaCodec final
 
   void InputUpdated();
 
-  void BufferQueueUpdated();
-
  private:
   class CodecNativeWindow;
   class InputInfoQueue;
-  class OutputInfoQueue;
 
   enum {
     kWhatCodecNotify = 'codc',
@@ -83,7 +80,8 @@ class GonkMediaCodec final
     kWhatShutdown = 'shuD',
     kWhatFlush = 'flus',
     kWhatInputUpdated = 'inUp',
-    kWhatBufferQueueUpdated = 'bqUp',
+    kWhatReleaseOutput = 'relO',
+    kWhatNotifyOutput = 'notO',
   };
 
   virtual ~GonkMediaCodec();
@@ -103,7 +101,9 @@ class GonkMediaCodec final
   void OnOutputAvailable(int32_t aIndex, size_t aOffset, size_t aSize,
                          int64_t aTimeUs, int32_t aFlags);
 
-  void OnBufferQueueUpdated();
+  void OnReleaseOutput();
+
+  void OnNotifyOutput(const sp<AMessage>& aMsg);
 
   sp<Surface> InitBufferQueue();
 
@@ -113,9 +113,9 @@ class GonkMediaCodec final
   sp<Callback> mCallback;
   sp<AMessage> mConfigMsg;
   sp<CodecNativeWindow> mNativeWindow;
-  std::deque<size_t> mInputBuffers;
+  std::list<size_t> mInputBuffers;
+  std::list<sp<AMessage>> mOutputBuffers;
   std::unique_ptr<InputInfoQueue> mInputInfoQueue;
-  std::unique_ptr<OutputInfoQueue> mOutputInfoQueue;
 
   // Media resource management.
   void ReserveResource(const sp<AMessage>& aFormat, bool aEncoder);

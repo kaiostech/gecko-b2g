@@ -111,7 +111,7 @@ class GonkNativeWindow : public GonkConsumerBase {
 
   // Return the buffer to the queue and mark it as FREE. After that
   // the buffer is useable again for the decoder.
-  void returnBuffer(TextureClient* client);
+  virtual void returnBuffer(TextureClient* client);
 
   already_AddRefed<TextureClient> getTextureClientFromBuffer(
       ANativeWindowBuffer* buffer);

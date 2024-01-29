@@ -11450,7 +11450,7 @@
 
 -   name: media.gonkmediacodec.bufferqueue.max.acquired.count
     type: RelaxedAtomicInt32
-    value: 4
+    value: 3
     mirror: always
 
 -   name: media.gonk.h265.enabled

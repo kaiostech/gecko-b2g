@@ -3258,7 +3258,7 @@ bool nsDocumentViewer::ShouldAttachToTopLevel() {
   }
 
   // FIXME(emilio): Can we unify this between macOS and aother platforms?
-#if defined(XP_MACOSX) || defined(MOZ_B2G)
+#if defined(XP_MACOSX) || defined(MOZ_WIDGET_GONK)
   return false;
 #else
 #  ifdef DEBUG

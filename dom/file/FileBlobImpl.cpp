@@ -7,7 +7,6 @@
 #include "FileBlobImpl.h"
 #include "BaseBlobImpl.h"
 #include "mozilla/SlicedInputStream.h"
-#include "mozilla/SyncRunnable.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "nsCExternalHandlerService.h"
@@ -199,29 +198,39 @@ void FileBlobImpl::GetTypeInternal(nsAString& aType,
                "Should only use lazy ContentType when using the whole file");
 
     if (!NS_IsMainThread()) {
-      RefPtr<Runnable> runnable = NS_NewRunnableFunction(
-          "FileBlobImpl::GetTypeInternal", [&]() -> void {
-            FileBlobImpl::GetTypeInternal(aType, aProofOfLock);
-          });
-      SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), runnable);
-      return;
-    }
+      WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+      if (!workerPrivate) {
+        // I have no idea in which thread this method is called. We cannot
+        // return any valid value.
+        return;
+      }
 
-    nsresult rv;
-    nsCOMPtr<nsIMIMEService> mimeService =
-        do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return;
-    }
+      RefPtr<GetTypeRunnable> runnable =
+          new GetTypeRunnable(workerPrivate, this, aProofOfLock);
 
-    nsAutoCString mimeType;
-    rv = mimeService->GetTypeFromFile(mFile, mimeType);
-    if (NS_FAILED(rv)) {
-      mimeType.Truncate();
-    }
+      ErrorResult rv;
+      runnable->Dispatch(Canceling, rv);
+      if (NS_WARN_IF(rv.Failed())) {
+        rv.SuppressException();
+        return;
+      }
+    } else {
+      nsresult rv;
+      nsCOMPtr<nsIMIMEService> mimeService =
+          do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return;
+      }
 
-    AppendUTF8toUTF16(mimeType, mContentType);
-    mContentType.SetIsVoid(false);
+      nsAutoCString mimeType;
+      rv = mimeService->GetTypeFromFile(mFile, mimeType);
+      if (NS_FAILED(rv)) {
+        mimeType.Truncate();
+      }
+
+      AppendUTF8toUTF16(mimeType, mContentType);
+      mContentType.SetIsVoid(false);
+    }
   }
 
   aType = mContentType;

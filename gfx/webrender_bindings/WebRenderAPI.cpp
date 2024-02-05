@@ -106,10 +106,6 @@ class NewRenderer : public RendererEvent {
     char* errorMessage = nullptr;
     int picTileWidth = StaticPrefs::gfx_webrender_picture_tile_width();
     int picTileHeight = StaticPrefs::gfx_webrender_picture_tile_height();
-#if defined(MOZ_WIDGET_GONK)
-    int maxSharedSurfaceSize = Preferences::GetUint("gfx.webrender.max-shared-surface-size");
-#endif
-
     auto* swgl = compositor->swgl();
     auto* gl = (compositor->gl() && !swgl) ? compositor->gl() : nullptr;
     auto* progCache = (aRenderThread.GetProgramCache() && !swgl)
@@ -154,11 +150,7 @@ class NewRenderer : public RendererEvent {
             panic_on_gl_error, picTileWidth, picTileHeight,
             gfx::gfxVars::WebRenderRequiresHardwareDriver(),
             StaticPrefs::gfx_webrender_low_quality_pinch_zoom_AtStartup(),
-#if defined(MOZ_WIDGET_GONK)
-            maxSharedSurfaceSize,
-#else
             StaticPrefs::gfx_webrender_max_shared_surface_size_AtStartup(),
-#endif
             StaticPrefs::gfx_webrender_enable_subpixel_aa_AtStartup())) {
       // wr_window_new puts a message into gfxCriticalNote if it returns false
       MOZ_ASSERT(errorMessage);

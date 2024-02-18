@@ -317,6 +317,13 @@ struct OpNotifyNotUsed {
   uint64_t fwdTransactionId;
 };
 
+struct OpDeliverReleaseFence {
+  FileDescriptor? fenceFd;
+  uint64_t bufferId;
+  uint64_t fwdTransactionId;
+  bool usesImageBridge;
+};
+
 union CompositableOperationDetail {
   OpRemoveTexture;
 
@@ -360,6 +367,7 @@ struct ImageCompositeNotification {
 
 union AsyncParentMessageData {
   OpNotifyNotUsed;
+  OpDeliverReleaseFence;
 };
 
 union OMTAValue {

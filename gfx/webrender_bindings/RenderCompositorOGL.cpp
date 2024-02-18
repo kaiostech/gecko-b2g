@@ -70,6 +70,21 @@ bool RenderCompositorOGL::BeginFrame() {
 
 RenderedFrameId RenderCompositorOGL::EndFrame(
     const nsTArray<DeviceIntRect>& aDirtyRects) {
+#ifdef MOZ_WIDGET_GONK
+  const auto& gle = gl::GLContextEGL::Cast(gl());
+  const auto& egl = gle->mEgl;
+
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
+  if (sync) {
+    int fenceFd = egl->fDupNativeFenceFDANDROID(sync);
+    if (fenceFd >= 0) {
+      mReleaseFenceFd = ipc::FileDescriptor(UniqueFileHandle(fenceFd));
+    }
+    egl->fDestroySync(sync);
+    sync = nullptr;
+  }
+#endif
+
   RenderedFrameId frameId = GetNextRenderFrameId();
   if (UsePartialPresent() && aDirtyRects.Length() > 0) {
     gfx::IntRegion bufferInvalid;

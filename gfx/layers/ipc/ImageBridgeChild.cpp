@@ -42,6 +42,10 @@
 #  include "mozilla/gfx/DeviceManagerDx.h"
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#  include "mozilla/layers/GrallocTextureClient.h"
+#endif
+
 namespace mozilla {
 namespace ipc {
 class Shmem;
@@ -782,6 +786,29 @@ mozilla::ipc::IPCResult ImageBridgeChild::RecvParentAsyncMessages(
       case AsyncParentMessageData::TOpNotifyNotUsed: {
         const OpNotifyNotUsed& op = message.get_OpNotifyNotUsed();
         NotifyNotUsed(op.TextureId(), op.fwdTransactionId());
+        break;
+      }
+      case AsyncParentMessageData::TOpDeliverReleaseFence: {
+#ifdef MOZ_WIDGET_GONK
+        const OpDeliverReleaseFence& op = message.get_OpDeliverReleaseFence();
+        auto fenceFd = op.fenceFd().valueOr(ipc::FileDescriptor());
+        auto textureId = op.bufferId();
+        if (mTexturesWaitingNotifyNotUsed.count(textureId)) {
+          auto texture = mTexturesWaitingNotifyNotUsed[textureId];
+          if (op.fwdTransactionId() < texture->GetLastFwdTransactionId()) {
+            // Released on host side, but client already requested newer use
+            // texture.
+            break;
+          }
+          auto rawFD = fenceFd.TakePlatformHandle();
+          FenceHandle fence(new FenceHandle::FdObj(rawFD.release()));
+          texture->GetInternalData()
+              ->AsGrallocTextureData()
+              ->SetReleaseFenceHandle(fence);
+        }
+#else
+        MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+#endif
         break;
       }
       default:

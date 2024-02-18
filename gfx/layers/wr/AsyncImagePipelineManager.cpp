@@ -676,6 +676,16 @@ void AsyncImagePipelineManager::ProcessPipelineRendered(
         entry->mTexture->SetReleaseFence(std::move(fenceFd));
       }
     }
+#elif defined(MOZ_WIDGET_GONK)
+    for (auto it = holder->mTextureHostsUntilRenderSubmitted.begin();
+         it != firstSubmittedHostToKeep; ++it) {
+      const auto& entry = it;
+      if (entry->mTexture->AsGrallocTextureHostOGL() &&
+          mReleaseFenceFd.IsValid()) {
+        ipc::FileDescriptor fenceFd = mReleaseFenceFd;
+        entry->mTexture->SetReleaseFence(std::move(fenceFd));
+      }
+    }
 #endif
     holder->mTextureHostsUntilRenderSubmitted.erase(
         holder->mTextureHostsUntilRenderSubmitted.begin(),

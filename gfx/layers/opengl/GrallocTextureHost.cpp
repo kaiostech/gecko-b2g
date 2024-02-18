@@ -197,6 +197,17 @@ already_AddRefed<gfx::DataSourceSurface> GrallocTextureHostOGL::GetAsSurface() {
   return surf.forget();
 }
 
+void GrallocTextureHostOGL::SetReleaseFence(ipc::FileDescriptor&& aFenceFd) {
+  mReleaseFenceFd = std::move(aFenceFd);
+}
+
+ipc::FileDescriptor GrallocTextureHostOGL::GetAndResetReleaseFence() {
+  if (!mReleaseFenceFd.IsValid()) {
+    return ipc::FileDescriptor();
+  }
+  return std::move(mReleaseFenceFd);
+}
+
 GLenum GetTextureTarget(gl::GLContext* aGL, android::PixelFormat aFormat) {
   MOZ_ASSERT(aGL);
   if (aGL->Renderer() == gl::GLRenderer::SGX530 ||

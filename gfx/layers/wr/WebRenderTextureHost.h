@@ -67,6 +67,12 @@ class WebRenderTextureHost : public TextureHost {
     return mWrappedTextureHost->AsBufferTextureHost();
   }
 
+#ifdef MOZ_WIDGET_GONK
+  GrallocTextureHostOGL* AsGrallocTextureHostOGL() override {
+    return mWrappedTextureHost->AsGrallocTextureHostOGL();
+  }
+#endif
+
   bool IsWrappingSurfaceTextureHost() override;
 
   virtual void PrepareForUse() override;

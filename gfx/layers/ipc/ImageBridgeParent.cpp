@@ -411,6 +411,18 @@ void ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
     return;
   }
 
+#ifdef MOZ_WIDGET_GONK
+  if (texture->AsGrallocTextureHostOGL()) {
+    Maybe<FileDescriptor> fenceFd = Some(texture->GetAndResetReleaseFence());
+    if (fenceFd->IsValid()) {
+      uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
+      mPendingAsyncMessage.push_back(
+          OpDeliverReleaseFence(std::move(fenceFd), textureId, aTransactionId,
+                                /* usesImageBridge */ true));
+    }
+  }
+#endif
+
   if (!(texture->GetFlags() & TextureFlags::RECYCLE) &&
       !(texture->GetFlags() & TextureFlags::WAIT_HOST_USAGE_END)) {
     return;
@@ -421,7 +433,8 @@ void ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
 
 #if defined(MOZ_WIDGET_GONK)
   // Always flush pending async messages since webrender composition has
-  // performance issue currently on Gonk which leads to camera preview halt issue.
+  // performance issue currently on Gonk which leads to camera preview halt
+  // issue.
   SendPendingAsyncMessages();
 #else
   if (!IsAboutToSendAsyncMessages()) {

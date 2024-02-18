@@ -49,6 +49,12 @@ class GrallocTextureHostOGL : public TextureHost {
 
   already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
 
+  void SetReleaseFence(ipc::FileDescriptor&& aFenceFd) override;
+
+  ipc::FileDescriptor GetAndResetReleaseFence() override;
+
+  bool NeedsDeferredDeletion() const override { return false; }
+
   void SetCropRect(nsIntRect aCropRect) override;
 
   bool IsValid() override;
@@ -74,6 +80,7 @@ class GrallocTextureHostOGL : public TextureHost {
   EGLImage mEGLImage;
   bool mIsOpaque;
   wr::MaybeExternalImageId mExternalImageId;
+  ipc::FileDescriptor mReleaseFenceFd;
 };
 
 }  // namespace layers

@@ -38,9 +38,19 @@ class RenderCompositorOGL : public RenderCompositor {
   bool ShouldDrawPreviousPartialPresentRegions() override;
   size_t GetBufferAge() const override;
 
+#ifdef MOZ_WIDGET_GONK
+  ipc::FileDescriptor GetAndResetReleaseFence() override {
+    return std::move(mReleaseFenceFd);
+  }
+#endif
+
  protected:
   RefPtr<gl::GLContext> mGL;
   bool mIsEGL;
+
+#ifdef MOZ_WIDGET_GONK
+  ipc::FileDescriptor mReleaseFenceFd;
+#endif
 };
 
 }  // namespace wr

@@ -237,6 +237,14 @@ RefPtr<GonkDataDecoder::DecodePromise> GonkDataDecoder::Decode(
 
   mInputQueue.Push(aSample);
   mCodec->InputUpdated();
+
+  // 1. If the input queue level is low, resolve promise immediately to request
+  //    more samples.
+  // 2. If there are pending output buffers, return them immediately to avoid
+  //    being late for rendering.
+  if (mInputQueue.GetSize() < 2 || mOutputQueue.GetSize() > 0) {
+    return DecodePromise::CreateAndResolve(FetchOutput(), __func__);
+  }
   return mDecodePromise.Ensure(__func__);
 }
 

@@ -11,7 +11,6 @@
 #include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include <ui/GraphicBuffer.h>
 
-
 namespace android {
 class MediaBuffer;
 };
@@ -23,8 +22,8 @@ class SharedSurface;
 
 namespace layers {
 
-/// A TextureData implementation based on android::GraphicBuffer (also referred to
-/// as "gralloc").
+/// A TextureData implementation based on android::GraphicBuffer (also referred
+/// to as "gralloc").
 ///
 /// Gralloc lets us map texture data in memory (accessible through pointers)
 /// and also use it directly as an OpenGL texture without the cost of texture
@@ -35,49 +34,52 @@ namespace layers {
 ///
 /// This is only used in Firefox OS
 class GrallocTextureData : public TextureData {
-public:
+ public:
   typedef uint32_t AndroidFormat;
 
-  virtual bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+  bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
 
   // FIXME
-  //virtual bool Lock(OpenMode aMode, FenceHandle* aFence) override;
-  virtual bool Lock(OpenMode aMode) override;
+  // bool Lock(OpenMode aMode, FenceHandle* aFence) override;
+  bool Lock(OpenMode aMode) override;
 
-  virtual void Unlock() override;
+  void Unlock() override;
 
-  virtual void FillInfo(TextureData::Info& aInfo) const override;
+  void FillInfo(TextureData::Info& aInfo) const override;
 
-  virtual already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
+  already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
 
-  virtual bool BorrowMappedData(MappedTextureData& aMap) override;
+  bool BorrowMappedData(MappedTextureData& aMap) override;
 
-  virtual void Deallocate(LayersIPCChannel*) override;
+  void Deallocate(LayersIPCChannel*) override;
 
-  virtual void Forget(LayersIPCChannel*) override;
+  void Forget(LayersIPCChannel*) override;
 
-  static GrallocTextureData* CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
-                                              gfx::BackendType aMoz2dBackend,
-                                              LayersIPCChannel* aAllocator,
-                                              TextureAllocationFlags aAllocFlags);
+  static GrallocTextureData* CreateForDrawing(
+      gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+      gfx::BackendType aMoz2dBackend, LayersIPCChannel* aAllocator,
+      TextureAllocationFlags aAllocFlags);
 
-  static GrallocTextureData* CreateForYCbCr(gfx::IntSize aYSize, gfx::IntSize aCbCrSize,
+  static GrallocTextureData* CreateForYCbCr(gfx::IntSize aYSize,
+                                            gfx::IntSize aCbCrSize,
                                             LayersIPCChannel* aAllocator);
 
-  static GrallocTextureData* CreateForGLRendering(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+  static GrallocTextureData* CreateForGLRendering(gfx::IntSize aSize,
+                                                  gfx::SurfaceFormat aFormat,
                                                   LayersIPCChannel* aAllocator);
 
   static GrallocTextureData* Create(gfx::IntSize aSize, AndroidFormat aFormat,
-                                    gfx::BackendType aMoz2DBackend, uint32_t aUsage,
+                                    gfx::BackendType aMoz2DBackend,
+                                    uint32_t aUsage,
                                     LayersIPCChannel* aAllocator);
 
-  virtual TextureData* CreateSimilar(
+  TextureData* CreateSimilar(
       LayersIPCChannel* aAllocator, LayersBackend aLayersBackend,
       TextureFlags aFlags = TextureFlags::DEFAULT,
       TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT) const override;
 
   // use TextureClient's default implementation
-  virtual bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
+  bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
 
   // Hold a strong reference to any private object from media framework. This
   // API replaces SetMediaBuffer(), because MediaBuffer doesn't support
@@ -86,9 +88,12 @@ public:
   void SetMediaPrivate(const android::sp<android::RefBase> aObject) {
     mMediaPrivate = aObject;
   }
+
   android::sp<android::RefBase> GetMediaPrivate() { return mMediaPrivate; }
 
-  android::sp<android::GraphicBuffer> GetGraphicBuffer() { return mGraphicBuffer; }
+  android::sp<android::GraphicBuffer> GetGraphicBuffer() {
+    return mGraphicBuffer;
+  }
 
   void WaitForBufferOwnership();
 
@@ -96,33 +101,29 @@ public:
 
   ~GrallocTextureData();
 
-  virtual TextureFlags GetTextureFlags() const override;
+  TextureFlags GetTextureFlags() const override;
 
-  virtual GrallocTextureData* AsGrallocTextureData() override { return this; }
+  GrallocTextureData* AsGrallocTextureData() override { return this; }
 
-  void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle)
-  {
+  void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle) {
     mReleaseFenceHandle.Merge(aReleaseFenceHandle);
   }
 
-  FenceHandle GetAndResetReleaseFenceHandle()
-  {
+  FenceHandle GetAndResetReleaseFenceHandle() {
     FenceHandle fence;
     mReleaseFenceHandle.TransferToAnotherFenceHandle(fence);
     return fence;
   }
 
-  void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle)
-  {
+  void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle) {
     mAcquireFenceHandle = aAcquireFenceHandle;
   }
 
-  const FenceHandle& GetAcquireFenceHandle() const
-  {
+  const FenceHandle& GetAcquireFenceHandle() const {
     return mAcquireFenceHandle;
   }
 
-protected:
+ protected:
   GrallocTextureData(MaybeMagicGrallocBufferHandle aGrallocHandle,
                      gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
                      gfx::BackendType aMoz2DBackend);
@@ -146,7 +147,7 @@ protected:
 
 gfx::SurfaceFormat SurfaceFormatForPixelFormat(android::PixelFormat aFormat);
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

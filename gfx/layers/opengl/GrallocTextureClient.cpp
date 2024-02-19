@@ -22,9 +22,8 @@ namespace layers {
 
 using namespace mozilla::gfx;
 
-static bool
-DisableGralloc(SurfaceFormat aFormat, const gfx::IntSize& aSizeHint)
-{
+static bool DisableGralloc(SurfaceFormat aFormat,
+                           const gfx::IntSize& aSizeHint) {
   if (gfx::gfxVars::DisableGralloc()) {
     return true;
   }
@@ -35,91 +34,82 @@ DisableGralloc(SurfaceFormat aFormat, const gfx::IntSize& aSizeHint)
   return false;
 }
 
-gfx::SurfaceFormat
-SurfaceFormatForPixelFormat(android::PixelFormat aFormat)
-{
+gfx::SurfaceFormat SurfaceFormatForPixelFormat(android::PixelFormat aFormat) {
   switch (aFormat) {
-  case android::PIXEL_FORMAT_RGBA_8888:
-    return gfx::SurfaceFormat::R8G8B8A8;
-  case android::PIXEL_FORMAT_BGRA_8888:
-    return gfx::SurfaceFormat::B8G8R8A8;
-  case android::PIXEL_FORMAT_RGBX_8888:
-    return gfx::SurfaceFormat::R8G8B8X8;
-  case android::PIXEL_FORMAT_RGB_565:
-    return gfx::SurfaceFormat::R5G6B5_UINT16;
-  case HAL_PIXEL_FORMAT_YV12:
-    return gfx::SurfaceFormat::YUV;
-  default:
-    return gfx::SurfaceFormat::UNKNOWN;
+    case android::PIXEL_FORMAT_RGBA_8888:
+      return gfx::SurfaceFormat::R8G8B8A8;
+    case android::PIXEL_FORMAT_BGRA_8888:
+      return gfx::SurfaceFormat::B8G8R8A8;
+    case android::PIXEL_FORMAT_RGBX_8888:
+      return gfx::SurfaceFormat::R8G8B8X8;
+    case android::PIXEL_FORMAT_RGB_565:
+      return gfx::SurfaceFormat::R5G6B5_UINT16;
+    case HAL_PIXEL_FORMAT_YV12:
+      return gfx::SurfaceFormat::YUV;
+    default:
+      return gfx::SurfaceFormat::UNKNOWN;
   }
 }
 
-bool
-IsGrallocRBSwapped(gfx::SurfaceFormat aFormat) {
+bool IsGrallocRBSwapped(gfx::SurfaceFormat aFormat) {
   switch (aFormat) {
-  case gfx::SurfaceFormat::B8G8R8A8:
-  case gfx::SurfaceFormat::B8G8R8X8:
-    return true;
-  default:
-    return false;
+    case gfx::SurfaceFormat::B8G8R8A8:
+    case gfx::SurfaceFormat::B8G8R8X8:
+      return true;
+    default:
+      return false;
   }
 }
 
-uint32_t GetAndroidFormat(gfx::SurfaceFormat aFormat)
-{
+uint32_t GetAndroidFormat(gfx::SurfaceFormat aFormat) {
   switch (aFormat) {
-  case gfx::SurfaceFormat::R8G8B8A8:
-  case gfx::SurfaceFormat::B8G8R8A8:
-    return android::PIXEL_FORMAT_RGBA_8888;
-  case gfx::SurfaceFormat::R8G8B8X8:
-  case gfx::SurfaceFormat::B8G8R8X8:
-    return android::PIXEL_FORMAT_RGBX_8888;
-  case gfx::SurfaceFormat::R5G6B5_UINT16:
-    return android::PIXEL_FORMAT_RGB_565;
-  case gfx::SurfaceFormat::YUV:
-    return HAL_PIXEL_FORMAT_YV12;
-  case gfx::SurfaceFormat::A8:
-    NS_WARNING("gralloc does not support SurfaceFormat::A8");
-    return android::PIXEL_FORMAT_UNKNOWN;
-  default:
-    NS_WARNING("Unsupported surface format");
-    return android::PIXEL_FORMAT_UNKNOWN;
+    case gfx::SurfaceFormat::R8G8B8A8:
+    case gfx::SurfaceFormat::B8G8R8A8:
+      return android::PIXEL_FORMAT_RGBA_8888;
+    case gfx::SurfaceFormat::R8G8B8X8:
+    case gfx::SurfaceFormat::B8G8R8X8:
+      return android::PIXEL_FORMAT_RGBX_8888;
+    case gfx::SurfaceFormat::R5G6B5_UINT16:
+      return android::PIXEL_FORMAT_RGB_565;
+    case gfx::SurfaceFormat::YUV:
+      return HAL_PIXEL_FORMAT_YV12;
+    case gfx::SurfaceFormat::A8:
+      NS_WARNING("gralloc does not support SurfaceFormat::A8");
+      return android::PIXEL_FORMAT_UNKNOWN;
+    default:
+      NS_WARNING("Unsupported surface format");
+      return android::PIXEL_FORMAT_UNKNOWN;
   }
 }
 
-GrallocTextureData::GrallocTextureData(MaybeMagicGrallocBufferHandle aGrallocHandle,
-                                       gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
-                                       gfx::BackendType aMoz2DBackend)
-: mSize(aSize)
-, mFormat(aFormat)
-, mMoz2DBackend(aMoz2DBackend)
-, mGrallocHandle(aGrallocHandle)
-, mMappedBuffer(nullptr)
-{
+GrallocTextureData::GrallocTextureData(
+    MaybeMagicGrallocBufferHandle aGrallocHandle, gfx::IntSize aSize,
+    gfx::SurfaceFormat aFormat, gfx::BackendType aMoz2DBackend)
+    : mSize(aSize),
+      mFormat(aFormat),
+      mMoz2DBackend(aMoz2DBackend),
+      mGrallocHandle(aGrallocHandle),
+      mMappedBuffer(nullptr) {
   mGraphicBuffer = GetGraphicBufferFrom(aGrallocHandle);
   MOZ_COUNT_CTOR(GrallocTextureData);
 }
 
-GrallocTextureData::~GrallocTextureData()
-{
+GrallocTextureData::~GrallocTextureData() {
   MOZ_COUNT_DTOR(GrallocTextureData);
 }
 
-void
-GrallocTextureData::Deallocate(LayersIPCChannel* aAllocator)
-{
+void GrallocTextureData::Deallocate(LayersIPCChannel* aAllocator) {
   MOZ_ASSERT(aAllocator);
   if (aAllocator) {
-    SharedBufferManagerChild::GetSingleton()->DeallocGrallocBuffer(mGrallocHandle);
+    SharedBufferManagerChild::GetSingleton()->DeallocGrallocBuffer(
+        mGrallocHandle);
   }
 
   mGrallocHandle = null_t();
   mGraphicBuffer = nullptr;
 }
 
-void
-GrallocTextureData::Forget(LayersIPCChannel* aAllocator)
-{
+void GrallocTextureData::Forget(LayersIPCChannel* aAllocator) {
   MOZ_ASSERT(aAllocator);
   if (aAllocator) {
     SharedBufferManagerChild::GetSingleton()->DropGrallocBuffer(mGrallocHandle);
@@ -129,9 +119,7 @@ GrallocTextureData::Forget(LayersIPCChannel* aAllocator)
   mGraphicBuffer = nullptr;
 }
 
-void
-GrallocTextureData::FillInfo(TextureData::Info& aInfo) const
-{
+void GrallocTextureData::FillInfo(TextureData::Info& aInfo) const {
   aInfo.size = mSize;
   aInfo.format = mFormat;
   aInfo.hasSynchronization = true;
@@ -139,32 +127,25 @@ GrallocTextureData::FillInfo(TextureData::Info& aInfo) const
   aInfo.canExposeMappedData = true;
 }
 
-bool
-GrallocTextureData::Serialize(SurfaceDescriptor& aOutDescriptor)
-{
-  aOutDescriptor = SurfaceDescriptorGralloc(mGrallocHandle, gfx::IsOpaque(mFormat));
+bool GrallocTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
+  aOutDescriptor =
+      SurfaceDescriptorGralloc(mGrallocHandle, gfx::IsOpaque(mFormat));
   return true;
 }
 
-void
-GrallocTextureData::WaitForBufferOwnership()
-{
-   if (mReleaseFenceHandle.IsValid()) {
-     RefPtr<FenceHandle::FdObj> fdObj = mReleaseFenceHandle.GetAndResetFdObj();
-     android::sp<android::Fence> fence = new android::Fence(fdObj->GetAndResetFd());
-     fence->waitForever("GrallocTextureClientOGL::Lock");
-     mReleaseFenceHandle = FenceHandle();
-   }
+void GrallocTextureData::WaitForBufferOwnership() {
+  if (mReleaseFenceHandle.IsValid()) {
+    RefPtr<FenceHandle::FdObj> fdObj = mReleaseFenceHandle.GetAndResetFdObj();
+    android::sp<android::Fence> fence =
+        new android::Fence(fdObj->GetAndResetFd());
+    fence->waitForever("GrallocTextureClientOGL::Lock");
+    mReleaseFenceHandle = FenceHandle();
+  }
 }
 
-void
-GrallocTextureData::WaitForFence(FenceHandle* aFence)
-{
-}
+void GrallocTextureData::WaitForFence(FenceHandle* aFence) {}
 
-bool
-GrallocTextureData::Lock(OpenMode aMode)
-{
+bool GrallocTextureData::Lock(OpenMode aMode) {
   MOZ_ASSERT(!mMappedBuffer);
   // TODO: Add release fence handling
   FenceHandle* aReleaseFence = nullptr;
@@ -197,29 +178,23 @@ GrallocTextureData::Lock(OpenMode aMode)
   return true;
 }
 
-void
-GrallocTextureData::Unlock()
-{
+void GrallocTextureData::Unlock() {
   MOZ_ASSERT(mMappedBuffer);
   mMappedBuffer = nullptr;
   mGraphicBuffer->unlock();
 }
 
-already_AddRefed<gfx::DrawTarget>
-GrallocTextureData::BorrowDrawTarget()
-{
+already_AddRefed<gfx::DrawTarget> GrallocTextureData::BorrowDrawTarget() {
   MOZ_ASSERT(mMappedBuffer);
   if (!mMappedBuffer) {
     return nullptr;
   }
   long byteStride = mGraphicBuffer->getStride() * BytesPerPixel(mFormat);
-  return gfxPlatform::GetPlatform()->CreateDrawTargetForData(mMappedBuffer, mSize,
-                                                             byteStride, mFormat);
+  return gfxPlatform::GetPlatform()->CreateDrawTargetForData(
+      mMappedBuffer, mSize, byteStride, mFormat);
 }
 
-bool
-GrallocTextureData::BorrowMappedData(MappedTextureData& aMap)
-{
+bool GrallocTextureData::BorrowMappedData(MappedTextureData& aMap) {
   if (mFormat == gfx::SurfaceFormat::YUV || !mMappedBuffer) {
     return false;
   }
@@ -232,10 +207,9 @@ GrallocTextureData::BorrowMappedData(MappedTextureData& aMap)
   return true;
 }
 
-bool
-GrallocTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface)
-{
-  MOZ_ASSERT(mMappedBuffer, "Calling TextureClient::BorrowDrawTarget without locking :(");
+bool GrallocTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface) {
+  MOZ_ASSERT(mMappedBuffer,
+             "Calling TextureClient::BorrowDrawTarget without locking :(");
 
   if (!mMappedBuffer) {
     return false;
@@ -244,13 +218,19 @@ GrallocTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface)
   RefPtr<DataSourceSurface> srcSurf = aSurface->GetDataSurface();
 
   if (!srcSurf) {
-    gfxCriticalError() << "Failed to GetDataSurface in UpdateFromSurface (GTC).";
+    gfxCriticalError()
+        << "Failed to GetDataSurface in UpdateFromSurface (GTC).";
     return false;
   }
 
-  gfx::SurfaceFormat format = SurfaceFormatForPixelFormat(mGraphicBuffer->getPixelFormat());
+  gfx::SurfaceFormat format =
+      SurfaceFormatForPixelFormat(mGraphicBuffer->getPixelFormat());
   if (mSize != srcSurf->GetSize() || mFormat != srcSurf->GetFormat()) {
-    gfxCriticalError() << "Attempt to update texture client from a surface with a different size or format! This: " << mSize << " " << format << " Other: " << srcSurf->GetSize() << " " << srcSurf->GetFormat();
+    gfxCriticalError() << "Attempt to update texture client from a surface "
+                          "with a different size or format! This: "
+                       << mSize << " " << format
+                       << " Other: " << srcSurf->GetSize() << " "
+                       << srcSurf->GetFormat();
     return false;
   }
 
@@ -260,7 +240,8 @@ GrallocTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface)
   DataSourceSurface::MappedSurface sourceMap;
 
   if (!srcSurf->Map(DataSourceSurface::READ, &sourceMap)) {
-    gfxCriticalError() << "Failed to map source surface for UpdateFromSurface (GTC).";
+    gfxCriticalError()
+        << "Failed to map source surface for UpdateFromSurface (GTC).";
     return false;
   }
 
@@ -276,38 +257,38 @@ GrallocTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface)
 }
 
 // static
-GrallocTextureData*
-GrallocTextureData::Create(gfx::IntSize aSize, AndroidFormat aAndroidFormat,
-                           gfx::BackendType aMoz2dBackend, uint32_t aUsage,
-                           LayersIPCChannel* aAllocator)
-{
+GrallocTextureData* GrallocTextureData::Create(gfx::IntSize aSize,
+                                               AndroidFormat aAndroidFormat,
+                                               gfx::BackendType aMoz2dBackend,
+                                               uint32_t aUsage,
+                                               LayersIPCChannel* aAllocator) {
   if (!aAllocator || !aAllocator->IPCOpen()) {
     return nullptr;
   }
   // TODO FIXME
-  //int32_t maxSize = aAllocator->GetMaxTextureSize();
-  //if (aSize.width > maxSize || aSize.height > maxSize) {
+  // int32_t maxSize = aAllocator->GetMaxTextureSize();
+  // if (aSize.width > maxSize || aSize.height > maxSize) {
   //  return nullptr;
   //}
   gfx::SurfaceFormat format;
   switch (aAndroidFormat) {
-  case android::PIXEL_FORMAT_RGBA_8888:
-    format = gfx::SurfaceFormat::B8G8R8A8;
-    break;
-  case android::PIXEL_FORMAT_BGRA_8888:
-    format = gfx::SurfaceFormat::B8G8R8A8;
-    break;
-  case android::PIXEL_FORMAT_RGBX_8888:
-    format = gfx::SurfaceFormat::B8G8R8X8;
-    break;
-  case android::PIXEL_FORMAT_RGB_565:
-    format = gfx::SurfaceFormat::R5G6B5_UINT16;
-    break;
-  case HAL_PIXEL_FORMAT_YV12:
-    format = gfx::SurfaceFormat::YUV;
-    break;
-  default:
-    format = gfx::SurfaceFormat::UNKNOWN;
+    case android::PIXEL_FORMAT_RGBA_8888:
+      format = gfx::SurfaceFormat::B8G8R8A8;
+      break;
+    case android::PIXEL_FORMAT_BGRA_8888:
+      format = gfx::SurfaceFormat::B8G8R8A8;
+      break;
+    case android::PIXEL_FORMAT_RGBX_8888:
+      format = gfx::SurfaceFormat::B8G8R8X8;
+      break;
+    case android::PIXEL_FORMAT_RGB_565:
+      format = gfx::SurfaceFormat::R5G6B5_UINT16;
+      break;
+    case HAL_PIXEL_FORMAT_YV12:
+      format = gfx::SurfaceFormat::YUV;
+      break;
+    default:
+      format = gfx::SurfaceFormat::UNKNOWN;
   }
 
   if (DisableGralloc(format, aSize)) {
@@ -315,11 +296,13 @@ GrallocTextureData::Create(gfx::IntSize aSize, AndroidFormat aAndroidFormat,
   }
 
   MaybeMagicGrallocBufferHandle handle;
-  if (!SharedBufferManagerChild::GetSingleton()->AllocGrallocBuffer(aSize, aAndroidFormat, aUsage, &handle)) {
+  if (!SharedBufferManagerChild::GetSingleton()->AllocGrallocBuffer(
+          aSize, aAndroidFormat, aUsage, &handle)) {
     return nullptr;
   }
 
-  android::sp<android::GraphicBuffer> graphicBuffer = GetGraphicBufferFrom(handle);
+  android::sp<android::GraphicBuffer> graphicBuffer =
+      GetGraphicBufferFrom(handle);
   if (!graphicBuffer.get()) {
     return nullptr;
   }
@@ -332,12 +315,10 @@ GrallocTextureData::Create(gfx::IntSize aSize, AndroidFormat aAndroidFormat,
 }
 
 // static
-GrallocTextureData*
-GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
-                                     gfx::BackendType aMoz2dBackend,
-                                     LayersIPCChannel* aAllocator,
-                                     TextureAllocationFlags aAllocFlags)
-{
+GrallocTextureData* GrallocTextureData::CreateForDrawing(
+    gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+    gfx::BackendType aMoz2dBackend, LayersIPCChannel* aAllocator,
+    TextureAllocationFlags aAllocFlags) {
   if (DisableGralloc(aFormat, aSize)) {
     return nullptr;
   }
@@ -345,8 +326,8 @@ GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFor
   uint32_t usage = android::GraphicBuffer::USAGE_SW_READ_OFTEN |
                    android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
                    android::GraphicBuffer::USAGE_HW_TEXTURE;
-  auto data =  GrallocTextureData::Create(aSize, GetAndroidFormat(aFormat),
-                                          aMoz2dBackend, usage, aAllocator);
+  auto data = GrallocTextureData::Create(aSize, GetAndroidFormat(aFormat),
+                                         aMoz2dBackend, usage, aAllocator);
 
   if (!data) {
     return nullptr;
@@ -356,8 +337,9 @@ GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFor
       (aAllocFlags & ALLOC_CLEAR_BUFFER_BLACK)) {
     if (aFormat == gfx::SurfaceFormat::B8G8R8X8) {
       uint8_t* buffer;
-      android::status_t rv = data->mGraphicBuffer->lock(android::GraphicBuffer::USAGE_SW_WRITE_OFTEN,
-                                               reinterpret_cast<void**>(&buffer));
+      android::status_t rv = data->mGraphicBuffer->lock(
+          android::GraphicBuffer::USAGE_SW_WRITE_OFTEN,
+          reinterpret_cast<void**>(&buffer));
       if (rv != android::OK) {
         return nullptr;
       }
@@ -373,7 +355,7 @@ GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFor
   }
 
   DebugOnly<gfx::SurfaceFormat> grallocFormat =
-    SurfaceFormatForPixelFormat(data->mGraphicBuffer->getPixelFormat());
+      SurfaceFormatForPixelFormat(data->mGraphicBuffer->getPixelFormat());
   // mFormat may be different from the format the graphic buffer reports if we
   // swap the R and B channels but we should always have at least the same bytes
   // per pixel!
@@ -382,9 +364,7 @@ GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFor
   return data;
 }
 
-TextureFlags
-GrallocTextureData::GetTextureFlags() const
-{
+TextureFlags GrallocTextureData::GetTextureFlags() const {
   TextureFlags flags = TextureFlags::WAIT_HOST_USAGE_END;
   if (IsGrallocRBSwapped(mFormat)) {
     return flags | TextureFlags::RB_SWAPPED;
@@ -392,25 +372,20 @@ GrallocTextureData::GetTextureFlags() const
   return flags;
 }
 
-
 // static
-GrallocTextureData*
-GrallocTextureData::CreateForYCbCr(gfx::IntSize aYSize, gfx::IntSize aCbCrSize,
-                                   LayersIPCChannel* aAllocator)
-{
+GrallocTextureData* GrallocTextureData::CreateForYCbCr(
+    gfx::IntSize aYSize, gfx::IntSize aCbCrSize, LayersIPCChannel* aAllocator) {
   MOZ_ASSERT(aYSize.width == aCbCrSize.width * 2);
   MOZ_ASSERT(aYSize.height == aCbCrSize.height * 2);
-  return GrallocTextureData::Create(aYSize, HAL_PIXEL_FORMAT_YV12,
-                                    gfx::BackendType::NONE,
-                                    android::GraphicBuffer::USAGE_SW_READ_OFTEN,
-                                    aAllocator);
+  return GrallocTextureData::Create(
+      aYSize, HAL_PIXEL_FORMAT_YV12, gfx::BackendType::NONE,
+      android::GraphicBuffer::USAGE_SW_READ_OFTEN, aAllocator);
 }
 
 // static
-GrallocTextureData*
-GrallocTextureData::CreateForGLRendering(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
-                                         LayersIPCChannel* aAllocator)
-{
+GrallocTextureData* GrallocTextureData::CreateForGLRendering(
+    gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+    LayersIPCChannel* aAllocator) {
   if (aFormat == gfx::SurfaceFormat::YUV) {
     return nullptr;
   }
@@ -421,14 +396,15 @@ GrallocTextureData::CreateForGLRendering(gfx::IntSize aSize, gfx::SurfaceFormat 
 }
 
 TextureData* GrallocTextureData::CreateSimilar(
-      LayersIPCChannel* aAllocator, LayersBackend aLayersBackend,
-      TextureFlags aFlags, TextureAllocationFlags aAllocFlags) const {
+    LayersIPCChannel* aAllocator, LayersBackend aLayersBackend,
+    TextureFlags aFlags, TextureAllocationFlags aAllocFlags) const {
   if (mFormat == gfx::SurfaceFormat::YUV) {
-    return GrallocTextureData::CreateForYCbCr(mSize, mSize*2, aAllocator);
+    return GrallocTextureData::CreateForYCbCr(mSize, mSize * 2, aAllocator);
   } else {
-    return GrallocTextureData::CreateForDrawing(mSize, mFormat, mMoz2DBackend, aAllocator, aAllocFlags);
+    return GrallocTextureData::CreateForDrawing(mSize, mFormat, mMoz2DBackend,
+                                                aAllocator, aAllocFlags);
   }
 }
 
-} // namesapace layers
-} // namesapace mozilla
+}  // namespace layers
+}  // namespace mozilla

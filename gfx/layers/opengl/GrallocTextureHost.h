@@ -14,52 +14,50 @@
 namespace mozilla {
 namespace layers {
 
-class GrallocTextureHostOGL : public TextureHost
-{
+class GrallocTextureHostOGL : public TextureHost {
   friend class GrallocBufferActor;
-public:
+
+ public:
   GrallocTextureHostOGL(TextureFlags aFlags,
                         const SurfaceDescriptorGralloc& aDescriptor);
 
   virtual ~GrallocTextureHostOGL();
 
-  virtual void DeallocateSharedData() override;
+  void DeallocateSharedData() override;
 
-  virtual void ForgetSharedData() override;
+  void ForgetSharedData() override;
 
-  virtual void DeallocateDeviceData() override;
+  void DeallocateDeviceData() override;
 
-  virtual gfx::SurfaceFormat GetFormat() const override;
+  gfx::SurfaceFormat GetFormat() const override;
 
-  virtual void CreateRenderTexture(
+  void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
 
-  virtual void PushResourceUpdates(
-      wr::TransactionBuilder& aResources,
-      ResourceUpdateOp aOp,
-      const Range<wr::ImageKey>& aImageKeys,
-      const wr::ExternalImageId& aExtID) override;
+  void PushResourceUpdates(wr::TransactionBuilder& aResources,
+                           ResourceUpdateOp aOp,
+                           const Range<wr::ImageKey>& aImageKeys,
+                           const wr::ExternalImageId& aExtID) override;
 
-  virtual void PushDisplayItems(
-      wr::DisplayListBuilder& aBuilder,
-      const wr::LayoutRect& aBounds,
-      const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
-      const Range<wr::ImageKey>& aImageKeys,
-      PushDisplayItemFlagSet aFlags) override;
+  void PushDisplayItems(wr::DisplayListBuilder& aBuilder,
+                        const wr::LayoutRect& aBounds,
+                        const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+                        const Range<wr::ImageKey>& aImageKeys,
+                        PushDisplayItemFlagSet aFlags) override;
 
-  virtual gfx::IntSize GetSize() const override { return mCropSize; }
+  gfx::IntSize GetSize() const override { return mCropSize; }
 
-  virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
+  already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
 
-  virtual void SetCropRect(nsIntRect aCropRect) override;
+  void SetCropRect(nsIntRect aCropRect) override;
 
   bool IsValid() const;
 
-  virtual const char* Name() override { return "GrallocTextureHostOGL"; }
+  const char* Name() override { return "GrallocTextureHostOGL"; }
 
-  virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
+  GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
 
-private:
+ private:
   void CreateEGLImage();
   void DestroyEGLImage();
 
@@ -77,7 +75,7 @@ private:
   wr::MaybeExternalImageId mExternalImageId;
 };
 
-} // namespace layers
-} // namespace mozilla
+}  // namespace layers
+}  // namespace mozilla
 
 #endif

@@ -41,8 +41,10 @@ GrallocImage::~GrallocImage() {}
 
 bool GrallocImage::SetData(const Data& aData) {
   MOZ_ASSERT(!mTextureClient, "TextureClient is already set");
-  NS_ASSERTION(aData.YDataSize().width % 2 == 0, "Image should have even width");
-  NS_ASSERTION(aData.YDataSize().height % 2 == 0, "Image should have even height");
+  NS_ASSERTION(aData.YDataSize().width % 2 == 0,
+               "Image should have even width");
+  NS_ASSERTION(aData.YDataSize().height % 2 == 0,
+               "Image should have even height");
   NS_ASSERTION(aData.mYStride % 16 == 0,
                "Image should have stride of multiple of 16 pixels");
 

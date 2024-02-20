@@ -663,8 +663,8 @@ export const SettingsPrefsSync = {
 
   // Attach or detach AccessFu
   updateAccessFu(value) {
-    const { AccessFu } = ChromeUtils.import(
-      "resource://gre/modules/accessibility/AccessFu.jsm"
+    const { AccessFu } = ChromeUtils.importESModule(
+      "resource://gre/modules/accessibility/AccessFu.sys.mjs"
     );
 
     if (value) {

@@ -69,7 +69,7 @@
   # it's weird that '*.py' is not as recognizable as '*.{c,cpp,cc,h}' for git
   # hence glob is alternatively used here
     PATHSPEC: "'**/*.py'"
-    SPECIFIC_LINTERS: "codespell flake8 black pylint"
+    SPECIFIC_LINTERS: "codespell black ruff"
 
 .lint_rs:
   extends:

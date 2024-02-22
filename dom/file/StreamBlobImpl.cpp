@@ -15,6 +15,7 @@
 #include "nsIAsyncOutputStream.h"
 #include "nsICloneableInputStream.h"
 #include "nsIEventTarget.h"
+#include "nsIMIMEService.h"
 #include "nsIPipe.h"
 #include "js/GCAPI.h"
 
@@ -225,6 +226,34 @@ void StreamBlobImpl::GetBlobImplType(nsAString& aBlobImplType) const {
   aBlobImplType.AssignLiteral("StreamBlobImpl[");
   aBlobImplType.Append(mBlobImplType);
   aBlobImplType.AppendLiteral("]");
+}
+
+void StreamBlobImpl::GetType(nsAString& aType) {
+  aType.Truncate();
+
+  if (mIsFile && NS_IsMainThread() && mContentType.IsEmpty()) {
+    nsCOMPtr<nsIFile> file;
+    nsresult rv = NS_NewLocalFile(mFullPath, true, getter_AddRefs(file));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return;
+    }
+
+    nsCOMPtr<nsIMIMEService> mimeService =
+        do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return;
+    }
+
+    nsAutoCString mimeType;
+    rv = mimeService->GetTypeFromFile(file, mimeType);
+    if (NS_FAILED(rv)) {
+      mimeType.Truncate();
+    }
+
+    AppendUTF8toUTF16(mimeType, mContentType);
+  }
+
+  aType = mContentType;
 }
 
 }  // namespace mozilla::dom

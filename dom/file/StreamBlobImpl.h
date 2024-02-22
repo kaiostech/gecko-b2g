@@ -65,6 +65,8 @@ class StreamBlobImpl final : public BaseBlobImpl, public nsIMemoryReporter {
 
   void GetBlobImplType(nsAString& aBlobImplType) const override;
 
+  void GetType(nsAString& aType) override;
+
  private:
   // Blob constructor.
   StreamBlobImpl(already_AddRefed<nsICloneableInputStream> aInputStream,

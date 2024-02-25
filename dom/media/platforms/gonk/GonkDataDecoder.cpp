@@ -11,6 +11,7 @@
 #include "GonkMediaCodec.h"
 #include "GonkMediaUtils.h"
 #include "ImageContainer.h"
+#include "mozilla/layers/TextureClient.h"
 #include "mozilla/StaticPrefs_media.h"
 
 #ifdef B2G_MEDIADRM
@@ -482,7 +483,8 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
 void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
                              const sp<RefBase>& aInputInfo, int64_t aTimeUs) {
   MOZ_ASSERT(IsVideo());
-  LOGV("%p output graphic buffer timestamp %" PRId64, this, aTimeUs);
+  LOGV("%p output texture #%" PRIu64 ", timestamp %" PRId64, this,
+       aBuffer ? aBuffer->GetSerial() : uint64_t(-1), aTimeUs);
 
   if (!aBuffer) {
     LOGE("%p empty output buffer", this);

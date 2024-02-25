@@ -11448,6 +11448,11 @@
     value: true
     mirror: always
 
+-   name: media.gonkmediacodec.bufferqueue.debug
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+
 -   name: media.gonkmediacodec.bufferqueue.max.acquired.count
     type: RelaxedAtomicInt32
     value: 3

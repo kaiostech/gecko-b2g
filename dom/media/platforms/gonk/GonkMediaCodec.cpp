@@ -103,8 +103,30 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
     abandon();
   }
 
+  void PrintStats() {
+    int queuedCount, acquiredCount;
+    std::list<uint64_t> acquiredTextures;
+    {
+      Mutex::Autolock lock(mMutex);
+      queuedCount = GetBufferMessageCount();
+      acquiredCount = mConsumer->getAcquiredBufferCount();
+      acquiredTextures = mAcquiredTextures;
+    }
+    auto str =
+        AStringPrintf("Texture queued (%d), acquired (%d/%d):", queuedCount,
+                      acquiredCount, mMaxAcquiredCount + 1);
+    for (auto texture : acquiredTextures) {
+      str.append(AStringPrintf(" #%" PRIu64, texture));
+    }
+    LOGI("%s", str.c_str());
+  }
+
  private:
   void returnBuffer(TextureClient* aBuffer) override {
+    {
+      Mutex::Autolock lock(mMutex);
+      mAcquiredTextures.remove(aBuffer->GetSerial());
+    }
     GonkNativeWindow::returnBuffer(aBuffer);
     // Notify codec to release an output buffer into BufferQueue.
     sp<AMessage> msg = mReleaseOutput->dup();
@@ -131,6 +153,8 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
           return;
         }
         msg->setObject("texture", TextureHolder::Create(texture));
+        msg->setInt64("textureSerial", texture->GetSerial());  // for debugging
+        mAcquiredTextures.push_back(texture->GetSerial());
         texture = nullptr;
       }
       mOutputMessages.pop_front();
@@ -151,6 +175,7 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
   const sp<AMessage> mReleaseOutput;
   const int mMaxAcquiredCount;
   std::list<sp<AMessage>> mOutputMessages;
+  std::list<uint64_t> mAcquiredTextures;
 };
 
 // InputInfoQueue is used to store the input metadata, which is opaque to us.
@@ -438,6 +463,15 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
       reply->Invoke(err);
       break;
     }
+
+    case kWhatPrintBufferQueueStats: {
+      if (mNativeWindow) {
+        mNativeWindow->PrintStats();
+        sp<AMessage> msg = new AMessage(kWhatPrintBufferQueueStats, this);
+        msg->post(1000000);
+      }
+      break;
+    }
   }
 }
 
@@ -507,6 +541,12 @@ status_t GonkMediaCodec::OnConfigure(const sp<Callback>& aCallback,
       }
       mCallback->NotifyCodecDetails(details);
     }
+  }
+
+  if (mNativeWindow &&
+      mozilla::StaticPrefs::media_gonkmediacodec_bufferqueue_debug()) {
+    sp<AMessage> msg = new AMessage(kWhatPrintBufferQueueStats, this);
+    msg->post(1000000);
   }
   return OK;
 }

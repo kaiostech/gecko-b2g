@@ -82,6 +82,7 @@ class GonkMediaCodec final
     kWhatInputUpdated = 'inUp',
     kWhatReleaseOutput = 'relO',
     kWhatNotifyOutput = 'notO',
+    kWhatPrintBufferQueueStats = 'prBQ',
   };
 
   virtual ~GonkMediaCodec();

@@ -919,6 +919,10 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     }
 
     switch (sysno) {
+#ifdef MOZ_WIDGET_GONK
+      case __NR_mremap:
+        return Allow();
+#endif
         // Timekeeping
         //
         // (Note: the switch needs to start with a literal case, not a
@@ -1573,9 +1577,13 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
         // wasm uses mremap (always with zero flags)
       case __NR_mremap: {
+#ifdef MOZ_WIDGET_GONK
+        return Allow();
+#else
         Arg<int> flags(3);
         return If(flags == 0, Allow())
             .Else(SandboxPolicyCommon::EvaluateSyscall(sysno));
+#endif
       }
 
         // Bug 1462640: Mesa libEGL uses mincore to test whether values

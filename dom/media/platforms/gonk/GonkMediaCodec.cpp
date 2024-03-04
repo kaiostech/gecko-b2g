@@ -285,7 +285,10 @@ GonkMediaCodec::GonkMediaCodec() {
   mCodecLooper->setName("GonkMediaCodec/Codec");
 }
 
-GonkMediaCodec::~GonkMediaCodec() { LOGD("%p destructor", this); }
+GonkMediaCodec::~GonkMediaCodec() {
+  LOGD("%p destructor", this);
+  CHECK(!mCodec);  // The client must call Shutdown() first.
+}
 
 void GonkMediaCodec::Init() {
   LOGD("%p initializing", this);
@@ -325,6 +328,17 @@ sp<GonkMediaCodec::Reply> GonkMediaCodec::Flush() {
   sp<ReplyImpl> reply = new ReplyImpl();
   sp<AMessage> msg = new AMessage(kWhatFlush, this);
   msg->setObject("reply", reply);
+  msg->post();
+  return reply;
+}
+
+sp<GonkMediaCodec::Reply> GonkMediaCodec::SetParameters(
+    const sp<AMessage>& aParams) {
+  LOGD("%p setting parameters", this);
+  sp<ReplyImpl> reply = new ReplyImpl();
+  sp<AMessage> msg = new AMessage(kWhatSetParameters, this);
+  msg->setObject("reply", reply);
+  msg->setMessage("params", aParams);
   msg->post();
   return reply;
 }
@@ -505,6 +519,20 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
       break;
     }
 
+    case kWhatSetParameters: {
+      sp<ReplyImpl> reply;
+
+      sp<AMessage> params;
+      CHECK(aMsg->findMessage("params", &params));
+      sp<RefBase> obj;
+      CHECK(aMsg->findObject("reply", &obj));
+      reply = static_cast<ReplyImpl*>(obj.get());
+
+      status_t err = OnSetParameters(params);
+      reply->Post(err);
+      break;
+    }
+
     case kWhatPrintBufferQueueStats: {
       if (mNativeWindow) {
         mNativeWindow->PrintStats();
@@ -528,7 +556,7 @@ status_t GonkMediaCodec::OnConfigure(const sp<Callback>& aCallback,
   CHECK(aFormat->findString("mime", &mime));
 
   sp<Surface> surface;
-  if (mime.startsWith("video/") &&
+  if (!aEncoder && mime.startsWith("video/") &&
       mozilla::StaticPrefs::media_gonkmediacodec_bufferqueue_enabled()) {
     surface = InitBufferQueue();
     if (!surface) {
@@ -550,7 +578,8 @@ status_t GonkMediaCodec::OnConfigure(const sp<Callback>& aCallback,
     return UNKNOWN_ERROR;
   }
 
-  status_t err = mCodec->configure(aFormat, surface, aCrypto, 0);
+  uint32_t flags = aEncoder ? MediaCodec::CONFIGURE_FLAG_ENCODE : 0;
+  status_t err = mCodec->configure(aFormat, surface, aCrypto, flags);
   if (err != OK) {
     LOGE("%p failed to configure codec", this);
     return UNKNOWN_ERROR;
@@ -675,6 +704,10 @@ void GonkMediaCodec::OnInputUpdated() {
 
     mInputInfoQueue->Push(timeUs, inputInfo);
   }
+}
+
+status_t GonkMediaCodec::OnSetParameters(const sp<AMessage>& aParams) {
+  return mCodec->setParameters(aParams);
 }
 
 void GonkMediaCodec::OnOutputAvailable(int32_t aIndex, size_t aOffset,

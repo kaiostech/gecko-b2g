@@ -78,13 +78,15 @@ class GonkMediaCodec final
 
   void Init();
 
+  [[nodiscard]] sp<Reply> Configure(const sp<Callback>& aCallback,
+                                    const sp<AMessage>& aFormat,
+                                    const sp<ICrypto>& aCrypto, bool aEncoder);
+
   [[nodiscard]] sp<Reply> Shutdown();
 
   [[nodiscard]] sp<Reply> Flush();
 
-  [[nodiscard]] sp<Reply> Configure(const sp<Callback>& aCallback,
-                                    const sp<AMessage>& aFormat,
-                                    const sp<ICrypto>& aCrypto, bool aEncoder);
+  [[nodiscard]] sp<Reply> SetParameters(const sp<AMessage>& aParams);
 
   void InputUpdated();
 
@@ -100,6 +102,7 @@ class GonkMediaCodec final
     kWhatResourceReservationFailed = 'resF',
     kWhatShutdown = 'shuD',
     kWhatFlush = 'flus',
+    kWhatSetParameters = 'setP',
     kWhatInputUpdated = 'inUp',
     kWhatReleaseOutput = 'relO',
     kWhatNotifyOutput = 'notO',
@@ -117,6 +120,8 @@ class GonkMediaCodec final
   status_t OnShutdown();
 
   status_t OnFlush();
+
+  status_t OnSetParameters(const sp<AMessage>& aParams);
 
   void OnInputUpdated();
 

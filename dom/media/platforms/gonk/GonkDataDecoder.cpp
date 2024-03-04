@@ -47,55 +47,24 @@ static mozilla::LazyLogModule sCodecLog("GonkDataDecoder");
 #define LOGD(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #define LOGV(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
 
-// A promise-like async reply that dispatches the result to target thread.
-class GonkDataDecoder::CodecReply final : public GonkMediaCodec::Reply {
+class GonkDataDecoder::CodecReplyDispatcher {
  public:
-  using Func = std::function<void(status_t)>;
+  using Callable = GonkMediaCodec::Reply::Callable;
 
-  static sp<CodecReply> Create(nsISerialEventTarget* aThread) {
-    return new CodecReply(aThread);
-  }
+  CodecReplyDispatcher(nsISerialEventTarget* aThread, Callable&& aCallable)
+      : mThread(aThread), mCallable(std::move(aCallable)) {}
 
-  void Invoke(status_t aErr) override {
-    MutexAutoLock lock(mMutex);
-    if (mInvoked) {
-      return;
-    }
-    mInvoked = true;
-    mErr = aErr;
-    MaybeDispatch();
-  }
-
-  void Then(const Func& aFunc) {
-    MutexAutoLock lock(mMutex);
-    if (mFunc) {
-      return;
-    }
-    mFunc = aFunc;
-    MaybeDispatch();
-  }
-
- private:
-  CodecReply(nsISerialEventTarget* aThread)
-      : mThread(aThread), mMutex("CodecReply Mutex") {}
-
-  void MaybeDispatch() {
-    if (!mInvoked || !mFunc) {
-      return;
-    }
-
-    nsresult rv = mThread->Dispatch(
-        NS_NewRunnableFunction("CodecReply::MaybeDispatch",
-                               [func = mFunc, err = mErr]() { func(err); }));
+  void operator()(status_t aErr) {
+    nsresult rv = mThread->Dispatch(NS_NewRunnableFunction(
+        "CodecReplyDispatcher::operator()",
+        [callable = mCallable, aErr]() { callable(aErr); }));
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
     Unused << rv;
   }
 
+ private:
   nsCOMPtr<nsISerialEventTarget> mThread;
-  Mutex mMutex;
-  Func mFunc;
-  bool mInvoked = false;
-  status_t mErr = android::OK;
+  Callable mCallable;
 };
 
 GonkDataDecoder::GonkDataDecoder(const CreateDecoderParams& aParams,
@@ -134,26 +103,26 @@ RefPtr<GonkDataDecoder::InitPromise> GonkDataDecoder::Init() {
   mCodec = new GonkMediaCodec();
   mCodec->Init();
 
-  auto reply = CodecReply::Create(mThread);
-  mCodec->Configure(reply, CodecCallback::Create(this),
-                    GonkMediaUtils::GetMediaCodecConfig(mConfig.get()),
-                    GetCrypto(), false);
-
-  reply->Then([self = Self(), this](status_t aErr) {
-    if (aErr == android::OK) {
-      LOGD("%p configure completed", this);
-      mInitPromise.ResolveIfExists(mConfig->GetType(), __func__);
-    } else {
-      LOGE("%p configure failed", this);
-      mCodec = nullptr;
-      mInputQueue.Reset();
-      mOutputQueue.Reset();
-      mPushListener.Disconnect();
-      mFinishListener.Disconnect();
-      mThread = nullptr;
-      mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
-    }
-  });
+  mCodec
+      ->Configure(CodecCallback::Create(this),
+                  GonkMediaUtils::GetMediaCodecConfig(mConfig.get()),
+                  GetCrypto(), false)
+      ->Then(CodecReplyDispatcher(mThread, [self = Self(),
+                                            this](status_t aErr) {
+        if (aErr == android::OK) {
+          LOGD("%p configure completed", this);
+          mInitPromise.ResolveIfExists(mConfig->GetType(), __func__);
+        } else {
+          LOGE("%p configure failed", this);
+          mCodec = nullptr;
+          mInputQueue.Reset();
+          mOutputQueue.Reset();
+          mPushListener.Disconnect();
+          mFinishListener.Disconnect();
+          mThread = nullptr;
+          mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
+        }
+      }));
   return mInitPromise.Ensure(__func__);
 }
 
@@ -168,19 +137,17 @@ RefPtr<ShutdownPromise> GonkDataDecoder::Shutdown() {
     return ShutdownPromise::CreateAndReject(false, __func__);
   }
 
-  auto reply = CodecReply::Create(mThread);
-  mCodec->Shutdown(reply);
-
-  reply->Then([self = Self(), this](status_t aErr) {
-    LOGD("%p shut down completed", this);
-    mCodec = nullptr;
-    mInputQueue.Reset();
-    mOutputQueue.Reset();
-    mPushListener.Disconnect();
-    mFinishListener.Disconnect();
-    mThread = nullptr;
-    mShutdownPromise.ResolveIfExists(true, __func__);
-  });
+  mCodec->Shutdown()->Then(
+      CodecReplyDispatcher(mThread, [self = Self(), this](status_t aErr) {
+        LOGD("%p shut down completed", this);
+        mCodec = nullptr;
+        mInputQueue.Reset();
+        mOutputQueue.Reset();
+        mPushListener.Disconnect();
+        mFinishListener.Disconnect();
+        mThread = nullptr;
+        mShutdownPromise.ResolveIfExists(true, __func__);
+      }));
   return mShutdownPromise.Ensure(__func__);
 }
 
@@ -241,14 +208,12 @@ RefPtr<GonkDataDecoder::FlushPromise> GonkDataDecoder::Flush() {
   mDrainPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
   mInputQueue.Reset();
 
-  auto reply = CodecReply::Create(mThread);
-  mCodec->Flush(reply);
-
-  reply->Then([self = Self(), this](status_t aErr) {
-    LOGD("%p flush completed", this);
-    mOutputQueue.Reset();
-    mFlushPromise.ResolveIfExists(true, __func__);
-  });
+  mCodec->Flush()->Then(
+      CodecReplyDispatcher(mThread, [self = Self(), this](status_t aErr) {
+        LOGD("%p flush completed", this);
+        mOutputQueue.Reset();
+        mFlushPromise.ResolveIfExists(true, __func__);
+      }));
   return mFlushPromise.Ensure(__func__);
 }
 

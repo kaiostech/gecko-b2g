@@ -173,6 +173,60 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
   std::list<uint64_t> mAcquiredTextures;
 };
 
+class GonkMediaCodec::ReplyImpl final : public GonkMediaCodec::Reply {
+ public:
+  void Post(status_t aErr) {
+    Mutex::Autolock lock(mMutex);
+    if (mError.has_value()) {
+      return;
+    }
+    mError = aErr;
+    mCondition.broadcast();
+    MaybeInvoke();
+  }
+
+  void Then(const Callable& aCallable) override {
+    Mutex::Autolock lock(mMutex);
+    if (mCallable) {
+      return;
+    }
+    mHandledByClient = true;
+    mCallable = aCallable;
+    MaybeInvoke();
+  }
+
+  status_t Wait() override {
+    CHECK(!NS_IsMainThread());
+    Mutex::Autolock lock(mMutex);
+    mHandledByClient = true;
+    while (!mError.has_value()) {
+      mCondition.wait(mMutex);
+    }
+    return mError.value();
+  }
+
+  void Ignore() override {
+    Mutex::Autolock lock(mMutex);
+    mHandledByClient = true;
+  }
+
+ private:
+  ~ReplyImpl() { CHECK(mHandledByClient); }
+
+  void MaybeInvoke() {
+    if (!mError.has_value() || !mCallable) {
+      return;
+    }
+    mCallable(mError.value());
+  }
+
+  Mutex mMutex;
+  Condition mCondition;
+  Callable mCallable;
+  bool mHandledByClient = false;
+  std::optional<status_t> mError;
+};
+
 // InputInfoQueue is used to store the input metadata, which is opaque to us.
 // When an output buffer is ready, the corresponding input metadata is retrieved
 // from this queue and both of them are sent to the client.
@@ -240,33 +294,39 @@ void GonkMediaCodec::Init() {
   mCodecLooper->start();
 }
 
-void GonkMediaCodec::Configure(const sp<Reply>& aReply,
-                               const sp<Callback>& aCallback,
-                               const sp<AMessage>& aFormat,
-                               const sp<ICrypto>& aCrypto, bool aEncoder) {
+sp<GonkMediaCodec::Reply> GonkMediaCodec::Configure(
+    const sp<Callback>& aCallback, const sp<AMessage>& aFormat,
+    const sp<ICrypto>& aCrypto, bool aEncoder) {
   LOGD("%p configuring", this);
 
+  sp<ReplyImpl> reply = new ReplyImpl();
   sp<AMessage> msg = new AMessage(kWhatConfigure, this);
-  msg->setObject("reply", aReply);
+  msg->setObject("reply", reply);
   msg->setObject("callback", aCallback);
   msg->setMessage("format", aFormat);
   msg->setObject("crypto", CryptoHolder::Create(aCrypto));
   msg->setInt32("encoder", aEncoder);
   msg->post();
+  return reply;
 }
 
-void GonkMediaCodec::Shutdown(const sp<Reply>& aReply) {
+sp<GonkMediaCodec::Reply> GonkMediaCodec::Shutdown() {
   LOGD("%p shutting down", this);
+
+  sp<ReplyImpl> reply = new ReplyImpl();
   sp<AMessage> msg = new AMessage(kWhatShutdown, this);
-  msg->setObject("reply", aReply);
+  msg->setObject("reply", reply);
   msg->post();
+  return reply;
 }
 
-void GonkMediaCodec::Flush(const sp<Reply>& aReply) {
+sp<GonkMediaCodec::Reply> GonkMediaCodec::Flush() {
   LOGD("%p flushing", this);
+  sp<ReplyImpl> reply = new ReplyImpl();
   sp<AMessage> msg = new AMessage(kWhatFlush, this);
-  msg->setObject("reply", aReply);
+  msg->setObject("reply", reply);
   msg->post();
+  return reply;
 }
 
 void GonkMediaCodec::InputUpdated() {
@@ -362,7 +422,7 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
         LOGE("%p already configured", this);
         sp<RefBase> obj;
         CHECK(aMsg->findObject("reply", &obj));
-        static_cast<Reply*>(obj.get())->Invoke(INVALID_OPERATION);
+        static_cast<ReplyImpl*>(obj.get())->Post(INVALID_OPERATION);
         break;
       }
       mConfigMsg = aMsg;
@@ -375,7 +435,7 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
     }
 
     case kWhatResourceReserved: {
-      sp<Reply> reply;
+      sp<ReplyImpl> reply;
       sp<Callback> callback;
       sp<AMessage> format;
       sp<ICrypto> crypto;
@@ -385,7 +445,7 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
 
       sp<RefBase> obj;
       CHECK(mConfigMsg->findObject("reply", &obj));
-      reply = static_cast<Reply*>(obj.get());
+      reply = static_cast<ReplyImpl*>(obj.get());
       CHECK(mConfigMsg->findObject("callback", &obj));
       callback = static_cast<Callback*>(obj.get());
       CHECK(mConfigMsg->findObject("crypto", &obj));
@@ -396,14 +456,14 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
       if (err != OK) {
         OnShutdown();
       }
-      reply->Invoke(err);
+      reply->Post(err);
       break;
     }
 
     case kWhatResourceReservationFailed: {
       sp<RefBase> obj;
       CHECK(mConfigMsg->findObject("reply", &obj));
-      static_cast<Reply*>(obj.get())->Invoke(UNKNOWN_ERROR);
+      static_cast<ReplyImpl*>(obj.get())->Post(UNKNOWN_ERROR);
       mConfigMsg = nullptr;
       break;
     }
@@ -424,24 +484,24 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
     }
 
     case kWhatFlush: {
-      sp<Reply> reply;
+      sp<ReplyImpl> reply;
       sp<RefBase> obj;
       CHECK(aMsg->findObject("reply", &obj));
-      reply = static_cast<Reply*>(obj.get());
+      reply = static_cast<ReplyImpl*>(obj.get());
 
       status_t err = OnFlush();
-      reply->Invoke(err);
+      reply->Post(err);
       break;
     }
 
     case kWhatShutdown: {
-      sp<Reply> reply;
+      sp<ReplyImpl> reply;
       sp<RefBase> obj;
       CHECK(aMsg->findObject("reply", &obj));
-      reply = static_cast<Reply*>(obj.get());
+      reply = static_cast<ReplyImpl*>(obj.get());
 
       status_t err = OnShutdown();
-      reply->Invoke(err);
+      reply->Post(err);
       break;
     }
 

@@ -84,7 +84,7 @@ class GonkDataDecoder final : public MediaDataDecoder {
   void NotifyError(status_t aErr, int32_t aActionCode);
 
  private:
-  class CodecReply;
+  class CodecReplyDispatcher;
 
   virtual ~GonkDataDecoder();
 

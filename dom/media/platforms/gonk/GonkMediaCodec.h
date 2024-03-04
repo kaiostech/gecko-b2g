@@ -27,9 +27,23 @@ class GonkMediaCodec final
   using TextureClient = mozilla::layers::TextureClient;
 
  public:
+  // A Reply carries the result of a GonkMediaCodec operation. The client can
+  // acquire the result from it either synchronously or asynchronously. A Reply
+  // returned from GonkMediaCodec should always be handled by the client through
+  // Then(), Wait() or Ignore(). Otherwise it will assert.
   class Reply : public RefBase {
    public:
-    virtual void Invoke(status_t aErr) = 0;
+    // Like a promise, specify an async callable that will be invoked later with
+    // the result. The callable is always invoked on GonkMediaCodec's looper
+    // thread.
+    using Callable = std::function<void(status_t)>;
+    virtual void Then(const Callable& aCallable) = 0;
+
+    // Get the result using blocking wait.
+    virtual status_t Wait() = 0;
+
+    // Deliberately ignore the result and don't wait.
+    virtual void Ignore() = 0;
   };
 
   // All data and codec events are communicated through a Callback object. Each
@@ -64,19 +78,20 @@ class GonkMediaCodec final
 
   void Init();
 
-  void Shutdown(const sp<Reply>& aReply);
+  [[nodiscard]] sp<Reply> Shutdown();
 
-  void Flush(const sp<Reply>& aReply);
+  [[nodiscard]] sp<Reply> Flush();
 
-  void Configure(const sp<Reply>& aReply, const sp<Callback>& aCallback,
-                 const sp<AMessage>& aFormat, const sp<ICrypto>& aCrypto,
-                 bool aEncoder);
+  [[nodiscard]] sp<Reply> Configure(const sp<Callback>& aCallback,
+                                    const sp<AMessage>& aFormat,
+                                    const sp<ICrypto>& aCrypto, bool aEncoder);
 
   void InputUpdated();
 
  private:
   class CodecNativeWindow;
   class InputInfoQueue;
+  class ReplyImpl;
 
   enum {
     kWhatCodecNotify = 'codc',

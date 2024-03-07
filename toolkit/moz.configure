@@ -1042,6 +1042,8 @@ simple_keyfile("Gonk Geolocation API")
 
 simple_keyfile("KaiOS Zaxis Cali API")
 simple_keyfile("KaiOS Zaxis ECall API")
+simple_keyfile("KaiOS Zaxis Server Delivery API")
+simple_keyfile("KaiOS Zaxis Device Delivery API")
 
 # WebRender Debugger integration
 # ==============================================================

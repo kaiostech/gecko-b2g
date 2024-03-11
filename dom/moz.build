@@ -48,7 +48,6 @@ DIRS += [
     "fetch",
     "file",
     "filesystem",
-    "flashlightmanager",
     "flex",
     "fs",
     "gamepad",

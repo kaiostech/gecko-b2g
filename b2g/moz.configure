@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-option("--with-b2g-version", nargs=1, help="B2G version number", default="3.5")
+option("--with-b2g-version", nargs=1, help="B2G version number", default="4.0")
 
 
 @depends("--with-b2g-version")

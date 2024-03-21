@@ -10719,6 +10719,11 @@ Focusable nsIFrame::IsFocusable(bool aWithMouse, bool aCheckVisibility) {
     return {};
   }
 
+  // return false it is has ignoreuserfocus attribute.
+  if (nsContentUtils::IsUserFocusIgnored(mContent)) {
+    return {};
+  }
+
   Focusable focusable;
   if (auto* xul = nsXULElement::FromNode(mContent)) {
     // As a legacy special-case, -moz-user-focus controls focusability and

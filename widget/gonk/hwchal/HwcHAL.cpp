@@ -112,17 +112,7 @@ extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Display* hwc2_getDisplayById(
                                : p->getDisplayById(p->getDefaultDisplayId());
 }
 
-extern "C" MOZ_EXPORT __attribute__((weak)) void hwc2_registerCallback(
-    HWC2::Device* p, HWC2::ComposerCallback* callback, int32_t sequenceId) {
-  return p->registerCallback(callback, sequenceId);
-}
-
 extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Error hwc2_setVsyncEnabled(
     HWC2::Display* p, HWC2::Vsync enabled) {
   return p->setVsyncEnabled(enabled);
-}
-
-extern "C" MOZ_EXPORT __attribute__((weak)) void hwc2_onHotplug(
-    HWC2::Device* p, hwc2_display_t displayId, HWC2::Connection connection) {
-  return p->onHotplug(displayId, connection);
 }

@@ -40,8 +40,6 @@
 #  define LOG_TAG "GonkDisplay"
 #endif
 
-#define DEFAULT_XDPI 75.0
-
 using namespace android;
 using namespace android::hardware;
 
@@ -131,32 +129,10 @@ std::shared_ptr<const HWC2::Display::Config> getActiveConfig(
 }
 
 namespace mozilla {
-__attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
-    bool aAlways);
-}
 
-// ----------------------------------------------------------------------------
-namespace mozilla {
-// ----------------------------------------------------------------------------
+void HookSetVsyncAlwaysEnabled(bool aAlways);
 
-static GonkDisplayP* sGonkDisplay = nullptr;
-static android::Mutex sMutex;
-
-GonkDisplayP::GonkDisplayP()
-    : mHwc(nullptr),
-      mFBDevice(nullptr),
-      mExtFBDevice(nullptr),
-      mPowerModule(nullptr),
-      mList(nullptr),
-      mEnabledCallback(nullptr),
-      mEnableHWCPower(false),
-      mFBEnabled(
-          true)  // Initial value should sync with hal::GetScreenEnabled()
-      ,
-      mExtFBEnabled(
-          true)  // Initial value should sync with hal::GetExtScreenEnabled()
-      ,
-      mHwcDisplay(nullptr) {
+GonkDisplayP::GonkDisplayP() {
   char serviceName[PROPERTY_VALUE_MAX] = {};
   property_get("debug.sf.hwc_service_name", serviceName, "default");
   ALOGI("Using HWComposer service: '%s'", serviceName);
@@ -211,7 +187,6 @@ GonkDisplayP::GonkDisplayP()
       FloatRect(0.0f, 0.0f, config->getWidth(), config->getHeight()));
   (void)mlayer->setDisplayFrame(r);
   (void)mlayer->setVisibleRegion(Region(r));
-  (void)mPowerModule;
 
   ALOGI("created native window\n");
   native_gralloc_initialize(0);
@@ -314,11 +289,7 @@ GonkDisplayP::GonkDisplayP()
   }
 }
 
-GonkDisplayP::~GonkDisplayP() {
-  if (mList) {
-    free(mList);
-  }
-}
+GonkDisplayP::~GonkDisplayP() {}
 
 void GonkDisplayP::CreateFramebufferSurface(sp<ANativeWindow>& nativeWindow,
                                             sp<DisplaySurface>& displaySurface,
@@ -626,21 +597,6 @@ void GonkDisplayP::NotifyBootAnimationStopped() {
   }
 }
 
-void GonkDisplayP::PowerOnDisplay(int displayId) {
-  if (mHwc) {
-    HWC2::Display* hwcDisplay =
-        mHwc->getDisplayById(mHwc->getDefaultDisplayId());
-    auto error = hwcDisplay->setPowerMode(HWC2::PowerMode::On);
-    if (error != HWC2::Error::None) {
-      ALOGE(
-          "setPowerMode: Unable to set power mode %s for "
-          "display %d: %s (%d)",
-          to_string(HWC2::PowerMode::On).c_str(), displayId,
-          to_string(error).c_str(), static_cast<int32_t>(error));
-    }
-  }
-}
-
 GonkDisplay::NativeData GonkDisplayP::GetNativeData(
     DisplayType displayType, IGraphicBufferProducer* sink) {
   NativeData data;
@@ -688,17 +644,15 @@ sp<GraphicBuffer> GonkDisplayP::GetFrameBuffer(DisplayType displayType) {
   return nullptr;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wignored-attributes"
-__attribute__((visibility("weak"))) GonkDisplay* GetGonkDisplay() {
-  android::Mutex::Autolock _l(sMutex);
+GonkDisplay* GetGonkDisplay() {
+  static GonkDisplay* sGonkDisplay = nullptr;
+  static android::Mutex sMutex;
+
+  android::Mutex::Autolock lock(sMutex);
   if (!sGonkDisplay) {
     sGonkDisplay = new GonkDisplayP();
   }
   return sGonkDisplay;
 }
-#pragma clang diagnostic pop
 
-// ----------------------------------------------------------------------------
 }  // namespace mozilla
-// ----------------------------------------------------------------------------

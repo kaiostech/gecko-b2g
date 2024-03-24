@@ -69,9 +69,6 @@ class HwcHAL final : public HwcHALBase {
 extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Display* hwc2_getDisplayById(
     HWC2::Device* p, hwc2_display_t id);
 
-extern "C" MOZ_EXPORT __attribute__((weak)) void hwc2_registerCallback(
-    HWC2::Device* p, HWC2::ComposerCallback* callback, int32_t sequenceId);
-
 extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Error hwc2_setVsyncEnabled(
     HWC2::Display* p, HWC2::Vsync enabled);
 

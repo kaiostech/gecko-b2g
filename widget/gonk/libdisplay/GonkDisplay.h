@@ -56,7 +56,7 @@ class MOZ_EXPORT GonkDisplay {
     uint32_t mHeight;
   };
 
-  virtual ~GonkDisplay(){};
+  virtual ~GonkDisplay() = default;
 
   virtual void SetEnabled(bool enabled) = 0;
 
@@ -130,7 +130,7 @@ class MOZ_EXPORT GonkDisplay {
   GonkDisplayInvalidateCBFun pInvalidateCBFun = nullptr;
 };
 
-MOZ_EXPORT __attribute__((weak)) GonkDisplay* GetGonkDisplay();
+GonkDisplay* GetGonkDisplay();
 
 }  // namespace mozilla
 

@@ -178,15 +178,7 @@ GonkDisplayP::GonkDisplayP() {
     /*TODO: need to discuss with vendor to check this format issue.*/
     dispData.mSurfaceformat = HAL_PIXEL_FORMAT_RGB_565;
   }
-  (void)hwcDisplay->createLayer(&mlayer);
-
-  Rect r = {0, 0, config->getWidth(), config->getHeight()};
-  (void)mlayer->setCompositionType(HWC2::Composition::Client);
-  (void)mlayer->setBlendMode(HWC2::BlendMode::None);
-  (void)mlayer->setSourceCrop(
-      FloatRect(0.0f, 0.0f, config->getWidth(), config->getHeight()));
-  (void)mlayer->setDisplayFrame(r);
-  (void)mlayer->setVisibleRegion(Region(r));
+  mLayer = CreateLayer(config->getWidth(), config->getHeight());
 
   ALOGI("created native window\n");
   native_gralloc_initialize(0);
@@ -210,13 +202,7 @@ GonkDisplayP::GonkDisplayP() {
                            config->getHeight(), dispData.mSurfaceformat,
                            displayUtils, false);
 
-  (void)hwcDisplay->createLayer(&mlayerBootAnim);
-  (void)mlayerBootAnim->setCompositionType(HWC2::Composition::Client);
-  (void)mlayerBootAnim->setBlendMode(HWC2::BlendMode::None);
-  (void)mlayerBootAnim->setSourceCrop(
-      FloatRect(0.0f, 0.0f, config->getWidth(), config->getHeight()));
-  (void)mlayerBootAnim->setDisplayFrame(r);
-  (void)mlayerBootAnim->setVisibleRegion(Region(r));
+  mBootAnimLayer = CreateLayer(config->getWidth(), config->getHeight());
 
   CreateFramebufferSurface(mBootAnimSTClient, mBootAnimDispSurface,
                            config->getWidth(), config->getHeight(),
@@ -321,6 +307,32 @@ void GonkDisplayP::CreateVirtualDisplaySurface(
   String8("VirtualDisplaySurface")); aDisplaySurface = virtualDisplay;
       aNativeWindow = new Surface(virtualDisplay);
   #endif*/
+}
+
+std::shared_ptr<HWC2::Layer> GonkDisplayP::CreateLayer(int32_t aWidth,
+                                                       int32_t aHeight) {
+  HWC2::Layer* layerPtr = nullptr;
+  (void)mHwcDisplay->createLayer(&layerPtr);
+  if (!layerPtr) {
+    return nullptr;
+  }
+  // See OutputLayer::initialize(). The shared_ptr deleter should call
+  // Display::destroyLayer().
+  auto layer = std::shared_ptr<HWC2::Layer>(
+      layerPtr, [display = mHwcDisplay](auto* aLayer) {
+        (void)display->destroyLayer(aLayer);
+      });
+  auto compositionType = HWC2::Composition::Client;
+  auto blendMode = HWC2::BlendMode::None;
+  auto rect = Rect{0, 0, aWidth, aHeight};
+  auto fRect = FloatRect(0.0f, 0.0f, aWidth, aHeight);
+
+  (void)layer->setCompositionType(compositionType);
+  (void)layer->setBlendMode(blendMode);
+  (void)layer->setSourceCrop(fRect);
+  (void)layer->setDisplayFrame(rect);
+  (void)layer->setVisibleRegion(Region(rect));
+  return layer;
 }
 
 void GonkDisplayP::SetEnabled(bool enabled) {
@@ -580,11 +592,7 @@ void GonkDisplayP::UpdateDispSurface(EGLDisplay dpy, EGLSurface sur) {
 void GonkDisplayP::NotifyBootAnimationStopped() {
   if (mBootAnimSTClient.get()) {
     ALOGI("[%s] NotifyBootAnimationStopped \n", __func__);
-    if (mlayerBootAnim) {
-      (void)mHwcDisplay->destroyLayer(mlayerBootAnim);
-      mlayerBootAnim = nullptr;
-    }
-
+    mBootAnimLayer = nullptr;
     mBootAnimSTClient = nullptr;
     mBootAnimDispSurface = nullptr;
   }

@@ -95,6 +95,8 @@ class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
                                    sp<ANativeWindow>& aNativeWindow,
                                    sp<DisplaySurface>& aDisplaySurface);
 
+  std::shared_ptr<HWC2::Layer> CreateLayer(int32_t aWidth, int32_t aHeight);
+
   int DoQueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType);
 
   HWC2::Error SetHwcPowerMode(bool enabled);
@@ -103,8 +105,8 @@ class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
   std::unique_ptr<HWComposerCallback> mHwcCallback;
   framebuffer_device_t* mFBDevice = nullptr;
   NativeFramebufferDevice* mExtFBDevice = nullptr;
-  HWC2::Layer* mlayer = nullptr;
-  HWC2::Layer* mlayerBootAnim = nullptr;
+  std::shared_ptr<HWC2::Layer> mLayer;
+  std::shared_ptr<HWC2::Layer> mBootAnimLayer;
   sp<DisplaySurface> mDispSurface;
   sp<ANativeWindow> mSTClient;
   sp<DisplaySurface> mExtDispSurface;

@@ -240,6 +240,8 @@ def Libxul(name, output_category=None):
                 "android.frameworks.stats@1.0",
                 "android.frameworks.stats-V1-ndk",
                 "android.hardware.gnss-V2-cpp",
+                "android.hardware.graphics.composer@2.4",
+                "android.hardware.graphics.composer3-V1-ndk",
                 "android.hardware.power-V3-cpp",
                 "android.hardware.sensors@2.1",
                 "android.hardware.vibrator-V2-cpp",

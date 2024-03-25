@@ -171,7 +171,7 @@ void FramebufferSurface::presentLocked(const int bufferSlot,
                                        const sp<Fence>& acquireFence) {
   uint32_t numTypes = 0;
   uint32_t numRequests = 0;
-  HWC2::Error error = HWC2::Error::None;
+  auto error = ::HWC2::Error::None;
   ui::Dataspace dataspace = ui::Dataspace::UNKNOWN;
 
   struct timeval tv1, tv2, delta;
@@ -184,8 +184,14 @@ void FramebufferSurface::presentLocked(const int bufferSlot,
       }
       mDisplayUtils.utils.extFBDevice->Post(buffer->handle);
     } else {
+#if ANDROID_VERSION >= 33
+      nsecs_t expectedPresentTime = systemTime();  // FIXME
+      error = mDisplayUtils.utils.hwcDisplay->validate(expectedPresentTime,
+                                                       &numTypes, &numRequests);
+#else
       error = mDisplayUtils.utils.hwcDisplay->validate(&numTypes, &numRequests);
-      if (error != HWC2::Error::None && error != HWC2::Error::HasChanges) {
+#endif
+      if (error != ::HWC2::Error::None && error != ::HWC2::Error::HasChanges) {
         ALOGE("prepare: validate failed : %s (%d)", to_string(error).c_str(),
               static_cast<int32_t>(error));
         goto FrameCommitted;
@@ -198,7 +204,7 @@ void FramebufferSurface::presentLocked(const int bufferSlot,
       }
 
       error = mDisplayUtils.utils.hwcDisplay->acceptChanges();
-      if (error != HWC2::Error::None) {
+      if (error != ::HWC2::Error::None) {
         ALOGE("prepare: acceptChanges failed: %s", to_string(error).c_str());
         goto FrameCommitted;
       }
@@ -207,7 +213,7 @@ void FramebufferSurface::presentLocked(const int bufferSlot,
           bufferSlot, buffer, acquireFence, dataspace);
 
       error = mDisplayUtils.utils.hwcDisplay->present(&mLastPresentFence);
-      if (error != HWC2::Error::None) {
+      if (error != ::HWC2::Error::None) {
         ALOGE("present: failed : %s (%d)", to_string(error).c_str(),
               static_cast<int32_t>(error));
       }

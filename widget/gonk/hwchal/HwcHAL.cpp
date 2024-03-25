@@ -63,6 +63,10 @@ void HwcHAL::SetCrop(HwcLayer& aLayer, const hwc_rect_t& aSrcCrop) const {
 }
 
 bool HwcHAL::EnableVsync(bool aEnable) {
+#if ANDROID_VERSION >= 33
+  using android::to_string;
+#endif
+
   if (!mHwcDevice) {
     printf_stderr("Failed to get hwc\n");
     return false;

@@ -20,8 +20,13 @@
 #define mozilla_HwcHAL
 
 #include "HwcHALBase.h"
-#include "android_10/HWC2.h"
-#include "android_10/ComposerHal.h"
+
+#if ANDROID_VERSION >= 33
+#  include "HWC2Wrapper.h"
+#else
+#  include "android_10/HWC2.h"
+#  include "android_10/ComposerHal.h"
+#endif
 
 namespace mozilla {
 

@@ -34,6 +34,8 @@
 #include "ui/Fence.h"
 #include "utils/RefBase.h"
 
+class HWComposerCallback;
+
 namespace mozilla {
 
 using namespace android;
@@ -97,7 +99,8 @@ class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
 
   HWC2::Error SetHwcPowerMode(bool enabled);
 
-  std::unique_ptr<HWC2::Device> mHwc;
+  std::unique_ptr<HWC2::Device> mHwcDevice;
+  std::unique_ptr<HWComposerCallback> mHwcCallback;
   framebuffer_device_t* mFBDevice = nullptr;
   NativeFramebufferDevice* mExtFBDevice = nullptr;
   HWC2::Layer* mlayer = nullptr;

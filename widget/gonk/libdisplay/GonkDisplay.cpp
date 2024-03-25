@@ -136,14 +136,14 @@ GonkDisplayP::GonkDisplayP() {
   char serviceName[PROPERTY_VALUE_MAX] = {};
   property_get("debug.sf.hwc_service_name", serviceName, "default");
   ALOGI("Using HWComposer service: '%s'", serviceName);
-  mHwc = std::make_unique<HWC2::Device>(
-      std::make_unique<Hwc2::impl::Composer>(std::string(serviceName)));
-  assert(mHwc);
-  mHwc->registerCallback(new HWComposerCallback(mHwc.get()), 0);
+  mHwcDevice = std::make_unique<HWC2::Device>(std::string(serviceName));
+  mHwcCallback = std::make_unique<HWComposerCallback>(mHwcDevice.get());
+  mHwcDevice->registerCallback(mHwcCallback.get(), 0);
 
   std::unique_lock<std::mutex> lock(hotplugMutex);
   HWC2::Display* hwcDisplay;
-  while (!(hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId()))) {
+  while (!(hwcDisplay =
+               mHwcDevice->getDisplayById(mHwcDevice->getDefaultDisplayId()))) {
     /* Wait at most 5s for hotplug events */
     hotplugCv.wait_for(lock, std::chrono::seconds(5));
   }
@@ -338,7 +338,7 @@ void GonkDisplayP::SetEnabled(bool enabled) {
 #endif
       }
 
-      if (mHwc && mEnableHWCPower) {
+      if (mEnableHWCPower) {
         SetHwcPowerMode(enabled);
       } else if (mFBDevice && mFBDevice->enableScreen) {
         mFBDevice->enableScreen(mFBDevice, enabled);
@@ -359,7 +359,7 @@ void GonkDisplayP::SetEnabled(bool enabled) {
     }
 
     if (!mExtFBEnabled) {
-      if (mHwc && mEnableHWCPower) {
+      if (mEnableHWCPower) {
         SetHwcPowerMode(enabled);
       } else if (mFBDevice && mFBDevice->enableScreen) {
         mFBDevice->enableScreen(mFBDevice, enabled);
@@ -438,7 +438,8 @@ void GonkDisplayP::SetExtEnabled(bool enabled) {
 
 HWC2::Error GonkDisplayP::SetHwcPowerMode(bool enabled) {
   HWC2::PowerMode mode = (enabled ? HWC2::PowerMode::On : HWC2::PowerMode::Off);
-  HWC2::Display* hwcDisplay = mHwc->getDisplayById(mHwc->getDefaultDisplayId());
+  HWC2::Display* hwcDisplay =
+      mHwcDevice->getDisplayById(mHwcDevice->getDefaultDisplayId());
 
   auto error = hwcDisplay->setPowerMode(mode);
   if (error != HWC2::Error::None) {
@@ -461,7 +462,7 @@ void GonkDisplayP::OnEnabled(OnEnabledCallbackType callback) {
   mEnabledCallback = callback;
 }
 
-void* GonkDisplayP::GetHWCDevice() { return mHwc.get(); }
+void* GonkDisplayP::GetHWCDevice() { return mHwcDevice.get(); }
 
 bool GonkDisplayP::IsExtFBDeviceEnabled() { return !!mExtFBDevice; }
 

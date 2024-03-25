@@ -31,9 +31,9 @@ class HwcHAL final : public HwcHALBase {
  public:
   explicit HwcHAL();
 
-  virtual ~HwcHAL();
+  virtual ~HwcHAL() = default;
 
-  virtual bool HasHwc() const override { return static_cast<bool>(mHwc); }
+  virtual bool HasHwc() const override { return !!mHwcDevice; }
 
   virtual void SetEGLInfo(hwc_display_t aDpy, hwc_surface_t aSur) override {}
 
@@ -61,7 +61,7 @@ class HwcHAL final : public HwcHALBase {
   uint32_t GetAPIVersion() const;
 
  private:
-  HwcDevice* mHwc = nullptr;
+  HwcDevice* mHwcDevice = nullptr;
 };
 
 }  // namespace mozilla

@@ -18,21 +18,17 @@
 #define GONKDISPLAYP_H
 
 #include <gui/BufferQueue.h>
-
-#include "HwcHAL.h"
-#include "DisplaySurface.h"
-#include "GonkDisplay.h"
-#include "hardware/hwcomposer.h"
-#include "hardware/power.h"
 #if ANDROID_VERSION >= 30
 #  include <android/hardware/power/IPower.h>
 #else
 #  include <android/hardware/power/1.0/IPower.h>
 #endif
+
+#include "HwcHAL.h"
+#include "DisplaySurface.h"
+#include "GonkDisplay.h"
 #include "NativeFramebufferDevice.h"
 #include "NativeGralloc.h"
-#include "ui/Fence.h"
-#include "utils/RefBase.h"
 
 class HWComposerCallback;
 

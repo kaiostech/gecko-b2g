@@ -18,19 +18,19 @@
 #  error "Only ANDROID_VERSION >= 29 devices are supported"
 #endif
 
+#include <cutils/properties.h>
 #include <gui/Surface.h>
 #include <gui/IProducerListener.h>
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
-#include <hardware/power.h>
 #include <suspend/autosuspend.h>
+#include <ui/Fence.h>
 
 #if ANDROID_VERSION >= 30
 #  include <android/hardware/power/Mode.h>
-#  include "binder/IServiceManager.h"
+#  include <binder/IServiceManager.h>
 #endif
 
-#include "cutils/properties.h"
 #include "FramebufferSurface.h"
 #include "GonkDisplayP.h"
 #include "mozilla/Preferences.h"

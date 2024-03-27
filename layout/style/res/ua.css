@@ -434,36 +434,36 @@ parsererror|sourcetext {
   font-size: 12pt;
 }
 
-div:-moz-native-anonymous.b2g-cursor {
+div.b2g-cursor {
   visibility: hidden;
 }
 
-div:-moz-native-anonymous.b2g-cursor.std {
+div.b2g-cursor.std {
   cursor: url("resource://gre/res/cur_default_26px.png") 7 5, default;
   visibility: hidden;
 }
 
-div:-moz-native-anonymous.b2g-cursor.wait {
+div.b2g-cursor.wait {
   cursor: url("resource://gre/res/cur_wait_26px.png") 2 6, default;
   visibility: hidden;
 }
 
-div:-moz-native-anonymous.b2g-cursor.select {
+div.b2g-cursor.select {
   cursor: url("resource://gre/res/cur_text_26px.png") 14 14, default;
   visibility: hidden;
 }
 
-div:-moz-native-anonymous.b2g-cursor.link {
+div.b2g-cursor.link {
   cursor: url("resource://gre/res/cur_pointer_26px.png") 10 2, default;
   visibility: hidden;
 }
 
-div:-moz-native-anonymous.b2g-cursor.spinning {
+div.b2g-cursor.spinning {
   cursor: url("resource://gre/res/cur_progress_26px.png") 2 6, default;
   visibility: hidden;
 }
 
-div:-moz-native-anonymous.b2g-cursor.vertical_text {
+div.b2g-cursor.vertical_text {
   cursor: url("resource://gre/res/cur_vertical_text_26px.png") 14 14, default;
   visibility: hidden;
 }

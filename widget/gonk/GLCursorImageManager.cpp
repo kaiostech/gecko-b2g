@@ -192,6 +192,12 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     return;
   }
 
+  // <div class="anonymous-content-host" role="presentation">
+  // ^^^ cursorElementHolder->Host()
+  //   <#shadow-root>
+  //     <div class="b2g-cursor std" style="cursor: url(...)">
+  //     ^^^ cursor image
+
   // Create a new loading task for cursor.
   RefPtr<mozilla::dom::AnonymousContent> cursorElementHolder;
   PresShell* presShell = aWindow->GetWidgetListener()->GetPresShell();
@@ -201,19 +207,20 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     // Insert new element to ensure restyle
     nsCOMPtr<dom::Element> image = doc->CreateHTMLElement(nsGkAtoms::div);
     ErrorResult rv;
-    image->ClassList()->Add(u"b2g-cursor"_ns, rv);
-    image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
-    cursorElementHolder = doc->InsertAnonymousContent(/* aForce */ false, rv);
-    cursorElementHolder->Root()->AppendChildTo(image, false, rv);
+    nsAutoString class_attr(u"b2g-cursor "_ns);
+    class_attr.Append(GetCursorElementClassID(supportedCursor));
+    image->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, class_attr, false);
 
+    cursorElementHolder = doc->InsertAnonymousContent(/* aForce */ false, rv);
     if (cursorElementHolder) {
-      auto element = cursorElementHolder->Host();
-      nsIFrame* frame = element->GetPrimaryFrame();
+      cursorElementHolder->Root()->AppendChildTo(image, false, rv);
+
+      auto frame = image->GetPrimaryFrame();
       if (!frame) {
         // Force the document to construct a primary frame immediately if
         // it hasn't constructed yet.
         doc->FlushPendingNotifications(FlushType::Frames);
-        frame = element->GetPrimaryFrame();
+        frame = image->GetPrimaryFrame();
       }
       MOZ_ASSERT(frame);
 

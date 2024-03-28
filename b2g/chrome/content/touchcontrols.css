@@ -574,6 +574,7 @@
   -moz-context-properties: fill;
   fill: #fff;
   opacity: 0.8;
+  display: none;
   position: relative;
   top: 20px;
 }

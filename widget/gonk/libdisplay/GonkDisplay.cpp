@@ -40,8 +40,25 @@
 #  define LOG_TAG "GonkDisplay"
 #endif
 
-using namespace android;
-using namespace android::hardware;
+#if ANDROID_VERSION >= 30
+namespace power = android::hardware::power;
+#endif
+
+using android::BufferQueue;
+using android::Fence;
+using android::FloatRect;
+using android::FramebufferSurface;
+using android::IGraphicBufferConsumer;
+using android::IProducerListener;
+using android::Rect;
+using android::Region;
+using android::Surface;
+
+#if ANDROID_VERSION >= 33
+using DummyProducerListener = android::StubProducerListener;
+#else
+using android::DummyProducerListener;
+#endif
 
 /* global variables */
 std::mutex hotplugMutex;
@@ -213,11 +230,7 @@ GonkDisplayP::GonkDisplayP() {
     // dequeueBuffer() / queueBuffer(). We connect it here for use
     // later or it will be failed to queue buffers.
     Surface* surface = static_cast<Surface*>(mBootAnimSTClient.get());
-#if ANDROID_VERSION < 33
     static sp<IProducerListener> listener = new DummyProducerListener();
-#else
-    static sp<IProducerListener> listener = new StubProducerListener();
-#endif
     surface->connect(NATIVE_WINDOW_API_CPU, listener);
   }
 
@@ -256,11 +269,7 @@ GonkDisplayP::GonkDisplayP() {
         // dequeueBuffer() / queueBuffer(). We connect it here for use
         // later or it will be failed to queue buffers.
         Surface* surface = static_cast<Surface*>(mExtSTClient.get());
-#if ANDROID_VERSION < 33
         static sp<IProducerListener> listener = new DummyProducerListener();
-#else
-        static sp<IProducerListener> listener = new StubProducerListener();
-#endif
         surface->connect(NATIVE_WINDOW_API_CPU, listener);
       }
     } else {

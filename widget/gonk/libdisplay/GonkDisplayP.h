@@ -34,12 +34,18 @@ class HWComposerCallback;
 
 namespace mozilla {
 
-using namespace android;
+using android::DisplaySurface;
+using android::DisplayUtils;
+using android::GraphicBuffer;
+using android::IGraphicBufferProducer;
+using android::sp;
+
 #if ANDROID_VERSION >= 30
 using ::android::hardware::power::IPower;
 #else
 using ::android::hardware::power::V1_0::IPower;
 #endif
+
 class MOZ_EXPORT GonkDisplayP : public GonkDisplay {
  public:
   GonkDisplayP();

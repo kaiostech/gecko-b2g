@@ -25,9 +25,9 @@
 
 namespace mozilla {
 
-using HwcDevice = HWC2::Device;
-
 class HwcHAL final : public HwcHALBase {
+  using HwcDevice = HWC2::Device;
+
  public:
   explicit HwcHAL();
 

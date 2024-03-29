@@ -663,15 +663,14 @@ static void ShowSolidColorFrame(GonkDisplay* aDisplay, int32_t aFormat,
     LOGW("Failed to get an ANativeWindowBuffer");
     return;
   }
-  if (!native_gralloc_lock(
-          buffer->handle,
+  if (android::GraphicBuffer::from(buffer)->lock(
           GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN |
               GRALLOC_USAGE_HW_FB,
-          0, 0, buffer->width, buffer->height, &mappedAddress)) {
+          &mappedAddress) == android::OK) {
     // Just show a black solid color frame.
     memset(mappedAddress, 0,
            buffer->height * buffer->stride * GetFormatBPP(aFormat));
-    native_gralloc_unlock(buffer->handle);
+    android::GraphicBuffer::from(buffer)->unlock();
   }
 
   aDisplay->QueueBuffer(buffer, aDpy);
@@ -796,12 +795,11 @@ static void* AnimationThread(void*) {
           }
 
           void* vaddr = nullptr;
-          if (native_gralloc_lock(buf->handle,
-                                  GRALLOC_USAGE_SW_READ_NEVER |
-                                      GRALLOC_USAGE_SW_WRITE_OFTEN |
-                                      GRALLOC_USAGE_HW_FB,
-                                  0, 0, anim.width, anim.height, &vaddr)) {
-            LOGW("Failed to lock buffer_handle_t");
+          if (android::GraphicBuffer::from(buf)->lock(
+                  GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN |
+                      GRALLOC_USAGE_HW_FB,
+                  &vaddr) != android::OK) {
+            LOGW("Failed to lock GraphicBuffer");
             display->QueueBuffer(buf, anim.dpy);
             buf = nullptr;
           }
@@ -814,7 +812,7 @@ static void* AnimationThread(void*) {
           animPlayed = true;
 
           if (buf) {
-            native_gralloc_unlock(buf->handle);
+            android::GraphicBuffer::from(buf)->unlock();
             display->QueueBuffer(buf, anim.dpy);
           }
 

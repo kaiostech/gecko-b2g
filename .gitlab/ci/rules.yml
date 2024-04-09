@@ -17,7 +17,7 @@
 # Changes patterns #
 ####################
 .eslint-patterns: &eslint-patterns
-  - "**/*.{js,jsm,jsx,xul,html,xhtml}"
+  - "**/*.{js,jsm,jsx,mjs,xul,html,xhtml}"
   # Run when eslint policies change.
   - "**/.eslintignore"
   - "**/*eslintrc*"

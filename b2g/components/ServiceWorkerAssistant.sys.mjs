@@ -106,7 +106,8 @@ export const ServiceWorkerAssistant = {
           `Skip registering activities for ${aManifestURL} because serviceworker is not defined.`
         );
       }
-      return Promise.reject();
+      debug(`No serviceworker defined, skip register ${aManifestURL}`);
+      return Promise.resolve();
     }
     debug(`register ${aManifestURL}`);
 
@@ -192,15 +193,19 @@ export const ServiceWorkerAssistant = {
    * sw.
    */
   unregister(aManifestURL) {
-    debug(`unregister ${aManifestURL}`);
     let appURI = Services.io.newURI(aManifestURL);
     let ssm = Services.scriptSecurityManager;
     let principal = ssm.createContentPrincipal(appURI, {});
+    let scope;
+    try {
+      scope = serviceWorkerManager.getScopeForUrl(principal, aManifestURL);
+    } catch (e) {
+      debug(`Skip unregister ${aManifestURL}`);
+      return Promise.resolve();
+    }
 
     systemMessageService.unsubscribe(principal);
     Services.cpmm.sendAsyncMessage("Activities:UnregisterAll", aManifestURL);
-
-    let scope = serviceWorkerManager.getScopeForUrl(principal, aManifestURL);
     return this._doUnregisterServiceWorker(principal, scope);
   },
 
@@ -212,6 +217,12 @@ export const ServiceWorkerAssistant = {
    * Side effect is that an app cannot "unregister" its sw via app update.
    */
   update(aManifestURL, aFeatures) {
+    let serviceworker = aFeatures.serviceworker;
+    if (!serviceworker) {
+      debug(`No serviceworker defined, skip update ${aManifestURL}`);
+      return Promise.resolve();
+    }
+
     debug(`update ${aManifestURL}`);
     let appURI = Services.io.newURI(aManifestURL);
     let ssm = Services.scriptSecurityManager;
@@ -219,7 +230,7 @@ export const ServiceWorkerAssistant = {
 
     systemMessageService.unsubscribe(principal);
     Services.cpmm.sendAsyncMessage("Activities:UnregisterAll", aManifestURL);
-    this.register(aManifestURL, aFeatures, "onUpdate");
+    return this.register(aManifestURL, aFeatures, "onUpdate");
   },
 
   waitForRegistrations() {

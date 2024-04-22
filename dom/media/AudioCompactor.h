@@ -61,6 +61,9 @@ class AudioCompactor {
 
       // Copy audio data to buffer using caller-provided functor.
       uint32_t framesCopied = aCopyFunc(buffer.get(), samples);
+      if (framesCopied == 0) {
+        break;
+      }
 
       NS_ASSERTION(framesCopied <= aFrames, "functor copied too many frames");
       buffer.SetLength(size_t(framesCopied) * aChannels);

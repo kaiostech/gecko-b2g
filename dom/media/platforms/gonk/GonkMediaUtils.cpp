@@ -112,7 +112,7 @@ GonkMediaUtils::PcmCopy GonkMediaUtils::CreatePcmCopy(const uint8_t* aSource,
   } else {
     CHECK(aEncoding == kAudioEncodingPcm16bit);
     CHECK(PreferredPcmEncoding() == kAudioEncodingPcmFloat);
-    return ShortToFloat(aSource, aSourceBytes, aEncoding);
+    return ShortToFloat(aSource, aSourceBytes, aChannels);
   }
 }
 

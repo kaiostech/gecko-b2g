@@ -715,6 +715,14 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
 
   // To access ecc list
   policy->AddPath(rdonly, "/dev/__properties__/u:object_r:radio_prop:s0"); // For ro.ril.ecclist, ril.ecclist, ril.ecclist1
+
+#if ANDROID_VERSION >= 32
+  // For codec2 allocator. See using_ion() in C2Store.cpp and
+  // system_uncached_supported() in C2DmaBufAllocator.h.
+  policy->AddPath(rdonly, "/dev/dma_heap/system");
+  policy->AddPath(rdonly, "/dev/dma_heap/system-uncached");
+  policy->AddPath(rdonly, "/dev/ion");
+#endif
 #endif // MOZ_WIDGET_GONK
 
   // Bug 1732580: when packaged as a strictly confined snap, may need

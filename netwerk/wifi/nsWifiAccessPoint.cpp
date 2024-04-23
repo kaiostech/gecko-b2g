@@ -17,6 +17,7 @@ nsWifiAccessPoint::nsWifiAccessPoint() {
   mSsid[0] = '\0';
   mSsidLen = 0;
   mSignal = -1000;
+  mFrequency = 0;
 }
 
 NS_IMETHODIMP nsWifiAccessPoint::GetMac(nsACString& aMac) {
@@ -42,6 +43,12 @@ NS_IMETHODIMP nsWifiAccessPoint::GetSignal(int32_t* aSignal) {
   return NS_OK;
 }
 
+NS_IMETHODIMP nsWifiAccessPoint::GetFrequency(uint32_t* aFrequency) {
+  NS_ENSURE_ARG(aFrequency);
+  *aFrequency = mFrequency;
+  return NS_OK;
+}
+
 int nsWifiAccessPoint::Compare(const nsWifiAccessPoint& o) const {
   int ret = strcmp(mMac, o.mMac);
   if (ret) {
@@ -54,10 +61,13 @@ int nsWifiAccessPoint::Compare(const nsWifiAccessPoint& o) const {
   if (ret) {
     return ret;
   }
-  if (mSignal == o.mSignal) {
+  if (mSignal != o.mSignal) {
+    return (mSignal < o.mSignal) ? -1 : 1;
+  }
+  if (mFrequency == o.mFrequency) {
     return 0;
   }
-  return (mSignal < o.mSignal) ? -1 : 1;
+  return (mFrequency < o.mFrequency) ? -1 : 1;
 }
 
 bool nsWifiAccessPoint::operator==(const nsWifiAccessPoint& o) const {

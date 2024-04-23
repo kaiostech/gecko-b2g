@@ -171,6 +171,10 @@ nsWifiMonitor::Onready(uint32_t count, nsIWifiScanResult** results) {
     int32_t signal;
     results[i]->GetSignalStrength(&signal);
 
+    uint32_t frequency;
+    results[i]->GetFrequency(&frequency);
+
+    ap->setFrequency(frequency);
     ap->setSignal(signal);
     ap->setMacRaw(mac.get());
     ap->setSSIDRaw(ssid.get(), ssid.Length());

@@ -38,4 +38,9 @@ interface nsIWifiAccessPoint : nsISupports
    * Current signal strength measured in dBm.
    */
   readonly attribute long signal;
+
+  /*
+   * Current Wifi frequency band in MHz.
+   */
+  readonly attribute unsigned long frequency;
 };

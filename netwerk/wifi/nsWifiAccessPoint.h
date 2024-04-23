@@ -28,6 +28,7 @@ class nsWifiAccessPoint final : public nsIWifiAccessPoint {
   int mSignal;
   char mSsid[33]{0};
   size_t mSsidLen;
+  unsigned int mFrequency;
 
   void setSignal(int signal) { mSignal = signal; }
 
@@ -77,6 +78,8 @@ class nsWifiAccessPoint final : public nsIWifiAccessPoint {
 
   // 3-value compare for nsWifiAccessPoint
   int Compare(const nsWifiAccessPoint& o) const;
+
+  void setFrequency(int aFrequency) { mFrequency = aFrequency; }
 
   bool operator==(const nsWifiAccessPoint& o) const;
   bool operator!=(const nsWifiAccessPoint& o) const { return !(*this == o); }

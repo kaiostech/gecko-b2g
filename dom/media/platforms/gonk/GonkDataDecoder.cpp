@@ -109,7 +109,7 @@ class GonkDataDecoder::CodecCallback final : public GonkMediaCodec::Callback {
                   uint32_t* aFlags) override {
     return mOwner->FetchInput(aBuffer, aInputInfo, aCryptoInfo, aTimeUs,
                               aFlags);
-  };
+  }
 
   void Output(const sp<MediaCodecBuffer>& aBuffer,
               const sp<RefBase>& aInputInfo, int64_t aTimeUs) override {
@@ -409,8 +409,6 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
   }
 
   sp<SampleInfo> sampleInfo = static_cast<SampleInfo*>(aInputInfo.get());
-
-  RefPtr<MediaData> data;
   if (IsVideo()) {
     // See the usage of image-data in MediaCodec_sanity_test.cpp.
     sp<ABuffer> imgBuf;
@@ -461,7 +459,7 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
     }
     yuv.mYUVColorSpace = gfx::YUVColorSpace::Default;
 
-    data = VideoData::CreateAndCopyData(
+    RefPtr<MediaData> data = VideoData::CreateAndCopyData(
         *mConfig->GetAsVideoInfo(), mImageContainer, sampleInfo->mOffset,
         media::TimeUnit::FromMicroseconds(aTimeUs), sampleInfo->mDuration, yuv,
         sampleInfo->mKeyframe, sampleInfo->mTimecode, mVideoOutputFormat.mCrop,

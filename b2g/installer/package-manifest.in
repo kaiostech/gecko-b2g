@@ -318,6 +318,10 @@
 @RESPATH@/defaults/pref/services-sync.js
 #endif
 
+#ifdef B2G_ZAXIS_GEOLOCATION
+@RESPATH@/defaults/zaxis/*
+#endif
+
 ; [Layout Engine Resources]
 ; Style Sheets, Graphics and other Resources used by the layout engine.
 @RESPATH@/res/cur_default_26px.png

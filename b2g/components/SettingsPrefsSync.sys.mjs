@@ -355,6 +355,7 @@ const kSettingsToObserve = {
     defaultValue: false,
   },
   "device.storage.writable.name": "sdcard",
+  "geolocation.debugging.enabled": false,
   "gfx.layerscope.enabled": false,
   "layers.composer2d.enabled": false,
   "layers.draw-borders": false,

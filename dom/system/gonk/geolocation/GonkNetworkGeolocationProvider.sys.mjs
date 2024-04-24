@@ -332,7 +332,7 @@ GonkNetworkGeolocationProvider.prototype = {
             this.wifiService = Cc["@mozilla.org/wifi/monitor;1"].getService(
               Ci.nsIWifiMonitor
             );
-            this.wifiService.startWatching(this);
+            this.wifiService.startWatching(this, false);
           }
 
           this.resetTimer();
@@ -394,7 +394,7 @@ GonkNetworkGeolocationProvider.prototype = {
       this.wifiService = Cc["@mozilla.org/wifi/monitor;1"].getService(
         Ci.nsIWifiMonitor
       );
-      this.wifiService.startWatching(this);
+      this.wifiService.startWatching(this, false);
     }
 
     this.resetTimer();

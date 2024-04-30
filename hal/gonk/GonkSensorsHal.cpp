@@ -3,9 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "Hal.h"
-#include "HalLog.h"
 
 #include "GonkSensorsHal.h"
+
+#define HAL_LOG(args...) \
+  __android_log_print(ANDROID_LOG_INFO, "GonkSensors", ##args)
+#define HAL_ERR(args...) \
+  __android_log_print(ANDROID_LOG_ERROR, "GonkSensors", ##args)
 
 inline double radToDeg(double aRad) { return aRad * (180.0 / M_PI); }
 

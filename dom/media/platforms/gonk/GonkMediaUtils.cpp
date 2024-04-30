@@ -33,9 +33,7 @@ static mozilla::LazyLogModule sCodecLog("GonkMediaUtils");
 GonkBufferWriter::GonkBufferWriter(const sp<MediaCodecBuffer>& aBuffer)
     : mBuffer(aBuffer) {}
 
-void GonkBufferWriter::Clear() {
-  mBuffer->setRange(0, 0);
-}
+void GonkBufferWriter::Clear() { mBuffer->setRange(0, 0); }
 
 bool GonkBufferWriter::Append(const uint8_t* aData, size_t aSize) {
   if (mBuffer->offset() + mBuffer->size() + aSize > mBuffer->capacity()) {
@@ -120,6 +118,7 @@ GonkMediaUtils::PcmCopy GonkMediaUtils::CreatePcmCopy(const uint8_t* aSource,
 sp<AMessage> GonkMediaUtils::GetMediaCodecConfig(
     const mozilla::TrackInfo* aInfo) {
   using mozilla::AacCodecSpecificData;
+  using mozilla::AudioCodecSpecificBinaryBlob;
   using mozilla::BigEndian;
   using mozilla::CheckedUint32;
   using mozilla::FlacCodecSpecificData;
@@ -212,6 +211,12 @@ sp<AMessage> GonkMediaUtils::GetMediaCodecConfig(
                csd.is<AacCodecSpecificData>()) {
       auto& aacCsd = csd.as<AacCodecSpecificData>();
       RefPtr<MediaByteBuffer> blob = aacCsd.mDecoderConfigDescriptorBinaryBlob;
+      auto csdBuffer = ABuffer::CreateAsCopy(blob->Elements(), blob->Length());
+      format->setBuffer("csd-0", csdBuffer);
+    } else if (csd.is<AudioCodecSpecificBinaryBlob>()) {
+      LOGD("setting generic codec config data for %s", mime.get());
+      auto& audioCsd = csd.as<AudioCodecSpecificBinaryBlob>();
+      RefPtr<MediaByteBuffer> blob = audioCsd.mBinaryBlob;
       auto csdBuffer = ABuffer::CreateAsCopy(blob->Elements(), blob->Length());
       format->setBuffer("csd-0", csdBuffer);
     } else {

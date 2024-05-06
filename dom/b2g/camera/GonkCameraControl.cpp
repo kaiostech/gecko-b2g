@@ -1983,30 +1983,31 @@ nsresult nsGonkCameraControl::SetupRecording(int aFd, int aRotation,
 
   DOM_CAMERA_LOGI("maxVideoLengthMs=%lu\n", aMaxVideoLengthMs);
   const uint64_t kMaxVideoLengthMs = INT64_MAX / 1000;
-  if (aMaxVideoLengthMs == 0) {
-    aMaxVideoLengthMs = -1;
-  } else if (aMaxVideoLengthMs > kMaxVideoLengthMs) {
-    // GonkRecorder parameters are internally limited to signed 64-bit values,
-    // and the time length limit is converted from milliseconds to microseconds,
-    // so we limit this value to prevent any unexpected overflow weirdness.
-    DOM_CAMERA_LOGW("maxVideoLengthMs capped to %lu\n", kMaxVideoLengthMs);
-    aMaxVideoLengthMs = kMaxVideoLengthMs;
+  if (aMaxVideoLengthMs > 0) {
+    if (aMaxVideoLengthMs > kMaxVideoLengthMs) {
+      // GonkRecorder parameters are internally limited to signed 64-bit values,
+      // and the time length limit is converted from milliseconds to
+      // microseconds, so we limit this value to prevent any unexpected overflow
+      // weirdness.
+      DOM_CAMERA_LOGW("maxVideoLengthMs capped to %lu\n", kMaxVideoLengthMs);
+      aMaxVideoLengthMs = kMaxVideoLengthMs;
+    }
+    snprintf(buffer, SIZE, "max-duration=%lu", aMaxVideoLengthMs);
+    CHECK_SETARG_RETURN(mRecorder->setParameters(String8(buffer)),
+                        NS_ERROR_INVALID_ARG);
   }
-  snprintf(buffer, SIZE, "max-duration=%lu", aMaxVideoLengthMs);
-  CHECK_SETARG_RETURN(mRecorder->setParameters(String8(buffer)),
-                      NS_ERROR_INVALID_ARG);
 
   DOM_CAMERA_LOGI("maxFileSizeBytes=%lu\n", aMaxFileSizeBytes);
-  if (aMaxFileSizeBytes == 0) {
-    aMaxFileSizeBytes = -1;
-  } else if (aMaxFileSizeBytes > INT64_MAX) {
-    // GonkRecorder parameters are internally limited to signed 64-bit values
-    DOM_CAMERA_LOGW("maxFileSizeBytes capped to INT64_MAX\n");
-    aMaxFileSizeBytes = INT64_MAX;
+  if (aMaxFileSizeBytes > 0) {
+    if (aMaxFileSizeBytes > INT64_MAX) {
+      // GonkRecorder parameters are internally limited to signed 64-bit values
+      DOM_CAMERA_LOGW("maxFileSizeBytes capped to INT64_MAX\n");
+      aMaxFileSizeBytes = INT64_MAX;
+    }
+    snprintf(buffer, SIZE, "max-filesize=%lu", aMaxFileSizeBytes);
+    CHECK_SETARG_RETURN(mRecorder->setParameters(String8(buffer)),
+                        NS_ERROR_INVALID_ARG);
   }
-  snprintf(buffer, SIZE, "max-filesize=%lu", aMaxFileSizeBytes);
-  CHECK_SETARG_RETURN(mRecorder->setParameters(String8(buffer)),
-                      NS_ERROR_INVALID_ARG);
 
   // adjust rotation by camera sensor offset
   mVideoRotation = aRotation;

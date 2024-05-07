@@ -13,6 +13,7 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
 #include "mozilla/ResultVariant.h"
+#include "mozilla/dom/B2G.h"
 #include "mozilla/dom/BlobBinding.h"
 #include "mozilla/dom/ClipboardItem.h"
 #include "mozilla/dom/ClipboardBinding.h"
@@ -288,7 +289,8 @@ already_AddRefed<Promise> Clipboard::ReadHelper(nsIPrincipal& aSubjectPrincipal,
     return p.forget();
   }
 
-  if (IsTestingPrefEnabledOrHasReadPermission(aSubjectPrincipal)) {
+  if (IsTestingPrefEnabledOrHasReadPermission(aSubjectPrincipal) ||
+      B2G::CheckPermission("input"_ns, GetOwner())) {
     MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
             ("%s: testing pref enabled or has read permission", __FUNCTION__));
   } else {
@@ -629,7 +631,8 @@ already_AddRefed<Promise> Clipboard::Write(
   // We want to disable security check for automated tests that have the pref
   //  dom.events.testing.asyncClipboard set to true
   if (!IsTestingPrefEnabled() &&
-      !nsContentUtils::IsCutCopyAllowed(doc, aSubjectPrincipal)) {
+      !nsContentUtils::IsCutCopyAllowed(doc, aSubjectPrincipal) &&
+      !B2G::CheckPermission("input"_ns, GetOwner())) {
     MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
             ("Clipboard, Write, Not allowed to write to clipboard\n"));
     p->MaybeRejectWithNotAllowedError(
@@ -747,7 +750,7 @@ bool Clipboard::ReadTextEnabled(JSContext* aCx, JSObject* aGlobal) {
   nsIPrincipal* prin = nsContentUtils::SubjectPrincipal(aCx);
   return IsReadTextExposedToContent() ||
          prin->GetIsAddonOrExpandedAddonPrincipal() ||
-         prin->IsSystemPrincipal();
+         prin->IsSystemPrincipal() || B2G::HasInputPermission(aCx, aGlobal);
 }
 
 /* static */

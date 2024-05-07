@@ -90,9 +90,12 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
 
   bool CanAcquire() {
     Mutex::Autolock lock(mMutex);
-    // GonkBufferQueue allows the max buffer count to be exceeded by one.
+    // Although the max acquired buffer count can be exceeded by 1, that extra
+    // buffer can only be acquired briefly. Otherwise dequeueBuffer() at
+    // producer side may block until a free slot is available. See the comment
+    // in GonkBufferQueueProducer::waitForFreeSlotThenRelock().
     return mConsumer->getAcquiredBufferCount() + GetBufferMessageCount() <
-           mMaxAcquiredCount + 1;
+           mMaxAcquiredCount;
   }
 
   void Release() {

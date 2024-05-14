@@ -63,9 +63,28 @@ class GonkDataDecoder final : public MediaDataDecoder {
     return ConversionRequired::kNeedAnnexB;
   }
 
+  // The following are codec callbacks.
+  bool FetchInput(const android::sp<MediaCodecBuffer>& aBuffer,
+                  android::sp<RefBase>* aInputInfo,
+                  android::sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
+                  uint32_t* aFlags);
+
+  void Output(const android::sp<MediaCodecBuffer>& aBuffer,
+              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs,
+              uint32_t aFlags);
+
+  void OutputTexture(layers::TextureClient* aTexture,
+                     const android::sp<RefBase>& aInputInfo, int64_t aTimeUs,
+                     uint32_t aFlags);
+
+  void NotifyOutputFormat(const android::sp<AMessage>& aFormat);
+
+  void NotifyCodecDetails(const android::sp<AMessage>& aDetails);
+
+  void NotifyError(status_t aErr, int32_t aActionCode);
+
  private:
   class CodecReply;
-  class CodecCallback;
 
   virtual ~GonkDataDecoder();
 
@@ -83,21 +102,6 @@ class GonkDataDecoder final : public MediaDataDecoder {
   void OutputPushed(RefPtr<MediaData>&& aSample) { OutputUpdated(); }
   void OutputFinished() { OutputUpdated(); }
   void OutputUpdated();
-
-  // Codec callbacks
-  bool FetchInput(const android::sp<MediaCodecBuffer>& aBuffer,
-                  android::sp<RefBase>* aInputInfo,
-                  android::sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
-                  uint32_t* aFlags);
-  void Output(const android::sp<MediaCodecBuffer>& aBuffer,
-              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs,
-              uint32_t aFlags);
-  void Output(layers::TextureClient* aBuffer,
-              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs,
-              uint32_t aFlags);
-  void NotifyOutputFormat(const android::sp<AMessage>& aFormat);
-  void NotifyCodecDetails(const android::sp<AMessage>& aDetails);
-  void NotifyError(status_t aErr, int32_t aActionCode);
 
   UniquePtr<TrackInfo> mConfig;
   RefPtr<layers::ImageContainer> mImageContainer;

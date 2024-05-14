@@ -32,6 +32,8 @@ class GonkMediaCodec final
     virtual void Invoke(status_t aErr) = 0;
   };
 
+  // All data and codec events are communicated through a Callback object. Each
+  // function is always called on GonkMediaCodec's looper thread.
   class Callback : public RefBase {
    public:
     virtual bool FetchInput(const sp<MediaCodecBuffer>& aBuffer,
@@ -43,15 +45,20 @@ class GonkMediaCodec final
                         const sp<RefBase>& aInputInfo, int64_t aTimeUs,
                         uint32_t aFlags) = 0;
 
-    virtual void Output(TextureClient* aBuffer, const sp<RefBase>& aInputInfo,
-                        int64_t aTimeUs, uint32_t aFlags) = 0;
+    virtual void OutputTexture(TextureClient* aTexture,
+                               const sp<RefBase>& aInputInfo, int64_t aTimeUs,
+                               uint32_t aFlags) {}
 
-    virtual void NotifyOutputFormat(const sp<AMessage>& aFormat) = 0;
+    virtual void NotifyOutputFormat(const sp<AMessage>& aFormat) {}
 
-    virtual void NotifyCodecDetails(const sp<AMessage>& aDetails) = 0;
+    virtual void NotifyCodecDetails(const sp<AMessage>& aDetails) {}
 
     virtual void NotifyError(status_t aErr, int32_t aActionCode) = 0;
   };
+
+  // Provide a default implementation of callback proxy.
+  template <class Owner>
+  class CallbackProxy;
 
   GonkMediaCodec();
 
@@ -123,6 +130,74 @@ class GonkMediaCodec final
   void ResourceReserveFailed() override;
   RefPtr<mozilla::MediaSystemResourceClient> mResourceClient;
 };
+
+// SFINAE templates that detect the existence of a member function.
+#define HAS_MEMBER_FUNC(func)             \
+  template <class T, class = void>        \
+  struct Has_##func : std::false_type {}; \
+                                          \
+  template <class T>                      \
+  struct Has_##func<T, std::void_t<decltype(&T::func)>> : std::true_type {};
+
+template <class Owner>
+class GonkMediaCodec::CallbackProxy final : public Callback {
+  // These callback functions can be optionally implemented by the owner. Define
+  // SFINAE templates for them here so we can check their existence at compile
+  // time.
+  HAS_MEMBER_FUNC(OutputTexture)
+  HAS_MEMBER_FUNC(NotifyOutputFormat)
+  HAS_MEMBER_FUNC(NotifyCodecDetails)
+
+ public:
+  static sp<CallbackProxy> Create(Owner* aOwner) {
+    return new CallbackProxy(aOwner);
+  }
+
+  bool FetchInput(const sp<MediaCodecBuffer>& aBuffer, sp<RefBase>* aInputInfo,
+                  sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
+                  uint32_t* aFlags) override {
+    return mOwner->FetchInput(aBuffer, aInputInfo, aCryptoInfo, aTimeUs,
+                              aFlags);
+  }
+
+  void Output(const sp<MediaCodecBuffer>& aBuffer,
+              const sp<RefBase>& aInputInfo, int64_t aTimeUs,
+              uint32_t aFlags) override {
+    mOwner->Output(aBuffer, aInputInfo, aTimeUs, aFlags);
+  }
+
+  void OutputTexture(TextureClient* aTexture, const sp<RefBase>& aInputInfo,
+                     int64_t aTimeUs, uint32_t aFlags) override {
+    if constexpr (Has_OutputTexture<Owner>::value) {
+      mOwner->OutputTexture(aTexture, aInputInfo, aTimeUs, aFlags);
+    } else {
+      TRESPASS("OutputTexture() not implemented");
+    }
+  }
+
+  void NotifyOutputFormat(const sp<AMessage>& aFormat) override {
+    if constexpr (Has_NotifyOutputFormat<Owner>::value) {
+      mOwner->NotifyOutputFormat(aFormat);
+    }
+  }
+
+  void NotifyCodecDetails(const sp<AMessage>& aDetails) override {
+    if constexpr (Has_NotifyCodecDetails<Owner>::value) {
+      mOwner->NotifyCodecDetails(aDetails);
+    }
+  }
+
+  void NotifyError(status_t aErr, int32_t aActionCode) override {
+    mOwner->NotifyError(aErr, aActionCode);
+  }
+
+ private:
+  CallbackProxy(Owner* aOwner) : mOwner(aOwner) {}
+
+  Owner* mOwner = nullptr;
+};
+
+#undef HAS_MEMBER_FUNC
 
 }  // namespace android
 

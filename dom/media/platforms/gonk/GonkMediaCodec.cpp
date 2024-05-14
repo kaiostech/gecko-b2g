@@ -689,7 +689,7 @@ void GonkMediaCodec::OnNotifyOutput(const sp<AMessage>& aMsg) {
       CHECK(aMsg->findObject("texture", &obj));
       texture = static_cast<TextureHolder*>(obj.get())->Get();
     }
-    mCallback->Output(texture, inputInfo, timeUs, flags);
+    mCallback->OutputTexture(texture, inputInfo, timeUs, flags);
   }
 }
 

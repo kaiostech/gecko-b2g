@@ -98,48 +98,6 @@ class GonkDataDecoder::CodecReply final : public GonkMediaCodec::Reply {
   status_t mErr = android::OK;
 };
 
-class GonkDataDecoder::CodecCallback final : public GonkMediaCodec::Callback {
- public:
-  static sp<CodecCallback> Create(GonkDataDecoder* aOwner) {
-    return new CodecCallback(aOwner);
-  }
-
-  bool FetchInput(const sp<MediaCodecBuffer>& aBuffer, sp<RefBase>* aInputInfo,
-                  sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
-                  uint32_t* aFlags) override {
-    return mOwner->FetchInput(aBuffer, aInputInfo, aCryptoInfo, aTimeUs,
-                              aFlags);
-  }
-
-  void Output(const sp<MediaCodecBuffer>& aBuffer,
-              const sp<RefBase>& aInputInfo, int64_t aTimeUs,
-              uint32_t aFlags) override {
-    mOwner->Output(aBuffer, aInputInfo, aTimeUs, aFlags);
-  }
-
-  void Output(layers::TextureClient* aBuffer, const sp<RefBase>& aInputInfo,
-              int64_t aTimeUs, uint32_t aFlags) override {
-    mOwner->Output(aBuffer, aInputInfo, aTimeUs, aFlags);
-  }
-
-  void NotifyOutputFormat(const sp<AMessage>& aFormat) override {
-    mOwner->NotifyOutputFormat(aFormat);
-  }
-
-  void NotifyCodecDetails(const sp<AMessage>& aDetails) override {
-    mOwner->NotifyCodecDetails(aDetails);
-  }
-
-  void NotifyError(status_t aErr, int32_t aActionCode) override {
-    mOwner->NotifyError(aErr, aActionCode);
-  }
-
- private:
-  CodecCallback(GonkDataDecoder* aOwner) : mOwner(aOwner) {}
-
-  GonkDataDecoder* mOwner = nullptr;
-};
-
 GonkDataDecoder::GonkDataDecoder(const CreateDecoderParams& aParams,
                                  CDMProxy* aProxy)
     : mConfig(aParams.mConfig.Clone()),
@@ -153,6 +111,8 @@ GonkDataDecoder::GonkDataDecoder(const CreateDecoderParams& aParams,
 GonkDataDecoder::~GonkDataDecoder() { LOGD("%p destructor", this); }
 
 RefPtr<GonkDataDecoder::InitPromise> GonkDataDecoder::Init() {
+  using CodecCallback = GonkMediaCodec::CallbackProxy<GonkDataDecoder>;
+
   LOGD("%p initializing", this);
   if (mCodec) {
     LOGE("%p already initialized", this);
@@ -495,9 +455,9 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
   }
 }
 
-void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
-                             const sp<RefBase>& aInputInfo, int64_t aTimeUs,
-                             uint32_t aFlags) {
+void GonkDataDecoder::OutputTexture(layers::TextureClient* aTexture,
+                                    const sp<RefBase>& aInputInfo,
+                                    int64_t aTimeUs, uint32_t aFlags) {
   CHECK(IsVideo());
 
   auto checkEosOnExit = MakeScopeExit([this, aFlags]() {
@@ -507,13 +467,13 @@ void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
     }
   });
 
-  if (!aBuffer) {
+  if (!aTexture) {
     // GonkMediaCodec may notify EOS with null texture.
     return;
   }
 
   LOGV("%p output texture #%" PRIu64 ", timestamp %" PRId64, this,
-       aBuffer->GetSerial(), aTimeUs);
+       aTexture->GetSerial(), aTimeUs);
 
   if (!aInputInfo) {
     LOGE("%p null input info", this);
@@ -525,7 +485,7 @@ void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
   RefPtr<VideoData> data = VideoData::CreateAndCopyData(
       *mConfig->GetAsVideoInfo(), mImageContainer, sampleInfo->mOffset,
       media::TimeUnit::FromMicroseconds(aTimeUs), sampleInfo->mDuration,
-      aBuffer, sampleInfo->mKeyframe, sampleInfo->mTimecode,
+      aTexture, sampleInfo->mKeyframe, sampleInfo->mTimecode,
       mVideoOutputFormat.mCrop);
   mOutputQueue.Push(data);
 }

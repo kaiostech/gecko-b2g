@@ -112,16 +112,15 @@ class GonkDataDecoder::CodecCallback final : public GonkMediaCodec::Callback {
   }
 
   void Output(const sp<MediaCodecBuffer>& aBuffer,
-              const sp<RefBase>& aInputInfo, int64_t aTimeUs) override {
-    mOwner->Output(aBuffer, aInputInfo, aTimeUs);
+              const sp<RefBase>& aInputInfo, int64_t aTimeUs,
+              uint32_t aFlags) override {
+    mOwner->Output(aBuffer, aInputInfo, aTimeUs, aFlags);
   }
 
   void Output(layers::TextureClient* aBuffer, const sp<RefBase>& aInputInfo,
-              int64_t aTimeUs) override {
-    mOwner->Output(aBuffer, aInputInfo, aTimeUs);
+              int64_t aTimeUs, uint32_t aFlags) override {
+    mOwner->Output(aBuffer, aInputInfo, aTimeUs, aFlags);
   }
-
-  void NotifyOutputEnded() override { mOwner->NotifyOutputEnded(); }
 
   void NotifyOutputFormat(const sp<AMessage>& aFormat) override {
     mOwner->NotifyOutputFormat(aFormat);
@@ -395,14 +394,24 @@ bool GonkDataDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
 };
 
 void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
-                             const sp<RefBase>& aInputInfo, int64_t aTimeUs) {
+                             const sp<RefBase>& aInputInfo, int64_t aTimeUs,
+                             uint32_t aFlags) {
   using android::MediaImage2;
-  LOGV("%p output timestamp %" PRId64, this, aTimeUs);
+
+  auto checkEosOnExit = MakeScopeExit([this, aFlags]() {
+    if (aFlags & MediaCodec::BUFFER_FLAG_EOS) {
+      LOGD("%p saw output EOS", this);
+      mOutputQueue.Finish();
+    }
+  });
 
   if (!aBuffer || aBuffer->size() == 0) {
-    LOGE("%p empty output buffer", this);
+    // GonkMediaCodec may notify EOS with an empty buffer.
     return;
   }
+
+  LOGV("%p output timestamp %" PRId64, this, aTimeUs);
+
   if (!aInputInfo) {
     LOGE("%p null input info", this);
     return;
@@ -487,15 +496,25 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
 }
 
 void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
-                             const sp<RefBase>& aInputInfo, int64_t aTimeUs) {
-  MOZ_ASSERT(IsVideo());
-  LOGV("%p output texture #%" PRIu64 ", timestamp %" PRId64, this,
-       aBuffer ? aBuffer->GetSerial() : uint64_t(-1), aTimeUs);
+                             const sp<RefBase>& aInputInfo, int64_t aTimeUs,
+                             uint32_t aFlags) {
+  CHECK(IsVideo());
+
+  auto checkEosOnExit = MakeScopeExit([this, aFlags]() {
+    if (aFlags & MediaCodec::BUFFER_FLAG_EOS) {
+      LOGD("%p saw output EOS", this);
+      mOutputQueue.Finish();
+    }
+  });
 
   if (!aBuffer) {
-    LOGE("%p empty output buffer", this);
+    // GonkMediaCodec may notify EOS with null texture.
     return;
   }
+
+  LOGV("%p output texture #%" PRIu64 ", timestamp %" PRId64, this,
+       aBuffer->GetSerial(), aTimeUs);
+
   if (!aInputInfo) {
     LOGE("%p null input info", this);
     return;
@@ -510,8 +529,6 @@ void GonkDataDecoder::Output(layers::TextureClient* aBuffer,
       mVideoOutputFormat.mCrop);
   mOutputQueue.Push(data);
 }
-
-void GonkDataDecoder::NotifyOutputEnded() { mOutputQueue.Finish(); }
 
 void GonkDataDecoder::NotifyOutputFormat(const sp<AMessage>& aFormat) {
   if (IsVideo()) {

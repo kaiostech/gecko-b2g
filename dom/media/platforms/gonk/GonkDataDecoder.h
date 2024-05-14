@@ -90,10 +90,11 @@ class GonkDataDecoder final : public MediaDataDecoder {
                   android::sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
                   uint32_t* aFlags);
   void Output(const android::sp<MediaCodecBuffer>& aBuffer,
-              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs);
+              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs,
+              uint32_t aFlags);
   void Output(layers::TextureClient* aBuffer,
-              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs);
-  void NotifyOutputEnded();
+              const android::sp<RefBase>& aInputInfo, int64_t aTimeUs,
+              uint32_t aFlags);
   void NotifyOutputFormat(const android::sp<AMessage>& aFormat);
   void NotifyCodecDetails(const android::sp<AMessage>& aDetails);
   void NotifyError(status_t aErr, int32_t aActionCode);

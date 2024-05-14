@@ -71,8 +71,7 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
         mMaxAcquiredCount(aMaxAcquiredCount) {}
 
   void QueueOutputMessage(const sp<AMessage>& aMsg) {
-    CHECK(aMsg->contains("inputInfo") || aMsg->contains("format") ||
-          aMsg->contains("eos"));
+    CHECK(aMsg->contains("flags") || aMsg->contains("format"));
     Mutex::Autolock lock(mMutex);
     mOutputMessages.push_back(aMsg);
     ProcessOutputMessages(nullptr);
@@ -650,14 +649,9 @@ void GonkMediaCodec::OnOutputAvailable(int32_t aIndex, size_t aOffset,
     return;
   }
 
-  if (aSize > 0) {
-    buffer->setRange(aOffset, aSize);
-    mCallback->Output(buffer, mInputInfoQueue->Find(aTimeUs), aTimeUs);
-  }
+  buffer->setRange(aOffset, aSize);
+  mCallback->Output(buffer, mInputInfoQueue->Find(aTimeUs), aTimeUs, aFlags);
   mCodec->releaseOutputBuffer(aIndex);
-  if (aFlags & MediaCodec::BUFFER_FLAG_EOS) {
-    mCallback->NotifyOutputEnded();
-  }
 }
 
 void GonkMediaCodec::OnReleaseOutput() {
@@ -674,28 +668,25 @@ void GonkMediaCodec::OnReleaseOutput() {
     CHECK(msg->findInt64("timeUs", &timeUs));
     CHECK(msg->findInt32("flags", &flags));
 
-    if (size > 0) {
-      sp<MediaCodecBuffer> buffer;
-      mCodec->getOutputBuffer(index, &buffer);
-      if (!buffer) {
-        LOGE("%p failed to get output buffer %d", this, index);
-        continue;
-      }
+    sp<MediaCodecBuffer> buffer;
+    mCodec->getOutputBuffer(index, &buffer);
+    if (!buffer) {
+      LOGE("%p failed to get output buffer %d", this, index);
+      continue;
+    }
 
-      sp<AMessage> notify = new AMessage(kWhatNotifyOutput, this);
-      notify->setInt64("timeUs", timeUs);
+    sp<AMessage> notify = new AMessage(kWhatNotifyOutput, this);
+    notify->setInt64("timeUs", timeUs);
+    notify->setInt32("flags", flags);
+    if (size > 0) {
+      // MediaCodec may notify EOS flag with an empty buffer. In this case,
+      // don't set inputInfo so CodecNativeWindow won't try to acquire a
+      // texture for it.
       notify->setObject("inputInfo", mInputInfoQueue->Find(timeUs));
-      mNativeWindow->QueueOutputMessage(notify);
-      status_t err = mCodec->renderOutputBufferAndRelease(index);
-      CHECK_EQ(OK, err);
     }
-    if (flags & MediaCodec::BUFFER_FLAG_EOS) {
-      sp<AMessage> notify = new AMessage(kWhatNotifyOutput, this);
-      notify->setInt32("eos", true);
-      mNativeWindow->QueueOutputMessage(notify);
-      mOutputBuffers.clear();
-      break;
-    }
+    mNativeWindow->QueueOutputMessage(notify);
+    status_t err = mCodec->renderOutputBufferAndRelease(index);
+    CHECK_EQ(OK, err);
   }
 }
 
@@ -706,19 +697,20 @@ void GonkMediaCodec::OnNotifyOutput(const sp<AMessage>& aMsg) {
     CHECK(aMsg->findMessage("format", &format));
     mCallback->NotifyOutputFormat(format);
   }
-  if (aMsg->contains("inputInfo")) {
+  if (aMsg->contains("flags")) {
     int64_t timeUs;
+    int32_t flags;
     sp<RefBase> inputInfo;
-    sp<RefBase> obj;
     RefPtr<TextureClient> texture;
     CHECK(aMsg->findInt64("timeUs", &timeUs));
-    CHECK(aMsg->findObject("inputInfo", &inputInfo));
-    CHECK(aMsg->findObject("texture", &obj));
-    texture = static_cast<TextureHolder*>(obj.get())->mTexture;
-    mCallback->Output(texture, inputInfo, timeUs);
-  }
-  if (aMsg->contains("eos")) {
-    mCallback->NotifyOutputEnded();
+    CHECK(aMsg->findInt32("flags", &flags));
+    if (aMsg->contains("inputInfo")) {
+      sp<RefBase> obj;
+      CHECK(aMsg->findObject("inputInfo", &inputInfo));
+      CHECK(aMsg->findObject("texture", &obj));
+      texture = static_cast<TextureHolder*>(obj.get())->mTexture;
+    }
+    mCallback->Output(texture, inputInfo, timeUs, flags);
   }
 }
 

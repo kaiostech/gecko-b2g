@@ -40,12 +40,11 @@ class GonkMediaCodec final
                             uint32_t* aFlags) = 0;
 
     virtual void Output(const sp<MediaCodecBuffer>& aBuffer,
-                        const sp<RefBase>& aInputInfo, int64_t aTimeUs) = 0;
+                        const sp<RefBase>& aInputInfo, int64_t aTimeUs,
+                        uint32_t aFlags) = 0;
 
     virtual void Output(TextureClient* aBuffer, const sp<RefBase>& aInputInfo,
-                        int64_t aTimeUs) = 0;
-
-    virtual void NotifyOutputEnded() = 0;
+                        int64_t aTimeUs, uint32_t aFlags) = 0;
 
     virtual void NotifyOutputFormat(const sp<AMessage>& aFormat) = 0;
 

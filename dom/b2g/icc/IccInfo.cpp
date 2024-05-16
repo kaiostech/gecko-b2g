@@ -303,6 +303,10 @@ GsmIccInfo::GsmIccInfo(const IccInfoData& aData) : IccInfo(aData) {
   mGsmIccInfo = static_cast<nsGsmIccInfo*>(mIccInfo.get());
 }
 
+void GsmIccInfo::GetIccInfo(nsIIccInfo** aIccInfo) const {
+  NS_IF_ADDREF(*aIccInfo = static_cast<nsIGsmIccInfo*>(mGsmIccInfo.get()));
+}
+
 // WebIDL implementation
 
 void GsmIccInfo::Update(nsIGsmIccInfo* aInfo) {
@@ -310,7 +314,7 @@ void GsmIccInfo::Update(nsIGsmIccInfo* aInfo) {
   mGsmIccInfo->Update(aInfo);
 }
 
-void GsmIccInfo::Update(GsmIccInfo* aInfo) {
+void GsmIccInfo::Update(IccInfo* aInfo) {
   MOZ_ASSERT(aInfo);
   nsIIccInfo* iccInfo;
   aInfo->GetIccInfo(&iccInfo);
@@ -382,10 +386,14 @@ void CdmaIccInfo::Update(nsICdmaIccInfo* aInfo) {
   mCdmaIccInfo->Update(aInfo);
 }
 
-void CdmaIccInfo::Update(CdmaIccInfo* aInfo) {
+void CdmaIccInfo::Update(IccInfo* aInfo) {
   MOZ_ASSERT(aInfo);
   nsIIccInfo* iccInfo;
   aInfo->GetIccInfo(&iccInfo);
   nsCOMPtr<nsICdmaIccInfo> cdmaInfo = do_QueryInterface(iccInfo);
   mCdmaIccInfo->Update(cdmaInfo);
+}
+
+void CdmaIccInfo::GetIccInfo(nsIIccInfo** aIccInfo) const {
+  NS_IF_ADDREF(*aIccInfo = static_cast<nsICdmaIccInfo*>(mCdmaIccInfo.get()));
 }

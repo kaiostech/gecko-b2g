@@ -90,7 +90,7 @@ class IccInfo : public nsISupports, public nsWrapperCache {
   explicit IccInfo(const icc::IccInfoData& aData);
 
   void Update(nsIIccInfo* aInfo);
-  void Update(IccInfo* aInfo);
+  virtual void Update(IccInfo* aInfo);
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
@@ -119,7 +119,7 @@ class IccInfo : public nsISupports, public nsWrapperCache {
 
   bool IsDisplaySpnRequired() const;
 
-  void GetIccInfo(nsIIccInfo** aIccInfo) const;
+  virtual void GetIccInfo(nsIIccInfo** aIccInfo) const;
 
  protected:
   virtual ~IccInfo() {}
@@ -137,7 +137,7 @@ class GsmIccInfo final : public IccInfo {
   explicit GsmIccInfo(const icc::IccInfoData& aData);
 
   void Update(nsIGsmIccInfo* aInfo);
-  void Update(GsmIccInfo* aInfo);
+  void Update(IccInfo* aInfo);
 
   // WrapperCache
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -145,6 +145,8 @@ class GsmIccInfo final : public IccInfo {
 
   // GsmIccInfo WebIDL
   void GetMsisdn(nsAString& aMsisdn) const;
+
+  void GetIccInfo(nsIIccInfo** aIccInfo) const;
 
  private:
   RefPtr<nsGsmIccInfo> mGsmIccInfo;
@@ -160,7 +162,7 @@ class CdmaIccInfo final : public IccInfo {
   explicit CdmaIccInfo(const icc::IccInfoData& aData);
 
   void Update(nsICdmaIccInfo* aInfo);
-  void Update(CdmaIccInfo* aInfo);
+  void Update(IccInfo* aInfo);
 
   // WrapperCache
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -169,6 +171,7 @@ class CdmaIccInfo final : public IccInfo {
   // CdmaIccInfo WebIDL
   void GetMdn(nsAString& aMdn) const;
   int32_t PrlVersion() const;
+  void GetIccInfo(nsIIccInfo** aIccInfo) const;
 
  private:
   RefPtr<nsCdmaIccInfo> mCdmaIccInfo;

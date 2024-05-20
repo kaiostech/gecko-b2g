@@ -324,6 +324,7 @@
 
 ; [Layout Engine Resources]
 ; Style Sheets, Graphics and other Resources used by the layout engine.
+@RESPATH@/res/cur_crosshair_26px.png
 @RESPATH@/res/cur_default_26px.png
 @RESPATH@/res/cur_pointer_26px.png
 @RESPATH@/res/cur_progress_26px.png

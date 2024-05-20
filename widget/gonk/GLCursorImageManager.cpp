@@ -57,6 +57,9 @@ nsString GetCursorElementClassID(nsCursor aCursor) {
     case eCursor_spinning:
       strClassID = u"spinning"_ns;
       break;
+    case eCursor_crosshair:
+      strClassID = u"crosshair"_ns;
+      break;
     default:
       strClassID = u"std"_ns;
   }
@@ -72,6 +75,7 @@ nsCursor MapCursorState(nsCursor aCursor) {
     case eCursor_hyperlink:
     case eCursor_spinning:
     case eCursor_vertical_text:
+    case eCursor_crosshair:
       break;
     default:
       mappedCursor = eCursor_standard;
@@ -165,6 +169,10 @@ GLCursorImageManager::GLCursorImage GLCursorImageManager::GetGLCursorImage(
 }
 
 bool GLCursorImageManager::IsCursorImageReady(nsCursor aCursor) {
+  if (aCursor == eCursor_none) {
+    return false;
+  }
+
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   return mGLCursorImageMap.count(MapCursorState(aCursor));
 }
@@ -182,6 +190,10 @@ void GLCursorImageManager::NotifyCursorImageLoadDone(
 
 void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
                                               nsWindow* aWindow) {
+  if (aCursor == eCursor_none) {
+    return;
+  }
+
   nsCursor supportedCursor = MapCursorState(aCursor);
 
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);

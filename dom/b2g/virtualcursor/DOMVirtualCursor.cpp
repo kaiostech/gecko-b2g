@@ -43,6 +43,33 @@ DOMVirtualCursor::~DOMVirtualCursor() {
   NS_ASSERT_OWNINGTHREAD(DOMVirtualCursor);
 }
 
+// namespace anonymous
+namespace {
+VirtualCursorProxy* GetCursorProxy(nsIGlobalObject* aGlobal) {
+  if (!aGlobal) {
+    return nullptr;
+  }
+
+  nsPIDOMWindowInner* inner = aGlobal->GetAsInnerWindow();
+  if (!inner) {
+    return nullptr;
+  }
+
+  nsPIDOMWindowOuter* outer = inner->GetOuterWindow();
+  if (!outer) {
+    return nullptr;
+  }
+
+  RefPtr<VirtualCursorProxy> cursorProxy =
+      VirtualCursorService::GetOrCreateCursor(outer);
+  if (!cursorProxy) {
+    return nullptr;
+  }
+
+  return cursorProxy;
+}
+}  // namespace
+
 /* static */
 already_AddRefed<DOMVirtualCursor> DOMVirtualCursor::Create(
     nsIGlobalObject* aGlobal) {
@@ -134,6 +161,38 @@ void DOMVirtualCursor::StopPanning() {
 bool DOMVirtualCursor::IsPanning() const {
   RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
   return service->IsPanning();
+}
+
+void DOMVirtualCursor::EnterSelectionMode() {
+  auto* cursorProxy = GetCursorProxy(mGlobal);
+  if (!cursorProxy) {
+    return;
+  }
+  cursorProxy->SetSelectionMode(CursorSimulator::SelectionMode::Active);
+}
+
+void DOMVirtualCursor::ExitSelectionMode() {
+  auto* cursorProxy = GetCursorProxy(mGlobal);
+  if (!cursorProxy) {
+    return;
+  }
+  cursorProxy->SetSelectionMode(CursorSimulator::SelectionMode::None);
+}
+
+void DOMVirtualCursor::StartSelection() {
+  auto* cursorProxy = GetCursorProxy(mGlobal);
+  if (!cursorProxy) {
+    return;
+  }
+  cursorProxy->SetSelectionMode(CursorSimulator::SelectionMode::Start);
+}
+
+void DOMVirtualCursor::StopSelection() {
+  auto* cursorProxy = GetCursorProxy(mGlobal);
+  if (!cursorProxy) {
+    return;
+  }
+  cursorProxy->SetSelectionMode(CursorSimulator::SelectionMode::Stop);
 }
 
 JSObject* DOMVirtualCursor::WrapObject(JSContext* aContext,

@@ -71,6 +71,15 @@ void VirtualCursorProxy::UpdateChromeOffset(
   mSimulator->UpdateChromeOffset(aChromeOffset);
 }
 
+void VirtualCursorProxy::SetSelectionMode(
+    CursorSimulator::SelectionMode aMode) {
+  mSimulator->SetSelectionMode(aMode);
+}
+
+bool VirtualCursorProxy::GetSelectionActive() {
+  return mSimulator->GetSelectionActive();
+}
+
 NS_IMETHODIMP VirtualCursorProxy::Observe(nsISupports* aSubject,
                                           const char* aTopic,
                                           const char16_t* aData) {

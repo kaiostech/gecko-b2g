@@ -62,6 +62,15 @@ class CursorSimulator final : public nsIDOMEventListener,
   void CenterizeCursorIfNecessary();
   void Destroy() { Disable(); }
 
+  enum class SelectionMode {
+    None,
+    Active,
+    Start,
+    Stop,
+  };
+  void SetSelectionMode(SelectionMode aMode);
+  bool GetSelectionActive();
+
  private:
   typedef mozilla::dom::Element Element;
   typedef mozilla::dom::Event Event;
@@ -137,6 +146,7 @@ class CursorSimulator final : public nsIDOMEventListener,
   // FullScreenElement is used in scroll as rootFrame
   Element* mFullScreenElement;
   bool mEnabled;
+  SelectionMode mSelectionMode = SelectionMode::None;
 };
 
 }  // namespace dom

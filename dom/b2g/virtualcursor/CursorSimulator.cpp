@@ -161,10 +161,54 @@ void CursorSimulator::Disable() {
     return;
   }
   mEnabled = false;
+  SetSelectionMode(SelectionMode::None);
   RemoveEventListeners();
   mTimer->Cancel();
   CursorOut();
 };
+
+void CursorSimulator::SetSelectionMode(SelectionMode aMode) {
+  RefPtr<nsGlobalWindowOuter> win = nsGlobalWindowOuter::Cast(mOuterWindow);
+
+  if (aMode == SelectionMode::None) {
+    // In case the cursor is already disable, we still want to set the
+    // style of cursor back to auto.
+    win->SetCursorOuter("auto"_ns, IgnoreErrors());
+    mSelectionMode = SelectionMode::None;
+    return;
+  }
+
+  if (!mEnabled) {
+    return;
+  }
+  if (IsCursorOnIMEEnabledElement()) {
+    return;
+  }
+
+  mSelectionMode = aMode;
+
+  switch (mSelectionMode) {
+    case SelectionMode::None:
+      win->SetCursorOuter("auto"_ns, IgnoreErrors());
+      break;
+    case SelectionMode::Active:
+      win->SetCursorOuter("crosshair"_ns, IgnoreErrors());
+      break;
+    case SelectionMode::Start:
+      win->SetCursorOuter("none"_ns, IgnoreErrors());
+      CursorDown();
+      CursorMove();
+      break;
+    case SelectionMode::Stop:
+      CursorUp();
+      win->SetCursorOuter("crosshair"_ns, IgnoreErrors());
+      break;
+  };
+}
+
+bool CursorSimulator::GetSelectionActive() {
+  return mSelectionMode > SelectionMode::None;
+}
 
 void CursorSimulator::UpdateScreenSize(int32_t aWidth, int32_t aHeight) {
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
@@ -316,6 +360,10 @@ nsresult CursorSimulator::HandleReturnKey(WidgetKeyboardEvent* aKeyEvent) {
   }
 
   UpdatePos();
+
+  if (GetSelectionActive()) {
+    return NS_OK;
+  }
 
   // Do cursor click on keyup for IME enabled elements like forms.
   // If the click is on keydown, the keyup event might be catched

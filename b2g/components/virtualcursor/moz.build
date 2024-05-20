@@ -1,4 +1,5 @@
 RESOURCE_FILES += [
+    "res/cur_crosshair_26px.png",
     "res/cur_default_26px.png",
     "res/cur_pointer_26px.png",
     "res/cur_progress_26px.png",

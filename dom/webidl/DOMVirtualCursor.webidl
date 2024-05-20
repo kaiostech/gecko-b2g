@@ -22,6 +22,16 @@ interface DOMVirtualCursor {
 
   [ChromeOnly]
   undefined startPanning();
+  [ChromeOnly]
   undefined stopPanning();
   readonly attribute boolean isPanning;
+
+  [ChromeOnly]
+  undefined enterSelectionMode();
+  [ChromeOnly]
+  undefined exitSelectionMode();
+  [ChromeOnly]
+  undefined startSelection();
+  [ChromeOnly]
+  undefined stopSelection();
 };

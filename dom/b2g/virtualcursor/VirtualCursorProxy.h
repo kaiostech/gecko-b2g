@@ -37,6 +37,8 @@ class VirtualCursorProxy final : public nsIObserver {
   void IsEnabled(bool* aEnabled);
   void UpdateScreenSize(int32_t aWidth, int32_t aHeight);
   void UpdateChromeOffset(const LayoutDeviceIntPoint& aChromeOffset);
+  void SetSelectionMode(CursorSimulator::SelectionMode aMode);
+  bool GetSelectionActive();
 
  private:
   virtual ~VirtualCursorProxy();

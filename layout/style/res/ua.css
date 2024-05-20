@@ -468,6 +468,12 @@ div.b2g-cursor.vertical_text {
   visibility: hidden;
 }
 
+/* Use cursor type 'crosshair' as cursor is in "text selection mode" */
+div.b2g-cursor.crosshair {
+  cursor: url("resource://gre/res/cur_crosshair_26px.png") 14 14, default;
+  visibility: hidden;
+}
+
 /* Custom content container in the CanvasFrame, positioned on top of everything
    everything else, not reacting to pointer events. */
 .moz-custom-content-container:-moz-native-anonymous {

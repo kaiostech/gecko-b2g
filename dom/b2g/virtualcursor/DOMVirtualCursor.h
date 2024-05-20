@@ -32,6 +32,10 @@ class DOMVirtualCursor final : public nsISupports, public nsWrapperCache {
   void StartPanning();
   void StopPanning();
   bool IsPanning() const;
+  void EnterSelectionMode();
+  void ExitSelectionMode();
+  void StartSelection();
+  void StopSelection();
 
   // binding methods
   nsIGlobalObject* GetParentObject() const { return mGlobal; }

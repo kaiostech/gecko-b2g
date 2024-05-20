@@ -175,6 +175,7 @@ STATIC_ATOMS = [
     Atom("wait", "wait"),
     Atom("spinning", "spinning"),
     Atom("vertical_text", "vertical_text"),
+    Atom("crosshair", "crosshair"),
     Atom("background", "background"),
     Atom("bar", "bar"),
     Atom("base", "base"),

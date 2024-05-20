@@ -18,6 +18,8 @@
 #include "mozilla/dom/NodeFilterBinding.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/TreeWalker.h"
+#include "mozilla/dom/VirtualCursorService.h"
+#include "mozilla/dom/VirtualCursorProxy.h"
 #include "mozilla/IMEStateManager.h"
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/PresShell.h"
@@ -238,20 +240,11 @@ void AccessibleCaretManager::UpdateCarets(const UpdateCaretsHintSet& aHint) {
 
 bool AccessibleCaretManager::IsCaretDisplayableInCursorMode(
     nsIFrame** aOutFrame, int32_t* aOutOffset) const {
-  RefPtr<nsCaret> caret = mPresShell->GetCaret();
-  if (!caret || (!caret->IsVisible() && !mCaretHide)) {
-    return false;
-  }
-
   int32_t offset = 0;
   nsIFrame* frame =
       nsCaret::GetFrameAndOffset(GetSelection(), nullptr, 0, &offset);
 
   if (!frame) {
-    return false;
-  }
-
-  if (!GetEditingHostForFrame(frame)) {
     return false;
   }
 
@@ -263,10 +256,40 @@ bool AccessibleCaretManager::IsCaretDisplayableInCursorMode(
     *aOutOffset = offset;
   }
 
+  // For behavior design of "custom_behavior_with_virtual_cursor", allow for
+  // displaying carets of cursor mode when users are in selection mode, no
+  // limit on editable contents.
+  if (StaticPrefs::
+          layout_accessiblecaret_custom_behavior_with_virtual_cursor_enabled()) {
+    auto* win = mPresShell->GetDocument()->GetWindow();
+    RefPtr<VirtualCursorProxy> virtualcursor =
+        VirtualCursorService::GetCursor(win);
+    if (virtualcursor && virtualcursor->GetSelectionActive()) {
+      return true;
+    }
+  }
+
+  RefPtr<nsCaret> caret = mPresShell->GetCaret();
+  if (!caret || (!caret->IsVisible() && !mCaretHide)) {
+    return false;
+  }
+
+  // For behavior design of "custom_behavior_with_virtual_cursor", don't display
+  // cursor mode carets in editable contents.
+  if (!GetEditingHostForFrame(frame) ||
+      StaticPrefs::
+          layout_accessiblecaret_custom_behavior_with_virtual_cursor_enabled()) {
+    return false;
+  }
+
   return true;
 }
 
 bool AccessibleCaretManager::HasNonEmptyTextContent(nsINode* aNode) const {
+  if (!aNode) {
+    return false;
+  }
+
   return nsContentUtils::HasNonEmptyTextContent(
       aNode, nsContentUtils::eRecurseIntoChildren);
 }
@@ -308,6 +331,22 @@ void AccessibleCaretManager::UpdateCaretsForCursorMode(
             // Do nothing to make the appearance remains None so that it can
             // be distinguished from case 2). Also do not set the appearance
             // to NormalNotShown here like the default update behavior.
+
+            // For behavior design of "custom_behavior_with_virtual_cursor",
+            // display the caret for cursor mode at starting point when users
+            // start but not yet move to make the selection.
+            if (StaticPrefs::
+                    layout_accessiblecaret_custom_behavior_with_virtual_cursor_enabled()) {
+              auto* win = mPresShell->GetDocument()->GetWindow();
+              RefPtr<VirtualCursorProxy> virtualcursor =
+                  VirtualCursorService::GetCursor(win);
+              if (virtualcursor && virtualcursor->GetSelectionActive()) {
+                AC_LOG(
+                    "Display caret in cursor mode for "
+                    "custom_behavior_with_virtual_cursor_enabled");
+                mCarets.GetFirst()->SetAppearance(Appearance::Normal);
+              }
+            }
           }
         } else {
           mCarets.GetFirst()->SetAppearance(Appearance::NormalNotShown);
@@ -1458,7 +1497,9 @@ AccessibleCaretManager::CaretTimeoutMs() const {
 
 void AccessibleCaretManager::LaunchCaretTimeoutTimer() {
   if (!mPresShell || !mCaretTimeoutTimer || CaretTimeoutMs() == 0 ||
-      GetCaretMode() != CaretMode::Cursor || mActiveCaret) {
+      GetCaretMode() != CaretMode::Cursor || mActiveCaret ||
+      StaticPrefs::
+          layout_accessiblecaret_custom_behavior_with_virtual_cursor_enabled()) {
     return;
   }
 

@@ -724,6 +724,10 @@ bool PresShell::AccessibleCaretEnabled(nsIDocShell* aDocShell) {
       dom::TouchEvent::PrefEnabled(aDocShell)) {
     return true;
   }
+  if (StaticPrefs::
+          layout_accessiblecaret_custom_behavior_with_virtual_cursor_enabled()) {
+    return true;
+  }
   // Otherwise, disabled.
   return false;
 }

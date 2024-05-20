@@ -405,7 +405,13 @@ nsEventStatus AccessibleCaretEventHub::HandleEvent(WidgetEvent* aEvent) {
       break;
 
     case eKeyboardEventClass:
-      status = HandleKeyboardEvent(aEvent->AsKeyboardEvent());
+      // For behavior design of "custom_behavior_with_virtual_cursor",
+      // block keyboard events to avoid confusing mouse events simulated
+      // by virtual cursor.
+      if (!StaticPrefs::
+              layout_accessiblecaret_custom_behavior_with_virtual_cursor_enabled()) {
+        status = HandleKeyboardEvent(aEvent->AsKeyboardEvent());
+      }
       break;
 
     default:

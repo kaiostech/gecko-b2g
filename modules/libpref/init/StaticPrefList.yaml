@@ -8296,6 +8296,15 @@
   value: false
   mirror: always
 
+# Enable accessible caret for virtual cursor. If enable this setting, we
+# also need to setup the followings:
+# "layout.accessiblecaret.hide_carets_for_mouse_input" to false
+# "layout.accessiblecaret.script_change_update_mode" to 2
+- name: layout.accessiblecaret.custom_behavior_with_virtual_cursor.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # By default, carets become tilt only when they are overlapping.
 - name: layout.accessiblecaret.always_tilt
   type: bool

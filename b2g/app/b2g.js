@@ -966,6 +966,13 @@ pref("layout.accessiblecaret.transition-duration", "0");
 pref("layout.accessiblecaret.bar.enabled", true);
 pref("layout.accessiblecaret.bar.cursor_enabled", true);
 
+pref("layout.accessiblecaret.custom_behavior_with_virtual_cursor.enabled", true);
+// For behavior design of "custom_behavior_with_virtual_cursor", we use
+// mousemove events to control the selection and show carets during
+// selecting. (2: kScriptAlwaysShow)
+pref("layout.accessiblecaret.hide_carets_for_mouse_input", false);
+pref("layout.accessiblecaret.script_change_update_mode", 2);
+
 // Enable mapped array buffer.
 #ifndef XP_WIN
 pref("dom.mapped_arraybuffer.enabled", true);

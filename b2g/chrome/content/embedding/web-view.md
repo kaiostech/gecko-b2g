@@ -30,6 +30,10 @@ The <web-view> element supports the following attributes:
 - `scrollToTop(smooth = true) : void` : scrolls to the top of the document.
 - `scrollToBottom(smooth = true) : void` : scrolls to the bottom of the document.
 - `stop() : void` : stops the current page loading.
+- `enterSelectionMode() : void` : Switch the virtual cursor to selection mode, virtual cursor must be enabled.
+- `exitSelectionMode() : void` : Exit the virtual cursor from selection mode.
+- `startSelection() : void` : Start selecting contents, virtual cursor must be enabled.
+- `stopSelection() : void` : Stop selecting contents, clear the selection, virtual cursor must be enabled.
 
 ## Properties
 

@@ -1308,7 +1308,7 @@
       if (data.contextmenu) {
         var self = this;
         Cu.exportFunction(
-          function(id) {
+          function (id) {
             self.messageManager.sendAsyncMessage("WebView::fire-ctx-callback", {
               menuitem: id,
             });
@@ -1357,6 +1357,15 @@
         });
         mm.sendAsyncMessage("WebView::GetCursorEnabled", { id });
       });
+    }
+
+    webViewSetSelectionMode(selectionMode) {
+      const mm = this.messageManager;
+      if (!mm) {
+        return;
+      }
+      console.log(`webViewSetSelectionMode: ${selectionMode}`);
+      mm.sendAsyncMessage("WebView::SetSelectionMode", { selectionMode });
     }
 
     webViewDownload(url) {

@@ -198,6 +198,11 @@ WebViewChild.prototype = {
       "WebView::ExecuteScript",
       this.executeScript.bind(this)
     );
+
+    global.addMessageListener(
+      "WebView::SetSelectionMode",
+      this.setSelectionMode.bind(this)
+    );
   },
 
   getBackgroundColor(message) {
@@ -299,6 +304,38 @@ WebViewChild.prototype = {
       content.navigator.b2g.virtualCursor.enable();
     } else {
       content.navigator.b2g.virtualCursor.disable();
+    }
+  },
+
+  setSelectionMode(message) {
+    let selectionMode = message.data.selectionMode;
+    let content = this.global.content;
+    if (
+      !content ||
+      !content.navigator ||
+      !content.navigator.b2g ||
+      !content.navigator.b2g.virtualCursor
+    ) {
+      return;
+    }
+
+    this.log(
+      `setSelectionMode to ${selectionMode}, is cursor enabled? ${content.navigator.b2g.virtualCursor.enabled}`
+    );
+
+    if (selectionMode == "active") {
+      content.navigator.b2g.virtualCursor.enterSelectionMode();
+    } else if (selectionMode == "start") {
+      content.navigator.b2g.virtualCursor.startSelection();
+    } else if (selectionMode == "stop") {
+      content.navigator.b2g.virtualCursor.stopSelection();
+      let selection = content.document.getSelection();
+      if (selection) {
+        selection.empty();
+      }
+    } else {
+      // none
+      content.navigator.b2g.virtualCursor.exitSelectionMode();
     }
   },
 

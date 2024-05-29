@@ -72,10 +72,10 @@ DownloadManager.prototype = {
   getDownloads() {
     DEBUG && debug("getDownloads");
 
-    return new Promise(
-      function(aResolve, aReject) {
+    return this.createPromise(
+      function (aResolve, aReject) {
         DownloadsIPC.getDownloads().then(
-          function(aDownloads) {
+          function (aDownloads) {
             // Turn the list of download objects into DOM objects and
             // send them.
             let array = new this._window.Array();
@@ -85,7 +85,7 @@ DownloadManager.prototype = {
             }
             aResolve(array);
           }.bind(this),
-          function() {
+          function () {
             aReject("GetDownloadsError");
           }
         );
@@ -101,8 +101,8 @@ DownloadManager.prototype = {
 
   remove(aDownload) {
     DEBUG && debug("remove " + aDownload.url + " " + aDownload.id);
-    return new Promise(
-      function(aResolve, aReject) {
+    return this.createPromise(
+      function (aResolve, aReject) {
         if (!downloadsCache.has(this._window, aDownload.id)) {
           DEBUG && debug("no download " + aDownload.id);
           aReject("InvalidDownload");
@@ -110,7 +110,7 @@ DownloadManager.prototype = {
         }
 
         DownloadsIPC.remove(aDownload.id).then(
-          function(aResult) {
+          function (aResult) {
             let dom = getOrCreateDownloadObject(this._window, aResult);
             if (dom.state === "finalized") {
               aResolve(dom);
@@ -134,7 +134,7 @@ DownloadManager.prototype = {
               aResolve(contentDownloadObject);
             }
           }.bind(this),
-          function() {
+          function () {
             aReject("RemoveError");
           }
         );
@@ -147,8 +147,8 @@ DownloadManager.prototype = {
     // We have no object/any types so we do not need to worry about invoking
     // JSON.stringify (and it inheriting our security privileges).
     DEBUG && debug("adoptDownload");
-    return new Promise(
-      function(aResolve, aReject) {
+    return this.createPromise(
+      function (aResolve, aReject) {
         if (!aAdoptDownloadDict) {
           debug("DownloadObject dictionary is required!");
           aReject("InvalidDownload");
@@ -195,11 +195,11 @@ DownloadManager.prototype = {
         };
 
         DownloadsIPC.adoptDownload(jsonDownload).then(
-          function(aResult) {
+          function (aResult) {
             let domDownload = getOrCreateDownloadObject(this._window, aResult);
             aResolve(domDownload);
           }.bind(this),
-          function(aResult) {
+          function (aResult) {
             // This will be one of: AdoptError (generic catch-all),
             // AdoptNoSuchFile, AdoptFileIsDirectory
             aReject(aResult);
@@ -307,8 +307,8 @@ DownloadObject.prototype = {
     DEBUG && debug("DownloadObject pause " + this.id);
     let id = this.id;
     let self = this;
-    return new Promise(function(aResolve, aReject) {
-      DownloadsIPC.pause(id).then(function(aResult) {
+    return this.createPromise(function (aResolve, aReject) {
+      DownloadsIPC.pause(id).then(function (aResult) {
         let domDownload = getOrCreateDownloadObject(self._window, aResult);
         aResolve(domDownload);
       }, aReject);
@@ -319,8 +319,8 @@ DownloadObject.prototype = {
     DEBUG && debug("DownloadObject resume " + this.id);
     let id = this.id;
     let self = this;
-    return new Promise(function(aResolve, aReject) {
-      DownloadsIPC.resume(id).then(function(aResult) {
+    return this.createPromise(function (aResolve, aReject) {
+      DownloadsIPC.resume(id).then(function (aResult) {
         let domDownload = getOrCreateDownloadObject(self._window, aResult);
         aResolve(domDownload);
       }, aReject);
@@ -480,7 +480,7 @@ DownloadObject.prototype = {
           debug("Attempting to infer error via device storage sanity checks.");
         // Get device storage and request availability status.
         let available = storage.available();
-        available.onsuccess = function() {
+        available.onsuccess = function () {
           DEBUG && debug("Storage Status = '" + available.result + "'");
           let inferredError = result;
           switch (available.result) {
@@ -493,7 +493,7 @@ DownloadObject.prototype = {
           }
           this._updateWithError(aDownload, inferredError);
         }.bind(this);
-        available.onerror = function() {
+        available.onerror = function () {
           this._updateWithError(aDownload, result);
         }.bind(this);
       }

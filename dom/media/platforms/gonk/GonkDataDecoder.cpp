@@ -321,6 +321,7 @@ bool GonkDataDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
 void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
                              const sp<RefBase>& aInputInfo, int64_t aTimeUs,
                              uint32_t aFlags) {
+  using android::GonkImageUtils;
   using android::MediaImage2;
 
   auto checkEosOnExit = MakeScopeExit([this, aFlags]() {
@@ -344,60 +345,12 @@ void GonkDataDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
 
   sp<SampleInfo> sampleInfo = static_cast<SampleInfo*>(aInputInfo.get());
   if (IsVideo()) {
-    // See the usage of image-data in MediaCodec_sanity_test.cpp.
-    sp<ABuffer> imgBuf;
-    if (!aBuffer->meta()->findBuffer("image-data", &imgBuf)) {
-      LOGE("%p, failed to find image-data", this);
-      return;
-    }
+    auto image = GonkImageUtils::CreateI420ImageCopy(mImageContainer, aBuffer);
 
-    auto* img = reinterpret_cast<MediaImage2*>(imgBuf->data());
-    if (img->mType != img->MEDIA_IMAGE_TYPE_YUV) {
-      LOGE("%p only support YUV format", this);
-      return;
-    }
-
-    CHECK_EQ(img->mWidth, static_cast<uint32_t>(mVideoOutputFormat.mWidth));
-    CHECK_EQ(img->mHeight, static_cast<uint32_t>(mVideoOutputFormat.mHeight));
-    CHECK_EQ(img->mPlane[img->Y].mRowInc, mVideoOutputFormat.mStride);
-
-    VideoData::YCbCrBuffer yuv;
-    const static int srcIndices[] = {MediaImage2::Y, MediaImage2::U,
-                                     MediaImage2::V};
-    for (int i = 0; i < 3; i++) {
-      auto& dstPlane = yuv.mPlanes[i];
-      auto& srcPlane = img->mPlane[srcIndices[i]];
-      CHECK_GE(srcPlane.mHorizSubsampling, 1u);
-      CHECK_GE(srcPlane.mVertSubsampling, 1u);
-      CHECK_GE(srcPlane.mColInc, 1);
-      dstPlane.mData = aBuffer->data() + srcPlane.mOffset;
-      dstPlane.mWidth = img->mWidth / srcPlane.mHorizSubsampling;
-      dstPlane.mHeight = img->mHeight / srcPlane.mVertSubsampling;
-      dstPlane.mStride = srcPlane.mRowInc;
-      dstPlane.mSkip = srcPlane.mColInc - 1;
-    }
-
-    auto uSubsampling = std::make_pair(img->mPlane[img->U].mHorizSubsampling,
-                                       img->mPlane[img->U].mVertSubsampling);
-    auto vSubsampling = std::make_pair(img->mPlane[img->V].mHorizSubsampling,
-                                       img->mPlane[img->V].mVertSubsampling);
-    CHECK(uSubsampling == vSubsampling);
-    if (uSubsampling == std::make_pair(1u, 1u)) {
-      yuv.mChromaSubsampling = gfx::ChromaSubsampling::FULL;
-    } else if (uSubsampling == std::make_pair(2u, 1u)) {
-      yuv.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH;
-    } else if (uSubsampling == std::make_pair(2u, 2u)) {
-      yuv.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-    } else {
-      TRESPASS();
-    }
-    yuv.mYUVColorSpace = gfx::YUVColorSpace::Default;
-
-    RefPtr<MediaData> data = VideoData::CreateAndCopyData(
-        *mConfig->GetAsVideoInfo(), mImageContainer, sampleInfo->mOffset,
-        media::TimeUnit::FromMicroseconds(aTimeUs), sampleInfo->mDuration, yuv,
-        sampleInfo->mKeyframe, sampleInfo->mTimecode, mVideoOutputFormat.mCrop,
-        mImageAllocator);
+    RefPtr<MediaData> data = VideoData::CreateFromImage(
+        mConfig->GetAsVideoInfo()->mDisplay, sampleInfo->mOffset,
+        media::TimeUnit::FromMicroseconds(aTimeUs), sampleInfo->mDuration,
+        image, sampleInfo->mKeyframe, sampleInfo->mTimecode);
 
     mOutputQueue.Push(data);
   } else {

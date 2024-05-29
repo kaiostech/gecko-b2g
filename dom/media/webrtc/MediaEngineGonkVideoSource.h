@@ -9,7 +9,6 @@
 #include "MediaEngineCameraVideoSource.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Hal.h"
-#include "mozilla/layers/TextureClientRecycleAllocator.h"
 
 namespace mozilla {
 
@@ -48,16 +47,6 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource {
   void UpdateScreenConfiguration(int aOrientationAngle,
                                  hal::ScreenOrientation aOrientationType);
 
-  already_AddRefed<layers::Image> CreateI420GrallocImage(uint32_t aWidth,
-                                                         uint32_t aHeight);
-
-  already_AddRefed<layers::Image> CreateI420PlanarYCbCrImage(uint32_t aWidth,
-                                                             uint32_t aHeight);
-
-  already_AddRefed<layers::Image> RotateImage(layers::Image* aImage,
-                                              uint32_t aWidth,
-                                              uint32_t aHeight);
-
   nsCString mDeviceName;
 
   // mMutex protects certain members on 3 threads:
@@ -93,8 +82,6 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource {
   Atomic<int> mRotation;
 
   mutable nsTArray<webrtc::CaptureCapability> mHardcodedCapabilities;
-
-  RefPtr<layers::TextureClientRecycleAllocator> mTextureClientAllocator;
 
   RefPtr<ScreenObserver> mScreenObserver;
 

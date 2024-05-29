@@ -4,14 +4,11 @@
 #include "MediaEngineGonkVideoSource.h"
 
 #include "CameraControlListener.h"
-#include "gfxPlatform.h"
-#include "GrallocImages.h"
-#include "libyuv.h"
+#include "GonkMediaUtils.h"
 #include "mozilla/dom/MediaTrackSettingsBinding.h"
 #include "mozilla/ErrorNames.h"
-#include "mozilla/layers/GrallocTextureClient.h"
-#include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/ReentrantMonitor.h"
+#include "mozilla/Services.h"
 #include "mozilla/widget/ScreenManager.h"
 #include "nsIObserverService.h"
 #include "ScreenOrientation.h"
@@ -484,18 +481,14 @@ nsresult MediaEngineGonkVideoSource::Deallocate() {
 
   {
     MutexAutoLock lock(mMutex);
-
     mTrack = nullptr;
     mPrincipal = PRINCIPAL_HANDLE_NONE;
     mState = kReleased;
   }
 
-  mTextureClientAllocator = nullptr;
   mImageContainer = nullptr;
-
   mScreenObserver->Shutdown();
   mScreenObserver = nullptr;
-
   mWrapper->Deallocate();
   mWrapper = nullptr;
 
@@ -633,15 +626,6 @@ void MediaEngineGonkVideoSource::SetTrack(const RefPtr<MediaTrack>& aTrack,
   MOZ_ASSERT(!mTrack);
   MOZ_ASSERT(aTrack);
 
-  // If WebRender pref is disabled, we can't allocate gralloc texture on our
-  // own. In that case, we don't need to create TextureClient allocator.
-  if (gfxPlatform::WebRenderPrefEnabled() && !mTextureClientAllocator) {
-    RefPtr<layers::ImageBridgeChild> bridge =
-        layers::ImageBridgeChild::GetSingleton();
-    mTextureClientAllocator = new layers::TextureClientRecycleAllocator(bridge);
-    mTextureClientAllocator->SetMaxPoolSize(10);
-  }
-
   if (!mImageContainer) {
     mImageContainer =
         MakeAndAddRef<ImageContainer>(ImageContainer::ASYNCHRONOUS);
@@ -704,242 +688,21 @@ nsresult MediaEngineGonkVideoSource::TakePhoto(
   return mWrapper->TakePhoto(aCallback);
 }
 
-// When supporting new pixel formats, make sure they are handled in
-// |ConvertPixelFormatToFOURCC()|, |IsYUVFormat()| and |ConvertYUVToI420()|.
-static uint32_t ConvertPixelFormatToFOURCC(android::PixelFormat aFormat) {
-  switch (aFormat) {
-    case HAL_PIXEL_FORMAT_RGBA_8888:
-      return libyuv::FOURCC_BGRA;
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-#ifdef PRODUCT_MANUFACTURER_SPRD
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-#endif
-      return libyuv::FOURCC_NV21;
-    case HAL_PIXEL_FORMAT_YV12:
-      return libyuv::FOURCC_YV12;
-    default: {
-      LOG("Unknown pixel format %d", aFormat);
-      MOZ_ASSERT(false, "Unknown pixel format.");
-      return libyuv::FOURCC_ANY;
-    }
-  }
-}
-
-static bool IsYUVFormat(android::PixelFormat aFormat) {
-  switch (aFormat) {
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-#ifdef PRODUCT_MANUFACTURER_SPRD
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-#endif
-    case HAL_PIXEL_FORMAT_YV12:
-      return true;
-    default:
-      return false;
-  }
-}
-
-// For YUV source, call speciallized libyuv rotate API to handle pixel alignment
-// properly. For example, some devices may have a Y plane with 64-pixel
-// alignment, so it's necessary to specify the address of each plane separately,
-// but the high level API |libyuv::ConvertToI420()| doesn't support it.
-static int ConvertYUVToI420(android_ycbcr& aSrcYUV, android_ycbcr& aDstYUV,
-                            int aSrcWidth, int aSrcHeight, int aSrcStride,
-                            android::PixelFormat aSrcFormat, int aRotation) {
-  switch (aSrcFormat) {
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-#ifdef PRODUCT_MANUFACTURER_SPRD
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-#endif
-      // NV21, but call NV12 rotate API with destination U plane and V plane
-      // swapped. Note that for this format, |aSrcYUV.cr| is the starting
-      // address of source UV plane, and |aSrcYUV.cr| + 1 == |aSrcYUV.cb|.
-      // clang-format off
-      return libyuv::NV12ToI420Rotate(
-          static_cast<uint8_t*>(aSrcYUV.y),  static_cast<int>(aSrcYUV.ystride),
-          static_cast<uint8_t*>(aSrcYUV.cr), static_cast<int>(aSrcYUV.cstride),
-          static_cast<uint8_t*>(aDstYUV.y),  static_cast<int>(aDstYUV.ystride),
-          static_cast<uint8_t*>(aDstYUV.cr), static_cast<int>(aDstYUV.cstride),
-          static_cast<uint8_t*>(aDstYUV.cb), static_cast<int>(aDstYUV.cstride),
-          aSrcWidth, aSrcHeight, static_cast<libyuv::RotationMode>(aRotation));
-      // clang-format on
-    case HAL_PIXEL_FORMAT_YV12:
-      // clang-format off
-      return libyuv::I420Rotate(
-          static_cast<uint8_t*>(aSrcYUV.y),  static_cast<int>(aSrcYUV.ystride),
-          static_cast<uint8_t*>(aSrcYUV.cb), static_cast<int>(aSrcYUV.cstride),
-          static_cast<uint8_t*>(aSrcYUV.cr), static_cast<int>(aSrcYUV.cstride),
-          static_cast<uint8_t*>(aDstYUV.y),  static_cast<int>(aDstYUV.ystride),
-          static_cast<uint8_t*>(aDstYUV.cb), static_cast<int>(aDstYUV.cstride),
-          static_cast<uint8_t*>(aDstYUV.cr), static_cast<int>(aDstYUV.cstride),
-          aSrcWidth, aSrcHeight, static_cast<libyuv::RotationMode>(aRotation));
-      // clang-format on
-    default:
-      LOG("Unknown YUV format %d", aSrcFormat);
-      MOZ_ASSERT(false, "Unknown YUV format.");
-      return -1;
-  }
-}
-
-static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer, android_ycbcr& aDstYUV,
-                        int aRotation) {
-  int ret = -1;
-  android::PixelFormat srcFormat = aSrcBuffer->getPixelFormat();
-  if (IsYUVFormat(srcFormat)) {
-    // Specialized path that handles source YUV alignment more properly.
-    android_ycbcr srcYUV = {};
-    aSrcBuffer->lockYCbCr(GraphicBuffer::USAGE_SW_READ_MASK, &srcYUV);
-    ret = ConvertYUVToI420(srcYUV, aDstYUV, aSrcBuffer->getWidth(),
-                           aSrcBuffer->getHeight(), aSrcBuffer->getStride(),
-                           srcFormat, aRotation);
-  } else {
-    // Generalized path that calls libyuv's high level API.
-    void* srcAddr = nullptr;
-    aSrcBuffer->lock(GraphicBuffer::USAGE_SW_READ_MASK, &srcAddr);
-    int srcWidth = aSrcBuffer->getWidth();
-    int srcHeight = aSrcBuffer->getHeight();
-    int srcStride = aSrcBuffer->getStride();
-    // clang-format off
-    ret = libyuv::ConvertToI420(
-        static_cast<uint8_t*>(srcAddr), 0,
-        static_cast<uint8_t*>(aDstYUV.y),  static_cast<int>(aDstYUV.ystride),
-        static_cast<uint8_t*>(aDstYUV.cb), static_cast<int>(aDstYUV.cstride),
-        static_cast<uint8_t*>(aDstYUV.cr), static_cast<int>(aDstYUV.cstride),
-        0, 0, srcStride, srcHeight, srcWidth, srcHeight,
-        static_cast<libyuv::RotationMode>(aRotation),
-        ConvertPixelFormatToFOURCC(srcFormat));
-    // clang-format on
-  }
-  aSrcBuffer->unlock();
-  return ret;
-}
-
-static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
-                        sp<GraphicBuffer> aDstBuffer, int aRotation) {
-  android_ycbcr dstYUV = {};
-  aDstBuffer->lockYCbCr(GraphicBuffer::USAGE_SW_WRITE_OFTEN, &dstYUV);
-  int ret = RotateBuffer(aSrcBuffer, dstYUV, aRotation);
-  aDstBuffer->unlock();
-  return ret;
-}
-
-static int RotateBuffer(sp<GraphicBuffer> aSrcBuffer,
-                        layers::MappedYCbCrTextureData& aDstBuffer,
-                        int aRotation) {
-  android_ycbcr dstYUV = {.y = aDstBuffer.y.data,
-                          .cb = aDstBuffer.cb.data,
-                          .cr = aDstBuffer.cr.data,
-                          .ystride = static_cast<size_t>(aDstBuffer.y.stride),
-                          .cstride = static_cast<size_t>(aDstBuffer.cb.stride),
-                          .chroma_step = 1};
-
-  return RotateBuffer(aSrcBuffer, dstYUV, aRotation);
-}
-
-already_AddRefed<layers::Image>
-MediaEngineGonkVideoSource::CreateI420GrallocImage(uint32_t aWidth,
-                                                   uint32_t aHeight) {
-  if (!mTextureClientAllocator) {
-    return nullptr;
-  }
-
-  RefPtr<layers::TextureClient> textureClient =
-      mTextureClientAllocator->CreateOrRecycle(
-          gfx::SurfaceFormat::YUV, IntSize(aWidth, aHeight),
-          layers::BackendSelector::Content, layers::TextureFlags::DEFAULT,
-          layers::ALLOC_DISALLOW_BUFFERTEXTURECLIENT);
-  if (!textureClient) {
-    return nullptr;
-  }
-
-  if (!textureClient->GetInternalData()->AsGrallocTextureData()) {
-    return nullptr;
-  }
-
-  RefPtr<layers::GrallocImage> image = new layers::GrallocImage();
-  image->AdoptData(textureClient, IntSize(aWidth, aHeight));
-  return image.forget();
-}
-
-already_AddRefed<layers::Image>
-MediaEngineGonkVideoSource::CreateI420PlanarYCbCrImage(uint32_t aWidth,
-                                                       uint32_t aHeight) {
-  if (!mImageContainer) {
-    return nullptr;
-  }
-
-  RefPtr<layers::PlanarYCbCrImage> image =
-      mImageContainer->CreatePlanarYCbCrImage();
-  if (!image) {
-    return nullptr;
-  }
-
-  auto ySize = IntSize(aWidth, aHeight);
-  auto uvSize = IntSize((aWidth + 1) / 2, (aHeight + 1) / 2);
-
-  layers::PlanarYCbCrData data;
-  data.mYStride = ySize.Width();
-  data.mCbCrStride = uvSize.Width();
-  data.mPictureRect = IntRect(0, 0, aWidth, aHeight);
-  data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-  data.mColorDepth = gfx::ColorDepth::COLOR_8;
-  if (!image->CreateEmptyBuffer(data, ySize, uvSize)) {
-    return nullptr;
-  }
-  return image.forget();
-}
-
-// Rotate the source image and convert it to I420 format, which is mandatory in
-// WebRTC library.
-already_AddRefed<layers::Image> MediaEngineGonkVideoSource::RotateImage(
-    layers::Image* aImage, uint32_t aWidth, uint32_t aHeight) {
-  sp<GraphicBuffer> srcBuffer = aImage->AsGrallocImage()->GetGraphicBuffer();
-
-  uint32_t dstWidth = aWidth;
-  uint32_t dstHeight = aHeight;
-  int rotation = mRotation;
-  if (rotation == 90 || rotation == 270) {
-    std::swap(dstWidth, dstHeight);
-  }
-
-  RefPtr<layers::Image> image;
-  if ((image = CreateI420GrallocImage(dstWidth, dstHeight))) {
-    sp<GraphicBuffer> dstBuffer = image->AsGrallocImage()->GetGraphicBuffer();
-    if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
-      return nullptr;
-    }
-  } else if ((image = CreateI420PlanarYCbCrImage(dstWidth, dstHeight))) {
-    RefPtr<layers::TextureClient> textureClient =
-        image->GetTextureClient(nullptr);
-
-    layers::TextureClientAutoLock autoLock(textureClient,
-                                           layers::OpenMode::OPEN_WRITE_ONLY);
-    if (!autoLock.Succeeded()) {
-      return nullptr;
-    }
-
-    layers::MappedYCbCrTextureData dstBuffer;
-    if (!textureClient->BorrowMappedYCbCrData(dstBuffer)) {
-      return nullptr;
-    }
-
-    if (RotateBuffer(srcBuffer, dstBuffer, rotation) == -1) {
-      return nullptr;
-    }
-
-    textureClient->MarkImmutable();
-  }
-  return image.forget();
-}
-
 // CameraControlWrapper is holding mMonitor, so be careful with mutex locking.
 bool MediaEngineGonkVideoSource::OnNewPreviewFrame(layers::Image* aImage,
                                                    uint32_t aWidth,
                                                    uint32_t aHeight) {
-  // Bug XXX we'd prefer to avoid converting if mRotation == 0, but that causes
-  // problems in UpdateImage()
-  RefPtr<layers::Image> rotatedImage = RotateImage(aImage, aWidth, aHeight);
-  IntSize rotatedSize = rotatedImage->GetSize();
+  using android::GonkImageUtils;
+  using layers::Image;
 
+  RefPtr<Image> rotatedImage = GonkImageUtils::CreateI420ImageCopy(
+      mImageContainer, RefPtr<Image>(aImage), mRotation);
+  if (!rotatedImage) {
+    LOG("Failed to create rotated I420 image");
+    return true;
+  }
+
+  IntSize rotatedSize = rotatedImage->GetSize();
   if (mImageSize != rotatedSize) {
     NS_DispatchToMainThread(NS_NewRunnableFunction(
         "MediaEngineGonkVideoSource::FrameSizeChange",

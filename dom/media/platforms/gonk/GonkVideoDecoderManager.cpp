@@ -8,9 +8,7 @@
 #include <gui/Surface.h>
 #include "GonkMediaUtils.h"
 #include "GonkVideoDecoderManager.h"
-#include "GrallocImages.h"
 #include "ImageContainer.h"
-#include "libyuv.h"
 #include "VideoUtils.h"
 #include "nsThreadUtils.h"
 #include "mozilla/Logging.h"
@@ -231,60 +229,6 @@ nsresult GonkVideoDecoderManager::CreateVideoData(
   return NS_OK;
 }
 
-static void CopyGraphicBuffer(sp<GraphicBuffer>& aSrc,
-                              sp<GraphicBuffer>& aDst) {
-  android_ycbcr srcYCbCr = {}, dstYCbCr = {};
-  aSrc->lockYCbCr(GraphicBuffer::USAGE_SW_READ_OFTEN, &srcYCbCr);
-  aDst->lockYCbCr(GraphicBuffer::USAGE_SW_WRITE_OFTEN, &dstYCbCr);
-
-  auto width = aSrc->getWidth();
-  auto height = aSrc->getHeight();
-  auto cWidth = (width + 1) / 2;
-  auto cHeight = (height + 1) / 2;
-
-  switch (aSrc->getPixelFormat()) {
-    case HAL_PIXEL_FORMAT_YV12:
-      libyuv::I420Copy(static_cast<uint8_t*>(srcYCbCr.y), srcYCbCr.ystride,
-                       static_cast<uint8_t*>(srcYCbCr.cb), srcYCbCr.cstride,
-                       static_cast<uint8_t*>(srcYCbCr.cr), srcYCbCr.cstride,
-                       static_cast<uint8_t*>(dstYCbCr.y), dstYCbCr.ystride,
-                       static_cast<uint8_t*>(dstYCbCr.cb), dstYCbCr.cstride,
-                       static_cast<uint8_t*>(dstYCbCr.cr), dstYCbCr.cstride,
-                       width, height);
-      break;
-
-    case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP:
-    case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
-      // TODO: call libyuv::NV12Copy() after libyuv is updated
-      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.y), srcYCbCr.ystride,
-                        static_cast<uint8_t*>(dstYCbCr.y), dstYCbCr.ystride,
-                        width, height);
-      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.cb), srcYCbCr.cstride,
-                        static_cast<uint8_t*>(dstYCbCr.cb), dstYCbCr.cstride,
-                        cWidth * 2, cHeight);
-      break;
-
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-      // TODO: call libyuv::NV21Copy() after libyuv is updated
-      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.y), srcYCbCr.ystride,
-                        static_cast<uint8_t*>(dstYCbCr.y), dstYCbCr.ystride,
-                        width, height);
-      libyuv::CopyPlane(static_cast<uint8_t*>(srcYCbCr.cr), srcYCbCr.cstride,
-                        static_cast<uint8_t*>(dstYCbCr.cr), dstYCbCr.cstride,
-                        cWidth * 2, cHeight);
-      break;
-
-    default:
-      LOGE_STATIC(
-          "Unsupported input gralloc image type. Should never be here. "
-          "PixelFormat: 0x%08x",
-          aSrc->getPixelFormat());
-  }
-
-  aSrc->unlock();
-  aDst->unlock();
-}
-
 already_AddRefed<VideoData>
 GonkVideoDecoderManager::CreateVideoDataFromGraphicBuffer(
     const sp<SimpleMediaBuffer>& aSource, gfx::IntRect& aPicture) {
@@ -321,7 +265,7 @@ GonkVideoDecoderManager::CreateVideoDataFromGraphicBuffer(
         static_cast<GrallocTextureData*>(textureClient->GetInternalData())
             ->GetGraphicBuffer();
 
-    CopyGraphicBuffer(srcBuffer, destBuffer);
+    GonkImageUtils::CopyImage(srcBuffer, destBuffer);
   } else {
     textureClient = mNativeWindow->getTextureClientFromBuffer(srcBuffer.get());
     textureClient->SetRecycleCallback(GonkVideoDecoderManager::RecycleCallback,

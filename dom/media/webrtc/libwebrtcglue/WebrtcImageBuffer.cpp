@@ -5,61 +5,32 @@
 #include "WebrtcImageBuffer.h"
 
 #ifdef MOZ_WIDGET_GONK
-#  include "GrallocImages.h"
+#  include "GonkMediaUtils.h"
 #endif
 
 namespace mozilla {
 
 #ifdef MOZ_WIDGET_GONK
-namespace {
-
-class GraphicBufferHolder : public rtc::RefCountInterface {
- public:
-  GraphicBufferHolder(android::sp<android::GraphicBuffer> aGraphicBuffer)
-      : mGraphicBuffer(aGraphicBuffer) {}
-
- protected:
-  ~GraphicBufferHolder() {
-    if (mGraphicBuffer) {
-      mGraphicBuffer->unlock();
-    }
-  }
-
- private:
-  android::sp<android::GraphicBuffer> mGraphicBuffer;
-};
-
-}  // anonymous namespace
-
 rtc::scoped_refptr<webrtc::I420BufferInterface> ImageBuffer::GrallocToI420() {
-  RefPtr<layers::GrallocImage> grallocImage = mImage->AsGrallocImage();
-  MOZ_ASSERT(grallocImage);
+  using android::GonkImageHandle;
 
-  android::sp<android::GraphicBuffer> graphicBuffer =
-      grallocImage->GetGraphicBuffer();
-  auto pixelFormat = graphicBuffer->getPixelFormat();
-  MOZ_ASSERT(pixelFormat == HAL_PIXEL_FORMAT_YV12);
-  if (pixelFormat != HAL_PIXEL_FORMAT_YV12) {
+  auto handle = GonkImageHandle::From(mImage);
+  if (!handle) {
     return nullptr;
   }
-
-  android_ycbcr ycbcr = {};
-  auto status = graphicBuffer->lockYCbCr(
-      android::GraphicBuffer::USAGE_SW_READ_MASK, &ycbcr);
-  if (status != android::OK) {
+  if (handle->Format() != GonkImageHandle::ColorFormat::I420) {
+    // TODO: support other formats.
     return nullptr;
   }
-
-  rtc::scoped_refptr<GraphicBufferHolder> holder(
-      new rtc::RefCountedObject<GraphicBufferHolder>(graphicBuffer));
-  MOZ_ASSERT(ycbcr.chroma_step == 1);
-
-  return webrtc::WrapI420Buffer(graphicBuffer->getWidth(),
-                                graphicBuffer->getHeight(),
-                                static_cast<uint8_t*>(ycbcr.y), ycbcr.ystride,
-                                static_cast<uint8_t*>(ycbcr.cb), ycbcr.cstride,
-                                static_cast<uint8_t*>(ycbcr.cr), ycbcr.cstride,
-                                [holder] { /* keep reference alive*/ });
+  // clang-format off
+  return webrtc::WrapI420Buffer(
+      static_cast<int>(handle->Width()),
+      static_cast<int>(handle->Height()),
+      handle->Data(0), static_cast<int>(handle->Stride(0)),
+      handle->Data(1), static_cast<int>(handle->Stride(1)),
+      handle->Data(2), static_cast<int>(handle->Stride(2)),
+      [handle] { /* keep reference alive*/ });
+  // clang-format on
 }
 #endif
 

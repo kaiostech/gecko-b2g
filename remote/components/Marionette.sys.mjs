@@ -11,8 +11,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   EnvironmentPrefs: "chrome://remote/content/marionette/prefs.sys.mjs",
   Log: "chrome://remote/content/shared/Log.sys.mjs",
   MarionettePrefs: "chrome://remote/content/marionette/prefs.sys.mjs",
-  RecommendedPreferences:
-    "chrome://remote/content/shared/RecommendedPreferences.sys.mjs",
+  // RecommendedPreferences:
+  //   "chrome://remote/content/shared/RecommendedPreferences.sys.mjs",
   TCPListener: "chrome://remote/content/marionette/server.sys.mjs",
 });
 
@@ -44,10 +44,11 @@ const ENV_PRESERVE_PREFS = "MOZ_MARIONETTE_PREF_STATE_ACROSS_RESTARTS";
 
 // Map of Marionette-specific preferences that should be set via
 // RecommendedPreferences.
-const RECOMMENDED_PREFS = new Map([
-  // Automatically unload beforeunload alerts
-  ["dom.disable_beforeunload", true],
-]);
+// This will lead to keyboard no response issue, so we disable it.
+// const RECOMMENDED_PREFS = new Map([
+//   // Automatically unload beforeunload alerts
+//   ["dom.disable_beforeunload", true],
+// ]);
 
 const isRemote =
   Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT;
@@ -149,7 +150,8 @@ class MarionetteParentProcess {
             Services.obs.addObserver(this, "domwindowopened");
           }
 
-          lazy.RecommendedPreferences.applyPreferences(RECOMMENDED_PREFS);
+          // This will lead to keyboard no response issue, so we disable it.
+          // lazy.RecommendedPreferences.applyPreferences(RECOMMENDED_PREFS);
 
           // Only set preferences to preserve in a new profile
           // when Marionette is enabled.

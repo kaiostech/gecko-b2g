@@ -461,8 +461,8 @@ GeckoDriver.prototype.newSession = async function (cmd) {
         if (lazy.AppInfo.isB2G) {
           this.switchToSystemWindow();
         } else {
-          const browsingContext = this.curBrowser.contentBrowser
-            .browsingContext;
+          const browsingContext =
+            this.curBrowser.contentBrowser.browsingContext;
           this.currentSession.contentBrowsingContext = browsingContext;
 
           // Bug 1838381 - Only use a longer unload timeout for desktop, because
@@ -1128,7 +1128,7 @@ GeckoDriver.prototype.getWindowRect = async function () {
  * @throws {UnsupportedOperationError}
  *     Not applicable to application.
  */
-GeckoDriver.prototype.setWindowRect = async function(cmd) {
+GeckoDriver.prototype.setWindowRect = async function (cmd) {
   if (lazy.AppInfo.isB2G) {
     lazy.assert.b2g();
     await this.switchToMarionetteWindow();
@@ -1216,20 +1216,22 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
 /**
  * Only for B2G, switch working browsing context to System app.
  */
-GeckoDriver.prototype.switchToSystemWindow = async function() {
+GeckoDriver.prototype.switchToSystemWindow = async function () {
   lazy.assert.b2g();
   await this.b2gLoaded;
   let systemAppUrl = Services.prefs.getCharPref("b2g.system_startup_url");
-  const found = lazy.windowManager.findWindowByOrigin(new URL(systemAppUrl).origin);
+  const found = lazy.windowManager.findWindowByOrigin(
+    new URL(systemAppUrl).origin
+  );
   if (found) {
     const focus = false;
     await this.setWindowHandle(found, focus);
     return this.curBrowser.contentBrowser.browsingContext.id;
   }
-  throw new error.NoSuchWindowError(`Unable to locate system app window`);
+  throw new lazy.error.NoSuchWindowError(`Unable to locate system app window`);
 };
 
-GeckoDriver.prototype.switchToMarionetteWindow = async function() {
+GeckoDriver.prototype.switchToMarionetteWindow = async function () {
   lazy.assert.b2g();
   await this.b2gLoaded;
 
@@ -1240,7 +1242,7 @@ GeckoDriver.prototype.switchToMarionetteWindow = async function() {
     await this.setWindowHandle(found, focus);
     return this.curBrowser.contentBrowser.browsingContext.id;
   }
-  throw new error.NoSuchWindowError(`Unable to locate marionette window`);
+  throw new lazy.error.NoSuchWindowError(`Unable to locate marionette window`);
 };
 
 /**
@@ -1264,7 +1266,7 @@ GeckoDriver.prototype.switchToMarionetteWindow = async function() {
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
  */
-GeckoDriver.prototype.switchToWindow = async function(cmd) {
+GeckoDriver.prototype.switchToWindow = async function (cmd) {
   let focus = true;
   if (!lazy.AppInfo.isB2G && typeof cmd.parameters.focus != "undefined") {
     focus = lazy.assert.boolean(
@@ -3257,11 +3259,15 @@ GeckoDriver.prototype.print = async function (cmd) {
  * Import script to the Script Storage of GeckoDriver.
  * Scripts can be cleared with the {@code clearImportedScripts} command.
  *
- * @param {string} script
+ * @param {object} cmd
+ *     Command object.
+ * @param {string} cmd.parameters.script
  *     Script to include. If the script is byte-by-byte equal to an
  *     existing imported script, it is not imported.
+ * @param {object} resp
+ *     Response object to store the imported script.
  */
-GeckoDriver.prototype.importScript = function(cmd, resp) {
+GeckoDriver.prototype.importScript = function (cmd, resp) {
   let script = cmd.parameters.script;
   this.importedScripts.add(script);
 };
@@ -3270,7 +3276,7 @@ GeckoDriver.prototype.importScript = function(cmd, resp) {
  * Clear all scripts that are imported into the Script Storage of GeckoDriver.
  * Scripts can be imported using the {@code importScript} command.
  */
-GeckoDriver.prototype.clearImportedScripts = function(cmd, resp) {
+GeckoDriver.prototype.clearImportedScripts = function (cmd, resp) {
   this.importedScripts.clear();
 };
 

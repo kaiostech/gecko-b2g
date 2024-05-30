@@ -229,7 +229,7 @@ browser.Context = class {
     let tabClosed;
     let promises;
 
-    if (lazy.AppInfo.isAndroid) {
+    if (lazy.AppInfo.isAndroid && !lazy.AppInfo.isB2G) {
       lazy.TabManager.removeTab(this.tab);
     } else if (lazy.AppInfo.isFirefox) {
       tabClosed = new lazy.EventPromise(this.tab, "TabClose");
@@ -256,7 +256,7 @@ browser.Context = class {
 
     // Bug 1795841 - For Firefox the TabManager cannot be used yet. As such
     // handle opening a tab differently for Android.
-    if (lazy.AppInfo.isAndroid) {
+    if (lazy.AppInfo.isAndroid && !lazy.AppInfo.isB2G) {
       tab = await lazy.TabManager.addTab({ focus, window: this.window });
     } else if (lazy.AppInfo.isFirefox) {
       const opened = new lazy.EventPromise(this.window, "TabOpen");

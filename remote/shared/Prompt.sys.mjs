@@ -46,7 +46,7 @@ modal.findPrompt = function (context) {
     }
   }
 
-  if (lazy.AppInfo.isAndroid) {
+  if (lazy.AppInfo.isAndroid && !lazy.AppInfo.isB2G) {
     const geckoViewPrompts = context.window.prompts();
     if (geckoViewPrompts.length) {
       lazy.logger.trace("Found open GeckoView prompt");

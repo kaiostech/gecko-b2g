@@ -122,7 +122,7 @@ class TabManagerClass {
    *     Tab browser or null if it's not a browser window.
    */
   getTabBrowser(win) {
-    if (lazy.AppInfo.isAndroid) {
+    if (lazy.AppInfo.isAndroid && !lazy.AppInfo.isB2G) {
       return new lazy.MobileTabBrowser(win);
     } else if (lazy.AppInfo.isB2G) {
       return win?.MarionetteHelper;
@@ -416,7 +416,7 @@ class TabManagerClass {
     const ownerWindow = this.getWindowForTab(tab);
     const tabBrowser = this.getTabBrowser(ownerWindow);
 
-    if  (!tabBrowser) {
+    if (!tabBrowser) {
       return Promise.reject();
     }
 

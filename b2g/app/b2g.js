@@ -297,6 +297,8 @@ pref("layers.async-pan-zoom.enabled", true);
 // Web Notifications
 pref("notification.feature.enabled", true);
 
+pref("media.autoplay.default", 0);
+
 // prevent video elements from preloading too much data
 pref("media.preload.default", 1); // default to preload none
 pref("media.preload.auto", 2);    // preload metadata if preload=auto

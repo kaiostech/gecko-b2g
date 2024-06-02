@@ -105,10 +105,6 @@
 #  include "VideoEngine.h"
 #endif
 
-#ifdef MOZ_WIDGET_GONK
-#  include "GonkVideoCodec.h"
-#endif
-
 // for ntohs
 #ifdef _MSC_VER
 #  include "Winsock2.h"

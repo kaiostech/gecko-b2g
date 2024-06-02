@@ -4,27 +4,24 @@
 
 #include "WebrtcGonkVideoCodec.h"
 
-#include <binder/ProcessState.h>
-#include <gui/Surface.h>
-#include <media/MediaCodecBuffer.h>
-#include <media/stagefright/foundation/ABuffer.h>
-#include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/MediaCodecConstants.h>
 #include <mediadrm/ICrypto.h>
-#include <OMX_IVCommon.h>
 
-#include "GonkBufferQueueProducer.h"
+#include "GonkMediaCodec.h"
 #include "GrallocImages.h"
-#include "libyuv.h"
+#include "ImageContainer.h"
+#include "mozilla/layers/TextureClient.h"
+#include "TimeUnits.h"
 #include "WebrtcImageBuffer.h"
 
-#if defined(PRODUCT_MANUFACTURER_MTK)
-#  define WEBRTC_OMX_MIN_DECODE_BUFFERS 4
-#else
-#  define WEBRTC_OMX_MIN_DECODE_BUFFERS 10
-#endif
+#include "api/video_codecs/h264_profile_level_id.h"
+#include "media/base/media_constants.h"
+#include "modules/video_coding/utility/vp8_header_parser.h"
+#include "modules/video_coding/utility/vp9_uncompressed_header_parser.h"
 
 namespace android {
 
+#undef LOG
 #undef LOGE
 #undef LOGW
 #undef LOGI
@@ -38,751 +35,717 @@ static mozilla::LazyLogModule sCodecLog("WebrtcGonkVideoCodec");
 #define LOGD(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 #define LOGV(...) MOZ_LOG(sCodecLog, mozilla::LogLevel::Verbose, (__VA_ARGS__))
 
-static inline bool IsVerboseLoggingEnabled() {
-  const mozilla::LogModule* logModule = sCodecLog;
-  return MOZ_LOG_TEST(logModule, mozilla::LogLevel::Verbose);
+static std::string GenerateLogTag(void* aOwner, const std::string& aName,
+                                  bool aEncoder) {
+  std::stringstream ss;
+  ss << aOwner << " [" << aName << "/" << (aEncoder ? "Enc" : "Dec") << "]";
+  return ss.str();
 }
 
-static std::vector<std::string> SplitMultilineString(const std::string& aStr) {
-  std::vector<std::string> lines;
-  std::string::size_type begin = 0, end;
-  while ((end = aStr.find('\n', begin)) != std::string::npos) {
-    lines.push_back(aStr.substr(begin, end - begin));
-    begin = end + 1;
-  }
-  lines.push_back(aStr.substr(begin));
-  return lines;
-}
-
-struct FrameInfo : public RefBase {
-  bool mIsCodecConfig = false;
-  uint32_t mWidth = 0;
-  uint32_t mHeight = 0;
-  uint32_t mTimestamp = 0;
-  int64_t mTimestampUs = 0;
-  int64_t mRenderTimeMs = 0;
-
-  // Debug info
-  int64_t mInputTimeNs = 0;
-  ANativeWindowBuffer* mNativeBuffer = 0;
-};
-
-void FrameInfoQueue::SetOwner(void* aOwner, const char* aTag) {
-  mOwner = aOwner;
-  mTag = aTag;
-}
-
-void FrameInfoQueue::Push(const sp<FrameInfo>& aFrameInfo) {
-  Mutex::Autolock lock(mMutex);
-  mQueue.push_back(aFrameInfo);
-  if (mQueue.size() > 32) {
-    LOGE("%s:%p FrameInfoQueue has too many frames, dropping an old one",
-         mTag.c_str(), mOwner);
-    mQueue.pop_front();
+static const char* GetMimeType(webrtc::VideoCodecType aCodecType) {
+  switch (aCodecType) {
+    case webrtc::VideoCodecType::kVideoCodecVP8:
+      return MEDIA_MIMETYPE_VIDEO_VP8;
+    case webrtc::VideoCodecType::kVideoCodecVP9:
+      return MEDIA_MIMETYPE_VIDEO_VP9;
+    case webrtc::VideoCodecType::kVideoCodecAV1:
+      return MEDIA_MIMETYPE_VIDEO_AV1;
+    case webrtc::VideoCodecType::kVideoCodecH264:
+      return MEDIA_MIMETYPE_VIDEO_AVC;
+    case webrtc::VideoCodecType::kVideoCodecH265:
+      return MEDIA_MIMETYPE_VIDEO_HEVC;
+    default:
+      return "unknown";
   }
 }
 
-sp<FrameInfo> FrameInfoQueue::Pop(int64_t aTimestampUs) {
-  Mutex::Autolock lock(mMutex);
+// Return key frame interval in seconds.
+static float GetKeyFrameInterval(const webrtc::VideoCodec* aCodecSettings) {
+  int32_t keyFrameInterval = -1;
+  switch (aCodecSettings->codecType) {
+    case webrtc::VideoCodecType::kVideoCodecH264:
+      keyFrameInterval = aCodecSettings->H264().keyFrameInterval;
+      break;
+    case webrtc::VideoCodecType::kVideoCodecVP8:
+      keyFrameInterval = aCodecSettings->VP8().keyFrameInterval;
+      break;
+    case webrtc::VideoCodecType::kVideoCodecVP9:
+      keyFrameInterval = aCodecSettings->VP9().keyFrameInterval;
+      break;
+    default:
+      break;
+  }
+  if (keyFrameInterval > 0 && aCodecSettings->maxFramerate > 0) {
+    return static_cast<float>(keyFrameInterval) / aCodecSettings->maxFramerate;
+  }
+  return 10.f;  // default interval
+}
 
-  if (mQueue.empty()) {
-    LOGE("%s:%p FrameInfoQueue is empty, return null", mTag.c_str(), mOwner);
+static std::pair<int32_t, int32_t> GetAVCProfileLevel(
+    const webrtc::SdpVideoFormat::Parameters& aParameters) {
+  // TODO: Eveluate if there is a better default setting.
+  auto value = std::make_pair(AVCProfileMain, AVCLevel31);
+
+  if (auto profileLevel = webrtc::ParseSdpForH264ProfileLevelId(aParameters)) {
+    switch (profileLevel->profile) {
+      case webrtc::H264Profile::kProfileConstrainedBaseline:
+        value.first = AVCProfileConstrainedBaseline;
+        break;
+      case webrtc::H264Profile::kProfileBaseline:
+        value.first = AVCProfileBaseline;
+        break;
+      case webrtc::H264Profile::kProfileMain:
+        value.first = AVCProfileMain;
+        break;
+      case webrtc::H264Profile::kProfileConstrainedHigh:
+        value.first = AVCProfileConstrainedHigh;
+        break;
+      case webrtc::H264Profile::kProfileHigh:
+        value.first = AVCProfileHigh;
+        break;
+      case webrtc::H264Profile::kProfilePredictiveHigh444:
+        value.first = AVCProfileHigh444;
+        break;
+      default:
+        break;
+    }
+    switch (profileLevel->level) {
+      case webrtc::H264Level::kLevel1_b:
+        value.second = AVCLevel1b;
+        break;
+      case webrtc::H264Level::kLevel1:
+        value.second = AVCLevel1;
+        break;
+      case webrtc::H264Level::kLevel1_1:
+        value.second = AVCLevel11;
+        break;
+      case webrtc::H264Level::kLevel1_2:
+        value.second = AVCLevel12;
+        break;
+      case webrtc::H264Level::kLevel1_3:
+        value.second = AVCLevel13;
+        break;
+      case webrtc::H264Level::kLevel2:
+        value.second = AVCLevel2;
+        break;
+      case webrtc::H264Level::kLevel2_1:
+        value.second = AVCLevel21;
+        break;
+      case webrtc::H264Level::kLevel2_2:
+        value.second = AVCLevel22;
+        break;
+      case webrtc::H264Level::kLevel3:
+        value.second = AVCLevel3;
+        break;
+      case webrtc::H264Level::kLevel3_1:
+        value.second = AVCLevel31;
+        break;
+      case webrtc::H264Level::kLevel3_2:
+        value.second = AVCLevel32;
+        break;
+      case webrtc::H264Level::kLevel4:
+        value.second = AVCLevel4;
+        break;
+      case webrtc::H264Level::kLevel4_1:
+        value.second = AVCLevel41;
+        break;
+      case webrtc::H264Level::kLevel4_2:
+        value.second = AVCLevel42;
+        break;
+      case webrtc::H264Level::kLevel5:
+        value.second = AVCLevel5;
+        break;
+      case webrtc::H264Level::kLevel5_1:
+        value.second = AVCLevel51;
+        break;
+      case webrtc::H264Level::kLevel5_2:
+        value.second = AVCLevel52;
+        break;
+      default:
+        break;
+    }
+  }
+  return value;
+}
+
+static void InitCodecSpecficInfo(
+    webrtc::CodecSpecificInfo& aInfo, const webrtc::VideoCodec* aCodecSettings,
+    const webrtc::SdpVideoFormat::Parameters& aParameters) {
+  aInfo.codecType = aCodecSettings->codecType;
+  switch (aCodecSettings->codecType) {
+    case webrtc::VideoCodecType::kVideoCodecH264: {
+      aInfo.codecSpecific.H264.packetization_mode =
+          aParameters.count(cricket::kH264FmtpPacketizationMode) == 1 &&
+                  aParameters.at(cricket::kH264FmtpPacketizationMode) == "1"
+              ? webrtc::H264PacketizationMode::NonInterleaved
+              : webrtc::H264PacketizationMode::SingleNalUnit;
+      break;
+    }
+    case webrtc::VideoCodecType::kVideoCodecVP9: {
+      MOZ_ASSERT(aCodecSettings->VP9().numberOfSpatialLayers == 1);
+      aInfo.codecSpecific.VP9.flexible_mode =
+          aCodecSettings->VP9().flexibleMode;
+      aInfo.codecSpecific.VP9.first_frame_in_picture = true;
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void UpdateCodecSpecificInfo(webrtc::CodecSpecificInfo& aInfo,
+                                    webrtc::EncodedImage& aImage) {
+  bool isKeyFrame =
+      aImage.FrameType() == webrtc::VideoFrameType::kVideoFrameKey;
+  switch (aInfo.codecType) {
+    case webrtc::VideoCodecType::kVideoCodecVP8: {
+      // See webrtc::VP8EncoderImpl::PopulateCodecSpecific().
+      webrtc::CodecSpecificInfoVP8& vp8 = aInfo.codecSpecific.VP8;
+      vp8.keyIdx = webrtc::kNoKeyIdx;
+      // Cannot be 100% sure unless parsing significant portion of the
+      // bitstream. Treat all frames as referenced just to be safe.
+      vp8.nonReference = false;
+      // One temporal layer only.
+      vp8.temporalIdx = webrtc::kNoTemporalIdx;
+      vp8.layerSync = false;
+      break;
+    }
+    case webrtc::VideoCodecType::kVideoCodecVP9: {
+      // See webrtc::VP9EncoderImpl::PopulateCodecSpecific().
+      webrtc::CodecSpecificInfoVP9& vp9 = aInfo.codecSpecific.VP9;
+      vp9.inter_pic_predicted = !isKeyFrame;
+      vp9.ss_data_available = isKeyFrame && !vp9.flexible_mode;
+      // One temporal & spatial layer only.
+      vp9.temporal_idx = webrtc::kNoTemporalIdx;
+      vp9.temporal_up_switch = false;
+      vp9.num_spatial_layers = 1;
+      aInfo.end_of_picture = true;
+      vp9.gof_idx = webrtc::kNoGofIdx;
+      vp9.width[0] = aImage._encodedWidth;
+      vp9.height[0] = aImage._encodedHeight;
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void GetVPXQp(const webrtc::VideoCodecType aType,
+                     webrtc::EncodedImage& aImage) {
+  switch (aType) {
+    case webrtc::VideoCodecType::kVideoCodecVP8:
+      webrtc::vp8::GetQp(aImage.data(), aImage.size(), &(aImage.qp_));
+      break;
+    case webrtc::VideoCodecType::kVideoCodecVP9:
+      webrtc::vp9::GetQp(aImage.data(), aImage.size(), &(aImage.qp_));
+      break;
+    default:
+      break;
+  }
+}
+
+/* static */
+WebrtcGonkVideoEncoder* WebrtcGonkVideoEncoder::Create(
+    const webrtc::SdpVideoFormat& aFormat) {
+  auto type = webrtc::PayloadStringToCodecType(aFormat.name);
+  if (GonkMediaUtils::FindMatchingCodecs(GetMimeType(type), true, false)
+          .empty()) {
     return nullptr;
   }
-
-  // Find the target frame and clear the frames before it.
-  sp<FrameInfo> frameInfo;
-  do {
-    frameInfo = mQueue.front();
-    mQueue.pop_front();
-  } while (!mQueue.empty() && mQueue.front()->mTimestampUs <= aTimestampUs);
-
-  if (frameInfo->mTimestampUs != aTimestampUs) {
-    LOGE("%s:%p FrameInfoQueue has no matched frame, return a nearby one",
-         mTag.c_str(), mOwner);
-  }
-
-  // Keep the found frame in the queue, in case the next Pop() maps to the same
-  // frame.
-  mQueue.push_front(frameInfo);
-  return frameInfo;
+  return new WebrtcGonkVideoEncoder(aFormat);
 }
 
-class WebrtcGonkVideoEncoder::FrameBufferGrip : public RefBase {
- public:
-  FrameBufferGrip(
-      const rtc::scoped_refptr<webrtc::VideoFrameBuffer>& aFrameBuffer)
-      : mFrameBuffer(aFrameBuffer) {}
-
-  rtc::scoped_refptr<webrtc::VideoFrameBuffer> Get() { return mFrameBuffer; }
-
- private:
-  ~FrameBufferGrip() = default;
-
-  rtc::scoped_refptr<webrtc::VideoFrameBuffer> mFrameBuffer;
-};
-
-WebrtcGonkVideoEncoder::WebrtcGonkVideoEncoder() {
-  LOGD("Encoder:%p constructor", this);
-
-  ProcessState::self()->startThreadPool();
-  mEncoderLooper = new ALooper;
-  mEncoderLooper->setName("WebrtcGonkVideoEncoder");
-  mCodecLooper = new ALooper;
-  mCodecLooper->setName("WebrtcGonkVideoEncoder/Codec");
-
-  mFrameInfoQueue.SetOwner(this, "Encoder");
+WebrtcGonkVideoEncoder::WebrtcGonkVideoEncoder(
+    const webrtc::SdpVideoFormat& aFormat)
+    : mLogTag(GenerateLogTag(this, aFormat.name, true)),
+      mFormatParams(aFormat.parameters),
+      mBitrateAdjuster(0.5, 0.95) {
+  LOGD("%s constructor", LogTag());
+  mozilla::PodZero(&mCodecSpecific.codecSpecific);
 }
 
 WebrtcGonkVideoEncoder::~WebrtcGonkVideoEncoder() {
-  LOGD("Encoder:%p destructor", this);
-  Release();
+  LOGD("%s destructor", LogTag());
+  if (mCodec) {
+    Release();
+  }
 }
 
-status_t WebrtcGonkVideoEncoder::Init(Callback* aCallback, const char* aMime) {
-  LOGD("Encoder:%p initializing, mime:%s", this, aMime);
+int32_t WebrtcGonkVideoEncoder::InitEncode(
+    const webrtc::VideoCodec* aCodecSettings,
+    const webrtc::VideoEncoder::Settings& aSettings) {
+  using CodecCallback = GonkMediaCodec::CallbackProxy<WebrtcGonkVideoEncoder>;
 
-  mCallback = aCallback;
+  MOZ_ASSERT(aCodecSettings);
+  LOGD("%s initializing", LogTag());
 
-  mEncoderLooper->registerHandler(this);
-  mEncoderLooper->start();
-  mCodecLooper->start();
-
-  mCodec = MediaCodec::CreateByType(mCodecLooper, aMime, true);
-  if (!mCodec) {
-    return UNKNOWN_ERROR;
+  if (aCodecSettings->numberOfSimulcastStreams > 1) {
+    LOGW("%s falling back to simulcast adaptor", LogTag());
+    return WEBRTC_VIDEO_CODEC_ERR_SIMULCAST_PARAMETERS_NOT_SUPPORTED;
   }
 
-  // Delay calling mCodec->start() until configured.
-  return OK;
-}
-
-status_t WebrtcGonkVideoEncoder::Release() {
-  LOGD("Encoder:%p releasing", this);
-
-  mEncoderLooper->stop();
-  mEncoderLooper->unregisterHandler(id());
+  if (aCodecSettings->codecType == webrtc::VideoCodecType::kVideoCodecH264 &&
+      !(mFormatParams.count(cricket::kH264FmtpPacketizationMode) == 1 &&
+        mFormatParams.at(cricket::kH264FmtpPacketizationMode) == "1")) {
+    LOGW("%s setting max output size is not supported, falling back to SW",
+         LogTag());
+    return WEBRTC_VIDEO_CODEC_FALLBACK_SOFTWARE;
+  }
 
   if (mCodec) {
-    mCodec->release();
+    LOGW("%s codec already exists, release it now", LogTag());
+    Release();
+  }
+
+  InitCodecSpecficInfo(mCodecSpecific, aCodecSettings, mFormatParams);
+  mMaxBitrateBps = aCodecSettings->maxBitrate * 1000;
+  mMinBitrateBps = aCodecSettings->minBitrate * 1000;
+  mBitrateAdjuster.SetTargetBitrateBps(aCodecSettings->startBitrate * 1000);
+
+  mCodec = new GonkMediaCodec();
+  mCodec->Init();
+
+  sp<AMessage> format = new AMessage;
+  format->setString("mime", GetMimeType(aCodecSettings->codecType));
+  format->setInt32("color-format", COLOR_FormatYUV420SemiPlanar);
+  format->setInt32("width", aCodecSettings->width);
+  format->setInt32("height", aCodecSettings->height);
+  format->setInt32("frame-rate", aCodecSettings->maxFramerate);
+  format->setFloat("i-frame-interval", GetKeyFrameInterval(aCodecSettings));
+  format->setInt32("bitrate", mBitrateAdjuster.GetTargetBitrateBps());
+  format->setInt32("bitrate-mode", BITRATE_MODE_CBR);
+
+  switch (aCodecSettings->codecType) {
+    case webrtc::VideoCodecType::kVideoCodecH264: {
+      auto [profile, level] = GetAVCProfileLevel(mFormatParams);
+      format->setInt32("profile", profile);
+      format->setInt32("level", level);
+      format->setInt32("prepend-sps-pps-to-idr-frames", 1);
+      break;
+    }
+    default:
+      break;
+  }
+
+  status_t err =
+      mCodec->Configure(CodecCallback::Create(this), format, nullptr, true)
+          ->Wait();
+  if (err != OK) {
+    LOGE("%s failed to configure codec", LogTag());
+    Release();
+    return WEBRTC_VIDEO_CODEC_FALLBACK_SOFTWARE;
+  }
+  LOGD("%s initialized", LogTag());
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+int32_t WebrtcGonkVideoEncoder::RegisterEncodeCompleteCallback(
+    webrtc::EncodedImageCallback* aCallback) {
+  LOGD("%s register callback %p", LogTag(), aCallback);
+  Mutex::Autolock lock(mCallbackMutex);
+  mCallback = aCallback;
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+int32_t WebrtcGonkVideoEncoder::Encode(
+    const webrtc::VideoFrame& aInputFrame,
+    const std::vector<webrtc::VideoFrameType>* aFrameTypes) {
+  LOGV("%s encoding, %dx%d, RTP timestamp %u", LogTag(), aInputFrame.width(),
+       aInputFrame.height(), aInputFrame.timestamp());
+
+  if (!aInputFrame.size() || !aInputFrame.video_frame_buffer() ||
+      aFrameTypes->empty()) {
+    LOGE("%s input frame is empty, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+  }
+  if (!mCodec) {
+    LOGE("%s codec was not created, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+  }
+  if (!mCallback) {
+    LOGE("%s callback was not registered, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+  }
+  if (mError != OK) {
+    LOGE("%s error occurred, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  mInputQueue.Push(new InputHolder(aInputFrame, aFrameTypes->at(0)));
+  mCodec->InputUpdated();
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+int32_t WebrtcGonkVideoEncoder::Release() {
+  LOGD("%s releasing", LogTag());
+  if (mCodec) {
+    mCodec->Shutdown()->Wait();
     mCodec = nullptr;
   }
-  mInputFrames.clear();
-  mInputBuffers.clear();
   mCallback = nullptr;
-  return OK;
+  mError = OK;
+  mTimestampUnwrapper.Reset();
+  mInputQueue.Clear();
+  return WEBRTC_VIDEO_CODEC_OK;
 }
 
-status_t WebrtcGonkVideoEncoder::Configure(const sp<AMessage>& aFormat) {
+void WebrtcGonkVideoEncoder::SetRates(
+    const webrtc::VideoEncoder::RateControlParameters& aParameters) {
+  if (!aParameters.bitrate.HasBitrate(0, 0)) {
+    LOGE("%s no bitrate value to set", LogTag());
+    return;
+  }
   if (!mCodec) {
-    return INVALID_OPERATION;
+    LOGE("%s no codec to set bitrate", LogTag());
+    return;
+  }
+  if (mError != OK) {
+    LOGE("%s error occurred, ignoring setting bitrate", LogTag());
+    return;
   }
 
-  auto lines = SplitMultilineString(aFormat->debugString().c_str());
-  for (auto& line : lines) {
-    LOGI("Encoder:%p configure: %s", this, line.c_str());
+  const uint32_t newBitrateBps = aParameters.bitrate.GetBitrate(0, 0);
+  if (newBitrateBps < mMinBitrateBps || newBitrateBps > mMaxBitrateBps) {
+    LOGE("%s bitrate value out of range", LogTag());
+    return;
+  }
+  if (mBitrateAdjuster.GetAdjustedBitrateBps() == newBitrateBps) {
+    return;
   }
 
-  // QM215 encoder only supports NV12 color format.
-  CHECK(aFormat->findInt32("color-format", &mColorFormat));
-  CHECK(mColorFormat == OMX_COLOR_FormatYUV420SemiPlanar);
+  mBitrateAdjuster.SetTargetBitrateBps(newBitrateBps);
+  LOGV("%s setting bitrate %u (%u ~ %u)", LogTag(), newBitrateBps,
+       mMinBitrateBps, mMaxBitrateBps);
 
-  sp<AMessage> msg = new AMessage(kWhatConfigure, this);
-  msg->setMessage("format", aFormat);
-  msg->post();
-  return OK;
-}
-
-status_t WebrtcGonkVideoEncoder::Encode(const webrtc::VideoFrame& aInputImage) {
-  if (!mCodec) {
-    return INVALID_OPERATION;
-  }
-
-  sp<FrameInfo> frameInfo = new FrameInfo();
-  frameInfo->mWidth = aInputImage.width();
-  frameInfo->mHeight = aInputImage.height();
-  frameInfo->mTimestamp = aInputImage.timestamp();
-  frameInfo->mTimestampUs = aInputImage.timestamp_us();
-  frameInfo->mRenderTimeMs = aInputImage.render_time_ms();
-  frameInfo->mInputTimeNs = systemTime();
-
-  sp<FrameBufferGrip> frameData =
-      new FrameBufferGrip(aInputImage.video_frame_buffer());
-
-  sp<AMessage> msg = new AMessage(kWhatQueueInputData, this);
-  msg->setObject("frame-info", frameInfo.get());
-  msg->setObject("frame-data", frameData.get());
-  msg->post();
-  return OK;
-}
-
-status_t WebrtcGonkVideoEncoder::RequestIDRFrame() {
-  if (!mCodec) {
-    return INVALID_OPERATION;
-  }
-  LOGV("WebrtcGonkVideoDecoder:%p requesting IDR frame", this);
-  return mCodec->requestIDRFrame();
-}
-
-status_t WebrtcGonkVideoEncoder::SetBitrate(int32_t aBps) {
-  if (!mCodec) {
-    return INVALID_OPERATION;
-  }
-  LOGV("WebrtcGonkVideoDecoder:%p setting bitrate to %d bps", this, aBps);
   sp<AMessage> msg = new AMessage();
-  msg->setInt32("video-bitrate", aBps);
-  return mCodec->setParameters(msg);
+  msg->setInt32("video-bitrate", newBitrateBps);
+  mCodec->SetParameters(msg)->Wait();
 }
 
-void WebrtcGonkVideoEncoder::onMessageReceived(const sp<AMessage>& aMsg) {
-  if (IsVerboseLoggingEnabled()) {
-    auto lines = SplitMultilineString(aMsg->debugString().c_str());
-    for (auto& line : lines) {
-      LOGV("WebrtcGonkVideoDecoder:%p onMessage: %s", this, line.c_str());
-    }
-  }
-
-  switch (aMsg->what()) {
-    case kWhatCodecNotify: {
-      int32_t cbID;
-      CHECK(aMsg->findInt32("callbackID", &cbID));
-
-      switch (cbID) {
-        case MediaCodec::CB_INPUT_AVAILABLE: {
-          int32_t index;
-          CHECK(aMsg->findInt32("index", &index));
-          mInputBuffers.push_back(index);
-          OnFillInputBuffers();
-          break;
-        }
-
-        case MediaCodec::CB_OUTPUT_AVAILABLE: {
-          int32_t index;
-          size_t offset;
-          size_t size;
-          int64_t timeUs;
-          int32_t flags;
-          CHECK(aMsg->findInt32("index", &index));
-          CHECK(aMsg->findSize("offset", &offset));
-          CHECK(aMsg->findSize("size", &size));
-          CHECK(aMsg->findInt64("timeUs", &timeUs));
-          CHECK(aMsg->findInt32("flags", &flags));
-
-          OnDrainOutputBuffer(index, offset, size, timeUs, flags);
-          break;
-        }
-
-        case MediaCodec::CB_OUTPUT_FORMAT_CHANGED: {
-          sp<AMessage> format;
-          CHECK(aMsg->findMessage("format", &format));
-          auto lines = SplitMultilineString(format->debugString().c_str());
-          for (auto& line : lines) {
-            LOGI("Encoder:%p format changed: %s", this, line.c_str());
-          }
-          break;
-        }
-
-        case MediaCodec::CB_ERROR: {
-          status_t err;
-          CHECK(aMsg->findInt32("err", &err));
-          LOGE("Encoder:%p reported error: 0x%x", this, err);
-          break;
-        }
-
-        default: {
-          TRESPASS();
-          break;
-        }
-      }
-
-      break;
-    }
-
-    case kWhatConfigure: {
-      sp<AMessage> format;
-      CHECK(aMsg->findMessage("format", &format));
-      OnConfigure(format);
-      break;
-    }
-
-    case kWhatQueueInputData: {
-      sp<RefBase> obj;
-      CHECK(aMsg->findObject("frame-info", &obj));
-      sp<FrameInfo> frameInfo = static_cast<FrameInfo*>(obj.get());
-      CHECK(aMsg->findObject("frame-data", &obj));
-      sp<FrameBufferGrip> frameData = static_cast<FrameBufferGrip*>(obj.get());
-
-      mInputFrames.push_back(std::make_pair(frameInfo, frameData));
-      OnFillInputBuffers();
-      break;
-    }
-  }
+webrtc::VideoEncoder::EncoderInfo WebrtcGonkVideoEncoder::GetEncoderInfo()
+    const {
+  webrtc::VideoEncoder::EncoderInfo info;
+  info.requested_resolution_alignment = 2;
+  info.supports_native_handle = true;
+  info.implementation_name = "Gonk";
+  info.is_hardware_accelerated = true;
+  info.supports_simulcast = false;
+  return info;
 }
 
-void WebrtcGonkVideoEncoder::OnConfigure(const sp<AMessage>& aFormat) {
-  mInputBuffers.clear();
-
-  if (mStarted) {
-    if (mCodec->stop() != OK) {
-      LOGE("Encoder:%p failed to stop codec", this);
-      return;
-    }
-    mStarted = false;
+bool WebrtcGonkVideoEncoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
+                                        sp<RefBase>* aInputInfo,
+                                        sp<GonkCryptoInfo>* aCryptoInfo,
+                                        int64_t* aTimeUs, uint32_t* aFlags) {
+  auto inputHolder = mInputQueue.Pop();
+  if (!inputHolder) {
+    return false;
   }
 
-  if (mCodec->configure(aFormat, nullptr, nullptr,
-                        MediaCodec::CONFIGURE_FLAG_ENCODE) != OK) {
-    LOGE("Encoder:%p failed to configure codec", this);
+  auto& inputFrame = inputHolder->mFrame;
+  auto frameType = inputHolder->mFrameType;
+  GonkImageUtils::CopyImage(inputFrame.video_frame_buffer(), aBuffer);
+  *aInputInfo = inputHolder;
+  *aTimeUs = mozilla::media::TimeUnit(
+                 mTimestampUnwrapper.Unwrap(inputFrame.timestamp()),
+                 cricket::kVideoCodecClockrate)
+                 .ToMicroseconds();
+  *aFlags = frameType == webrtc::VideoFrameType::kVideoFrameKey
+                ? MediaCodec::BUFFER_FLAG_SYNCFRAME
+                : 0;
+  LOGV("%s fetch input, flags %u, RTP timestamp %u (%" PRId64 " us)", LogTag(),
+       *aFlags, inputFrame.timestamp(), *aTimeUs);
+  return true;
+}
+
+void WebrtcGonkVideoEncoder::Output(const sp<MediaCodecBuffer>& aBuffer,
+                                    const sp<RefBase>& aInputInfo,
+                                    int64_t aTimeUs, uint32_t aFlags) {
+  if (!aBuffer || !aBuffer->size()) {
+    LOGW("%s empty output buffer, flags %u", LogTag(), aFlags);
+    return;
+  }
+  if (!aInputInfo) {
+    if (aFlags == MediaCodec::BUFFER_FLAG_CODECCONFIG) {
+      // We asked the encoder to prepend SPS/PPS to IDR frames, the standalone
+      // SPS/PPS can be ignored.
+      LOGD("%s ignoring standalone coded config", LogTag());
+    } else {
+      LOGW("%s null input info, flags %u", LogTag(), aFlags);
+    }
     return;
   }
 
-  // Run MediaCodec in async mode.
-  sp<AMessage> reply = new AMessage(kWhatCodecNotify, this);
-  if (mCodec->setCallback(reply) != OK) {
-    LOGE("Encoder:%p failed to set codec callback", this);
-    return;
-  }
+  auto& inputFrame = static_cast<InputHolder*>(aInputInfo.get())->mFrame;
+  LOGV("%s output, size %zu, flags %u, RTP timestamp %u (%" PRId64 " us)",
+       LogTag(), aBuffer->size(), aFlags, inputFrame.timestamp(), aTimeUs);
 
-  if (mCodec->start() != OK) {
-    LOGE("Encoder:%p failed to start codec", this);
-    return;
-  }
+  webrtc::EncodedImage image;
+  image.SetEncodedData(
+      webrtc::EncodedImageBuffer::Create(aBuffer->data(), aBuffer->size()));
+  image._encodedWidth = inputFrame.width();
+  image._encodedHeight = inputFrame.height();
+  image.SetRtpTimestamp(inputFrame.timestamp());
+  image.SetFrameType((aFlags & MediaCodec::BUFFER_FLAG_SYNCFRAME)
+                         ? webrtc::VideoFrameType::kVideoFrameKey
+                         : webrtc::VideoFrameType::kVideoFrameDelta);
+  GetVPXQp(mCodecSpecific.codecType, image);
+  UpdateCodecSpecificInfo(mCodecSpecific, image);
+  mBitrateAdjuster.Update(image.size());
 
-  mStarted = true;
-}
-
-static status_t ConvertYUV(android_ycbcr& aDstYUV, PixelFormat aDstFormat,
-                           android_ycbcr& aSrcYUV, PixelFormat aSrcFormat,
-                           int aWidth, int aHeight) {
-  CHECK(aDstFormat == OMX_COLOR_FormatYUV420SemiPlanar);
-
-  int result = -1;
-  switch (aSrcFormat) {
-    case HAL_PIXEL_FORMAT_YV12:
-      result = libyuv::I420ToNV12(
-          static_cast<uint8_t*>(aSrcYUV.y), static_cast<int>(aSrcYUV.ystride),
-          static_cast<uint8_t*>(aSrcYUV.cb), static_cast<int>(aSrcYUV.cstride),
-          static_cast<uint8_t*>(aSrcYUV.cr), static_cast<int>(aSrcYUV.cstride),
-          static_cast<uint8_t*>(aDstYUV.y), static_cast<int>(aDstYUV.ystride),
-          static_cast<uint8_t*>(aDstYUV.cb), static_cast<int>(aDstYUV.cstride),
-          aWidth, aHeight);
-      break;
-  }
-  return result < 0 ? INVALID_OPERATION : OK;
-}
-
-static status_t ConvertFrameBuffer(
-    const sp<MediaCodecBuffer>& aDst, PixelFormat aDstFormat,
-    const rtc::scoped_refptr<webrtc::VideoFrameBuffer>& aSrc) {
-  CHECK(aDstFormat == OMX_COLOR_FormatYUV420SemiPlanar);
-
-  int width = aSrc->width();
-  int height = aSrc->height();
-  int cWidth = (width + 1) / 2;
-  int cHeight = (height + 1) / 2;
-
-  if (static_cast<int>(aDst->size()) < width * height + cWidth * cHeight * 2) {
-    return INVALID_OPERATION;
-  }
-
-  android_ycbcr dstYUV = {.y = aDst->data(),
-                          .cb = aDst->data() + width * height,
-                          .cr = aDst->data() + width * height + 1,
-                          .ystride = static_cast<size_t>(width),
-                          .cstride = static_cast<size_t>(cWidth * 2),
-                          .chroma_step = 2};
-
-  status_t err;
-  if (aSrc->type() == webrtc::VideoFrameBuffer::Type::kNative) {
-    // Only GrallocImage is wrapped into native VideoFrameBuffer.
-    auto* imageBuffer = static_cast<mozilla::ImageBuffer*>(aSrc.get());
-    auto* grallocImage = imageBuffer->GetNativeImage()->AsGrallocImage();
-    CHECK(grallocImage);
-    sp<GraphicBuffer> graphicBuffer = grallocImage->GetGraphicBuffer();
-    PixelFormat srcFormat = graphicBuffer->getPixelFormat();
-    android_ycbcr srcYUV = {};
-
-    graphicBuffer->lockYCbCr(GraphicBuffer::USAGE_SW_READ_MASK, &srcYUV);
-    err = ConvertYUV(dstYUV, aDstFormat, srcYUV, srcFormat, width, height);
-    graphicBuffer->unlock();
+  Mutex::Autolock lock(mCallbackMutex);
+  if (mCallback) {
+    mCallback->OnEncodedImage(image, &mCodecSpecific);
   } else {
-    rtc::scoped_refptr<webrtc::I420BufferInterface> i420 = aSrc->ToI420();
-    android_ycbcr srcYUV = {.y = const_cast<uint8_t*>(i420->DataY()),
-                            .cb = const_cast<uint8_t*>(i420->DataU()),
-                            .cr = const_cast<uint8_t*>(i420->DataV()),
-                            .ystride = static_cast<size_t>(i420->StrideY()),
-                            .cstride = static_cast<size_t>(i420->StrideU()),
-                            .chroma_step = 1};
-    err = ConvertYUV(dstYUV, aDstFormat, srcYUV, HAL_PIXEL_FORMAT_YV12, width,
-                     height);
-  }
-  return err;
-}
-
-void WebrtcGonkVideoEncoder::OnFillInputBuffers() {
-  while (mInputFrames.size() && mInputBuffers.size()) {
-    auto index = mInputBuffers.front();
-    mInputBuffers.pop_front();
-
-    sp<MediaCodecBuffer> buffer;
-    mCodec->getInputBuffer(index, &buffer);
-    if (!buffer) {
-      LOGE("Encoder:%p failed to get input buffer", this);
-      continue;
-    }
-
-    auto [frameInfo, frameData] = mInputFrames.front();
-    mInputFrames.pop_front();
-
-    status_t err = ConvertFrameBuffer(buffer, mColorFormat, frameData->Get());
-    if (err != OK) {
-      LOGE("Encoder:%p failed to convert buffer, dropping one frame", this);
-      mInputBuffers.push_front(index);  // keep the buffer
-      continue;
-    }
-
-    err = mCodec->queueInputBuffer(index, 0, buffer->size(),
-                                   frameInfo->mTimestampUs, 0);
-    if (err != OK) {
-      LOGE("Encoder:%p failed to queue input buffer", this);
-      continue;
-    }
-
-    mFrameInfoQueue.Push(frameInfo);
+    LOGW("%s callback was not registered, dropping output", LogTag());
   }
 }
 
-void WebrtcGonkVideoEncoder::OnDrainOutputBuffer(size_t aIndex, size_t aOffset,
-                                                 size_t aSize, int64_t aTimeUs,
-                                                 int32_t aFlags) {
-  sp<MediaCodecBuffer> buffer;
-  mCodec->getOutputBuffer(aIndex, &buffer);
-  if (!buffer) {
-    LOGE("Encoder:%p failed to get output buffer", this);
-    return;
+void WebrtcGonkVideoEncoder::NotifyError(status_t aErr, int32_t aActionCode) {
+  LOGE("%s notify error: 0x%x, actionCode %d", LogTag(), aErr, aActionCode);
+  // Treat ACTION_CODE_RECOVERABLE as fatal error, because the codec can only be
+  // recovered with reconfiguring. Only ACTION_CODE_TRANSIENT allows
+  // decoding/encoding to be retried at later time.
+  if (aActionCode != ACTION_CODE_TRANSIENT) {
+    mError = aErr;
   }
-
-  sp<FrameInfo> frameInfo = mFrameInfoQueue.Pop(aTimeUs);
-
-  webrtc::EncodedImage encoded;
-  encoded.SetEncodedData(
-      webrtc::EncodedImageBuffer::Create(buffer->data(), buffer->size()));
-  encoded._encodedWidth = frameInfo->mWidth;
-  encoded._encodedHeight = frameInfo->mHeight;
-  encoded.SetTimestamp(frameInfo->mTimestamp);
-  encoded.capture_time_ms_ = frameInfo->mRenderTimeMs;
-
-  if (aFlags & MediaCodec::BUFFER_FLAG_SYNCFRAME) {
-    encoded._frameType = webrtc::VideoFrameType::kVideoFrameKey;
-  } else {
-    encoded._frameType = webrtc::VideoFrameType::kVideoFrameDelta;
-  }
-
-  int64_t latency = (systemTime() - frameInfo->mInputTimeNs) / 1000000;
-  LOGD("Encoder:%p frame encoded, latency %" PRId64 " ms", this, latency);
-
-  CHECK(mCallback);
-  mCallback->OnEncoded(encoded);
-  mCodec->releaseOutputBuffer(aIndex);
 }
 
-WebrtcGonkVideoDecoder::WebrtcGonkVideoDecoder() {
-  LOGD("Decoder:%p constructor", this);
-
-  ProcessState::self()->startThreadPool();
-  mDecoderLooper = new ALooper;
-  mDecoderLooper->setName("WebrtcGonkVideoDecoder");
-  mCodecLooper = new ALooper;
-  mCodecLooper->setName("WebrtcGonkVideoDecoder/Codec");
-
-  mFrameInfoQueue.SetOwner(this, "Decoder");
+/* static */
+WebrtcGonkVideoDecoder* WebrtcGonkVideoDecoder::Create(
+    const webrtc::SdpVideoFormat& aFormat) {
+  auto type = webrtc::PayloadStringToCodecType(aFormat.name);
+  if (GonkMediaUtils::FindMatchingCodecs(GetMimeType(type), false, false)
+          .empty()) {
+    return nullptr;
+  }
+  return new WebrtcGonkVideoDecoder(aFormat);
 }
+
+WebrtcGonkVideoDecoder::WebrtcGonkVideoDecoder(
+    const webrtc::SdpVideoFormat& aFormat)
+    : mLogTag(GenerateLogTag(this, aFormat.name, false)),
+      mFormatParams(aFormat.parameters) {}
 
 WebrtcGonkVideoDecoder::~WebrtcGonkVideoDecoder() {
-  LOGD("Decoder:%p destructor", this);
-  Release();
-}
-
-status_t WebrtcGonkVideoDecoder::Init(Callback* aCallback, const char* aMime,
-                                      int32_t aWidth, int32_t aHeight) {
-  LOGD("Decoder:%p initializing, mime:%s, width:%d, height:%d", this, aMime,
-       aWidth, aHeight);
-
-  mCallback = aCallback;
-
-  mDecoderLooper->registerHandler(this);
-  mDecoderLooper->start();
-  mCodecLooper->start();
-
-  mCodec = MediaCodec::CreateByType(mCodecLooper, aMime, false);
-  if (!mCodec) {
-    return UNKNOWN_ERROR;
-  }
-
-  sp<Surface> surface = InitBufferQueue();
-  sp<AMessage> config = new AMessage();
-  config->setString("mime", aMime);
-  config->setInt32("width", aWidth);
-  config->setInt32("height", aHeight);
-
-  status_t err = mCodec->configure(config, surface, nullptr, 0);
-  if (err != OK) {
-    LOGE("Decoder:%p failed to configure codec", this);
-    return err;
-  }
-
-  // Run MediaCodec in async mode.
-  sp<AMessage> reply = new AMessage(kWhatCodecNotify, this);
-  err = mCodec->setCallback(reply);
-  if (err != OK) {
-    LOGE("Decoder:%p failed to set codec callback", this);
-    return err;
-  }
-
-  err = mCodec->start();
-  if (err != OK) {
-    LOGE("Decoder:%p failed to start codec", this);
-    return err;
-  }
-  return OK;
-}
-
-status_t WebrtcGonkVideoDecoder::Release() {
-  LOGD("Decoder:%p releasing", this);
-
-  mDecoderLooper->stop();
-  mDecoderLooper->unregisterHandler(id());
-
+  LOGD("%s destructor", LogTag());
   if (mCodec) {
-    mCodec->release();
+    Release();
+  }
+}
+
+bool WebrtcGonkVideoDecoder::Configure(
+    const webrtc::VideoDecoder::Settings& aSettings) {
+  using CodecCallback = GonkMediaCodec::CallbackProxy<WebrtcGonkVideoDecoder>;
+
+  LOGD("%s initializing", LogTag());
+  if (mCodec) {
+    LOGW("%s codec already exists, release it now", LogTag());
+    Release();
+  }
+
+  mImageContainer =
+      mozilla::MakeAndAddRef<ImageContainer>(ImageContainer::ASYNCHRONOUS);
+  mCodec = new GonkMediaCodec();
+  mCodec->Init();
+
+  sp<AMessage> format = new AMessage;
+  format->setString("mime", GetMimeType(aSettings.codec_type()));
+  format->setInt32("width", aSettings.max_render_resolution().Width());
+  format->setInt32("height", aSettings.max_render_resolution().Height());
+#if ANDROID_VERSION >= 30
+  format->setInt32("low-latency", 1);
+#endif
+
+  status_t err =
+      mCodec->Configure(CodecCallback::Create(this), format, nullptr, false)
+          ->Wait();
+  if (err != OK) {
+    LOGE("%s failed to configure codec", LogTag());
+    Release();
+    return false;
+  }
+  LOGD("%s initialized", LogTag());
+  return true;
+}
+
+int32_t WebrtcGonkVideoDecoder::Decode(const webrtc::EncodedImage& aInputImage,
+                                       bool aMissingFrames,
+                                       int64_t aRenderTimeMs) {
+  LOGV("%s decoding, RTP timestamp %u", LogTag(), aInputImage.RtpTimestamp());
+
+  if (!aInputImage.data() || !aInputImage.size()) {
+    LOGE("%s input image is empty, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+  }
+  // Always start with a complete key frame.
+  if (mNeedKeyframe) {
+    if (aInputImage._frameType != webrtc::VideoFrameType::kVideoFrameKey) {
+      LOGD("%s waiting for key frame, dropping", LogTag());
+      return WEBRTC_VIDEO_CODEC_ERROR;
+    }
+    mNeedKeyframe = false;
+  }
+  if (!mCodec) {
+    LOGE("%s codec was not created, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+  }
+  if (!mCallback) {
+    LOGE("%s callback was not registered, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+  }
+  if (mError != OK) {
+    LOGE("%s error occurred, dropping", LogTag());
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  mInputQueue.Push(InputHolder::Create(aInputImage));
+  mCodec->InputUpdated();
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+int32_t WebrtcGonkVideoDecoder::RegisterDecodeCompleteCallback(
+    webrtc::DecodedImageCallback* aCallback) {
+  LOGD("%s register callback %p", LogTag(), aCallback);
+  Mutex::Autolock lock(mCallbackMutex);
+  mCallback = aCallback;
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+int32_t WebrtcGonkVideoDecoder::Release() {
+  LOGD("%s releasing", LogTag());
+  if (mCodec) {
+    mCodec->Shutdown()->Wait();
     mCodec = nullptr;
   }
-  if (mNativeWindow) {
-    mNativeWindow->abandon();
-    mNativeWindow = nullptr;
-  }
-  mInputFrames.clear();
-  mInputBuffers.clear();
-  mDecodedFrameInfo = nullptr;
   mCallback = nullptr;
-  return OK;
+  mError = OK;
+  mNeedKeyframe = true;
+  mTimestampUnwrapper.Reset();
+  mInputQueue.Clear();
+  mImageContainer = nullptr;
+  return WEBRTC_VIDEO_CODEC_OK;
 }
 
-sp<Surface> WebrtcGonkVideoDecoder::InitBufferQueue() {
-  // Extend Surface class and override its queueBuffer() in order to let the
-  // decoder know which timestamp is bound to the graphic buffer we just queued.
-  class SurfaceExt : public Surface {
-   public:
-    explicit SurfaceExt(const wp<WebrtcGonkVideoDecoder>& aDecoder,
-                        const sp<IGraphicBufferProducer>& aBufferProducer)
-        : Surface(aBufferProducer, false), mDecoder(aDecoder) {}
-
-   private:
-    virtual int queueBuffer(ANativeWindowBuffer* aBuffer,
-                            int aFenceFd) override {
-      if (auto decoder = mDecoder.promote()) {
-        decoder->OnOutputBufferQueued(aBuffer, mTimestamp);
-      }
-      return Surface::queueBuffer(aBuffer, aFenceFd);
-    }
-
-    wp<WebrtcGonkVideoDecoder> mDecoder;
-  };
-
-  sp<IGraphicBufferProducer> producer;
-  sp<IGonkGraphicBufferConsumer> consumer;
-  GonkBufferQueue::createBufferQueue(&producer, &consumer);
-
-  mNativeWindow = new GonkNativeWindow(consumer);
-  mNativeWindow->setNewFrameCallback(this);
-
-  static_cast<GonkBufferQueueProducer*>(producer.get())
-      ->setSynchronousMode(false);
-  // More spare buffers to avoid MediaCodec waiting for native window
-  consumer->setMaxAcquiredBufferCount(WEBRTC_OMX_MIN_DECODE_BUFFERS);
-  return new SurfaceExt(this, producer);
+webrtc::VideoDecoder::DecoderInfo WebrtcGonkVideoDecoder::GetDecoderInfo()
+    const {
+  webrtc::VideoDecoder::DecoderInfo info;
+  info.implementation_name = ImplementationName();
+  info.is_hardware_accelerated = true;
+  return info;
 }
 
-status_t WebrtcGonkVideoDecoder::Decode(const webrtc::EncodedImage& aEncoded,
-                                        bool aIsCodecConfig,
-                                        int64_t aRenderTimeMs) {
-  if (!mCodec || !aEncoded.data() || !aEncoded.size()) {
-    return INVALID_OPERATION;
+bool WebrtcGonkVideoDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
+                                        sp<RefBase>* aInputInfo,
+                                        sp<GonkCryptoInfo>* aCryptoInfo,
+                                        int64_t* aTimeUs, uint32_t* aFlags) {
+  auto inputHolder = mInputQueue.Pop();
+  if (!inputHolder) {
+    return false;
   }
 
-  sp<FrameInfo> frameInfo = new FrameInfo();
-  frameInfo->mWidth = aEncoded._encodedWidth;
-  frameInfo->mHeight = aEncoded._encodedHeight;
-  frameInfo->mTimestamp = aEncoded.Timestamp();
-  // Unwrap RTP timestamp and convert it from 90kHz clock to micro seconds.
-  frameInfo->mTimestampUs = mUnwrapper.Unwrap(aEncoded.Timestamp()) * 1000 / 90;
-  frameInfo->mRenderTimeMs = aRenderTimeMs;
-  frameInfo->mIsCodecConfig = aIsCodecConfig;
-  frameInfo->mInputTimeNs = systemTime();
-
-  // We cannot take ownership of |aEncoded|, so make a copy of it.
-  sp<ABuffer> frameData =
-      ABuffer::CreateAsCopy(aEncoded.data(), aEncoded.size());
-
-  sp<AMessage> msg = new AMessage(kWhatQueueInputData, this);
-  msg->setObject("frame-info", frameInfo.get());
-  msg->setObject("frame-data", frameData.get());
-  msg->post();
-  return OK;
-}
-
-void WebrtcGonkVideoDecoder::onMessageReceived(const sp<AMessage>& aMsg) {
-  if (IsVerboseLoggingEnabled()) {
-    auto lines = SplitMultilineString(aMsg->debugString().c_str());
-    for (auto& line : lines) {
-      LOGV("Decoder:%p onMessage: %s", this, line.c_str());
-    }
+  auto& inputImage = inputHolder->Get();
+  GonkBufferWriter writer(aBuffer);
+  writer.Clear();
+  if (!writer.Append(inputImage.data(), inputImage.size())) {
+    LOGE("%s input sample too large", LogTag());
+    return false;
   }
 
-  switch (aMsg->what()) {
-    case kWhatCodecNotify: {
-      int32_t cbID;
-      CHECK(aMsg->findInt32("callbackID", &cbID));
+  *aInputInfo = inputHolder;
+  *aTimeUs = mozilla::media::TimeUnit(
+                 mTimestampUnwrapper.Unwrap(inputImage.RtpTimestamp()),
+                 cricket::kVideoCodecClockrate)
+                 .ToMicroseconds();
+  *aFlags = 0;
+  LOGV("%s fetch input, RTP timestamp %u (%" PRId64 " us)", LogTag(),
+       inputImage.RtpTimestamp(), *aTimeUs);
+  return true;
+}
 
-      switch (cbID) {
-        case MediaCodec::CB_INPUT_AVAILABLE: {
-          int32_t index;
-          CHECK(aMsg->findInt32("index", &index));
-          mInputBuffers.push_back(index);
-          OnFillInputBuffers();
-          break;
-        }
-
-        case MediaCodec::CB_OUTPUT_AVAILABLE: {
-          int32_t index;
-          int64_t timeUs;
-          CHECK(aMsg->findInt32("index", &index));
-          CHECK(aMsg->findInt64("timeUs", &timeUs));
-          mCodec->renderOutputBufferAndRelease(index);
-          break;
-        }
-
-        case MediaCodec::CB_OUTPUT_FORMAT_CHANGED: {
-          sp<AMessage> format;
-          CHECK(aMsg->findMessage("format", &format));
-          auto lines = SplitMultilineString(format->debugString().c_str());
-          for (auto& line : lines) {
-            LOGI("Decoder:%p format changed: %s", this, line.c_str());
-          }
-          break;
-        }
-
-        case MediaCodec::CB_ERROR: {
-          status_t err;
-          CHECK(aMsg->findInt32("err", &err));
-          LOGE("Decoder:%p reported error: 0x%x", this, err);
-          break;
-        }
-
-        default: {
-          TRESPASS();
-          break;
-        }
-      }
-
-      break;
-    }
-
-    case kWhatQueueInputData: {
-      sp<RefBase> obj;
-      CHECK(aMsg->findObject("frame-info", &obj));
-      sp<FrameInfo> frameInfo = static_cast<FrameInfo*>(obj.get());
-      CHECK(aMsg->findObject("frame-data", &obj));
-      sp<ABuffer> frameData = static_cast<ABuffer*>(obj.get());
-
-      mInputFrames.push_back(std::make_pair(frameInfo, frameData));
-      OnFillInputBuffers();
-      break;
-    }
+void WebrtcGonkVideoDecoder::Output(const sp<MediaCodecBuffer>& aBuffer,
+                                    const sp<RefBase>& aInputInfo,
+                                    int64_t aTimeUs, uint32_t aFlags) {
+  if (!aBuffer || !aBuffer->size()) {
+    LOGW("%s empty output buffer, flags %u", LogTag(), aFlags);
+    return;
   }
-}
-
-void WebrtcGonkVideoDecoder::OnFillInputBuffers() {
-  while (mInputFrames.size() && mInputBuffers.size()) {
-    auto index = mInputBuffers.front();
-    mInputBuffers.pop_front();
-
-    sp<MediaCodecBuffer> buffer;
-    mCodec->getInputBuffer(index, &buffer);
-    if (!buffer) {
-      LOGE("Decoder:%p failed to get input buffer", this);
-      continue;
-    }
-
-    auto [frameInfo, frameData] = mInputFrames.front();
-    mInputFrames.pop_front();
-
-    if (buffer->capacity() < frameData->size()) {
-      LOGE("Decoder:%p exceed input buffer size, dropping one frame", this);
-      mInputBuffers.push_front(index);  // keep the buffer
-      continue;
-    }
-
-    buffer->setRange(0, frameData->size());
-    memcpy(buffer->data(), frameData->data(), frameData->size());
-
-    uint32_t flags =
-        frameInfo->mIsCodecConfig ? MediaCodec::BUFFER_FLAG_CODECCONFIG : 0;
-
-    status_t err = mCodec->queueInputBuffer(index, 0, frameData->size(),
-                                            frameInfo->mTimestampUs, flags);
-    if (err != OK) {
-      LOGE("Decoder:%p failed to queue input buffer", this);
-      continue;
-    }
-
-    if (!frameInfo->mIsCodecConfig) {
-      mFrameInfoQueue.Push(frameInfo);
-    }
-  }
-}
-
-void WebrtcGonkVideoDecoder::OnOutputBufferQueued(ANativeWindowBuffer* aBuffer,
-                                                  int64_t aTimestampNs) {
-  mDecodedFrameInfo = mFrameInfoQueue.Pop(aTimestampNs / 1000);
-  mDecodedFrameInfo->mNativeBuffer = aBuffer;
-}
-
-void WebrtcGonkVideoDecoder::OnNewFrame() {
-  using mozilla::ImageBuffer;
-  using mozilla::MakeRefPtr;
-  using mozilla::layers::GrallocImage;
-  using mozilla::layers::TextureClient;
-
-  RefPtr<TextureClient> buffer = mNativeWindow->getCurrentBuffer();
-  if (!buffer) {
-    LOGE("Decoder:%p failed to get texture client", this);
+  if (!aInputInfo) {
+    LOGW("%s null input info, flags %u", LogTag(), aFlags);
     return;
   }
 
-  if (!mDecodedFrameInfo) {
-    LOGE("Decoder:%p no decoded frame info", this);
+  auto& inputImage = static_cast<InputHolder*>(aInputInfo.get())->Get();
+  LOGV("%s output, flags %u, RTP timestamp %u (%" PRId64 " us)", LogTag(),
+       aFlags, inputImage.RtpTimestamp(), aTimeUs);
+
+  auto image = GonkImageUtils::CreateI420ImageCopy(mImageContainer, aBuffer);
+  if (!image) {
+    LOGE("%s failed to create I420 image", LogTag());
     return;
   }
 
-  auto image = MakeRefPtr<GrallocImage>();
-  image->AdoptData(buffer, buffer->GetSize());
+  auto videoFrame =
+      webrtc::VideoFrame::Builder()
+          .set_video_frame_buffer(
+              rtc::make_ref_counted<mozilla::ImageBuffer>(std::move(image)))
+          .set_timestamp_rtp(inputImage.RtpTimestamp())
+          .set_rotation(inputImage.rotation_)
+          .build();
 
-  if (image->GetGraphicBuffer().get() != mDecodedFrameInfo->mNativeBuffer) {
-    LOGE("Decoder:%p graphic buffer mismatch", this);
+  Mutex::Autolock lock(mCallbackMutex);
+  if (mCallback) {
+    mCallback->Decoded(videoFrame);
+  } else {
+    LOGW("%s callback was not registered, dropping output", LogTag());
+  }
+}
+
+void WebrtcGonkVideoDecoder::OutputTexture(TextureClient* aTexture,
+                                           const sp<RefBase>& aInputInfo,
+                                           int64_t aTimeUs, uint32_t aFlags) {
+  if (!aTexture) {
+    LOGW("%s null output texture, flags %u", LogTag(), aFlags);
+    return;
+  }
+  if (!aInputInfo) {
+    LOGW("%s null input info, flags %u", LogTag(), aFlags);
+    return;
   }
 
-  int64_t latency = (systemTime() - mDecodedFrameInfo->mInputTimeNs) / 1000000;
-  LOGD("Decoder:%p frame decoded, latency %" PRId64 " ms", this, latency);
+  auto& inputImage = static_cast<InputHolder*>(aInputInfo.get())->Get();
+  LOGV("%s output texture #%" PRIu64 ", flags %u, RTP timestamp %u (%" PRId64
+       " us)",
+       LogTag(), aTexture->GetSerial(), aFlags, inputImage.RtpTimestamp(),
+       aTimeUs);
 
-  rtc::scoped_refptr<ImageBuffer> imageBuffer =
-      rtc::make_ref_counted<ImageBuffer>(std::move(image));
-  webrtc::VideoFrame videoFrame(imageBuffer, mDecodedFrameInfo->mTimestamp,
-                                mDecodedFrameInfo->mRenderTimeMs,
-                                webrtc::kVideoRotation_0);
+  auto image = mozilla::MakeRefPtr<mozilla::layers::GrallocImage>();
+  image->AdoptData(aTexture, aTexture->GetSize());
 
-  CHECK(mCallback);
-  mCallback->OnDecoded(videoFrame);
+  auto videoFrame =
+      webrtc::VideoFrame::Builder()
+          .set_video_frame_buffer(
+              rtc::make_ref_counted<mozilla::ImageBuffer>(std::move(image)))
+          .set_timestamp_rtp(inputImage.RtpTimestamp())
+          .set_rotation(inputImage.rotation_)
+          .build();
+
+  Mutex::Autolock lock(mCallbackMutex);
+  if (mCallback) {
+    mCallback->Decoded(videoFrame);
+  } else {
+    LOGW("%s callback was not registered, dropping output", LogTag());
+  }
+}
+
+void WebrtcGonkVideoDecoder::NotifyError(status_t aErr, int32_t aActionCode) {
+  LOGE("%s notify error: 0x%x, actionCode %d", LogTag(), aErr, aActionCode);
+  // Treat ACTION_CODE_RECOVERABLE as fatal error, because the codec can only be
+  // recovered with reconfiguring. Only ACTION_CODE_TRANSIENT allows
+  // decoding/encoding to be retried at later time.
+  if (aActionCode != ACTION_CODE_TRANSIENT) {
+    mError = aErr;
+  }
 }
 
 }  // namespace android

@@ -1154,6 +1154,7 @@ if CONFIG["OS_TARGET"] == "Android" or CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "media/AudioSystem.h",
         "media/AudioTrack.h",
         "media/DataSource.h",
+        "media/hardware/CryptoAPI.h",
         "media/hardware/VideoAPI.h",
         "media/IMediaHTTPConnection.h",
         "media/IMediaHTTPService.h",

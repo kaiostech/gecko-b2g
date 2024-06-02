@@ -11323,13 +11323,6 @@
 #endif
   mirror: always
 
-#if defined(MOZ_WIDGET_GONK)
--   name: media.webrtc.hw.vpx.enabled
-    type: bool
-    value: true
-    mirror: always
-#endif
-
  # If true, then we require explicit approval from the embedding app (ex. Fenix)
  # on GeckoView to know if we can allow audible, inaudible media or both kinds
  # of media to autoplay.
@@ -11492,6 +11485,16 @@
 -   name: media.gonk.video.max_video_encoder_number
     type: RelaxedAtomicUint32
     value: 1
+    mirror: always
+
+-   name: media.webrtc.gonkencoder
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+-   name: media.webrtc.gonkdecoder
+    type: RelaxedAtomicBool
+    value: true
     mirror: always
 #endif
 

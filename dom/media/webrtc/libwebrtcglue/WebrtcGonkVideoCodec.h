@@ -5,191 +5,140 @@
 #ifndef WEBRTC_GONK_VIDEO_CODEC_H_
 #define WEBRTC_GONK_VIDEO_CODEC_H_
 
-#include <media/stagefright/foundation/AHandler.h>
-#include <media/stagefright/MediaCodec.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
-#include "modules/include/module_common_types_public.h"
 
-#include "GonkNativeWindow.h"
+#include "GonkMediaUtils.h"
+#include "VideoConduit.h"
 
-// Utility class to unwrap a number to a larger type. The numbers will never be
-// unwrapped to a negative value.
-template <typename U>
-class Unwrapper {
-  static_assert(!std::numeric_limits<U>::is_signed, "U must be unsigned");
-  static_assert(std::numeric_limits<U>::max() <=
-                    std::numeric_limits<uint32_t>::max(),
-                "U must not be wider than 32 bits");
+#include "common_video/include/bitrate_adjuster.h"
+#include "rtc_base/numerics/sequence_number_unwrapper.h"
 
- public:
-  // Get the unwrapped value, but don't update the internal state.
-  int64_t UnwrapWithoutUpdate(U value) const {
-    if (!last_value_)
-      return value;
-
-    constexpr int64_t kMaxPlusOne =
-        static_cast<int64_t>(std::numeric_limits<U>::max()) + 1;
-
-    U cropped_last = static_cast<U>(*last_value_);
-    int64_t delta = value - cropped_last;
-    if (webrtc::IsNewer(value, cropped_last)) {
-      if (delta < 0)
-        delta += kMaxPlusOne;  // Wrap forwards.
-    } else if (delta > 0 && (*last_value_ + delta - kMaxPlusOne) >= 0) {
-      // If value is older but delta is positive, this is a backwards
-      // wrap-around. However, don't wrap backwards past 0 (unwrapped).
-      delta -= kMaxPlusOne;
-    }
-
-    return *last_value_ + delta;
-  }
-
-  // Only update the internal state to the specified last (unwrapped) value.
-  void UpdateLast(int64_t last_value) { last_value_ = last_value; }
-
-  // Unwrap the value and update the internal state.
-  int64_t Unwrap(U value) {
-    int64_t unwrapped = UnwrapWithoutUpdate(value);
-    UpdateLast(unwrapped);
-    return unwrapped;
-  }
-
- private:
-  absl::optional<int64_t> last_value_;
-};
-
-using TimestampUnwrapper = Unwrapper<uint32_t>;
+namespace mozilla::layers {
+class ImageContainer;
+class TextureClient;
+}  // namespace mozilla::layers
 
 namespace android {
 
-struct FrameInfo;
+class GonkCryptoInfo;
+class GonkMediaCodec;
+class MediaCodecBuffer;
 
-class FrameInfoQueue {
+class WebrtcGonkVideoEncoder : public mozilla::WebrtcVideoEncoder {
  public:
-  void SetOwner(void* aOwner, const char* aTag);
+  static WebrtcGonkVideoEncoder* Create(const webrtc::SdpVideoFormat& aFormat);
 
-  void Push(const sp<FrameInfo>& aFrameInfo);
+  int32_t InitEncode(const webrtc::VideoCodec* aCodecSettings,
+                     const webrtc::VideoEncoder::Settings& aSettings) override;
 
-  sp<FrameInfo> Pop(int64_t aTimestampUs);
+  int32_t RegisterEncodeCompleteCallback(
+      webrtc::EncodedImageCallback* aCallback) override;
+
+  int32_t Encode(
+      const webrtc::VideoFrame& aInputFrame,
+      const std::vector<webrtc::VideoFrameType>* aFrameTypes) override;
+
+  int32_t Release() override;
+
+  void SetRates(
+      const webrtc::VideoEncoder::RateControlParameters& aParameters) override;
+
+  webrtc::VideoEncoder::EncoderInfo GetEncoderInfo() const override;
+
+  // The following are codec callbacks.
+  bool FetchInput(const sp<MediaCodecBuffer>& aBuffer, sp<RefBase>* aInputInfo,
+                  sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
+                  uint32_t* aFlags);
+
+  void Output(const sp<MediaCodecBuffer>& aBuffer,
+              const sp<RefBase>& aInputInfo, int64_t aTimeUs, uint32_t aFlags);
+
+  void NotifyError(status_t aErr, int32_t aActionCode);
 
  private:
-  Mutex mMutex;
-  void* mOwner;
-  std::string mTag;
-  std::deque<sp<FrameInfo>> mQueue;
+  explicit WebrtcGonkVideoEncoder(const webrtc::SdpVideoFormat& aFormat);
+
+  virtual ~WebrtcGonkVideoEncoder();
+
+  const char* LogTag() { return mLogTag.c_str(); }
+
+  const std::string mLogTag;
+  std::atomic<status_t> mError = OK;
+  Mutex mCallbackMutex;
+  webrtc::EncodedImageCallback* mCallback = nullptr;
+  webrtc::SdpVideoFormat::Parameters mFormatParams;
+  webrtc::CodecSpecificInfo mCodecSpecific;
+  webrtc::BitrateAdjuster mBitrateAdjuster;
+  webrtc::RtpTimestampUnwrapper mTimestampUnwrapper;
+  uint32_t mMinBitrateBps = {0};
+  uint32_t mMaxBitrateBps = {0};
+  sp<GonkMediaCodec> mCodec;
+
+  struct InputHolder : public RefBase {
+    webrtc::VideoFrame mFrame;
+    webrtc::VideoFrameType mFrameType;
+
+    InputHolder(const webrtc::VideoFrame& aFrame,
+                webrtc::VideoFrameType aFrameType)
+        : mFrame(aFrame), mFrameType(aFrameType) {}
+  };
+  GonkDataQueue<InputHolder> mInputQueue;
 };
 
-class WebrtcGonkVideoEncoder final : public AHandler {
+class WebrtcGonkVideoDecoder : public mozilla::WebrtcVideoDecoder {
+  using ImageContainer = mozilla::layers::ImageContainer;
+  using TextureClient = mozilla::layers::TextureClient;
+
  public:
-  class Callback {
-   public:
-    virtual void OnEncoded(webrtc::EncodedImage& aEncodedImage) = 0;
-  };
+  static WebrtcGonkVideoDecoder* Create(const webrtc::SdpVideoFormat& aFormat);
 
-  WebrtcGonkVideoEncoder();
+  bool Configure(const webrtc::VideoDecoder::Settings& aSettings) override;
 
-  status_t Init(Callback* aCallback, const char* aMime);
+  int32_t Decode(const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
+                 int64_t aRenderTimeMs) override;
 
-  status_t Release();
+  int32_t RegisterDecodeCompleteCallback(
+      webrtc::DecodedImageCallback* aCallback) override;
 
-  status_t Configure(const sp<AMessage>& aFormat);
+  int32_t Release() override;
 
-  status_t Encode(const webrtc::VideoFrame& aInputImage);
+  DecoderInfo GetDecoderInfo() const override;
 
-  status_t RequestIDRFrame();
+  const char* ImplementationName() const override { return "Gonk"; }
 
-  status_t SetBitrate(int32_t aBps);
+  // The following are codec callbacks.
+  bool FetchInput(const sp<MediaCodecBuffer>& aBuffer, sp<RefBase>* aInputInfo,
+                  sp<GonkCryptoInfo>* aCryptoInfo, int64_t* aTimeUs,
+                  uint32_t* aFlags);
+
+  void Output(const sp<MediaCodecBuffer>& aBuffer,
+              const sp<RefBase>& aInputInfo, int64_t aTimeUs, uint32_t aFlags);
+
+  void OutputTexture(TextureClient* aTexture, const sp<RefBase>& aInputInfo,
+                     int64_t aTimeUs, uint32_t aFlags);
+
+  void NotifyError(status_t aErr, int32_t aActionCode);
 
  private:
-  class FrameBufferGrip;
-
-  enum {
-    kWhatCodecNotify = 'codc',
-    kWhatConfigure = 'conf',
-    kWhatQueueInputData = 'qIDt',
-  };
-
-  ~WebrtcGonkVideoEncoder();
-
-  virtual void onMessageReceived(const sp<AMessage>& aMsg) override;
-
-  void OnConfigure(const sp<AMessage>& aFormat);
-
-  void OnFillInputBuffers();
-
-  void OnDrainOutputBuffer(size_t aIndex, size_t aOffset, size_t aSize,
-                           int64_t aTimeUs, int32_t aFlags);
-
-  Callback* mCallback = nullptr;
-  int32_t mColorFormat = 0;
-  bool mStarted = false;
-
-  sp<ALooper> mEncoderLooper;
-  sp<ALooper> mCodecLooper;
-  sp<MediaCodec> mCodec;
-
-  std::deque<std::pair<sp<FrameInfo>, sp<FrameBufferGrip>>> mInputFrames;
-  std::deque<size_t> mInputBuffers;
-  FrameInfoQueue mFrameInfoQueue;
-};
-
-// Generic decoder using stagefright.
-// It implements gonk native window callback to receive buffers from
-// MediaCodec::RenderOutputBufferAndRelease().
-class WebrtcGonkVideoDecoder final : public AHandler,
-                                     public GonkNativeWindowNewFrameCallback {
- public:
-  class Callback {
-   public:
-    virtual void OnDecoded(webrtc::VideoFrame& aVideoFrame) = 0;
-  };
-
-  WebrtcGonkVideoDecoder();
-
-  status_t Init(Callback* aCallback, const char* aMime, int32_t aWidth,
-                int32_t aHeight);
-
-  status_t Release();
-
-  status_t Decode(const webrtc::EncodedImage& aEncoded, bool aIsCodecConfig,
-                  int64_t aRenderTimeMs);
-
-  // After MediaCodec::RenderOutputBufferAndRelease() returns a buffer back to
-  // native window for rendering, this function will called directly from
-  // GonkBufferQueueProducer::queueBuffer(), which is on ACodec looper thread.
-  virtual void OnNewFrame() override;
-
- private:
-  enum {
-    kWhatCodecNotify = 'codc',
-    kWhatQueueInputData = 'qIDt',
-  };
+  explicit WebrtcGonkVideoDecoder(const webrtc::SdpVideoFormat& aFormat);
 
   virtual ~WebrtcGonkVideoDecoder();
 
-  virtual void onMessageReceived(const sp<AMessage>& aMsg) override;
+  const char* LogTag() { return mLogTag.c_str(); }
 
-  void OnFillInputBuffers();
+  const std::string mLogTag;
+  std::atomic<status_t> mError = OK;
+  bool mNeedKeyframe = true;
+  Mutex mCallbackMutex;
+  webrtc::DecodedImageCallback* mCallback = nullptr;
+  webrtc::SdpVideoFormat::Parameters mFormatParams;
+  webrtc::RtpTimestampUnwrapper mTimestampUnwrapper;
+  RefPtr<ImageContainer> mImageContainer;
+  sp<GonkMediaCodec> mCodec;
 
-  // Called on ACodec looper thread when MediaCodec renders a buffer into native
-  // window.
-  void OnOutputBufferQueued(ANativeWindowBuffer* aBuffer, int64_t aTimestampNs);
-
-  sp<Surface> InitBufferQueue();
-
-  Callback* mCallback = nullptr;
-  TimestampUnwrapper mUnwrapper;
-
-  sp<ALooper> mDecoderLooper;
-  sp<ALooper> mCodecLooper;
-  sp<MediaCodec> mCodec;
-  sp<GonkNativeWindow> mNativeWindow;
-
-  std::deque<std::pair<sp<FrameInfo>, sp<ABuffer>>> mInputFrames;
-  std::deque<size_t> mInputBuffers;
-  FrameInfoQueue mFrameInfoQueue;
-  sp<FrameInfo> mDecodedFrameInfo;  // accessed on ACodec looper thread
+  using InputHolder = GonkObjectHolder<webrtc::EncodedImage>;
+  GonkDataQueue<InputHolder> mInputQueue;
 };
 
 }  // namespace android

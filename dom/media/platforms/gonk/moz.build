@@ -10,6 +10,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     EXPORTS += [
         "GonkAudioDecoderManager.h",
         "GonkDecoderModule.h",
+        "GonkMediaCodec.h",
         "GonkMediaDataDecoder.h",
         "GonkMediaUtils.h",
         "GonkVideoDecoderManager.h",

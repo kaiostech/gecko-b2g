@@ -31,7 +31,7 @@ WebrtcVideoDecoderFactory::CreateVideoDecoder(
   auto type = webrtc::PayloadStringToCodecType(aFormat.name);
 
 #ifdef MOZ_WIDGET_GONK
-  decoder.reset(GonkVideoCodec::CreateDecoder(type));
+  decoder.reset(GonkVideoCodec::CreateDecoder(aFormat));
   if (decoder) {
     return decoder;
   }
@@ -108,8 +108,10 @@ WebrtcVideoEncoderFactory::InternalFactory::CreateVideoEncoder(
 
   std::unique_ptr<webrtc::VideoEncoder> platformEncoder;
 #ifdef MOZ_WIDGET_GONK
-  auto type = webrtc::PayloadStringToCodecType(aFormat.name);
-  platformEncoder.reset(GonkVideoCodec::CreateEncoder(type));
+  platformEncoder.reset(GonkVideoCodec::CreateEncoder(aFormat));
+  if (!platformEncoder) {
+    platformEncoder.reset(MediaDataCodec::CreateEncoder(aFormat));
+  }
 #else
   platformEncoder.reset(MediaDataCodec::CreateEncoder(aFormat));
 #endif

@@ -941,7 +941,8 @@ static void FilterCodecs(std::vector<AString>& aCodecs, bool aAllowC2) {
 
 /* static */
 std::vector<AString> GonkMediaUtils::FindMatchingCodecs(const char* aMime,
-                                                        bool aEncoder) {
+                                                        bool aEncoder,
+                                                        bool aAllowSoftware) {
   AString mime(aMime);
   if (mime == "video/vp8") {
     mime = "video/x-vnd.on2.vp8";
@@ -949,21 +950,23 @@ std::vector<AString> GonkMediaUtils::FindMatchingCodecs(const char* aMime,
     mime = "video/x-vnd.on2.vp9";
   }
 
-  // The old video decoder path (GonkMediaDataDecoder/GonkVideoDecoderManager)
-  // doesn't support codec2 nor any software components, because this path uses
-  // a hack to acquire GraphicBuffers from ACodec and doesn't work as expected
-  // on those components.
-  bool allowSoftwareOrC2 =
-      mime.startsWithIgnoreCase("audio/") || aEncoder ||
-      mozilla::StaticPrefs::media_gonkmediacodec_video_enabled();
+  bool allowCodec2 = true;
+  if (!mozilla::StaticPrefs::media_gonkmediacodec_video_enabled() &&
+      !aEncoder && mime.startsWithIgnoreCase("video/")) {
+    // We are using old video decoder path (GonkVideoDecoderManager). This path
+    // uses a hack to steal GraphicBuffers from ACodec and doesn't support C2 or
+    // software components.
+    allowCodec2 = false;
+    aAllowSoftware = false;
+  }
 
-  uint32_t flags = allowSoftwareOrC2 ? 0 : MediaCodecList::kHardwareCodecsOnly;
+  uint32_t flags = aAllowSoftware ? 0 : MediaCodecList::kHardwareCodecsOnly;
   Vector<AString> matches;
   MediaCodecList::findMatchingCodecs(mime.c_str(), aEncoder, flags, &matches);
 
   // Convert android::Vector to std::vector.
   std::vector<AString> codecs(matches.begin(), matches.end());
-  FilterCodecs(codecs, allowSoftwareOrC2);
+  FilterCodecs(codecs, allowCodec2);
   return codecs;
 }
 

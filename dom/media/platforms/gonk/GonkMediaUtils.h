@@ -9,11 +9,12 @@
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/AString.h>
-#include <media/stagefright/foundation/MediaDefs.h>
+#include <media/stagefright/MediaDefs.h>
 #include <system/graphics.h>
 #include <ui/GraphicBuffer.h>
 #include <utils/RefBase.h>
 
+#include <list>
 #include <vector>
 
 #include "AudioSampleFormat.h"
@@ -39,6 +40,46 @@ class VideoFrameBuffer;
 }
 
 namespace android {
+
+// A thread-safe queue that is typically queued by one thread and dequeued by
+// another. Each element is managed by android::sp.
+template <class T>
+class GonkDataQueue final {
+ public:
+  size_t Size() {
+    Mutex::Autolock lock(mMutex);
+    return mQueue.size();
+  }
+
+  bool Empty() {
+    Mutex::Autolock lock(mMutex);
+    return mQueue.empty();
+  }
+
+  sp<T> Pop() {
+    Mutex::Autolock lock(mMutex);
+    if (mQueue.empty()) {
+      return nullptr;
+    }
+    auto element = mQueue.front();
+    mQueue.pop_front();
+    return element;
+  }
+
+  void Push(const sp<T>& aElement) {
+    Mutex::Autolock lock(mMutex);
+    mQueue.push_back(aElement);
+  }
+
+  void Clear() {
+    Mutex::Autolock lock(mMutex);
+    mQueue.clear();
+  }
+
+ private:
+  Mutex mMutex;
+  std::list<sp<T>> mQueue;
+};
 
 // A template wrapper class that allows any object to be managed by android::sp.
 template <class T>
@@ -192,7 +233,8 @@ class GonkMediaUtils {
   static sp<GonkCryptoInfo> GetCryptoInfo(const mozilla::MediaRawData* aSample);
 
   static std::vector<AString> FindMatchingCodecs(const char* aMime,
-                                                 bool aEncoder);
+                                                 bool aEncoder,
+                                                 bool aAllowSoftware = true);
 };
 
 }  // namespace android

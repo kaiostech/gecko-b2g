@@ -48,17 +48,10 @@ static std::vector<std::string> SplitMultilineString(const std::string& aStr) {
   return lines;
 }
 
-struct TextureHolder : public RefBase {
-  using TextureClient = mozilla::layers::TextureClient;
-
-  RefPtr<TextureClient> mTexture;
-
-  static sp<TextureHolder> Create(TextureClient* aTexture) {
-    sp<TextureHolder> holder = new TextureHolder;
-    holder->mTexture = aTexture;
-    return holder;
-  }
-};
+// CryptoHolder is needed because we can't downcast RefBase to ICrypto due to
+// virtual inheritance.
+using CryptoHolder = GonkObjectHolder<sp<ICrypto>>;
+using TextureHolder = GonkObjectHolder<RefPtr<mozilla::layers::TextureClient>>;
 
 class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
   using TextureClient = mozilla::layers::TextureClient;
@@ -247,20 +240,6 @@ void GonkMediaCodec::Init() {
   mCodecLooper->start();
 }
 
-// We can't downcast RefBase to ICrypto due to virtual inheritance. This means
-// an ICrypto object can't be retrieved from AMessage::findObject(). Instead we
-// can use this wrapper to set an ICrypto object into AMessage while still
-// holding a reference to it.
-struct CryptoHolder : public RefBase {
-  sp<ICrypto> mCrypto;
-
-  static sp<CryptoHolder> Create(const sp<ICrypto>& aCrypto) {
-    sp<CryptoHolder> holder = new CryptoHolder;
-    holder->mCrypto = aCrypto;
-    return holder;
-  }
-};
-
 void GonkMediaCodec::Configure(const sp<Reply>& aReply,
                                const sp<Callback>& aCallback,
                                const sp<AMessage>& aFormat,
@@ -410,7 +389,7 @@ void GonkMediaCodec::onMessageReceived(const sp<AMessage>& aMsg) {
       CHECK(mConfigMsg->findObject("callback", &obj));
       callback = static_cast<Callback*>(obj.get());
       CHECK(mConfigMsg->findObject("crypto", &obj));
-      crypto = static_cast<CryptoHolder*>(obj.get())->mCrypto;
+      crypto = static_cast<CryptoHolder*>(obj.get())->Get();
       mConfigMsg = nullptr;
 
       status_t err = OnConfigure(callback, format, crypto, encoder);
@@ -708,7 +687,7 @@ void GonkMediaCodec::OnNotifyOutput(const sp<AMessage>& aMsg) {
       sp<RefBase> obj;
       CHECK(aMsg->findObject("inputInfo", &inputInfo));
       CHECK(aMsg->findObject("texture", &obj));
-      texture = static_cast<TextureHolder*>(obj.get())->mTexture;
+      texture = static_cast<TextureHolder*>(obj.get())->Get();
     }
     mCallback->Output(texture, inputInfo, timeUs, flags);
   }

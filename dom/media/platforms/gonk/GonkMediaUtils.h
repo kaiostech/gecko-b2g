@@ -23,6 +23,24 @@ class TrackInfo;
 
 namespace android {
 
+// A template wrapper class that allows any object to be managed by android::sp.
+template <class T>
+class GonkObjectHolder : public RefBase {
+ public:
+  template <class U>
+  static sp<GonkObjectHolder> Create(U&& aObj) {
+    return new GonkObjectHolder(std::forward<U>(aObj));
+  }
+
+  T& Get() { return mObj; }
+
+ private:
+  template <class U>
+  GonkObjectHolder(U&& aObj) : mObj(std::forward<U>(aObj)) {}
+
+  T mObj;
+};
+
 class GonkCryptoInfo : public RefBase {
  public:
   CryptoPlugin::Mode mMode = CryptoPlugin::kMode_Unencrypted;

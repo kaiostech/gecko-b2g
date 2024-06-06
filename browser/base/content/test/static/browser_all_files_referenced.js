@@ -369,6 +369,7 @@ if (AppConstants.MOZ_CODE_COVERAGE) {
 }
 
 const gInterestingCategories = new Set([
+  "agent-style-sheets",
   "addon-provider-module",
   "webextension-modules",
   "webextension-scripts",

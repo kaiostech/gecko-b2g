@@ -357,6 +357,10 @@ textarea,
   font-variant-numeric: nominal;
 }
 
+*|*::-moz-display-comboboxcontrol-frame {
+  padding-inline: 4px;
+}
+
 /* To override moz-accessiblecaret css in ua.css */
 div:-moz-native-anonymous.moz-accessiblecaret {
   --caret-width: 14px;

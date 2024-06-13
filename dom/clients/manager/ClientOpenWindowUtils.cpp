@@ -112,6 +112,16 @@ class WebProgressListener final : public nsIWebProgressListener,
       return NS_OK;
     }
 
+    // FIXME: An about:blank should be set as the initial document, but B2GOS
+    // does not do this, which results in clients.openWindow not resolving to
+    // a WindowClient.
+    nsAutoCString documentURI;
+    wgp->GetDocumentURI()->GetSpec(documentURI);
+
+    if (documentURI.EqualsASCII("about:blank")) {
+      return NS_OK;
+    }
+
     RemoveListener();
 
     // Check same origin. If the origins do not match, resolve with null (per

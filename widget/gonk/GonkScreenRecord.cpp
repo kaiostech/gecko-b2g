@@ -518,6 +518,7 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst,
         GS_LOGE("ERROR: couldn't open file\n");
         goto CleanUp;
       }
+#if ANDROID_VERSION < 33
       if (outputFormat == FORMAT_MP4) {
         muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_MPEG_4);
       } else if (outputFormat == FORMAT_WEBM) {
@@ -525,6 +526,15 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst,
       } else {
         muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_THREE_GPP);
       }
+#else
+      if (outputFormat == FORMAT_MP4) {
+        muxer = MediaMuxer::create(fd, MediaMuxer::OUTPUT_FORMAT_MPEG_4);
+      } else if (outputFormat == FORMAT_WEBM) {
+        muxer = MediaMuxer::create(fd, MediaMuxer::OUTPUT_FORMAT_WEBM);
+      } else {
+        muxer = MediaMuxer::create(fd, MediaMuxer::OUTPUT_FORMAT_THREE_GPP);
+      }
+#endif
       close(fd);
       // set screen rotation to meta for player to do rotation
       muxer->setOrientationHint(rotation);  // TODO: does this do anything?

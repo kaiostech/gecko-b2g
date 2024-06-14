@@ -98,6 +98,20 @@ Error unwrapRet(Return<Error>& ret) { return unwrapRet(ret, kDefaultError); }
 
 }  // anonymous namespace
 
+template <typename To, typename From>
+To translate(From x) {
+    return static_cast<To>(x);
+}
+
+template <typename To, typename From>
+std::vector<To> translate(const hidl_vec<From>& in) {
+    std::vector<To> out;
+    out.reserve(in.size());
+    std::transform(in.begin(), in.end(), std::back_inserter(out),
+                   [](From x) { return translate<To>(x); });
+    return out;
+}
+
 namespace impl {
 
 Composer::CommandWriter::CommandWriter(uint32_t initialMaxSize)
@@ -415,7 +429,7 @@ Error Composer::getHdrCapabilities(Display display, std::vector<Hdr>* outTypes,
             return;
           }
 
-          *outTypes = tmpTypes;
+          *outTypes = translate<Hdr>(tmpTypes);
           *outMaxLuminance = tmpMaxLuminance;
           *outMaxAverageLuminance = tmpMaxAverageLuminance;
           *outMinLuminance = tmpMinLuminance;

@@ -220,7 +220,7 @@ def Libxul(name, output_category=None):
                 "binder_b2g_telephony_interface-V1-cpp",
                 "binder_b2g_remotesimunlock_interface-V1-cpp",
             )
-        if CONFIG["ANDROID_VERSION"] == "33":
+        if CONFIG["ANDROID_VERSION"] >= "33":
             LDFLAGS += ["-v"]
             OS_LIBS += [
                 "activitymanager_aidl",
@@ -235,6 +235,7 @@ def Libxul(name, output_category=None):
             AOSPStaticObjects(
                 "libvold_binder",
             )
+        if CONFIG["ANDROID_VERSION"] == "33":
             AOSPSharedObjects(
                 "android.frameworks.sensorservice@1.0",
                 "android.frameworks.stats@1.0",
@@ -242,6 +243,10 @@ def Libxul(name, output_category=None):
                 "android.hardware.gnss-V2-cpp",
                 "android.hardware.graphics.composer@2.4",
                 "android.hardware.graphics.composer3-V1-ndk",
+                "android.hardware.graphics.mapper@2.0",
+                "android.hardware.graphics.mapper@2.1",
+                "android.hardware.graphics.mapper@3.0",
+                "android.hardware.graphics.mapper@4.0",
                 "android.hardware.power-V3-cpp",
                 "android.hardware.sensors@2.1",
                 "android.hardware.vibrator-V2-cpp",
@@ -254,12 +259,34 @@ def Libxul(name, output_category=None):
                 "netd_aidl_interface-V10-cpp",
                 "oemnetd_aidl_interface-cpp",
             )
-
-        if CONFIG["B2G_OEMHOOK"]:
+        if CONFIG["ANDROID_VERSION"] == "34":
             AOSPSharedObjects(
-                "vendor.qti.hardware.radio.qcrilhook@1.0",
+                "android.frameworks.sensorservice@1.0",
+                "android.frameworks.stats@1.0",
+                "android.frameworks.stats-V1-ndk",
+                "android.hardware.gnss-V2-cpp",
+                "android.hardware.graphics.composer@2.4",
+                "android.hardware.graphics.composer3-V2-ndk",
+                "android.hardware.graphics.mapper@2.0",
+                "android.hardware.graphics.mapper@2.1",
+                "android.hardware.graphics.mapper@3.0",
+                "android.hardware.graphics.mapper@4.0",
+                "android.hardware.power-V3-cpp",
+                "android.hardware.sensors@2.1",
+                "android.hardware.vibrator-V2-cpp",
+                "android.hardware.wifi.supplicant-V1-cpp",
+                "android.hardware.wifi@1.5",
+                "android.media.audio.common.types-V2-cpp",
+                "audiopolicy-aidl-cpp",
+                "libandroid_runtime",
+                "libcutils",
+                "libnetworkstats",
+                "libsensor",
+                "libsensorservicehidl",
+                "libSurfaceFlingerProp",
+                "netd_aidl_interface-V10-cpp",
+                "oemnetd_aidl_interface-cpp",
             )
-
 
 # The real libxul definition is in ./build/moz.build, but we define a
 # xul library here such that # FINAL_LIBRARY = 'xul' refers to here, which

@@ -29,6 +29,7 @@
 #include "cutils/properties.h"
 
 #include "NativeGralloc.h"
+#include "NativeGrallocT.h"
 #include <dlfcn.h>
 
 #include "GonkDisplay.h"

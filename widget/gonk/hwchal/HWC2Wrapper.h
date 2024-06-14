@@ -23,7 +23,11 @@
 #include <hardware/hwcomposer.h>
 #include <hardware/hwcomposer2.h>
 
-#include "android_13/HWC2.h"
+#if ANDROID_VERSION > 33
+#  include "android_14/HWC2.h"
+#else
+#  include "android_13/HWC2.h"
+#endif
 
 // Extend android_13/Hal.h by bringing composer3 namespace and its Composition
 // type into hal namespace.
@@ -77,7 +81,11 @@ class Device {
   // We buffer most state changes and flush them implicitly with
   // Display::validate, Display::present, and Display::presentOrValidate.
   // This method provides an explicit way to flush state changes to HWC.
+#if ANDROID_VERSION >= 33
+  hal::Error flushCommands(Display display);
+#else
   hal::Error flushCommands();
+#endif
 
  private:
   // Initialization methods

@@ -6,7 +6,7 @@ dest="${2-.}"
 
 # This is a broken symlink that prevents rsync from doing its job.
 # Using --exclude still fails with a "symlink has no referent" error.
-mv ${src}/frameworks/native/include/private/binder ${src}/out/broken_binder_symlink
+#mv ${src}/frameworks/native/include/private/binder ${src}/out/broken_binder_symlink
 
 # Copy the contents of the files & directories in the first argument to the
 # sysroot using the second argument as the destination folder. File
@@ -76,12 +76,11 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss@2.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss-V2-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.gnss.visibility_control@1.0.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.common@1.2.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer@2.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer@2.2.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer@2.3.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer@2.4.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer3-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer3-V2-ndk.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@2.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@2.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@3.0.so
@@ -104,12 +103,14 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant-V1-cpp.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.media.audio.common.types-V1-cpp.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.media.audio.common.types-V2-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.system.wifi.keystore@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats-V1-ndk.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.sensorservice@1.0.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libandroid_runtime.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsensor.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsensorserviceaidl.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsensorservicehidl.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_stub.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_connectivity_interface-V1-cpp.so
@@ -143,6 +144,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmtp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libstagefright_foundation.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libstagefright_omx.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libstagefright.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libSurfaceFlingerProp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsuspend.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsync.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libsysutils.so
@@ -207,9 +209,11 @@ frameworks/native/libs/nativebase/include
 frameworks/native/libs/nativewindow/include
 frameworks/native/libs/sensor/include
 frameworks/native/libs/sensor/include/sensor
-frameworks/native/libs/ui/include
+frameworks/native/libs/ui/include/
 frameworks/native/opengl/include
-frameworks/native/services/sensorservice/hidl/
+frameworks/native/services/surfaceflinger
+frameworks/native/services/sensorservice/aidl
+frameworks/native/services/sensorservice/aidl/include/sensorserviceaidl
 gonk-misc/gonk-binder/binder_b2g_stub/include/
 hardware/interfaces/common/support/include
 hardware/interfaces/graphics/composer/2.1/utils/command-buffer/include
@@ -256,7 +260,6 @@ out/soong/.intermediates/frameworks/av/media/libaudioclient/effect-aidl-cpp-sour
 out/soong/.intermediates/frameworks/av/media/libshmem/shared-file-region-aidl-cpp-source/gen/include
 out/soong/.intermediates/frameworks/av/av-types-aidl-cpp-source/gen/include
 out/soong/.intermediates/frameworks/base/core/java/libincremental_aidl-cpp/android_${ARCH_FOLDER}_static/gen/aidl
-out/soong/.intermediates/frameworks/base/media/android.media.audio.common.types-V1-cpp-source/gen/include
 out/soong/.intermediates/frameworks/libs/net/common/netd/netd_event_listener_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/frameworks/libs/net/common/netd/netd_aidl_interface-V10-cpp-source/gen/include
 out/soong/.intermediates/frameworks/native/libs/binder/libactivitymanager_aidl/android_${ARCH_FOLDER}_static/gen/aidl
@@ -264,17 +267,21 @@ out/soong/.intermediates/frameworks/native/libs/gui/libgui_aidl_static/android_$
 out/soong/.intermediates/frameworks/native/libs/gui/libgui/android_${ARCH_FOLDER}_shared/gen/aidl
 out/soong/.intermediates/frameworks/native/libs/gui/libgui_window_info_static/android_${ARCH_FOLDER}_static_afdo-libgui_lto-thin/gen/aidl
 out/soong/.intermediates/frameworks/native/libs/permission/framework-permission-aidl-cpp-source/gen/include
+out/soong/.intermediates/frameworks/native/services/surfaceflinger/sysprop/libSurfaceFlingerProperties/android_${ARCH_FOLDER}_static/gen/sysprop/include
+out/soong/.intermediates/frameworks/native/services/surfaceflinger/sysprop/libSurfaceFlingerProperties/android_${ARCH_FOLDER}_static_cfi/gen
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_system_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_remotesimunlock_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/hardware/interfaces/common/aidl/android.hardware.common-V2-ndk-source/gen/include
-out/soong/.intermediates/hardware/interfaces/graphics/composer/aidl/android.hardware.graphics.composer3-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/graphics/composer/aidl/android.hardware.graphics.composer3-V2-ndk-source/gen/include
 out/soong/.intermediates/hardware/interfaces/wifi/supplicant/aidl/android.hardware.wifi.supplicant-V1-cpp-source/gen/include
 out/soong/.intermediates/packages/modules/DnsResolver/dnsresolver_aidl_interface-V2-cpp-source/gen/include
+out/soong/.intermediates/system/hardware/interfaces/media/android.media.audio.common.types-V2-cpp-source/gen/include
 out/soong/.intermediates/system/netd/server/oemnetd_aidl_interface-cpp-source/gen/include
 out/soong/.intermediates/system/vold/libvold_binder_shared/android_${ARCH_FOLDER}_shared/gen/aidl
 out/soong/.intermediates/system/connectivity/wificond/libwificond_ipc/android_${ARCH_FOLDER}_static/gen/aidl
+out/soong/.intermediates/vendor/qcom/opensource/commonsys-intf/display/aidl/composer3/vendor.qti.hardware.display.composer3-V1-ndk-source/gen/include
 EOF
 
 # out/soong/.intermediates/frameworks/base/media/audio_common-aidl-cpp-source/gen/include
@@ -283,6 +290,9 @@ EOF
 
 # Store the generated HIDL headers in the sysroot
 sed 's/$/\//' >> "${includes_list}" << EOF
+out/soong/.intermediates/hardware/interfaces/common/fmq/aidl/android.hardware.common.fmq-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/configstore/1.0/android.hardware.configstore@1.0_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/configstore/1.1/android.hardware.configstore@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/drm/1.0/android.hardware.drm@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/drm/1.1/android.hardware.drm@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen
@@ -329,6 +339,7 @@ out/soong/.intermediates/system/hardware/interfaces/wifi/keystore/1.0/android.sy
 out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
 out/soong/.intermediates/frameworks/hardware/interfaces/sensorservice/1.0/android.frameworks.sensorservice@1.0_genc++_headers/gen
+out/soong/.intermediates/frameworks/hardware/interfaces/sensorservice/aidl/android.frameworks.sensorservice-V1-ndk-source/gen/include
 EOF
 
 copy_to_sysroot "${includes_list}" "include"
@@ -357,4 +368,4 @@ sed -i 's/..\/..\/QtiExtension\/QtiSurfaceExtension.h/QtiExtension\/QtiSurfaceEx
 echo "/* All the logging code is now in the NDK sysroot/usr/include/android/log.h */" > ${dest}/b2g-sysroot/include/log/log_id.h
 
 # Restore the broken symlink
-mv ${src}/out/broken_binder_symlink ${src}/frameworks/native/include/private/binder
+#mv ${src}/out/broken_binder_symlink ${src}/frameworks/native/include/private/binder

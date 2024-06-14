@@ -43,6 +43,8 @@
 #include "android/hardware/vibrator/1.0/IVibrator.h"
 #if ANDROID_VERSION >= 30
 #  include "android/hardware/vibrator/IVibrator.h"
+#elif ANDROID_VERSION >= 34
+#  include <aidl/android/hardware/vibrator/IVibrator.h>
 #endif
 #include "libdisplay/GonkDisplay.h"
 

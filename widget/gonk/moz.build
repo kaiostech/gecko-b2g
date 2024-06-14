@@ -55,6 +55,7 @@ SOURCES += [
         "KeyCharacterMap.cpp",
         "KeyLayoutMap.cpp",
         "PointerController.cpp",
+        "PropertyMap.cpp",
         "sha1.c",
         "SpriteController.cpp",
         "Tokenizer.cpp",
@@ -69,12 +70,21 @@ SOURCES += [
     "hwchal/HwcHAL.cpp",
 ]
 
-UNIFIED_SOURCES += [
+SOURCES += [
     "GonkScreenRecord.cpp",
     "GonkScreenShot.cpp",
 ]
 
-if CONFIG["ANDROID_VERSION"] >= "33":
+
+if CONFIG["ANDROID_VERSION"] > "33":
+    SOURCES += [
+        "hwchal/android_14/AidlComposerHal.cpp",
+        "hwchal/android_14/ComposerHal.cpp",
+        "hwchal/android_14/HidlComposerHal.cpp",
+        "hwchal/android_14/HWC2.cpp",
+        "hwchal/HWC2Wrapper.cpp",
+    ]
+elif CONFIG["ANDROID_VERSION"] == "33":
     SOURCES += [
         "hwchal/android_13/AidlComposerHal.cpp",
         "hwchal/android_13/ComposerHal.cpp",

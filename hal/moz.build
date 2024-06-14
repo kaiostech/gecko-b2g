@@ -71,7 +71,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "gonk/android_sensors/ISensorsWrapper.h",
         "gonk/GonkSensorsHal.h",
     ]
-    if CONFIG["ANDROID_VERSION"] >= "33":
+    if CONFIG["ANDROID_VERSION"] == "33":
         EXPORTS.gonk += [
             "gonk/GonkSensorManager.h",
         ]

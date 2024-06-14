@@ -59,6 +59,19 @@ class GonkActivityManagerService
       const android::sp<android::IUidObserver>& observer) override;
   virtual android::status_t checkPermission(const android::String16& permission, pid_t pid,
                        uid_t uid, int32_t* outResult) override;
+  virtual android::status_t registerUidObserverForUids(const android::sp<android::IUidObserver>& observer,
+                       const int32_t event, const int32_t cutpoint,
+                       const android::String16& callingPackage,
+                       const int32_t uids[], size_t nUids,
+                       /*out*/ android::sp<android::IBinder>& observerToken) override;
+  virtual android::status_t addUidToObserver(const android::sp<android::IBinder>& observerToken,
+                       const android::String16& callingPackage, int32_t uid) override;
+  virtual android::status_t removeUidFromObserver(const android::sp<android::IBinder>& observerToken,
+                       const android::String16& callingPackage, int32_t uid) override;
+  virtual android::status_t logFgsApiBegin(int32_t apiType, int32_t appUid, int32_t appPid) override;
+  virtual android::status_t logFgsApiEnd(int32_t apiType, int32_t appUid, int32_t appPid) override;
+  virtual android::status_t logFgsApiStateChanged(int32_t apiType, int32_t state, int32_t appUid,
+                       int32_t appPid) override;
 #endif
 
   virtual bool isUidActive(const uid_t uid,

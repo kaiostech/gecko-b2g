@@ -69,6 +69,11 @@ class HWComposerCallback final : public HWC2::ComposerCallback {
  public:
   HWComposerCallback(HWC2::Device* aDevice) : mHwcDevice(aDevice) {}
 
+#if ANDROID_VERSION >= 34
+  void onRefreshRateChangedDebug(
+      const android::HWC2::RefreshRateChangedDebugData&) {}
+#endif
+
 #if ANDROID_VERSION >= 33
   void onComposerHalHotplug(HWC2::hal::HWDisplayId display,
                             HWC2::hal::Connection connection) override {
@@ -244,10 +249,11 @@ GonkDisplayP::GonkDisplayP() {
     dispData.mHeight = config->getHeight();
     dispData.mXdpi = (lcd_density > 0) ? lcd_density : config->getDpiX();
     dispData.mVsyncPeriod = config->getVsyncPeriod();
-    /* The emulator actually reports RGBA_8888, but EGL doesn't return
-     * any matching configuration. We force RGBX here to fix it. */
-    /*TODO: need to discuss with vendor to check this format issue.*/
+#if ANDROID_VERSION >= 34
+    dispData.mSurfaceformat = HAL_PIXEL_FORMAT_RGBA_8888;
+#else
     dispData.mSurfaceformat = HAL_PIXEL_FORMAT_RGB_565;
+#endif
   }
   mLayer = CreateLayer(config->getWidth(), config->getHeight());
 

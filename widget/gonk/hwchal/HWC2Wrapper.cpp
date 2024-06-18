@@ -117,6 +117,9 @@ void Device::onHotplug(HWDisplayId displayId, Connection connection) {
         *mComposer.get(), mCapabilities, displayId, displayType);
     newDisplay->setConnected(true);
     mDisplays.emplace(displayId, std::move(newDisplay));
+#if ANDROID_VERSION >= 34
+    mComposer->onHotplugConnect(displayId);
+#endif
   } else if (connection == Connection::DISCONNECTED) {
     // The display will later be destroyed by a call to
     // destroyDisplay(). For now we just mark it disconnected.
@@ -126,6 +129,9 @@ void Device::onHotplug(HWDisplayId displayId, Connection connection) {
     } else {
       ALOGW("Attempted to disconnect unknown display %" PRIu64, displayId);
     }
+#if ANDROID_VERSION >= 34
+    mComposer->onHotplugDisconnect(displayId);
+#endif
   }
 }
 
@@ -148,7 +154,18 @@ void Device::loadCapabilities() {
 }
 
 Error Device::flushCommands() {
-  return static_cast<Error>(mComposer->executeCommands());
+#if ANDROID_VERSION >= 34
+  auto err = Error::NONE;
+  for (auto& [id, display] : mDisplays) {
+    auto halErr = mComposer->executeCommands(id);
+    if (halErr != Error::NONE) {
+      err = halErr;
+    }
+  }
+  return err;
+#else
+  return mComposer->executeCommands();
+#endif
 }
 
 }  // namespace HWC2

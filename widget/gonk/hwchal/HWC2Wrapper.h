@@ -23,7 +23,11 @@
 #include <hardware/hwcomposer.h>
 #include <hardware/hwcomposer2.h>
 
-#include "android_13/HWC2.h"
+#if ANDROID_VERSION >= 34
+#  include "android_14/HWC2.h"
+#else
+#  include "android_13/HWC2.h"
+#endif
 
 // Extend android_13/Hal.h by bringing composer3 namespace and its Composition
 // type into hal namespace.

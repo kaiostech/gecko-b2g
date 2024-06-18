@@ -42,6 +42,8 @@
 // TODO: FIXME: #include "HwcComposer2D.h"
 //#include "pixelflinger/format.h"
 
+#include <ui/GraphicBuffer.h>
+
 #define LOG(args...) \
   __android_log_print(ANDROID_LOG_INFO, "nsScreenGonk", ##args)
 #define LOGW(args...) \
@@ -416,11 +418,10 @@ already_AddRefed<DrawTarget> nsScreenGonk::StartRemoteDrawing() {
 
   mFramebuffer = DequeueBuffer();
   int width = mFramebuffer->width, height = mFramebuffer->height;
-  if (native_gralloc_lock(
-          mFramebuffer->handle,
-          GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN |
-              GRALLOC_USAGE_HW_FB,
-          0, 0, width, height, reinterpret_cast<void**>(&mMappedBuffer))) {
+  if (android::GraphicBuffer::from(mFramebuffer)
+          ->lock(GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN |
+                     GRALLOC_USAGE_HW_FB,
+                 reinterpret_cast<void**>(&mMappedBuffer)) != android::OK) {
     EndRemoteDrawing();
     return nullptr;
   }
@@ -462,7 +463,7 @@ void nsScreenGonk::EndRemoteDrawing() {
   }
   if (mMappedBuffer) {
     MOZ_ASSERT(mFramebuffer);
-    native_gralloc_unlock(mFramebuffer->handle);
+    android::GraphicBuffer::from(mFramebuffer)->unlock();
     mMappedBuffer = nullptr;
   }
   if (mFramebuffer) {
@@ -496,10 +497,9 @@ nsresult nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer) {
 
   int width = aBuffer->width, height = aBuffer->height;
   uint8_t* mappedBuffer = nullptr;
-  if (native_gralloc_lock(
-          aBuffer->handle,
-          GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN, 0, 0,
-          width, height, reinterpret_cast<void**>(&mappedBuffer))) {
+  if (android::GraphicBuffer::from(aBuffer)->lock(
+          GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
+          reinterpret_cast<void**>(&mappedBuffer)) != android::OK) {
     return NS_ERROR_FAILURE;
   }
 
@@ -521,7 +521,7 @@ nsresult nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer) {
         aBuffer->stride * aBuffer->height * gfx::BytesPerPixel(format));
     mappedBuffer = nullptr;
   }
-  native_gralloc_unlock(aBuffer->handle);
+  android::GraphicBuffer::from(aBuffer)->unlock();
 
   return NS_OK;
 }

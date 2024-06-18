@@ -195,3 +195,6 @@ ac_add_options --enable-wasm-gc
 ac_add_options --without-wasm-sandboxed-libraries
 # ac_add_options --wasi-sysroot=${HOME}/.mozbuild/wasi-sysroot/
 
+if [ "$PLATFORM_VERSION" = "34" ]; then
+  ac_add_options --disable-wifi-support
+fi

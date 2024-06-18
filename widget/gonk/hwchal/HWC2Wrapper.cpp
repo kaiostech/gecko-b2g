@@ -23,8 +23,6 @@
 namespace android {
 namespace HWC2 {
 
-using android::HWC2::ComposerCallback;
-using android::HWC2::Display;
 using namespace android::hardware::graphics::composer::hal;
 
 Device::Device(std::unique_ptr<android::Hwc2::Composer> composer)
@@ -119,14 +117,12 @@ void Device::onHotplug(HWDisplayId displayId, Connection connection) {
         *mComposer.get(), mCapabilities, displayId, displayType);
     newDisplay->setConnected(true);
     mDisplays.emplace(displayId, std::move(newDisplay));
-    mComposer->onHotplugConnect(displayId);
   } else if (connection == Connection::DISCONNECTED) {
     // The display will later be destroyed by a call to
     // destroyDisplay(). For now we just mark it disconnected.
     auto display = getDisplayById(displayId);
     if (display) {
       display->setConnected(false);
-      mComposer->onHotplugDisconnect(displayId);
     } else {
       ALOGW("Attempted to disconnect unknown display %" PRIu64, displayId);
     }
@@ -151,15 +147,9 @@ void Device::loadCapabilities() {
   }
 }
 
-#if ANDROID_VERSION >= 33
-Error Device::flushCommands(Display display) {
-  // FIXME: seems confused with display/displayId from AOSP 13/14 ComposerHal
-  return static_cast<Error>(mComposer->executeCommands(display.getId()));
-}
-#else
 Error Device::flushCommands() {
   return static_cast<Error>(mComposer->executeCommands());
 }
-#endif
+
 }  // namespace HWC2
 }  // namespace android

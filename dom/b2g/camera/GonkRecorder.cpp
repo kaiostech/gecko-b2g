@@ -37,7 +37,6 @@
 #if defined(MOZ_WIDGET_GONK)
 #  include <media/openmax/OMX_Audio.h>
 #endif
-#include <media/AidlConversion.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/AudioSource.h>
 #include <media/stagefright/AMRWriter.h>
@@ -860,13 +859,8 @@ sp<MediaSource> GonkRecorder::createAudioSource() {
 #  if ANDROID_VERSION >= 30
   audio_attributes_t attr = AUDIO_ATTRIBUTES_INITIALIZER;
   attr.source = mAudioSource;
-  AttributionSourceState attributionSource;
-  attributionSource.packageName = VALUE_OR_FATAL(legacy2aidl_String16_string(String16()));
-  attributionSource.uid = VALUE_OR_FATAL(legacy2aidl_uid_t_int32_t(-1));
-  attributionSource.pid = VALUE_OR_FATAL(legacy2aidl_pid_t_int32_t(-1));
-  attributionSource.token = sp<BBinder>::make();
   sp<AudioSource> audioSource =
-      new AudioSource(&attr, attributionSource, mSampleRate, mAudioChannels);
+      new AudioSource(&attr, String16(), mSampleRate, mAudioChannels);
 #  else
   sp<AudioSource> audioSource =
       new AudioSource(mAudioSource, String16(), mSampleRate, mAudioChannels);

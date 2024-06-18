@@ -1082,20 +1082,6 @@ fi
 AC_SUBST(MOZ_B2G_RIL)
 
 dnl ========================================================
-dnl = Enable Native Gralloc4 for B2G (Gonk usually)
-dnl ========================================================
-
-MOZ_ARG_ENABLE_BOOL(native-gralloc4,
-[  --enable-native-gralloc4      Enable native-gralloc4 ],
-    MOZ_USE_GRALLOC4=1,
-    MOZ_USE_GRALLOC4= )
-
-if test "$MOZ_USE_GRALLOC4"; then
-    AC_DEFINE(MOZ_USE_GRALLOC4)
-fi
-AC_SUBST(MOZ_USE_GRALLOC4)
-
-dnl ========================================================
 dnl = Enable Support for AudioChannelManager API
 dnl ========================================================
 if test -n "$MOZ_AUDIO_CHANNEL_MANAGER"; then
@@ -1651,6 +1637,23 @@ if test "$B2G_IMS"; then
     AC_DEFINE(B2G_IMS)
 fi
 AC_SUBST(B2G_IMS)
+
+dnl ========================================================
+dnl Enable Support for B2G OEM hook
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(b2g-oemhook,
+[  --enable-b2g-oemhook   Enable b2g-oemhook modules],
+    B2G_OEMHOOK=1,
+    B2G_OEMHOOK= )
+if test -n "$B2G_OEMHOOK" && \
+   test -d "$_topsrcdir/koost" && \
+   test "$PRODUCT_MANUFACTURER" = "QUALCOMM"; then
+    B2G_OEMHOOK=1
+    AC_DEFINE(B2G_OEMHOOK)
+else
+    B2G_OEMHOOK=
+fi
+AC_SUBST(B2G_OEMHOOK)
 
 dnl ========================================================
 dnl Build B2G custom modules if the dir exists

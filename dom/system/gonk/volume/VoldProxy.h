@@ -74,11 +74,7 @@ class VoldProxy final {
 
   static bool Init();
   static bool Reset();
-#if ANDROID_VERSION >= 34
-static bool OnUserAdded(int aUserId, int aUserSerial, int aSharesStorageWithUserId);
-#else
   static bool OnUserAdded(int aUserId, int aUserSerial);
-#endif
   static bool OnUserStarted(int aUserId);
   static bool OnSecureKeyguardStateChanged(bool aEnabled);
   static bool Mount(const ::std::string& volId, int32_t mountFlag,

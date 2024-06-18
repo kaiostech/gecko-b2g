@@ -44,11 +44,7 @@ class GonkCryptoProxy : public BnCrypto {
 
   void notifyResolution(uint32_t width, uint32_t height) override;
 
-#if ANDROID_VERSION >= 34
-  DrmStatus setMediaDrmSession(const Vector<uint8_t>& sessionId) override;
-#else
   status_t setMediaDrmSession(const Vector<uint8_t>& sessionId) override;
-#endif
 
   ssize_t decrypt(const uint8_t key[16], const uint8_t iv[16],
                   CryptoPlugin::Mode mode, const CryptoPlugin::Pattern& pattern,

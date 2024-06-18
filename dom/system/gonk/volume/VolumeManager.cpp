@@ -306,11 +306,8 @@ bool VolumeManager::InitVold() {
   InitConfig();
   Dump("READY");
   SetState(VolumeManager::VOLUMES_READY);
-#if ANDROID_VERSION >= 34
-  if (!VoldProxy::OnUserAdded(0, 0, 0) || !VoldProxy::OnUserStarted(0) ||
-#else
+
   if (!VoldProxy::OnUserAdded(0, 0) || !VoldProxy::OnUserStarted(0) ||
-#endif
       !VoldProxy::OnSecureKeyguardStateChanged(false)) {
     return false;
   }

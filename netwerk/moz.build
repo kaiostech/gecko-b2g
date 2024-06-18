@@ -24,7 +24,7 @@ DIRS += [
 if CONFIG["MOZ_SCTP"]:
     DIRS += ["sctp/src", "sctp/datachannel"]
 
-if CONFIG["NECKO_WIFI"] and not CONFIG["DISABLE_WIFI"]:
+if CONFIG["NECKO_WIFI"]:
     DIRS += ["wifi"]
 
 DIRS += ["locales"]

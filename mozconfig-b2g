@@ -128,9 +128,10 @@ if [ "$ENABLE_RSU" = "true" ]; then
   ac_add_options --enable-rsu
 fi
 
-#if [ "$TARGET_USES_GRALLOC4" = "true" ]; then
-ac_add_options --enable-native-gralloc4
-#fi
+if test -z "$DISABLE_OEMHOOK"; then
+  # add oemhook unless it is disabled by environment variable
+  ac_add_options --enable-b2g-oemhook
+fi
 
 if [ "$ENABLE_ZAXIS_GEOLOCATION" = "true" ]; then
   ac_add_options --enable-b2g-zaxis-geolocation
@@ -187,12 +188,8 @@ fi
 
 ac_add_options --enable-sandbox
 
-ac_add_options --disable-accessibility
 ac_add_options --enable-wasm-function-references
 ac_add_options --enable-wasm-gc
-
-ac_add_options --disable-wifi-support
-ac_add_options --disable-b2g-camera
 
 # Disable WASM libraries sandboxing for now until we figure out build failures.
 ac_add_options --without-wasm-sandboxed-libraries

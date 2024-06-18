@@ -28,7 +28,6 @@
 
 #if ANDROID_VERSION >= 30
 #  include <android/hardware/power/Mode.h>
-
 #  include <binder/IServiceManager.h>
 #endif
 
@@ -58,9 +57,6 @@ using android::Surface;
 #if ANDROID_VERSION >= 33
 using android::to_string;
 using DummyProducerListener = android::StubProducerListener;
-#if ANDROID_VERSION > 33
-using aidl::android::hardware::graphics::composer3::RefreshRateChangedDebugData;
-#endif
 #else
 using android::DummyProducerListener;
 #endif
@@ -96,9 +92,6 @@ class HWComposerCallback final : public HWC2::ComposerCallback {
 
   void onComposerHalVsyncIdle(HWC2::hal::HWDisplayId) override {}
 
-#if ANDROID_VERSION > 33
-  void onRefreshRateChangedDebug(const RefreshRateChangedDebugData&) override {}
-#endif
 #else
   void onVsyncReceived(int32_t sequenceId, hwc2_display_t display,
                        int64_t timestamp) override {
@@ -254,7 +247,7 @@ GonkDisplayP::GonkDisplayP() {
     /* The emulator actually reports RGBA_8888, but EGL doesn't return
      * any matching configuration. We force RGBX here to fix it. */
     /*TODO: need to discuss with vendor to check this format issue.*/
-    dispData.mSurfaceformat = HAL_PIXEL_FORMAT_RGBA_8888;
+    dispData.mSurfaceformat = HAL_PIXEL_FORMAT_RGB_565;
   }
   mLayer = CreateLayer(config->getWidth(), config->getHeight());
 

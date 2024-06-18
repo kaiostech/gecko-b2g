@@ -49,9 +49,7 @@ fi
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-if [ "$PLATFORM_VERSION" == "34" ]; then
-  ANDROID_NDK_VERSION="r26c"
-elif [ "$PLATFORM_VERSION" == "33" ]; then
+if [ "$PLATFORM_VERSION" == "33" ]; then
   ANDROID_NDK_VERSION="r25b"
 else
   ANDROID_NDK_VERSION="r21d"
@@ -116,10 +114,15 @@ if [ -d "koost" ]; then
     export BUILD_KOOST=1
 fi
 
-if [ "$PLATFORM_VERSION" == "34" ]; then
-  export MOZ_DISABLE_LTO=1
-  SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot-aosp14.sh
-elif [ "$PLATFORM_VERSION" == "33" ]; then
+# Export OEM hook flag since it's used by create-b2g-sysroot.sh for HIDL
+if [ "$PRODUCT_MANUFACTURER" == "QUALCOMM" ]; then
+    export DISABLE_OEMHOOK
+else
+    # OEM hook is only supported on Qualcomm platform
+    export DISABLE_OEMHOOK=1
+fi
+
+if [ "$PLATFORM_VERSION" == "33" ]; then
   export MOZ_DISABLE_LTO=1
   SYSROOT_SCRIPT=taskcluster/scripts/misc/create-b2g-sysroot-aosp13.sh
 elif [ "$PLATFORM_VERSION" == "30" ]; then

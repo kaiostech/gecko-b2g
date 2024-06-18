@@ -161,7 +161,7 @@ EXPORTS.mozilla.layout += [
     "ScrollAnchorContainer.h",
 ]
 
-SOURCES += [
+UNIFIED_SOURCES += [
     "AspectRatio.cpp",
     "BlockReflowState.cpp",
     "BRFrame.cpp",

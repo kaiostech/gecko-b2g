@@ -32,7 +32,6 @@ UNIFIED_SOURCES += [
     "GrallocUsageConversion.cpp",
     "NativeFramebufferDevice.cpp",
     "NativeGralloc.cpp",
-    "NativeGrallocT.cpp",
     "WorkThread.cpp",
 ]
 

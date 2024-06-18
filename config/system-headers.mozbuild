@@ -1108,7 +1108,6 @@ if CONFIG["OS_TARGET"] == "Android" or CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "cutils/native_handle.h",
         "cutils/properties.h",
         "cutils/sockets.h",
-        "cutils/trace.h",
         "foundation/ABase.h",
         "foundation/ABitReader.h",
         "foundation/ABuffer.h",
@@ -1245,8 +1244,6 @@ if CONFIG["OS_TARGET"] == "Android" or CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "stagefright/openmax/OMX_Types.h",
         "stagefright/openmax/OMX_Video.h",
         "stagefright/Utils.h",
-        "SurfaceFlingerProperties.h",
-        "SurfaceFlingerProperties.sysprop.h",
         "suspend/autosuspend.h",
         "system/audio.h",
         "system/graphics.h",
@@ -1299,10 +1296,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "android/hardware/graphics/composer/2.2/IComposerClient.h",
         "android/hardware/graphics/composer/2.3/IComposer.h",
         "android/hardware/graphics/composer/2.3/IComposerClient.h",
-        "android/hardware/graphics/mapper/2.0/IMapper.h",
-        "android/hardware/graphics/mapper/2.1/IMapper.h",
-        "android/hardware/graphics/mapper/3.0/IMapper.h",
-        "android/hardware/graphics/mapper/4.0/IMapper.h",
         "android/hardware/radio/1.0/types.h",
         "android/hardware/radio/1.0/IRadio.h",
         "android/hardware/radio/1.0/IRadioIndication.h",
@@ -1480,7 +1473,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "fmq/MessageQueue.h",
         "gui/BufferItem.h",
         "gui/BufferItemConsumer.h",
-        "bpf/BpfUtils.h",
         "netdbpf/BpfNetworkStats.h",
         "sys/timerfd.h",
     ]
@@ -1548,7 +1540,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "aidl/android/hardware/graphics/composer3/BnComposerCallback.h",
             "aidl/android/hardware/graphics/composer3/Composition.h",
             "aidl/android/hardware/graphics/composer3/IComposer.h",
-            "aidl/android/hardware/graphics/composer3/IComposerCallback.h",
             "android/binder_ibinder_platform.h",
             "android/frameworks/sensorservice/1.0/ISensorManager.h",
             "android/hardware/gnss/BnAGnssCallback.h",
@@ -1556,9 +1547,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "android/hardware/gnss/IGnss.h",
             "android/hardware/gnss/visibility_control/BnGnssVisibilityControlCallback.h",
             "android/hardware/graphics/composer/2.4/IComposer.h",
-            "android/hardware/graphics/composer/2.4/IComposerCallback.h",
             "android/hardware/graphics/composer/2.4/IComposerClient.h",
-            "android/hardware/graphics/composer/2.4/BsComposerCallback.h",
             "android/hardware/graphics/composer3/ComposerClientWriter.h",
             "android/hardware/sensors/2.1/ISensors.h",
             "android/hardware/wifi/supplicant/BnSupplicantCallback.h",
@@ -1585,6 +1574,12 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "input/PropertyMap.h",
             "sensor/SensorManager.h",
             "utils.h",
+        ]
+    if CONFIG["B2G_OEMHOOK"]:
+        system_headers += [
+            "vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHook.h",
+            "vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHookIndication.h",
+            "vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHookResponse.h",
         ]
 
 if CONFIG["MOZ_JACK"]:

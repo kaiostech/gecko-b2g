@@ -60,7 +60,7 @@ using namespace mozilla::layers;
 using namespace mozilla::dom;
 using namespace mozilla::widget;
 
-#include "NativeGrallocT.h"
+#include "NativeGralloc.h"
 
 class ScreenOnOffEvent : public mozilla::Runnable {
  public:
@@ -416,7 +416,7 @@ already_AddRefed<DrawTarget> nsScreenGonk::StartRemoteDrawing() {
 
   mFramebuffer = DequeueBuffer();
   int width = mFramebuffer->width, height = mFramebuffer->height;
-  if (NativeGralloc::getInstance().lock(
+  if (native_gralloc_lock(
           mFramebuffer->handle,
           GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN |
               GRALLOC_USAGE_HW_FB,
@@ -462,7 +462,7 @@ void nsScreenGonk::EndRemoteDrawing() {
   }
   if (mMappedBuffer) {
     MOZ_ASSERT(mFramebuffer);
-    NativeGralloc::getInstance().unlock(mFramebuffer->handle);
+    native_gralloc_unlock(mFramebuffer->handle);
     mMappedBuffer = nullptr;
   }
   if (mFramebuffer) {
@@ -496,7 +496,7 @@ nsresult nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer) {
 
   int width = aBuffer->width, height = aBuffer->height;
   uint8_t* mappedBuffer = nullptr;
-  if (NativeGralloc::getInstance().lock(
+  if (native_gralloc_lock(
           aBuffer->handle,
           GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN, 0, 0,
           width, height, reinterpret_cast<void**>(&mappedBuffer))) {
@@ -521,7 +521,7 @@ nsresult nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer) {
         aBuffer->stride * aBuffer->height * gfx::BytesPerPixel(format));
     mappedBuffer = nullptr;
   }
-  NativeGralloc::getInstance().unlock(aBuffer->handle);
+  native_gralloc_unlock(aBuffer->handle);
 
   return NS_OK;
 }

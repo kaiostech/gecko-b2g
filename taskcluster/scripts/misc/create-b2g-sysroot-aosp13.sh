@@ -82,10 +82,6 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer@2.3.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer@2.4.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.composer3-V1-ndk.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@2.0.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@2.1.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@3.0.so
-out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.graphics.mapper@4.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.power@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.power-V3-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.0.so
@@ -178,13 +174,12 @@ frameworks/av/camera/include
 frameworks/av/drm/libmediadrm/interface
 frameworks/av/drm/libmediadrm/include
 frameworks/av/include
-frameworks/av/media/audioaidlconversion/include
-frameworks/av/media/module/foundation/include
 frameworks/av/media/libaudioclient/include
 frameworks/av/media/libaudiofoundation/include
 frameworks/av/media/liberror/include
 frameworks/av/media/libmedia/aidl
 frameworks/av/media/libmedia/include
+frameworks/av/media/libstagefright/foundation/include
 frameworks/av/media/libstagefright/include
 frameworks/av/media/libmediahelper/include
 frameworks/av/media/libmediametrics/include
@@ -194,13 +189,13 @@ frameworks/libs/net/common/native/bpf_syscall_wrappers/include
 frameworks/libs/net/common/native/bpf_headers/include
 frameworks/native/headers/media_plugin
 frameworks/native/include
+frameworks/native/include/gui
 frameworks/native/include/media/openmax
 frameworks/native/libs/binder/include
 frameworks/native/libs/binder/include_activitymanager
 frameworks/native/libs/binder/ndk/include_cpp
 frameworks/native/libs/binder/ndk/include_ndk
 frameworks/native/libs/binder/ndk/include_platform
-frameworks/native/libs/gui
 frameworks/native/libs/gui/include
 frameworks/native/libs/math/include
 frameworks/native/libs/nativebase/include
@@ -239,12 +234,11 @@ system/logging/liblog/include
 system/media/audio/include
 system/media/camera/include
 packages/modules/Connectivity/service-t/native/libs/libnetworkstats/include
-packages/modules/Connectivity/bpf_progs
 EOF
 
 # Store the generated AIDL headers in the sysroot
 sed 's/$/\//' >> "${includes_list}" << EOF
-out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_${ARCH_FOLDER}_static_cfi/gen/aidl
+out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_${ARCH_FOLDER}_shared_cfi/gen/aidl
 out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_${ARCH_FOLDER}_static_cfi/gen/aidl
 out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_${ARCH_FOLDER}_shared_cfi/gen/aidl
 out/soong/.intermediates/frameworks/av/media/libaudioclient/audiopolicy-types-aidl-cpp-source/gen/include
@@ -262,7 +256,7 @@ out/soong/.intermediates/frameworks/libs/net/common/netd/netd_aidl_interface-V10
 out/soong/.intermediates/frameworks/native/libs/binder/libactivitymanager_aidl/android_${ARCH_FOLDER}_static/gen/aidl
 out/soong/.intermediates/frameworks/native/libs/gui/libgui_aidl_static/android_${ARCH_FOLDER}_static/gen/aidl
 out/soong/.intermediates/frameworks/native/libs/gui/libgui/android_${ARCH_FOLDER}_shared/gen/aidl
-out/soong/.intermediates/frameworks/native/libs/gui/libgui_window_info_static/android_${ARCH_FOLDER}_static_afdo-libgui_lto-thin/gen/aidl
+out/soong/.intermediates/frameworks/native/libs/gui/libgui_window_info_static/android_${ARCH_FOLDER}_static_lto-thin/gen/aidl
 out/soong/.intermediates/frameworks/native/libs/permission/framework-permission-aidl-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_system_interface-V1-cpp-source/gen/include
@@ -293,7 +287,7 @@ out/soong/.intermediates/hardware/interfaces/gnss/measurement_corrections/1.0/an
 out/soong/.intermediates/hardware/interfaces/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/graphics/common/aidl/android.hardware.graphics.common-V4-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/graphics/common/aidl/android.hardware.graphics.common-V3-ndk-source/gen/include
 out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen
@@ -301,10 +295,6 @@ out/soong/.intermediates/hardware/interfaces/graphics/composer/2.1/android.hardw
 out/soong/.intermediates/hardware/interfaces/graphics/composer/2.2/android.hardware.graphics.composer@2.2_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/composer/2.3/android.hardware.graphics.composer@2.3_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/composer/2.4/android.hardware.graphics.composer@2.4_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/graphics/mapper/2.0/android.hardware.graphics.mapper@2.0_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/graphics/mapper/2.1/android.hardware.graphics.mapper@2.1_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/graphics/mapper/3.0/android.hardware.graphics.mapper@3.0_genc++_headers/gen
-out/soong/.intermediates/hardware/interfaces/graphics/mapper/4.0/android.hardware.graphics.mapper@4.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/power/aidl/android.hardware.power-V3-cpp-source/gen/include
@@ -333,6 +323,7 @@ EOF
 
 copy_to_sysroot "${includes_list}" "include"
 
+
 lib_c="${src}/out/target/product/${GONK_PRODUCT_NAME}/system/apex/com.android.runtime.release/lib${BINSUFFIX}/bionic/libc.so"
 if test -f ${lib_c}; then
     rsync --times --no-relative --copy-links \
@@ -348,11 +339,19 @@ else
         "${dest}/b2g-sysroot/libs/"
 fi
 
+if test -z "$DISABLE_OEMHOOK"; then
+    # Put HIDL headers and libraries of OEM hook into sysroot
+    rsync --times --no-relative --copy-links \
+        "${src}/out/target/product/${GONK_PRODUCT_NAME}/system/product/lib${BINSUFFIX}/vendor.qti.hardware.radio.qcrilhook@1.0.so" \
+        "${dest}/b2g-sysroot/libs/"
+    rsync --times --no-relative --copy-links -r \
+        "${src}/out/soong/.intermediates/vendor/qcom/proprietary/commonsys-intf/telephony/interfaces/hal/qcrilhook/1.0/vendor.qti.hardware.radio.qcrilhook@1.0_genc++_headers/gen/" \
+        "${dest}/b2g-sysroot/include/"
+fi
+
+rsync ${src}/packages/modules/Connectivity/bpf_progs/bpf_shared.h ${dest}/b2g-sysroot/include/
 rsync ${src}/system/netd/include/mainline/XtBpfProgLocations.h  ${dest}/b2g-sysroot/include/
 rsync ${src}/out/soong/.intermediates/system/vold/libvold_binder/android_${ARCH_FOLDER}_static/libvold_binder.a ${dest}/b2g-sysroot/libs/
-
-#update for Surface.h in qssi14
-sed -i 's/..\/..\/QtiExtension\/QtiSurfaceExtension.h/QtiExtension\/QtiSurfaceExtension.h/g' ${dest}/b2g-sysroot/include/gui/Surface.h
 
 echo "/* All the logging code is now in the NDK sysroot/usr/include/android/log.h */" > ${dest}/b2g-sysroot/include/log/log_id.h
 

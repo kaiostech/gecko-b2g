@@ -56,7 +56,7 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
 
   auto err = mDrm->setListener(mDrmListener);
   if (err != OK) {
-    GD_LOGE("%p GonkDrmSupport::Init, DRM setListener failed", this);
+    GD_LOGE("%p GonkDrmSupport::Init, DRM setListener failed(%d)", this, err);
     InitFailed();
     return;
   }
@@ -65,23 +65,26 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
     // Set security level to L3.
     err = mDrm->setPropertyString(String8("securityLevel"), String8("L3"));
     if (err != OK) {
-      GD_LOGW("%p GonkDrmSupport::Init, DRM set securityLevel failed", this);
+      GD_LOGW("%p GonkDrmSupport::Init, DRM set securityLevel failed(%d)", this,
+              err);
     }
     // Enable session sharing.
     err = mDrm->setPropertyString(String8("sessionSharing"), String8("enable"));
     if (err != OK) {
-      GD_LOGW("%p GonkDrmSupport::Init, DRM set sessionSharing failed", this);
+      GD_LOGW("%p GonkDrmSupport::Init, DRM set sessionSharing failed(%d)",
+              this, err);
     }
     // Enable privacy mode.
     err = mDrm->setPropertyString(String8("privacyMode"), String8("enable"));
     if (err != OK) {
-      GD_LOGW("%p GonkDrmSupport::Init, DRM set privacyMode failed", this);
+      GD_LOGW("%p GonkDrmSupport::Init, DRM set privacyMode failed(%d)", this,
+              err);
     }
     // Set security origin.
     auto origin = GonkDrmConverter::ToString8(NS_ConvertUTF16toUTF8(mOrigin));
     err = mDrm->setPropertyString(String8("origin"), origin);
     if (err != OK) {
-      GD_LOGW("%p GonkDrmSupport::Init, DRM set origin failed", this);
+      GD_LOGW("%p GonkDrmSupport::Init, DRM set origin failed(%d)", this, err);
     }
   }
 
@@ -135,8 +138,8 @@ sp<GonkDrmSessionInfo> GonkDrmSupport::OpenDrmSession(
   Vector<uint8_t> sessionId;
   auto err = mDrm->openSession(DrmPlugin::kSecurityLevelMax, sessionId);
   if (err != OK) {
-    GD_LOGE("%p GonkDrmSupport::OpenDrmSession, DRM openSession failed",
-            this);
+    GD_LOGE("%p GonkDrmSupport::OpenDrmSession, DRM openSession failed(%d)",
+            this, err);
     if (aErr) *aErr = err;
     return nullptr;
   }
@@ -165,8 +168,8 @@ status_t GonkDrmSupport::CloseDrmSession(
 
   auto err = mDrm->closeSession(aSession->DrmId());
   if (err != OK) {
-    GD_LOGE("%p GonkDrmSupport::CloseDrmSession, DRM closeSession failed",
-            this);
+    GD_LOGE("%p GonkDrmSupport::CloseDrmSession, DRM closeSession failed(%d)",
+            this, err);
     return err;
   }
   mSessionManager.Remove(aSession);
@@ -183,8 +186,8 @@ void GonkDrmSupport::StartProvisioning() {
   if (err != OK) {
     GD_LOGE(
         "%p GonkDrmSupport::StartProvisioning, DRM getProvisionRequest "
-        "failed",
-        this);
+        "failed(%d)",
+        this, err);
     InitFailed();
     return;
   }
@@ -213,8 +216,8 @@ void GonkDrmSupport::UpdateProvisioningResponse(bool aSuccess,
   if (err != OK) {
     GD_LOGE(
         "%p GonkDrmSupport::UpdateProvisioningResponse, DRM "
-        "provideProvisionResponse failed",
-        this);
+        "provideProvisionResponse failed(%d)",
+        this, err);
     InitFailed();
     return;
   }
@@ -311,8 +314,8 @@ bool GonkDrmSupport::GetKeyRequest(const sp<GonkDrmSessionInfo>& aSession,
       GonkDrmConverter::ToString8(aSession->MimeType()), keyType,
       optionalParameters, request, defaultUrl, &keyRequestType);
   if (err != OK) {
-    GD_LOGE("%p GonkDrmSupport::GetKeyRequest, DRM getKeyRequest failed",
-            this);
+    GD_LOGE("%p GonkDrmSupport::GetKeyRequest, DRM getKeyRequest failed(%d)",
+            this, err);
     return false;
   }
 
@@ -396,7 +399,7 @@ void GonkDrmSupport::LoadSession(const sp<GonkDrmSessionInfo>& aSession,
 
         auto err = mDrm->restoreKeys(aSession->DrmId(), aSession->KeySetId());
         if (err != OK) {
-          aFailureCb(nsPrintfCString("DRM restoreKeys failed"));
+          aFailureCb(nsPrintfCString("DRM restoreKeys failed(%d)", err));
           return;
         }
 
@@ -447,7 +450,7 @@ void GonkDrmSupport::UpdateSession(const sp<GonkDrmSessionInfo>& aSession,
 
   auto err = mDrm->provideKeyResponse(id, response, keySetId);
   if (err != OK) {
-    aFailureCb(nsPrintfCString("DRM provideKeyResponse failed"));
+    aFailureCb(nsPrintfCString("DRM provideKeyResponse failed(%d)", err));
     return;
   }
 
@@ -569,8 +572,8 @@ void GonkDrmSupport::SetServerCertificate(uint32_t aPromiseId,
   if (err != OK) {
     GD_LOGE(
         "%p GonkDrmSupport::SetServerCertificate, DRM set serviceCertificate "
-        "failed",
-        this);
+        "failed(%d)",
+        this, err);
     mCallback->RejectPromiseWithStateError(aPromiseId,
                                            "set serviceCertificate failed"_ns);
     return;

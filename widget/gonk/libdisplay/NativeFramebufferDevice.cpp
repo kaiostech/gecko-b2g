@@ -22,7 +22,7 @@
 
 #include "cutils/properties.h"
 #include "NativeFramebufferDevice.h"
-#include "NativeGrallocT.h"
+#include "NativeGralloc.h"
 #include "utils/Log.h"
 
 #ifdef BUILD_ARM_NEON
@@ -216,7 +216,7 @@ bool NativeFramebufferDevice::Post(buffer_handle_t buf) {
   android::Mutex::Autolock lock(mMutex);
 
   void* vaddr;
-  if (NativeGralloc::getInstance().lock(buf, GRALLOC_USAGE_SW_READ_RARELY, 0, 0, mVInfo.xres,
+  if (native_gralloc_lock(buf, GRALLOC_USAGE_SW_READ_RARELY, 0, 0, mVInfo.xres,
                           mVInfo.yres, &vaddr)) {
     ALOGE("Failed to lock buffer_handle_t");
     return false;
@@ -230,7 +230,7 @@ bool NativeFramebufferDevice::Post(buffer_handle_t buf) {
     memcpy(mMappedAddr, vaddr, mFInfo.line_length * mVInfo.yres);
   }
 
-  NativeGralloc::getInstance().unlock(buf);
+  native_gralloc_unlock(buf);
 
   // The following logics are not required for single FB case.
   // For buffer number >= 2, need to set activate and yoffset

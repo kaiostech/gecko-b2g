@@ -48,6 +48,7 @@ using types::V1_0::Transform;
 using types::V1_1::RenderIntent;
 using types::V1_2::ColorMode;
 using types::V1_2::Dataspace;
+using types::V1_2::Hdr;
 using types::V1_2::PixelFormat;
 
 using V2_1::Config;
@@ -63,11 +64,6 @@ using DisplayCapability = IComposerClient::DisplayCapability;
 using PerFrameMetadata = IComposerClient::PerFrameMetadata;
 using PerFrameMetadataKey = IComposerClient::PerFrameMetadataKey;
 using PerFrameMetadataBlob = IComposerClient::PerFrameMetadataBlob;
-#if ANDROID_VERSION < 33
-using types::V1_2::Hdr;
-#else
-using aidl::android::hardware::graphics::common::Hdr;
-#endif
 
 class Composer {
  public:

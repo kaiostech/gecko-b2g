@@ -59,17 +59,10 @@ void GonkCryptoProxy::notifyResolution(uint32_t width, uint32_t height) {
   }
 }
 
-#if ANDROID_VERSION >= 34
-DrmStatus GonkCryptoProxy::setMediaDrmSession(const Vector<uint8_t>& sessionId) {
-  // Not allowed.
-  return INVALID_OPERATION;
-}
-#else
 status_t GonkCryptoProxy::setMediaDrmSession(const Vector<uint8_t>& sessionId) {
   // Not allowed.
   return INVALID_OPERATION;
 }
-#endif
 
 void GonkCryptoProxy::UpdateMediaDrmSession(const Vector<uint8_t>& aKeyId) {
   auto sessionId = mSharedData->FindSessionByKey(aKeyId);
@@ -90,7 +83,7 @@ void GonkCryptoProxy::UpdateMediaDrmSession(const Vector<uint8_t>& aKeyId) {
   mSessionId = sessionId;
   auto err = mCrypto->setMediaDrmSession(sessionId);
   if (err != OK) {
-    GD_LOGE("%p GonkCryptoProxy::UpdateMediaDrmSession, failed setMediaDrmSession", this);
+    GD_LOGE("%p GonkCryptoProxy::UpdateMediaDrmSession, failed %d", this, err);
   }
 }
 

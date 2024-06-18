@@ -55,6 +55,7 @@ SOURCES += [
         "KeyCharacterMap.cpp",
         "KeyLayoutMap.cpp",
         "PointerController.cpp",
+        "PropertyMap.cpp",
         "sha1.c",
         "SpriteController.cpp",
         "Tokenizer.cpp",

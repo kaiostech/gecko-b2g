@@ -23,6 +23,7 @@
 #include "Keyboard.h"
 #include "KeyLayoutMap.h"
 #include "KeyCharacterMap.h"
+#include "PropertyMap.h"
 #include "VirtualKeyMap.h"
 #include <utils/String8.h>
 #include <utils/threads.h>
@@ -30,11 +31,6 @@
 #include <utils/threads.h>
 #include <utils/List.h>
 #include <utils/Errors.h>
-#if ANDROID_VERSION < 33
-#include <utils/PropertyMap.h>
-#else
-#include <input/PropertyMap.h>
-#endif
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
 
@@ -355,11 +351,7 @@ class EventHub : public EventHubInterface {
     uint8_t propBitmask[(INPUT_PROP_MAX + 1) / 8];
 
     String8 configurationFile;
-#if ANDROID_VERSION < 33
     PropertyMap* configuration;
-#else
-    std::unique_ptr<PropertyMap> configuration;
-#endif
     VirtualKeyMap* virtualKeyMap;
     KeyMap keyMap;
 

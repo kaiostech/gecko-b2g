@@ -44,6 +44,9 @@ class ScanEventService final
   /* IScanEvent */
   android::binder::Status OnScanResultReady() override;
   android::binder::Status OnScanFailed() override;
+#if ANDROID_VERSION >= 34
+  android::binder::Status OnScanRequestFailed(int32_t errorCode) override;
+#endif
 
  private:
   static android::sp<ScanEventService> sScanEvent;

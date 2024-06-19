@@ -31,6 +31,9 @@ static android::sp<WifiEventCallback> gCallback;
 #define EVENT_SCAN_RESULT_FAILED u"SCAN_RESULT_FAILED"_ns
 #define EVENT_PNO_SCAN_FOUND u"PNO_SCAN_FOUND"_ns
 #define EVENT_PNO_SCAN_FAILED u"PNO_SCAN_FAILED"_ns
+#if ANDROID_VERSION >= 34
+#define EVENT_SCAN_REQUEST_FAILED u"SCAN_REQUEST_FAILED"_ns
+#endif
 
 /**
  * ScanEventService
@@ -85,6 +88,18 @@ android::binder::Status ScanEventService::OnScanFailed() {
   INVOKE_CALLBACK(gCallback, event, iface);
   return android::binder::Status::ok();
 }
+
+#if ANDROID_VERSION >= 34
+android::binder::Status ScanEventService::OnScanRequestFailed(int32_t errorCode) {
+  MutexAutoLock lock(sLock);
+
+  nsCString iface(gInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_REQUEST_FAILED);
+
+  INVOKE_CALLBACK(gCallback, event, iface);
+  return android::binder::Status::ok();
+}
+#endif
 
 /**
  * PnoScanEventService

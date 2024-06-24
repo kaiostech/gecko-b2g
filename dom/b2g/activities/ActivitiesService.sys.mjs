@@ -330,6 +330,11 @@ var Activities = {
           return;
         }
 
+        if (!self.callers[aMsg.id]) {
+          DEBUG && debug(`This activity(${aMsg.id}) is already removed.`);
+          return;
+        }
+
         let sysmm = Cc["@mozilla.org/systemmessage-service;1"].getService(
           Ci.nsISystemMessageService
         );

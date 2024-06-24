@@ -1301,3 +1301,7 @@ pref("b2g.api-daemon.uds-socket", "/dev/socket/api-daemon");
 #else
 pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket");
 #endif
+
+#if ANDROID_VERSION == 34
+pref("layout.frame_rate", 60);
+#endif

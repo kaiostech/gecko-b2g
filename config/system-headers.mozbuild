@@ -1312,20 +1312,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "android/hardware/vibrator/1.0/IVibrator.h",
         "android/hardware/sensors/1.0/ISensors.h",
         "android/hardware/sensors/2.0/ISensors.h",
-        "android/hardware/wifi/1.0/IWifiApIface.h",
-        "android/hardware/wifi/1.0/IWifiChip.h",
-        "android/hardware/wifi/1.0/IWifiChipEventCallback.h",
-        "android/hardware/wifi/1.0/IWifiEventCallback.h",
-        "android/hardware/wifi/1.0/IWifiIface.h",
-        "android/hardware/wifi/1.0/IWifiNanIface.h",
-        "android/hardware/wifi/1.0/IWifiNanIfaceEventCallback.h",
-        "android/hardware/wifi/1.0/IWifiP2pIface.h",
-        "android/hardware/wifi/1.0/IWifiRttController.h",
-        "android/hardware/wifi/1.0/IWifiRttControllerEventCallback.h",
-        "android/hardware/wifi/1.0/IWifiStaIface.h",
-        "android/hardware/wifi/1.3/IWifiStaIface.h",
-        "android/hardware/wifi/1.0/IWifiStaIfaceEventCallback.h",
-        "android/hardware/wifi/1.2/IWifiChipEventCallback.h",
         "android/hardware/wifi/hostapd/1.0/IHostapd.h",
         "android/hardware/wifi/hostapd/1.1/IHostapd.h",
         "android/hidl/manager/1.0/IServiceManager.h",
@@ -1537,6 +1523,24 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "mediadrm/DrmHal.h",
         ]
 
+    if CONFIG["ANDROID_VERSION"] <= "33":
+        system_headers += [
+            "android/hardware/wifi/1.0/IWifiApIface.h",
+            "android/hardware/wifi/1.0/IWifiChip.h",
+            "android/hardware/wifi/1.0/IWifiChipEventCallback.h",
+            "android/hardware/wifi/1.0/IWifiEventCallback.h",
+            "android/hardware/wifi/1.0/IWifiIface.h",
+            "android/hardware/wifi/1.0/IWifiNanIface.h",
+            "android/hardware/wifi/1.0/IWifiNanIfaceEventCallback.h",
+            "android/hardware/wifi/1.0/IWifiP2pIface.h",
+            "android/hardware/wifi/1.0/IWifiRttController.h",
+            "android/hardware/wifi/1.0/IWifiRttControllerEventCallback.h",
+            "android/hardware/wifi/1.0/IWifiStaIface.h",
+            "android/hardware/wifi/1.3/IWifiStaIface.h",
+            "android/hardware/wifi/1.0/IWifiStaIfaceEventCallback.h",
+            "android/hardware/wifi/1.2/IWifiChipEventCallback.h",
+        ]
+
     if CONFIG["ANDROID_VERSION"] >= "33":
         system_headers += [
             "aidl/android/hardware/graphics/composer3/BnComposerCallback.h",
@@ -1580,6 +1584,10 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
 
     if CONFIG["ANDROID_VERSION"] >= "34":
         system_headers += [
+            "android/hardware/wifi/IWifi.h",
+            "android/hardware/wifi/BnWifiEventCallback.h",
+            "android/hardware/wifi/BnWifiChipEventCallback.h",
+            "android/hardware/wifi/BnWifiStaIfaceEventCallback.h",
             "SurfaceFlingerProperties.h",
         ]
 

@@ -55,7 +55,6 @@ using ::android::hidl::manager::V1_0::IServiceManager;
 
 // AIDL
 using ::android::hardware::wifi::supplicant::IfaceInfo;
-using ::android::hardware::wifi::supplicant::IfaceType;
 using ::android::hardware::wifi::supplicant::ISupplicant;
 using ::android::hardware::wifi::supplicant::ISupplicantP2pIface;
 using ::android::hardware::wifi::supplicant::ISupplicantStaIface;
@@ -198,7 +197,7 @@ class SupplicantStaManager
 
   android::sp<ISupplicantStaIface> GetSupplicantStaIface();
   android::sp<ISupplicantP2pIface> GetSupplicantP2pIface();
-  Result_t FindIfaceOfType(IfaceType aDesired, IfaceInfo* aInfo);
+  Result_t FindIfaceOfType(::android::hardware::wifi::supplicant::IfaceType aDesired, IfaceInfo* aInfo);
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetStaNetwork(uint32_t aNetId) const;
   android::sp<SupplicantStaNetwork> GetCurrentNetwork() const;

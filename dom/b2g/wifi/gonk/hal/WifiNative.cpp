@@ -177,11 +177,13 @@ void WifiNative::UnregisterEventCallback() {
 Result_t WifiNative::InitHal() {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
-  // make sure wifi hal is ready
-  result = sWifiHal->InitHalInterface();
-  if (result != nsIWifiResult::SUCCESS) {
-    return result;
-  }
+#ifndef AIDL_WIFI_HAL
+    // make sure HIDL wifi hal is ready
+    result = sWifiHal->InitHalInterface();
+    if (result != nsIWifiResult::SUCCESS) {
+      return result;
+    }
+#endif
 
   result = sWificondControl->InitWificondInterface();
   if (result != nsIWifiResult::SUCCESS) {
@@ -258,8 +260,13 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
   }
 
   WIFI_LOGD(LOG_TAG, "module loaded, try to configure...");
+#ifdef AIDL_WIFI_HAL
+  result = sWifiHal->ConfigChipAndCreateIface(IfaceConcurrencyType::STA,
+                                              mStaInterfaceName);
+#else
   result = sWifiHal->ConfigChipAndCreateIface(wifiNameSpaceV1_0::IfaceType::STA,
                                               mStaInterfaceName);
+#endif
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to create sta interface");
     return result;
@@ -334,7 +341,11 @@ Result_t WifiNative::StopWifi() {
   // unregister supplicant death Handler
   sSupplicantStaManager->UnregisterDeathHandler();
 
+#ifdef AIDL_WIFI_HAL
+  result = sWifiHal->TearDownInterface(IfaceConcurrencyType::STA);
+#else
   result = sWifiHal->TearDownInterface(wifiNameSpaceV1_0::IfaceType::STA);
+#endif
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop wifi");
     return result;
@@ -491,6 +502,59 @@ Result_t WifiNative::SignalPoll(nsWifiResult* aResult) {
   return nsIWifiResult::SUCCESS;
 }
 
+#ifdef AIDL_WIFI_HAL
+Result_t WifiNative::GetLinkLayerStats(nsWifiResult* aResult) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+  StaLinkLayerStats stats;
+
+  result = sWifiHal->GetLinkLayerStats(stats);
+  if (result != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to get link layer statistics");
+    return result;
+  }
+
+  RefPtr<nsLinkLayerStats> linkLayerStats = new nsLinkLayerStats(
+      stats.iface.links[0].beaconRx, stats.iface.links[0].avgRssiMgmt, stats.timeStampInMs);
+
+  RefPtr<nsLinkLayerPacketStats> wmeBePktStats = new nsLinkLayerPacketStats(
+      stats.iface.links[0].wmeBePktStats.rxMpdu, stats.iface.links[0].wmeBePktStats.txMpdu,
+      stats.iface.links[0].wmeBePktStats.lostMpdu, stats.iface.links[0].wmeBePktStats.retries);
+
+  RefPtr<nsLinkLayerPacketStats> wmeBkPktStats = new nsLinkLayerPacketStats(
+      stats.iface.links[0].wmeBkPktStats.rxMpdu, stats.iface.links[0].wmeBkPktStats.txMpdu,
+      stats.iface.links[0].wmeBkPktStats.lostMpdu, stats.iface.links[0].wmeBkPktStats.retries);
+
+  RefPtr<nsLinkLayerPacketStats> wmeViPktStats = new nsLinkLayerPacketStats(
+      stats.iface.links[0].wmeViPktStats.rxMpdu, stats.iface.links[0].wmeViPktStats.txMpdu,
+      stats.iface.links[0].wmeViPktStats.lostMpdu, stats.iface.links[0].wmeViPktStats.retries);
+
+  RefPtr<nsLinkLayerPacketStats> wmeVoPktStats = new nsLinkLayerPacketStats(
+      stats.iface.links[0].wmeVoPktStats.rxMpdu, stats.iface.links[0].wmeVoPktStats.txMpdu,
+      stats.iface.links[0].wmeVoPktStats.lostMpdu, stats.iface.links[0].wmeVoPktStats.retries);
+
+  size_t numRadio = stats.radios.size();
+  nsTArray<RefPtr<nsLinkLayerRadioStats>> radios(numRadio);
+
+  for (auto& radio : stats.radios) {
+    size_t numTxTime = radio.txTimeInMsPerLevel.size();
+    nsTArray<uint32_t> txTimeInMsPerLevel(numTxTime);
+
+    for (auto& txTime : radio.txTimeInMsPerLevel) {
+      txTimeInMsPerLevel.AppendElement(txTime);
+    }
+    RefPtr<nsLinkLayerRadioStats> radioStats = new nsLinkLayerRadioStats(
+        radio.onTimeInMs, radio.txTimeInMs, radio.rxTimeInMs,
+        radio.onTimeInMsForScan, txTimeInMsPerLevel);
+    radios.AppendElement(radioStats);
+  }
+
+  linkLayerStats->updatePacketStats(wmeBePktStats, wmeBkPktStats, wmeViPktStats,
+                                    wmeVoPktStats);
+  linkLayerStats->updateRadioStats(radios);
+  aResult->updateLinkLayerStats(linkLayerStats);
+  return nsIWifiResult::SUCCESS;
+}
+#else
 Result_t WifiNative::GetLinkLayerStats(nsWifiResult* aResult) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
   wifiNameSpaceV1_3::StaLinkLayerStats stats;
@@ -542,6 +606,7 @@ Result_t WifiNative::GetLinkLayerStats(nsWifiResult* aResult) {
   aResult->updateLinkLayerStats(linkLayerStats);
   return nsIWifiResult::SUCCESS;
 }
+#endif
 
 Result_t WifiNative::SetCountryCode(const nsAString& aCountryCode) {
   std::string countryCode = NS_ConvertUTF16toUTF8(aCountryCode).get();
@@ -800,8 +865,13 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
     return result;
   }
 
+#ifdef AIDL_WIFI_HAL
+  result = sWifiHal->ConfigChipAndCreateIface(IfaceConcurrencyType::AP,
+                                              mApInterfaceName);
+#else
   result = sWifiHal->ConfigChipAndCreateIface(wifiNameSpaceV1_0::IfaceType::AP,
                                               mApInterfaceName);
+#endif
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to create AP interface");
     return result;
@@ -865,8 +935,11 @@ Result_t WifiNative::StopSoftAp() {
     WIFI_LOGE(LOG_TAG, "Failed to stop hostapd");
     return result;
   }
-
+#ifdef AIDL_WIFI_HAL
+  result = sWifiHal->TearDownInterface(IfaceConcurrencyType::AP);
+#else
   result = sWifiHal->TearDownInterface(wifiNameSpaceV1_0::IfaceType::AP);
+#endif
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown softap interface");
     return result;

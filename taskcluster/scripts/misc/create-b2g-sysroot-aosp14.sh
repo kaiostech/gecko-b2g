@@ -97,6 +97,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi@1.3.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi@1.4.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi@1.5.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.hostapd@1.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant-V1-cpp.so
@@ -271,6 +272,7 @@ out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_telephony_interface-V1
 out/soong/.intermediates/gonk-misc/gonk-binder/binder_b2g_remotesimunlock_interface-V1-cpp-source/gen/include
 out/soong/.intermediates/hardware/interfaces/common/aidl/android.hardware.common-V2-ndk-source/gen/include
 out/soong/.intermediates/hardware/interfaces/graphics/composer/aidl/android.hardware.graphics.composer3-V2-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/wifi/aidl/android.hardware.wifi-V1-cpp-source/gen/include
 out/soong/.intermediates/hardware/interfaces/wifi/supplicant/aidl/android.hardware.wifi.supplicant-V1-cpp-source/gen/include
 out/soong/.intermediates/packages/modules/DnsResolver/dnsresolver_aidl_interface-V2-cpp-source/gen/include
 out/soong/.intermediates/system/hardware/interfaces/media/android.media.audio.common.types-V2-cpp-source/gen/include

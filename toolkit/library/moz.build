@@ -262,6 +262,7 @@ def Libxul(name, output_category=None):
                 "android.frameworks.sensorservice-V1-ndk",
                 "android.hardware.graphics.composer3-V2-ndk",
                 "android.hardware.sensors-V2-ndk",
+                "android.hardware.wifi-V1-cpp",
                 "android.media.audio.common.types-V2-cpp",
                 "libSurfaceFlingerProp",
             )

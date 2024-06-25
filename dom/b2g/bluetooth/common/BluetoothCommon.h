@@ -1429,15 +1429,15 @@ enum BluetoothSdpType {
 };
 
 struct BluetoothSdpRecord {
+ public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(BluetoothSdpRecord);
+
   BluetoothSdpType mType;
   BluetoothUuid mUuid;
   nsCString mServiceName;
   int32_t mRfcommChannelNumber;
   int32_t mL2capPsm;
   int32_t mProfileVersion;
-  uint32_t mSupportedFeatures;
-  uint32_t mSupportedContentTypes;
-  uint32_t mInstanceId;
 
   BluetoothSdpRecord() {}
 
@@ -1445,41 +1445,35 @@ struct BluetoothSdpRecord {
   BluetoothSdpRecord(BluetoothSdpType aType, BluetoothUuid aUuid,
                      const nsACString& aServiceName,
                      int32_t aRfcommChannelNumber,
-                     int32_t aProfileVersion, uint32_t aSupportedFeatures,
-                     uint32_t aSupportedContentTypes, uint32_t aInstanceId)
+                     int32_t aProfileVersion)
       : mType(aType),
         mUuid(aUuid),
         mServiceName(aServiceName),
         mRfcommChannelNumber(aRfcommChannelNumber),
-        mProfileVersion(aProfileVersion),
-        mSupportedFeatures(aSupportedFeatures),
-        mSupportedContentTypes(aSupportedContentTypes)  // content of MAS or PSE
-        ,
-        mInstanceId(aInstanceId) {}
+        mProfileVersion(aProfileVersion) {}
 
   // l2cap psm
   BluetoothSdpRecord(BluetoothSdpType aType, BluetoothUuid aUuid,
                      const nsACString& aServiceName,
                      int32_t aRfcommChannelNumber, int32_t aL2capPsm,
-                     int32_t aProfileVersion, uint32_t aSupportedFeatures,
-                     uint32_t aSupportedContentTypes, uint32_t aInstanceId)
+                     int32_t aProfileVersion)
       : mType(aType),
         mUuid(aUuid),
         mServiceName(aServiceName),
         mRfcommChannelNumber(aRfcommChannelNumber),
         mL2capPsm(aL2capPsm),
-        mProfileVersion(aProfileVersion),
-        mSupportedFeatures(aSupportedFeatures),
-        mSupportedContentTypes(aSupportedContentTypes)  // content of MAS or PSE
-        ,
-        mInstanceId(aInstanceId) {}
+        mProfileVersion(aProfileVersion) {}
+
+ protected:
+  ~BluetoothSdpRecord() {}
 };
 
 #define DEFAULT_RFCOMM_CHANNEL_OPS 12
 #define DEFAULT_RFCOMM_CHANNEL_PBS 19
 #define DEFAULT_RFCOMM_CHANNEL_MAS 21
 #define DEFAULT_RFCOMM_CHANNEL_MNS 22
-#define DEFAULT_L2CAP_PSM 4137
+#define DEFAULT_L2CAP_PSM_MAS      0x1029
+#define DEFAULT_L2CAP_PSM_PBAP     0x1025
 
 // MAP 1.1
 #define MAP_PROFILE_VERSION 0x0101
@@ -1526,18 +1520,112 @@ struct BluetoothSdpRecord {
 #define MAP_SUPPORTED_MSG_TYPES 0x06
 
 struct BluetoothMasRecord : public BluetoothSdpRecord {
+ public:
+  uint32_t mSupportedFeatures;
+  uint32_t mSupportedContentTypes;
+  uint32_t mInstanceId;
+
+  BluetoothMasRecord() {}
+
   BluetoothMasRecord(int32_t aRfcommChannelNumber, int32_t aInstanceId)
       : BluetoothSdpRecord(SDP_TYPE_MAP_MAS, BluetoothUuid(MAP_MAS),
                            "SMS Message Access"_ns, aRfcommChannelNumber,
                            // don't specify L2CAP PSM
-                           MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,
-                           MAP_SUPPORTED_MSG_TYPES, aInstanceId) {}
+                           MAP_PROFILE_VERSION),
+        mSupportedFeatures(MAP_SUPPORTED_FEATURES),
+        mSupportedContentTypes(MAP_SUPPORTED_MSG_TYPES),
+        mInstanceId(aInstanceId) {}
+
   BluetoothMasRecord(int32_t aRfcommChannelNumber, int32_t aL2capPsm, int32_t aInstanceId)
       : BluetoothSdpRecord(SDP_TYPE_MAP_MAS, BluetoothUuid(MAP_MAS),
                            "SMS Message Access"_ns, aRfcommChannelNumber,
                            aL2capPsm,
-                           MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,
-                           MAP_SUPPORTED_MSG_TYPES, aInstanceId) {}
+                           MAP_PROFILE_VERSION),
+        mSupportedFeatures(MAP_SUPPORTED_FEATURES),
+        mSupportedContentTypes(MAP_SUPPORTED_MSG_TYPES),
+        mInstanceId(aInstanceId) {}
+};
+
+struct BluetoothMnsRecord : public BluetoothSdpRecord {
+ public:
+  uint32_t mSupportedFeatures;
+
+  BluetoothMnsRecord() {}
+};
+
+// PBAP version
+#define PBAP_PROFILE_VERSION_11 0x0101
+#define PBAP_PROFILE_VERSION_12 0x0102
+
+/*
+ * PBAP supported features
+ * Bit 0 = Download
+ * Bit 1 = Browsing
+ * Bit 2 = Database Identifier
+ * Bit 3 = Folder Version Counters
+ * Bit 4 = vCard Selecting
+ * Bit 5 = Enhanced Missed Calls
+ * Bit 6 = X-BT-UCI vCard Property
+ * Bit 7 = X-BT-UID vCard Property
+ * Bit 8 = Contact Referencing
+ * Bit 9 = Default Contact Image Format
+ * Bit 10 ~ 31 Reserved
+ */
+#define PBAP_FEATURES_BIT_DOWNLOAD              0
+#define PBAP_FEATURES_BIT_BROWSING              1
+#define PBAP_FEATURES_BIT_DB_ID                 2
+#define PBAP_FEATURES_BIT_FOLDER_VER_COUNTERS   3
+#define PBAP_FEATURES_BIT_VCARD_SELECTING       4
+#define PBAP_FEATURES_BIT_ENHANCED_MISSED_CALLS 5
+#define PBAP_FEATURES_BIT_UCI_VCARD             6
+#define PBAP_FEATURES_BIT_UID_VCARD             7
+#define PBAP_FEATURES_BIT_CONTACT_REFERENCING   8
+#define PBAP_FEATURES_BIT_DEF_CONTACT_IMAGE_FOR 9
+
+// PSE mandatory support features are defined in the PBAP SPEC 4.1
+#define PBAP_SUPPORTED_FEATURES (1 << PBAP_FEATURES_BIT_DOWNLOAD) | \
+                                (1 << PBAP_FEATURES_BIT_BROWSING) | \
+                                (1 << PBAP_FEATURES_BIT_DB_ID) | \
+                                (1 << PBAP_FEATURES_BIT_FOLDER_VER_COUNTERS) | \
+                                (1 << PBAP_FEATURES_BIT_VCARD_SELECTING) | \
+                                (1 << PBAP_FEATURES_BIT_CONTACT_REFERENCING)
+
+/*
+ * PBAP supported repositories
+ * Bit 0 = Local Phonebook
+ * Bit 1 = SIM card
+ * Bit 2 = Speed dial
+ * Bit 3 = Favorites
+ * Bit 4~7 reserved for future use
+*/
+#define PBAP_SUPPORTED_REPOSITORIES 0x03 /*local phonebook and SIM card*/
+
+struct BLuetoothPbapSdpRecord : public BluetoothSdpRecord {
+ public:
+  uint32_t mSupportedFeatures;
+  uint32_t mSupportedRepositories;
+
+  BLuetoothPbapSdpRecord() {}
+
+  BLuetoothPbapSdpRecord(int32_t aRfcommChannelNumber,
+                         uint32_t aSupportedFeatures,
+                         uint32_t aSupportedRepositories)
+      : BluetoothSdpRecord(SDP_TYPE_PBAP_PSE, BluetoothUuid(PBAP_PSE),
+                           "Phone Book Access"_ns, aRfcommChannelNumber,
+                           // don't specify L2CAP PSM
+                           PBAP_PROFILE_VERSION_12),
+        mSupportedFeatures(aSupportedFeatures),
+        mSupportedRepositories(aSupportedRepositories) {}
+
+  BLuetoothPbapSdpRecord(int32_t aRfcommChannelNumber, int32_t aL2capPsm,
+                         uint32_t aSupportedFeatures,
+                         uint32_t aSupportedRepositories)
+      : BluetoothSdpRecord(SDP_TYPE_PBAP_PSE, BluetoothUuid(PBAP_PSE),
+                           "Phone Book Access"_ns, aRfcommChannelNumber,
+                           aL2capPsm,
+                           PBAP_PROFILE_VERSION_12),
+        mSupportedFeatures(aSupportedFeatures),
+        mSupportedRepositories(aSupportedRepositories) {}
 };
 
 // Default TX power of LE advertising

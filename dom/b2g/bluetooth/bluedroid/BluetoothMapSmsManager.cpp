@@ -24,6 +24,8 @@
 #include "nsIObserverService.h"
 #include "nsStringStream.h"
 
+#include "BluetoothSdpManager.h"
+
 #define FILTER_NO_SMS_GSM 0x01
 #define FILTER_NO_SMS_CDMA 0x02
 #define FILTER_NO_EMAIL 0x04
@@ -53,8 +55,7 @@ static const BluetoothUuid kMapMnsObexTarget(0xBB, 0x58, 0x2B, 0x41, 0x42, 0x0C,
                                              0x20, 0x0C, 0x9A, 0x66);
 
 StaticRefPtr<BluetoothMapSmsManager> sMapSmsManager;
-static BluetoothSdpInterface* sBtSdpInterface;
-static int sSdpMasHandle = 0;
+static int sSdpMasHandle = -1;
 
 // OBEX v1.5 defined SRM enabled (0x01), disabled (0x00), advertise remote
 // device SRM support (0x02). 0x02 means request an additional request packet,
@@ -97,8 +98,6 @@ void BluetoothMapSmsManager::HandleShutdown() {
   Disconnect(nullptr);
   Uninit();
 
-  sBtSdpInterface->SetNotificationHandler(nullptr);
-  sBtSdpInterface = nullptr;
   sMapSmsManager = nullptr;
 }
 
@@ -182,226 +181,43 @@ void BluetoothMapSmsManager::Uninit() {
       NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)));
 }
 
-class BluetoothMapSmsManager::CreateSdpRecordResultHandler final
-    : public BluetoothSdpResultHandler {
- public:
-  void OnError(BluetoothStatus aStatus) override {
-    BT_LOGR("BluetoothSdpInterface::CreateSdpRecord failed: %d", (int)aStatus);
-  }
-};
+void BluetoothMapSmsManager::SdpSearchResultHandle(BluetoothAddress& aDeviceAddress,
+                                  std::vector<RefPtr<BluetoothSdpRecord>>& aSdpRecord) {
+  for (auto it : aSdpRecord) {
+    if (it->mType) {
+      mMnsL2capPsm = it->mL2capPsm;
+      mMnsRfcommChannel = it->mRfcommChannelNumber;
 
-class BluetoothMapSmsManager::RemoveSdpRecordResultHandler final
-    : public BluetoothSdpResultHandler {
- public:
-  void OnError(BluetoothStatus aStatus) override {
-    BT_LOGR("BluetoothSdpInterface::RemoveSdpRecord failed: %d", (int)aStatus);
-  }
-};
+      BT_LOGD("Remote MNS L2CAP channel: %x, RFCOMM: %d", mMnsL2capPsm, mMnsRfcommChannel);
 
-class BluetoothMapSmsManager::SdpSearchResultHandler final
-    : public BluetoothSdpResultHandler {
- public:
-  void OnError(BluetoothStatus aStatus) override {
-    BT_LOGR("BluetoothSdpInterface::SdpSearchRecord failed: %d", (int)aStatus);
-  }
-};
+      // If MCE supports RFCOMM only, we shall got ffffffff on L2CAP PSM from bluetooth stack.
+      if (mMnsL2capPsm == 0xFFFFFFFF) {
+        BT_LOGD("CreateMnsObexConnection rfcomm: %d", mMnsRfcommChannel);
+        mMnsSocket->Connect(mDeviceAddress, kMapMns, BluetoothSocketType::RFCOMM, mMnsRfcommChannel,
+                            false, false);
+        mIsMnsRfcomm = true;
+      } else {
+        BT_LOGD("CreateMnsObexConnection l2cap: %x", mMnsL2capPsm);
+        mMnsSocket->Connect(mDeviceAddress, kMapMns, BluetoothSocketType::L2CAP, mMnsL2capPsm,
+                            false, false);
+        mIsMnsRfcomm = false;
+      }
+      BT_LOGD("Support Profile version: %d", it->mProfileVersion);
 
-class BluetoothMapSmsManager::RegisterModuleResultHandler final
-    : public BluetoothSetupResultHandler {
- public:
-  RegisterModuleResultHandler(BluetoothSdpInterface* aInterface,
-                              BluetoothProfileResultHandler* aRes)
-      : mSdpInterface(aInterface), mRes(aRes) {}
-
-  void OnError(BluetoothStatus aStatus) override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    BT_WARNING("BluetoothSetupInterface::RegisterModule failed for SDP: %d",
-               (int)aStatus);
-
-    mSdpInterface->SetNotificationHandler(nullptr);
-
-    if (mRes) {
-      mRes->OnError(NS_ERROR_FAILURE);
+      break;
     }
   }
-
-  void RegisterModule() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    sBtSdpInterface = mSdpInterface;
-
-    if (mRes) {
-      mRes->Init();
-    }
-  }
-
- private:
-  BluetoothSdpInterface* mSdpInterface;
-  RefPtr<BluetoothProfileResultHandler> mRes;
-};
-
-class BluetoothMapSmsManager::InitProfileResultHandlerRunnable final
-    : public Runnable {
- public:
-  InitProfileResultHandlerRunnable(BluetoothProfileResultHandler* aRes,
-                                   nsresult aRv)
-      : Runnable("InitProfileResultHandlerRunnable"), mRes(aRes), mRv(aRv) {
-    MOZ_ASSERT(mRes);
-  }
-
-  NS_IMETHOD Run() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    if (NS_SUCCEEDED(mRv)) {
-      mRes->Init();
-    } else {
-      mRes->OnError(mRv);
-    }
-    return NS_OK;
-  }
-
- private:
-  RefPtr<BluetoothProfileResultHandler> mRes;
-  nsresult mRv;
-};
+}
 
 // static
 void BluetoothMapSmsManager::InitMapSmsInterface(
     BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (sBtSdpInterface) {
-    BT_LOGR("Bluetooth SDP interface is already initalized.");
-    RefPtr<Runnable> r = new InitProfileResultHandlerRunnable(aRes, NS_OK);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP Init runnable");
-    }
-    return;
+  if (aRes) {
+    aRes->Init();
   }
-
-  auto btInf = BluetoothInterface::GetInstance();
-
-  if (NS_WARN_IF(!btInf)) {
-    // If there's no Bluetooth interface, we dispatch a runnable
-    // that calls the profile result handler.
-    RefPtr<Runnable> r =
-        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP OnError runnable");
-    }
-    return;
-  }
-
-  auto setupInterface = btInf->GetBluetoothSetupInterface();
-
-  if (NS_WARN_IF(!setupInterface)) {
-    // If there's no Setup interface, we dispatch a runnable
-    // that calls the profile result handler.
-    RefPtr<Runnable> r =
-        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP OnError runnable");
-    }
-    return;
-  }
-
-  auto sdpInterface = btInf->GetBluetoothSdpInterface();
-
-  if (NS_WARN_IF(!sdpInterface)) {
-    // If there's no SDP interface, we dispatch a runnable
-    // that calls the profile result handler.
-    RefPtr<Runnable> r =
-        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP OnError runnable");
-    }
-    return;
-  }
-
-  // Set notification handler _before_ registering the module. It could
-  // happen that we receive notifications, before the result handler runs.
-  sdpInterface->SetNotificationHandler(BluetoothMapSmsManager::Get());
-
-  static const int MAX_NUM_CLIENTS = 1;
-  setupInterface->RegisterModule(
-      SETUP_SERVICE_ID_SDP, 0, MAX_NUM_CLIENTS,
-      new RegisterModuleResultHandler(sdpInterface, aRes));
 }
-
-class BluetoothMapSmsManager::UnregisterModuleResultHandler final
-    : public BluetoothSetupResultHandler {
- public:
-  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
-      : mRes(aRes) {}
-
-  void OnError(BluetoothStatus aStatus) override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for SDP: %d",
-               (int)aStatus);
-
-    if (sBtSdpInterface) {
-      sBtSdpInterface->SetNotificationHandler(nullptr);
-      sBtSdpInterface = nullptr;
-    }
-
-    if (sMapSmsManager) {
-      sMapSmsManager->Uninit();
-      sMapSmsManager = nullptr;
-    }
-
-    if (mRes) {
-      mRes->OnError(NS_ERROR_FAILURE);
-    }
-  }
-
-  void UnregisterModule() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    if (sBtSdpInterface) {
-      sBtSdpInterface->SetNotificationHandler(nullptr);
-      sBtSdpInterface = nullptr;
-    }
-
-    if (sMapSmsManager) {
-      sMapSmsManager->Uninit();
-      sMapSmsManager = nullptr;
-    }
-
-    if (mRes) {
-      mRes->Deinit();
-    }
-  }
-
- private:
-  RefPtr<BluetoothProfileResultHandler> mRes;
-};
-
-class BluetoothMapSmsManager::DeinitProfileResultHandlerRunnable final
-    : public Runnable {
- public:
-  DeinitProfileResultHandlerRunnable(BluetoothProfileResultHandler* aRes,
-                                     nsresult aRv)
-      : Runnable("DeinitProfileResultHandlerRunnable"), mRes(aRes), mRv(aRv) {
-    MOZ_ASSERT(mRes);
-  }
-
-  NS_IMETHOD Run() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    if (NS_SUCCEEDED(mRv)) {
-      mRes->Deinit();
-    } else {
-      mRes->OnError(mRv);
-    }
-    return NS_OK;
-  }
-
- private:
-  RefPtr<BluetoothProfileResultHandler> mRes;
-  nsresult mRv;
-};
 
 // static
 void BluetoothMapSmsManager::DeinitMapSmsInterface(
@@ -413,46 +229,9 @@ void BluetoothMapSmsManager::DeinitMapSmsInterface(
     sMapSmsManager = nullptr;
   }
 
-  if (!sBtSdpInterface) {
-    BT_LOGR("Bluetooth SDP interface has not been initalized.");
-    RefPtr<Runnable> r = new DeinitProfileResultHandlerRunnable(aRes, NS_OK);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP Deinit runnable");
-    }
-    return;
+  if (aRes) {
+    aRes->Deinit();
   }
-
-  sBtSdpInterface->RemoveSdpRecord(sSdpMasHandle,
-                                   new RemoveSdpRecordResultHandler());
-
-  auto btInf = BluetoothInterface::GetInstance();
-
-  if (NS_WARN_IF(!btInf)) {
-    // If there's no Bluetooth interface, we dispatch a runnable
-    // that calls the profile result handler.
-    RefPtr<Runnable> r =
-        new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP OnError runnable");
-    }
-    return;
-  }
-
-  auto setupInterface = btInf->GetBluetoothSetupInterface();
-
-  if (NS_WARN_IF(!setupInterface)) {
-    // If there's no Setup interface, we dispatch a runnable
-    // that calls the profile result handler.
-    RefPtr<Runnable> r =
-        new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
-    if (NS_FAILED(NS_DispatchToMainThread(r))) {
-      BT_LOGR("Failed to dispatch MAP OnError runnable");
-    }
-    return;
-  }
-
-  setupInterface->UnregisterModule(SETUP_SERVICE_ID_SDP,
-                                   new UnregisterModuleResultHandler(aRes));
 }
 
 // Dump raw packets for investigating packet data integrity
@@ -518,6 +297,12 @@ bool BluetoothMapSmsManager::Listen() {
 
   // Fail to listen if |mMasSocket| already exists
   if (NS_WARN_IF(mMasSocket)) {
+    BT_LOGR("Cannot listen: !mMasSocket");
+    return false;
+  }
+
+  if (NS_WARN_IF(mMasRfcommSocket)) {
+    BT_LOGR("Cannot listen mas rfcomm socket");
     return false;
   }
 
@@ -559,12 +344,21 @@ bool BluetoothMapSmsManager::Listen() {
   int rfcommChannel = -1;
   int l2capChannel = -1;
   rfcommChannel = DEFAULT_RFCOMM_CHANNEL_MAS;
-  l2capChannel = DEFAULT_L2CAP_PSM;
-  BluetoothMasRecord masRecord(rfcommChannel, l2capChannel,
-                               0);  // instance id starts from 0
+  l2capChannel = DEFAULT_L2CAP_PSM_MAS;
+  BluetoothMasRecord masRecord(rfcommChannel, l2capChannel, 0);  // instance id starts from 0
   BT_LOGD("Create sdp record for MAP_MAS");
-  sBtSdpInterface->CreateSdpRecord(masRecord, sSdpMasHandle,
-                                   new CreateSdpRecordResultHandler());
+
+  auto sdpResultHandle = [](int aType, int aHandle) {
+    BT_LOGR("MAP handle CreateSdpRecord result: %d", aHandle);
+    sSdpMasHandle = aHandle;
+  };
+
+  if (sSdpMasHandle != -1) {
+    BluetoothSdpManager::RemoveSdpRecord(sSdpMasHandle, nullptr);
+    sSdpMasHandle = -1;
+  }
+
+  BluetoothSdpManager::CreateSdpRecord(masRecord, sdpResultHandle);
 
   // SDP service name
   sdpString.AppendLiteral("SMS Message Access");
@@ -580,9 +374,9 @@ bool BluetoothMapSmsManager::Listen() {
   }
 
   BT_LOGR("MAP SMS RFCOMM Listening");
-  rv = mMasRfcommServerSocket->Listen(sdpString, kMapMas,
-                                      BluetoothSocketType::RFCOMM,
-                                      rfcommChannel, false, true);
+  rv = mMasRfcommServerSocket->Listen(sdpString, kMapMas, BluetoothSocketType::RFCOMM,
+                               rfcommChannel, false, true);
+
   if (NS_FAILED(rv)) {
     BT_LOGR("Fail to listen on RFCOMM channel.");
     mMasRfcommServerSocket = nullptr;
@@ -1820,10 +1614,12 @@ void BluetoothMapSmsManager::CreateMnsObexConnection() {
     return;
   }
 
-  Unused << BluetoothService::Get();
+  auto cb = [this](BluetoothAddress& aDeviceAddress,
+                   std::vector<RefPtr<BluetoothSdpRecord>>& aSdpRecord) {
+    this->SdpSearchResultHandle(aDeviceAddress, aSdpRecord);
+  };
 
-  sBtSdpInterface->SdpSearch(mDeviceAddress, kMapMns,
-                             new SdpSearchResultHandler());
+  BluetoothSdpManager::SdpSearch(mDeviceAddress, kMapMns, cb);
 
   mMnsSocket = new BluetoothSocket(this);
 }
@@ -2877,38 +2673,12 @@ void BluetoothMapSmsManager::OnGetServiceChannel(
 
 void BluetoothMapSmsManager::OnUpdateSdpRecords(
     const BluetoothAddress& aDeviceAddress) {
-  Unused << BluetoothService::Get();
-  sBtSdpInterface->SdpSearch(mDeviceAddress, kMapMns,
-                             new SdpSearchResultHandler());
-}
+  auto cb = [this](BluetoothAddress& aDeviceAddress,
+                   std::vector<RefPtr<BluetoothSdpRecord>>& aSdpRecord) {
+    this->SdpSearchResultHandle(aDeviceAddress, aSdpRecord);
+  };
 
-void BluetoothMapSmsManager::SdpSearchNotification(int aSdpType,
-                                                   int aRfcommChannel,
-                                                   int aL2capPsm,
-                                                   int aProfileVersion,
-                                                   int aSupportFeature) {
-  if (aSdpType == SDP_TYPE_MNS) {
-    mMnsL2capPsm = aL2capPsm;
-    mMnsRfcommChannel = aRfcommChannel;
-
-    BT_LOGD("Remote MNS L2CAP channel: %x, RFCOMM: %d", mMnsL2capPsm,
-            mMnsRfcommChannel);
-
-    // If MCE supports RFCOMM only, we shall got ffffffff on L2CAP PSM from
-    // bluetooth stack.
-    if (mMnsL2capPsm == 0xFFFFFFFF) {
-      BT_LOGD("CreateMnsObexConnection rfcomm: %d", mMnsRfcommChannel);
-      mMnsSocket->Connect(mDeviceAddress, kMapMns, BluetoothSocketType::RFCOMM,
-                          mMnsRfcommChannel, false, false);
-      mIsMnsRfcomm = true;
-    } else {
-      BT_LOGD("CreateMnsObexConnection l2cap: %x", mMnsL2capPsm);
-      mMnsSocket->Connect(mDeviceAddress, kMapMns, BluetoothSocketType::L2CAP,
-                          mMnsL2capPsm, false, false);
-      mIsMnsRfcomm = false;
-    }
-    BT_LOGD("Support Profile version: %d", aProfileVersion);
-  }
+  BluetoothSdpManager::SdpSearch(mDeviceAddress, kMapMns, cb);
 }
 
 void BluetoothMapSmsManager::OnConnect(const nsAString& aErrorStr) {

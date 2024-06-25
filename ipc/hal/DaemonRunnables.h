@@ -150,6 +150,58 @@ class DaemonResultRunnable1 final : public details::DaemonRunnable {
 };
 
 template <typename Obj, typename Res, typename Tin1, typename Tin2,
+          typename Arg1, typename Arg2>
+class DaemonResultRunnable2 final : public details::DaemonRunnable {
+ public:
+  typedef DaemonResultRunnable2<Obj, Res, Tin1, Tin2, Arg1, Arg2> SelfType;
+
+  template <typename InitOp>
+  static already_AddRefed<SelfType> Create(Obj* aObj, Res (Obj::*aMethod)(Arg1, Arg2),
+                                           const InitOp& aInitOp) {
+    RefPtr<SelfType> runnable(new SelfType(aObj, aMethod));
+    if (NS_FAILED(runnable->Init(aInitOp))) {
+      return nullptr;
+    }
+    return runnable.forget();
+  }
+
+  template <typename InitOp>
+  static void Dispatch(Obj* aObj, Res (Obj::*aMethod)(Arg1, Arg2),
+                       const InitOp& aInitOp) {
+    if (!aObj) {
+      return;  // silently return if no result runnable has been given
+    }
+    RefPtr<SelfType> runnable = Create(aObj, aMethod, aInitOp);
+    if (!runnable) {
+      return;
+    }
+    Unused << NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(runnable)));
+  }
+
+  NS_IMETHODIMP Run() override {
+    ((*mObj).*mMethod)(ConvertArg<Arg1>(mArg1), ConvertArg<Arg2>(mArg2));
+    return NS_OK;
+  }
+
+ private:
+  DaemonResultRunnable2(Obj* aObj, Res (Obj::*aMethod)(Arg1, Arg2))
+      : mObj(aObj), mMethod(aMethod) {
+    MOZ_ASSERT(mObj);
+    MOZ_ASSERT(mMethod);
+  }
+
+  template <typename InitOp>
+  nsresult Init(const InitOp& aInitOp) {
+    return aInitOp(mArg1, mArg2);
+  }
+
+  RefPtr<Obj> mObj;
+  Res (Obj::*mMethod)(Arg1, Arg2);
+  Tin1 mArg1;
+  Tin2 mArg2;
+};
+
+template <typename Obj, typename Res, typename Tin1, typename Tin2,
           typename Tin3, typename Arg1, typename Arg2, typename Arg3>
 class DaemonResultRunnable3 final : public details::DaemonRunnable {
  public:

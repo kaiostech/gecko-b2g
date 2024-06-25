@@ -42,7 +42,6 @@ class BluetoothDaemonSdpModule {
                         const BluetoothUuid& aUuid,
                         BluetoothSdpResultHandler* aRes);
   nsresult CreateSdpRecordCmd(const BluetoothSdpRecord& aRecord,
-                              int& aRecordHandle,
                               BluetoothSdpResultHandler* aRes);
   nsresult RemoveSdpRecordCmd(int aSdpHandle, BluetoothSdpResultHandler* aRes);
 
@@ -60,6 +59,11 @@ class BluetoothDaemonSdpModule {
   typedef mozilla::ipc::DaemonResultRunnable1<BluetoothSdpResultHandler, void,
                                               BluetoothStatus, BluetoothStatus>
       ErrorRunnable;
+
+  typedef mozilla::ipc::DaemonResultRunnable2<BluetoothSdpResultHandler, void,
+                                              int, int,
+                                              int, int>
+      CreateSdpResultRunnable;
 
   void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                 BluetoothSdpResultHandler* aRes);
@@ -84,10 +88,16 @@ class BluetoothDaemonSdpModule {
 
   class NotificationHandlerWrapper;
 
+  class SdpPDUInitOp;
+
   typedef mozilla::ipc::DaemonNotificationRunnable5<
-      NotificationHandlerWrapper, void, int /* sdp type */ , int /* rfcomm */,
-      int /* l2cap */, int /* profile version */, int /* features */,
-      int, int, int, int, int>
+      NotificationHandlerWrapper, void,
+      int/* UUID size */, UniquePtr<uint8_t[]>/* UUID data */,
+      UniquePtr<uint8_t[]>/* bluetooth address, 6 byte */,
+      int/* array size */, UniquePtr<int[]> /* array data */,
+      int/* UUID size */, const uint8_t* /* UUID data */,
+      const uint8_t* /* bluetooth address, 6 byte */,
+      int/* array size */, const int*> /* array data */
       SdpSearchNotification;
 
   void SdpSearchNtf(const DaemonSocketPDUHeader& aHeader,
@@ -112,7 +122,7 @@ class BluetoothDaemonSdpInterface final : public BluetoothSdpInterface {
   void SdpSearch(const BluetoothAddress& aBdAddr, const BluetoothUuid& aUuid,
                  BluetoothSdpResultHandler* aRes) override;
 
-  void CreateSdpRecord(const BluetoothSdpRecord& aRecord, int& aRecordHandle,
+  void CreateSdpRecord(const BluetoothSdpRecord& aRecord,
                        BluetoothSdpResultHandler* aRes) override;
   void RemoveSdpRecord(int aSdpHandle,
                        BluetoothSdpResultHandler* aRes) override;

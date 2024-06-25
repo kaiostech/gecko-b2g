@@ -6,6 +6,7 @@
 
 #include "base/basictypes.h"
 #include "BluetoothPbapManager.h"
+#include "BluetoothSdpManager.h"
 
 #include "BluetoothService.h"
 #include "BluetoothSocket.h"
@@ -56,6 +57,20 @@ static const AppParameterTag sVCardEntryTags[] = {
     AppParameterTag::Format, AppParameterTag::PropertySelector};
 
 StaticRefPtr<BluetoothPbapManager> sPbapManager;
+static int sSdpPbapHandle = -1;
+
+// `sPbapObexSrmEnabled` means that PBAP has received an SRM header,
+// but it does not indicate that the SRM has already been activated,
+// as PBAP needs to check the SRMP in the future.
+static bool sPbapObexSrmEnabled = false;
+
+// `sPbapObexSrmActive` represents that the SRM mode has been activated.
+// It will send PBAP data to PCE with no-response mode.
+static bool sPbapObexSrmActive  = false;
+
+static bool sPbapObexSrmResposeRequestSend = false;
+
+static const int sSrmProcessScheduleTime = 100;
 }  // namespace
 
 BEGIN_BLUETOOTH_NAMESPACE
@@ -121,23 +136,14 @@ nsresult BluetoothPbapManager::Init() {
 }
 
 void BluetoothPbapManager::Uninit() {
-  if (mServerSocket) {
-    mServerSocket->SetObserver(nullptr);
+  BluetoothSocket::Uninit(mRfcommServerSocket);
+  mRfcommServerSocket = nullptr;
 
-    if (mServerSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
-      mServerSocket->Close();
-    }
-    mServerSocket = nullptr;
-  }
+  BluetoothSocket::Uninit(mL2capServerSocket);
+  mL2capServerSocket = nullptr;
 
-  if (mSocket) {
-    mSocket->SetObserver(nullptr);
-
-    if (mSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
-      mSocket->Close();
-    }
-    mSocket = nullptr;
-  }
+  BluetoothSocket::Uninit(mSocket);
+  mSocket = nullptr;
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (NS_WARN_IF(!obs)) {
@@ -210,20 +216,49 @@ bool BluetoothPbapManager::Listen() {
    * BT stops; otherwise no more read events would be received even if
    * BT restarts.
    */
-  if (mServerSocket &&
-      mServerSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
-    mServerSocket->Close();
+  BluetoothSocket::Uninit(mRfcommServerSocket);
+  mRfcommServerSocket = new BluetoothSocket(this);
+
+  BluetoothSocket::Uninit(mL2capServerSocket);
+  mL2capServerSocket = new BluetoothSocket(this);
+
+  int rfcommChannel = DEFAULT_RFCOMM_CHANNEL_PBS;
+  // the DEFAULT_L2CAP_PSM_PBAP value refer to:
+  //packages/modules/Bluetooth/system/gd/hal/snoop_logger.cc
+  int l2capChannel = DEFAULT_L2CAP_PSM_PBAP;
+
+  uint32_t features = PBAP_SUPPORTED_FEATURES;
+  uint32_t repositories = PBAP_SUPPORTED_REPOSITORIES;
+
+  BLuetoothPbapSdpRecord pbapRecord(rfcommChannel, l2capChannel, features, repositories);
+
+  auto sdpResultHandle = [](int aType, int aHandle) {
+    BT_LOGR("PBAP handle CreateSdpRecord result: %d", aHandle);
+    sSdpPbapHandle = aHandle;
+  };
+
+  if (sSdpPbapHandle != -1) {
+    BluetoothSdpManager::RemoveSdpRecord(sSdpPbapHandle, nullptr);
+    sSdpPbapHandle = -1;
   }
-  mServerSocket = nullptr;
 
-  mServerSocket = new BluetoothSocket(this);
+  BluetoothSdpManager::CreateSdpRecord(pbapRecord, sdpResultHandle);
 
-  nsresult rv = mServerSocket->Listen(
+  nsresult rv = mRfcommServerSocket->Listen(
       u"OBEX Phonebook Access Server"_ns, kPbapPSE, BluetoothSocketType::RFCOMM,
-      BluetoothReservedChannels::CHANNEL_PBAP_PSE, false, true);
+      rfcommChannel, false, true);
 
   if (NS_FAILED(rv)) {
-    mServerSocket = nullptr;
+    mRfcommServerSocket = nullptr;
+    return false;
+  }
+
+  rv = mL2capServerSocket->Listen(
+      u"OBEX Phonebook Access Server"_ns, kPbapPSE, BluetoothSocketType::L2CAP,
+      l2capChannel, false, true);
+
+  if (NS_FAILED(rv)) {
+    mL2capServerSocket = nullptr;
     return false;
   }
 
@@ -254,6 +289,11 @@ void BluetoothPbapManager::ReceiveSocketData(
   switch (opCode) {
     case ObexRequestCode::Connect: {
       mPasswordReqNeeded = false;
+
+      // revert back to the normal GOEP request/response model
+      sPbapObexSrmEnabled = false;
+      sPbapObexSrmActive  = false;
+      sPbapObexSrmResposeRequestSend = false;
 
       // Section 3.3.1 "Connect", IrOBEX 1.2
       // [opcode:1][length:2][version:1][flags:1][MaxPktSizeWeCanReceive:2]
@@ -291,6 +331,16 @@ void BluetoothPbapManager::ReceiveSocketData(
         mPasswordReqNeeded = true;
       }
 
+      // reset PCE supported features
+      mPceSupportedFeatures = 0;
+
+      uint8_t buf[64];
+      if (pktHeaders.GetAppParameter(PbapSupportedFeatures, buf, 64)) {
+        mPceSupportedFeatures = BigEndian::readUint32(buf);
+      }
+
+      BT_LOGR("remote PBAP features: %08x", mPceSupportedFeatures);
+
       // The user consent is required. If user accept the connection request,
       // the OBEX connection session will be processed;
       // Otherwise, the session will be rejected.
@@ -304,6 +354,11 @@ void BluetoothPbapManager::ReceiveSocketData(
     case ObexRequestCode::Disconnect:
       [[fallthrough]];
     case ObexRequestCode::Abort:
+      // revert back to the normal GOEP request/response model
+      sPbapObexSrmEnabled = false;
+      sPbapObexSrmActive  = false;
+      sPbapObexSrmResposeRequestSend = false;
+
       // Section 3.3.2 "Disconnect" and Section 3.3.5 "Abort", IrOBEX 1.2
       // The format of request packet of "Disconnect" and "Abort" are the same
       // [opcode:1][length:2][Headers:var]
@@ -346,6 +401,42 @@ void BluetoothPbapManager::ReceiveSocketData(
       // no break. Treat 'Get' as 'GetFinal' for error tolerance.
       [[fallthrough]];
     case ObexRequestCode::GetFinal: {
+      // Section 3.1 "Request format", IrOBEX 1.2
+      // The format of an OBEX request is
+      // [opcode:1][length:2][Headers:var]
+      if (receivedLength < 3 ||
+          !ParseHeaders(&data[3], receivedLength - 3, &pktHeaders)) {
+        ReplyError(ObexResponseCode::BadRequest);
+        return;
+      }
+
+      auto srmp = pktHeaders.GetSRMP();
+
+      if (1 == pktHeaders.GetSRM()) {
+        sPbapObexSrmEnabled = true;
+
+        // Request to send a response with SRM header
+        sPbapObexSrmResposeRequestSend = true;
+
+        // Assign a default status for SRM
+        // And then re-setting the status accroding to SRMP
+        sPbapObexSrmActive = true;
+
+        if (srmp == 1) {
+          // This SRMP process is within the SRM process loop.
+          // It means if the PCE sends SRMP without SRM, the command should be ignored.
+          // PTS case: PBAP/PSE/GOEP/SRMP/BI-02-C
+          sPbapObexSrmActive = false;
+        }
+      }
+
+      if (sPbapObexSrmEnabled && srmp == -1) {
+        // GOEP_v2.1 table 4.3
+        // If Gecko received SRM in previous GET operations
+        // Once the client does not carry the SRMP, we need to revert back to SRM active mode
+        sPbapObexSrmActive = true;
+      }
+
       /*
        * When |mVCardDataStream| requires multiple response packets to complete,
        * the client should continue to issue GET requests until the final body
@@ -360,20 +451,12 @@ void BluetoothPbapManager::ReceiveSocketData(
         return;
       }
 
-      // Section 3.1 "Request format", IrOBEX 1.2
-      // The format of an OBEX request is
-      // [opcode:1][length:2][Headers:var]
-      if (receivedLength < 3 ||
-          !ParseHeaders(&data[3], receivedLength - 3, &pktHeaders)) {
-        ReplyError(ObexResponseCode::BadRequest);
-        return;
-      }
-
       ObexResponseCode response = NotifyPbapRequest(pktHeaders);
       if (response != ObexResponseCode::Success) {
         ReplyError(response);
         return;
       }
+
       // OBEX success response will be sent after gaia replies PBAP request
       break;
     }
@@ -557,7 +640,7 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
       // Convert relative path to absolute path if the object name is *.vcf
       name = mCurrentPath + u"/"_ns + name;
     } else {
-      // H5OS curretly supports phonebook object with "vcf" format only
+      // KaiOS curretly supports phonebook object with "vcf" format only
       BT_LOGR("Uhacceptable phonebook object name: %s",
               NS_ConvertUTF16toUTF8(name).get());
       return ObexResponseCode::NotAcceptable;
@@ -972,6 +1055,116 @@ bool BluetoothPbapManager::ReplyToPullvCardEntry(BlobImpl* aBlob) {
   return ReplyToGet();
 }
 
+ObexResponseCode BluetoothPbapManager::FillObexBody(uint8_t aWhere[],
+                                                    int aBufSize,
+                                                    int* aConsumed) {
+  *aConsumed = 0;
+
+  if (mVCardDataStream == nullptr) {
+    return ObexResponseCode::InternalServerError;
+  }
+
+  uint64_t bytesAvailable = 0;
+
+  nsresult rv = mVCardDataStream->Available(&bytesAvailable);
+  if (NS_FAILED(rv)) {
+    BT_WARNING("Failed to get available bytes from input stream. rv=0x%x",
+               static_cast<uint32_t>(rv));
+    return ObexResponseCode::InternalServerError;
+  }
+
+  if (aBufSize <= kObexBodyHeaderSize) {
+    BT_WARNING("Buffer size is too small. aBufSize=%d, kObexBodyHeaderSize=%d",
+               aBufSize, kObexBodyHeaderSize);
+    return ObexResponseCode::InternalServerError;
+  }
+
+  if (!bytesAvailable) {
+    // append 'ObexHeaderId::EndOfBody' + 'length'
+    *aConsumed = AppendHeaderEndOfBody(aWhere);
+
+    // Close input stream
+    mVCardDataStream->Close();
+    mVCardDataStream = nullptr;
+
+    return ObexResponseCode::Success;
+  } else {
+    // Read vCard data from input stream
+    uint32_t numRead = 0;
+
+    UniquePtr<char[]> buf(new char[aBufSize - kObexBodyHeaderSize]);
+    rv = mVCardDataStream->Read(buf.get(), aBufSize - kObexBodyHeaderSize, &numRead);
+    if (NS_FAILED(rv)) {
+      BT_WARNING("Failed to read from input stream. rv=0x%x",
+                 static_cast<uint32_t>(rv));
+
+      // Close input stream
+      mVCardDataStream->Close();
+      mVCardDataStream = nullptr;
+      return ObexResponseCode::InternalServerError;
+    }
+
+    // For the normal case, the upper layer passes in 'aBufSize'
+    // We read the phone book size as 'aBufSize - kObexBodyHeaderSize'
+    // Because we need to reserve a 'kObexBodyHeaderSize' buffer size to save the OBEX header.
+    // The OBEX header consists of 'ObexHeaderId::Body' and 'length'.
+    // Finally, the size we use should be 'aBufSize', the same as what the user passed in.
+    *aConsumed = AppendHeaderBody(aWhere, aBufSize,
+                                  reinterpret_cast<uint8_t*>(buf.get()), numRead);
+
+    return ObexResponseCode::Continue;
+  }
+}
+
+class BluetoothPbapManager::SrmProcessTask final : public Runnable {
+ public:
+  explicit SrmProcessTask() : Runnable("SRM process") {
+
+  }
+
+  NS_IMETHOD Run() override {
+    BT_LOGR("SrmProcessTask run..");
+
+    uint8_t opcode;
+    bool sendResult = false;
+
+    if (sPbapManager == nullptr) {
+      BT_WARNING("maybe PBAP already shutdown..");
+      return NS_OK;
+    }
+
+    if (sPbapObexSrmActive && sPbapManager->mVCardDataStream) {
+      if (sPbapManager->mRemoteMaxPacketLength < kObexRespHeaderSize) {
+        BT_WARNING("Buffer size is too small. mRemoteMaxPacketLength=%d, kObexBodyHeaderSize=%d",
+                   sPbapManager->mRemoteMaxPacketLength, kObexRespHeaderSize);
+        return NS_OK;
+      }
+
+      auto res = MakeUnique<uint8_t[]>(sPbapManager->mRemoteMaxPacketLength);
+      int consumed;
+
+      // The 'SendObexData' function will consume 'kObexRespHeaderSize' bytes,
+      // so we need to reserve space for them
+      opcode = sPbapManager->FillObexBody(&res[kObexRespHeaderSize],
+                                          sPbapManager->mRemoteMaxPacketLength - kObexRespHeaderSize,
+                                          &consumed);
+
+      if (opcode == ObexResponseCode::Continue || opcode == ObexResponseCode::Success) {
+        sendResult = sPbapManager->SendObexData(std::move(res),
+                                                opcode,
+                                                consumed + kObexRespHeaderSize); // length included kObexRespHeaderSize self
+      }
+    }
+
+    if (sendResult && opcode == ObexResponseCode::Continue) {
+      RefPtr<SrmProcessTask> task = new SrmProcessTask();
+      MessageLoop::current()->PostDelayedTask(task.forget(), sSrmProcessScheduleTime);
+    }
+
+    return NS_OK;
+  }
+};
+
 bool BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize) {
   MOZ_ASSERT(mRemoteMaxPacketLength >= kObexLeastMaxSize);
 
@@ -979,49 +1172,96 @@ bool BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize) {
     return false;
   }
 
+  uint8_t opcode;
+  bool sendResult;
+
   /**
    * This response consists of following parts:
    * - Part 1: [response code:1][length:2]
    *
+   * If SRM has been enabled
+   * - Part 2: [headerId:1][length:2][SRM]
+   *
+   * - Part 3: append necessary application parameters if needed
+   *           possible parameters list:
+   *             folder version (primary & secondary) defined in v12
+   *             database identifier defined in v12
+   *
    * If |mPhonebookSizeRequired| is true,
-   * - Part 2: [headerId:1][length:2][AppParameters:var]
-   * - Part 3: [headerId:1][length:2][EndOfBody:0]
+   * - Part 4: [headerId:1][length:2][AppParameters:var]
+   * - Part 5: [headerId:1][length:2][EndOfBody:0]
    * Otherwise,
-   * - Part 2(optional): [headerId:1][length:2][AppParameters:var]
-   * - Part 3a: [headerId:1][length:2][EndOfBody:0]
+   * - Part 4(optional): [headerId:1][length:2][AppParameters:var]
+   * - Part 5a: [headerId:1][length:2][EndOfBody:0]
    *   or
-   * - Part 3b: [headerId:1][length:2][Body:var]
+   * - Part 5b: [headerId:1][length:2][Body:var]
    */
   auto res = MakeUnique<uint8_t[]>(mRemoteMaxPacketLength);
-  uint8_t opcode;
+
+  ObexAppParameters appParameters(mRemoteMaxPacketLength);
 
   // ---- Part 1: [response code:1][length:2] ---- //
   // [response code:1][length:2] will be set in |SendObexData|.
   // Reserve index for them here
   unsigned int index = kObexRespHeaderSize;
 
+  // ---- Part 2: [headerId:1][length:2][SRM] ---- //
+  if (sPbapObexSrmEnabled && sPbapObexSrmResposeRequestSend) {
+    // SRM header only sent to PCE as SRM response
+    // This means if PCE does not send an SRM header in this GET operation,
+    // we should not append this header within the response
+    index += AppendHeaderSRM(&res[index], true);
+    sPbapObexSrmResposeRequestSend = false;
+  }
+
+  // ---- Part 3: append necessary application parameters if needed ---- //
+  if (CheckFeatureSupport(PBAP_FEATURES_BIT_FOLDER_VER_COUNTERS)) {
+    // PBAP v12 C5 defines mandatory parameters
+    // todo: how to define our primary & secondary version?
+    uint8_t folderVersion[16] = {0}; // 128 bits
+
+    appParameters.Append(static_cast<uint8_t>(AppParameterTag::PrimaryVersionCounter),
+                          folderVersion, sizeof(folderVersion));
+
+    appParameters.Append(static_cast<uint8_t>(AppParameterTag::SecondaryVersionCounter),
+                          folderVersion, sizeof(folderVersion));
+  }
+
+  if (CheckFeatureSupport(PBAP_FEATURES_BIT_DB_ID)) {
+    // PBAP v12 C6 defines mandatory parameter
+    // todo: make sure it uses a unique database ID
+
+    // in PBAP v12 section: 5.1.4.10
+    // A value of 0 for the database identifier signifies that the
+    // Folder Version Counters and Contact X-BT-UIDs are not persistent on the server
+    uint8_t databaseId[16] = {0}; // 128 bits
+
+    appParameters.Append(static_cast<uint8_t>(AppParameterTag::DatabaseIdentifier),
+                          databaseId, sizeof(databaseId));
+  }
+
   if (mPhonebookSizeRequired) {
-    // ---- Part 2: [headerId:1][length:2][AppParameters:var] ---- //
+    // ---- Part 4: [headerId:1][length:2][AppParameters:var] ---- //
     // Section 6.2.1 "Application Parameters Header", PBAP 1.2
     // appParameters: [headerId:1][length:2][PhonebookSize:4],
     //                where [PhonebookSize:4]  = [tagId:1][length:1][value:2]
-    uint8_t appParameters[4];
 
     uint8_t phonebookSize[2];
     BigEndian::writeUint16(&phonebookSize[0], aPhonebookSize);
 
-    AppendAppParameter(appParameters, sizeof(appParameters),
-                       static_cast<uint8_t>(AppParameterTag::PhonebookSize),
-                       phonebookSize, sizeof(phonebookSize));
+    appParameters.Append(static_cast<uint8_t>(AppParameterTag::PhonebookSize),
+                          phonebookSize, sizeof(phonebookSize));
 
     mPhonebookSizeRequired = false;
 
-    index += AppendHeaderAppParameters(&res[index], mRemoteMaxPacketLength,
-                                       appParameters, sizeof(appParameters));
-
-    // ---- Part 3: [headerId:1][length:2][EndOfBody:0] ---- //
+    // ---- Part 5: [headerId:1][length:2][EndOfBody:0] ---- //
     opcode = ObexResponseCode::Success;
-    index += AppendHeaderEndOfBody(&res[index]);
+
+    if (appParameters.HasData()) {
+      index += AppendHeaderAppParameters(&res[index], mRemoteMaxPacketLength,
+                                          appParameters.GetData(),
+                                          appParameters.GetDataSize());
+    }
   } else {
     MOZ_ASSERT(mVCardDataStream);
 
@@ -1033,34 +1273,35 @@ bool BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize) {
       return false;
     }
 
-    // ----  Part 2: [headerId:1][length:2][AppParameters:var] ---- //
+    // ----  Part 4: [headerId:1][length:2][AppParameters:var] ---- //
     // Section 6.2.1 "Application Parameters Header", PBAP 1.2
     // appParameters: [headerId:1][length:2][NewMissedCalls:3],
     //                where [NewMissedCalls:3] = [tagId:1][length:1][value:1]
     if (mNewMissedCallsRequired) {
-      uint8_t appParameters[3];
-
-      // Since the frontend of H5OS don't support NewMissedCalls feature, set
+      // Since the frontend of KaiOS don't support NewMissedCalls feature, set
       // it to |aPhonebookSize| to pretend no missed call has been dismissed.
       uint8_t dummyNewMissedCalls = aPhonebookSize;
 
-      AppendAppParameter(appParameters, sizeof(appParameters),
-                         static_cast<uint8_t>(AppParameterTag::NewMissedCalls),
-                         &dummyNewMissedCalls, sizeof(dummyNewMissedCalls));
-      mNewMissedCallsRequired = false;
+      appParameters.Append(static_cast<uint8_t>(AppParameterTag::NewMissedCalls),
+                            &dummyNewMissedCalls, sizeof(dummyNewMissedCalls));
 
+      mNewMissedCallsRequired = false;
+    }
+
+    if (appParameters.HasData()) {
       index += AppendHeaderAppParameters(&res[index], mRemoteMaxPacketLength,
-                                         appParameters, sizeof(appParameters));
+                                          appParameters.GetData(),
+                                          appParameters.GetDataSize());
     }
 
     /*
-     * In practice, some platforms can only handle zero length End-of-Body
-     * header separately with Body header.
-     * Thus, append End-of-Body only if the data stream had been sent out,
-     * otherwise, send 'Continue' to request for next GET request.
-     */
+    * In practice, some platforms can only handle zero length End-of-Body
+    * header separately with Body header.
+    * Thus, append End-of-Body only if the data stream had been sent out,
+    * otherwise, send 'Continue' to request for next GET request.
+    */
     if (!bytesAvailable) {
-      // ----  Part 3a: [headerId:1][length:2][EndOfBody:0] ---- //
+      // ----  Part 5a: [headerId:1][length:2][EndOfBody:0] ---- //
       index += AppendHeaderEndOfBody(&res[index]);
 
       // Close input stream
@@ -1086,7 +1327,7 @@ bool BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize) {
       // |numRead| must be non-zero as |bytesAvailable| is non-zero
       MOZ_ASSERT(numRead);
 
-      // ----  Part 3b: [headerId:1][length:2][Body:var] ---- //
+      // ----  Part 5b: [headerId:1][length:2][Body:var] ---- //
       index += AppendHeaderBody(&res[index],
                                 remainingPacketSize + kObexBodyHeaderSize,
                                 reinterpret_cast<uint8_t*>(buf.get()), numRead);
@@ -1095,7 +1336,14 @@ bool BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize) {
     }
   }
 
-  return SendObexData(std::move(res), opcode, index);
+  sendResult = SendObexData(std::move(res), opcode, index);
+
+  if (sendResult && sPbapObexSrmActive && opcode == ObexResponseCode::Continue) {
+    RefPtr<SrmProcessTask> task = new SrmProcessTask();
+    MessageLoop::current()->PostDelayedTask(task.forget(), sSrmProcessScheduleTime);
+  }
+
+  return sendResult;
 }
 
 bool BluetoothPbapManager::GetInputStreamFromBlob(BlobImpl* aBlob) {
@@ -1174,13 +1422,24 @@ bool BluetoothPbapManager::SendObexData(UniquePtr<uint8_t[]> aData,
 
 void BluetoothPbapManager::OnSocketConnectSuccess(BluetoothSocket* aSocket) {
   MOZ_ASSERT(aSocket);
-  MOZ_ASSERT(aSocket == mServerSocket);
-  MOZ_ASSERT(!mSocket);
 
   BT_LOGR("PBAP socket is connected");
 
-  // Close server socket as only one session is allowed at a time
-  mServerSocket.swap(mSocket);
+  // todo: if `mSocket` already connected, how to process it ?
+
+  if (aSocket == mRfcommServerSocket) {
+    BT_LOGR("PBAP RFCOMM socket is connected");
+
+    // Close server socket as only one session is allowed at a time
+    mRfcommServerSocket.swap(mSocket);
+  } else if (aSocket == mL2capServerSocket) {
+    BT_LOGR("PBAP L2CAP socket is connected");
+
+    // Close server socket as only one session is allowed at a time
+    mL2capServerSocket.swap(mSocket);
+  } else {
+    BT_LOGR("!!!!!!!!!! failed OnSocketConnectSuccess");
+  }
 
   // Cache device address since we can't get socket address when a remote
   // device disconnect with us.
@@ -1188,15 +1447,13 @@ void BluetoothPbapManager::OnSocketConnectSuccess(BluetoothSocket* aSocket) {
 }
 
 void BluetoothPbapManager::OnSocketConnectError(BluetoothSocket* aSocket) {
-  if (mServerSocket &&
-      mServerSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
-    mServerSocket->Close();
-  }
-  mServerSocket = nullptr;
+  BluetoothSocket::Uninit(mRfcommServerSocket);
+  mRfcommServerSocket = nullptr;
 
-  if (mSocket && mSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
-    mSocket->Close();
-  }
+  BluetoothSocket::Uninit(mL2capServerSocket);
+  mL2capServerSocket = nullptr;
+
+  BluetoothSocket::Uninit(mSocket);
   mSocket = nullptr;
 }
 

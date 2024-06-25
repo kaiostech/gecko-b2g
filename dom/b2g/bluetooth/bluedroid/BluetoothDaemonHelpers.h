@@ -448,8 +448,6 @@ inline nsresult UnpackPDU(DaemonSocketPDU& aPDU,
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothSdpType& aOut);
 
-nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothSdpRecord& aOut);
-
 END_BLUETOOTH_NAMESPACE
 
 #endif  // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonHelpers_h

@@ -1224,10 +1224,40 @@ nsresult PackPDU(const BluetoothSdpRecord& aIn, DaemonSocketPDU& aPDU) {
       }
       break;
     }
-    case SDP_TYPE_RAW:
-    case SDP_TYPE_MAP_MNS:
-    case SDP_TYPE_PBAP_PSE:
+
+    case SDP_TYPE_MAP_MNS: {
+      const BluetoothMnsRecord* const mnsRecord =
+          (const BluetoothMnsRecord* const) & aIn;
+
+      rv = PackPDU(mnsRecord->mSupportedFeatures, aPDU);
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
+      break;
+    }
+
+    case SDP_TYPE_PBAP_PSE: {
+      const BLuetoothPbapSdpRecord* const pbapSdpRecord =
+          (const BLuetoothPbapSdpRecord* const) & aIn;
+
+      BT_LOGR("PACK PDU for PBAP");
+
+      rv = PackPDU(pbapSdpRecord->mSupportedFeatures, aPDU);
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
+      rv = PackPDU(pbapSdpRecord->mSupportedRepositories, aPDU);
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
+      break;
+    }
+
     case SDP_TYPE_PBAP_PCE:
+      // PCE does not have a private SDP attribute
+      break;
+
+    case SDP_TYPE_RAW:
     case SDP_TYPE_OPP_SERVER:
     case SDP_TYPE_SAP_SERVER:
       // Not supported service records
@@ -1939,62 +1969,6 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHidStatus& aOut) {
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothSdpType& aOut) {
   return UnpackPDU(aPDU, UnpackConversion<int32_t, BluetoothSdpType>(aOut));
-}
-
-nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothSdpRecord& aOut) {
-  nsresult rv;
-
-  rv = UnpackPDU(aPDU, aOut.mType);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  rv = UnpackPDU(aPDU, aOut.mUuid);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  rv = UnpackPDU(aPDU, UnpackCString0(aOut.mServiceName));
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  rv = UnpackPDU(aPDU, aOut.mRfcommChannelNumber);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  rv = UnpackPDU(aPDU, aOut.mL2capPsm);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  rv = UnpackPDU(aPDU, aOut.mProfileVersion);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  switch (aOut.mType) {
-    case SDP_TYPE_MAP_MAS:
-      rv = UnpackPDU(aPDU, aOut.mSupportedFeatures);
-      if (NS_FAILED(rv)) {
-        return rv;
-      }
-      rv = UnpackPDU(aPDU, aOut.mSupportedContentTypes);
-      if (NS_FAILED(rv)) {
-        return rv;
-      }
-      rv = UnpackPDU(aPDU, aOut.mInstanceId);
-      if (NS_FAILED(rv)) {
-        return rv;
-      }
-      break;
-    case SDP_TYPE_RAW:
-    case SDP_TYPE_MAP_MNS:
-    case SDP_TYPE_PBAP_PSE:
-    case SDP_TYPE_PBAP_PCE:
-    case SDP_TYPE_OPP_SERVER:
-    case SDP_TYPE_SAP_SERVER:
-      // Not supported service records
-      break;
-  }
-
-  return NS_OK;
 }
 
 END_BLUETOOTH_NAMESPACE

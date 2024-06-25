@@ -18,6 +18,7 @@
 
 #include "BluetoothServiceBluedroid.h"
 
+#include "BluetoothSdpManager.h"
 #include "BluetoothA2dpManager.h"
 #include "BluetoothAvrcpManager.h"
 #include "BluetoothGattManager.h"
@@ -130,6 +131,7 @@ class BluetoothServiceBluedroid::InitResultHandler final
  public:
   void Init() override {
     static void (*const sInitManager[])(BluetoothProfileResultHandler*) = {
+        BluetoothSdpManager::InitSdpInterface,
         BluetoothMapSmsManager::InitMapSmsInterface,
         BluetoothOppManager::InitOppInterface,
         BluetoothPbapManager::InitPbapInterface,
@@ -1605,6 +1607,7 @@ void BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState) {
         BluetoothPbapManager::DeinitPbapInterface,
         BluetoothOppManager::DeinitOppInterface,
         BluetoothMapSmsManager::DeinitMapSmsInterface,
+        BluetoothSdpManager::DeinitSdpInterface
     };
 
     // Return error if BluetoothService is unavailable

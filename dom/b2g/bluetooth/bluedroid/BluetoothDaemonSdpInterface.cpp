@@ -8,6 +8,9 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
 
+#include "BluetoothUtils.h"
+#include "BluetoothUuidHelper.h"
+
 BEGIN_BLUETOOTH_NAMESPACE
 
 using namespace mozilla::ipc;
@@ -71,7 +74,7 @@ nsresult BluetoothDaemonSdpModule::SdpSearchCmd(
 }
 
 nsresult BluetoothDaemonSdpModule::CreateSdpRecordCmd(
-    const BluetoothSdpRecord& aRecord, int& aRecordHandle,
+    const BluetoothSdpRecord& aRecord,
     BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -134,7 +137,7 @@ void BluetoothDaemonSdpModule::SdpSearchRsp(
 void BluetoothDaemonSdpModule::CreateSdpRecordRsp(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
     BluetoothSdpResultHandler* aRes) {
-  ResultRunnable::Dispatch(aRes, &BluetoothSdpResultHandler::CreateSdpRecord,
+  CreateSdpResultRunnable::Dispatch(aRes, &BluetoothSdpResultHandler::CreateSdpRecord,
                            UnpackPDUInitOp(aPDU));
 }
 
@@ -190,11 +193,136 @@ class BluetoothDaemonSdpModule::NotificationHandlerWrapper final {
   }
 };
 
+class BluetoothDaemonSdpModule::SdpPDUInitOp final :
+    private PDUInitOp {
+ public:
+  explicit SdpPDUInitOp(DaemonSocketPDU& aPDU)
+      : PDUInitOp(aPDU) {}
+
+  nsresult operator()(int& aArg1, UniquePtr<uint8_t[]>& aArg2,
+                      UniquePtr<uint8_t[]>& aArg3,
+                      int& aArg4, UniquePtr<int[]>& aArg5) const {
+    DaemonSocketPDU& pdu = GetPDU();
+
+    /*
+     * PDU format
+     * +-----------+------+----------------+-----------+----------------------------+
+     * | uuid size | uuid | device address | sdp count | sdp value (variable length)|
+     * +-----------+------+----------------+-----------+----------------------------+
+     */
+    nsresult rv;
+
+    /* Read uuid size */
+    rv = UnpackPDU(pdu, aArg1);
+    if (NS_FAILED(rv)) {
+      BT_LOGR("UnpackPDU uuid size failed");
+      return rv;
+    }
+
+    /* Read uuid data */
+    rv = UnpackPDU(pdu, UnpackArray<uint8_t>(aArg2, aArg1));
+    if (NS_FAILED(rv)) {
+      BT_LOGR("UnpackPDU uuid data failed");
+      return rv;
+    }
+
+    /* Read device address */
+    rv = UnpackPDU(pdu, UnpackArray<uint8_t>(aArg3, 6));
+    if (NS_FAILED(rv)) {
+      BT_LOGR("UnpackPDU address failed");
+      return rv;
+    }
+
+    /* Read sdp record size */
+    rv = UnpackPDU(pdu, aArg4);
+    if (NS_FAILED(rv)) {
+      BT_LOGR("UnpackPDU sdp record size failed. %d", rv);
+      return rv;
+    }
+
+    int sdpCount = aArg4;
+
+    if (sdpCount != 0) {
+      // each SDP record consists of a common header and private attributes
+      // you can refer to the struct 'bluetooth_sdp_record' defined in Bluedroid
+      // common header: 'bluetooth_sdp_hdr_overlay'
+      //     i32: rfcomm_channel_number
+      //     i32: l2cap_psm
+      //     i32: profile_version
+      int elementCount = 3;  /* 3 elements: common header */
+      uint16_t uuid;
+
+      switch (aArg1) {
+        case 2:
+          uuid = (static_cast<uint16_t>(aArg2[0]) << 8) + static_cast<uint16_t>(aArg2[1]);
+          break;
+        case 4:
+          [[fallthrough]];
+        case 16:
+          uuid = (static_cast<uint16_t>(aArg2[2]) << 8) + static_cast<uint16_t>(aArg2[3]);
+          break;
+        default:
+          BT_LOGR("UnpackPDU sdp record size failed (%d)", aArg1);
+          return NS_ERROR_INVALID_ARG;
+      }
+
+      switch (uuid) {
+        case MAP_MAS:
+          // MAS has three private SDP attributes
+          // refer to the struct 'bluetooth_sdp_mas_record' defined in Bluedroid
+          // private SDP attributes:
+          //     i32: mas_instance_id
+          //     i32: supported_features
+          //     i32: supported_message_types
+          elementCount += 3;
+          break;
+
+        case MAP_MNS:
+          // MNS has one private SDP attribute
+          // refer to the struct 'bluetooth_sdp_mns_record' defined in Bluedroid
+          // private SDP attributes:
+          //     i32: supported_features
+          elementCount += 1;
+          break;
+
+        case PBAP_PSE:
+          // PSE has two private SDP attributes
+          // refer to the struct 'bluetooth_sdp_pse_record' defined in Bluedroid
+          // private SDP attributes:
+          //     i32: supported_features
+          //     i32: supported_repositories
+          elementCount += 2;
+          break;
+
+        case PBAP_PCE: // no private sdp property
+          break;
+
+        default:
+          BT_LOGR("UnpackPDU sdp record size failed");
+          return NS_ERROR_INVALID_ARG;
+      }
+
+      BT_LOGR("UnpackPDU uuid 0x%04x (%d)", uuid, aArg1);
+
+      /* Read sdp data */
+      rv = UnpackPDU(pdu, UnpackArray<int>(aArg5, elementCount * sdpCount));
+      if (NS_FAILED(rv)) {
+        BT_LOGR("UnpackPDU sdp data failed (%d). element size %d, count %d",
+                rv, elementCount, sdpCount);
+        return rv;
+      }
+    }
+
+    WarnAboutTrailingData();
+    return NS_OK;
+  }
+};
+
 void BluetoothDaemonSdpModule::SdpSearchNtf(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   SdpSearchNotification::Dispatch(
       &BluetoothSdpNotificationHandler::SdpSearchNotification,
-      UnpackPDUInitOp(aPDU));
+      SdpPDUInitOp(aPDU));
 }
 
 void BluetoothDaemonSdpModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
@@ -247,11 +375,11 @@ void BluetoothDaemonSdpInterface::SdpSearch(const BluetoothAddress& aBdAddr,
 }
 
 void BluetoothDaemonSdpInterface::CreateSdpRecord(
-    const BluetoothSdpRecord& aRecord, int& aRecordHandle,
+    const BluetoothSdpRecord& aRecord,
     BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->CreateSdpRecordCmd(aRecord, aRecordHandle, aRes);
+  nsresult rv = mModule->CreateSdpRecordCmd(aRecord, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }

@@ -775,3 +775,16 @@ void BluetoothSocket::Cleanup() {
   mCurrentRes = nullptr;
   mDeviceAddress.Clear();
 }
+
+// static function
+void BluetoothSocket::Uninit(RefPtr<BluetoothSocket> aSocket) {
+  if (aSocket == nullptr) {
+    return;
+  }
+
+  aSocket->SetObserver(nullptr);
+
+  if (aSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
+    aSocket->Close();
+  }
+}

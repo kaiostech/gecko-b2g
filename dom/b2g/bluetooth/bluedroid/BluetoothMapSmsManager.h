@@ -62,20 +62,13 @@ class ObexHeaderSet;
  */
 
 class BluetoothMapSmsManager : public BluetoothSocketObserver,
-                               public BluetoothProfileManagerBase,
-                               public BluetoothSdpNotificationHandler {
+                               public BluetoothProfileManagerBase {
  public:
   BT_DECL_PROFILE_MGR_BASE
   BT_DECL_SOCKET_OBSERVER
   virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("MapSms");
   }
-
-  virtual void SdpSearchNotification(int aSdpType,
-                                     int aRfcommChannel,
-                                     int aL2capPsm,
-                                     int aProfileVersion,
-                                     int aSupportFeature) override;
 
   static const int MAX_PACKET_LENGTH = 0xFFFE;
   static const int MAX_INSTANCE_ID = 255;
@@ -183,14 +176,6 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   virtual ~BluetoothMapSmsManager();
 
  private:
-  class CreateSdpRecordResultHandler;
-  class RemoveSdpRecordResultHandler;
-  class SdpSearchResultHandler;
-  class InitProfileResultHandlerRunnable;
-  class DeinitProfileResultHandlerRunnable;
-  class RegisterModuleResultHandler;
-  class UnregisterModuleResultHandler;
-
   BluetoothMapSmsManager();
 
   nsresult Init();
@@ -290,6 +275,12 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
   void BuildDefaultFolderStructure();
 
   void Dump(const mozilla::ipc::UnixSocketBuffer* buffer);
+
+  /*
+   * Handle sdp search result
+   */
+  void SdpSearchResultHandle(BluetoothAddress& aDeviceAddress,
+                             std::vector<RefPtr<BluetoothSdpRecord>>& aSdpRecord);
 
   static bool sInShutdown;
   /**

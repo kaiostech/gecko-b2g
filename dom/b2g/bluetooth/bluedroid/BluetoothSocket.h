@@ -46,6 +46,12 @@ class BluetoothSocket final : public mozilla::ipc::DataSocket {
 
   nsresult Accept(int aListenFd, BluetoothSocketResultHandler* aRes);
 
+  /*
+   * This is a helper function. The function's purpose is to help de-initialize
+   * the socket, such as closing the socket.
+   */
+  static void Uninit(RefPtr<BluetoothSocket> aSocket);
+
   /**
    * Method to be called whenever data is received. This is only called on the
    * consumer thread.

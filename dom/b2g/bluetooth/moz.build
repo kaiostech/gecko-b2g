@@ -103,6 +103,10 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
                 "bluedroid/hfp-fallback",
             ]
 
+        UNIFIED_SOURCES += [
+            "bluedroid/BluetoothSdpManager.cpp",
+        ]
+
         DEFINES["MOZ_B2G_BT_DAEMON"] = True
 else:
     if CONFIG["ENABLE_TESTS"]:

@@ -697,11 +697,11 @@ BluetoothSdpNotificationHandler::BluetoothSdpNotificationHandler() {}
 
 BluetoothSdpNotificationHandler::~BluetoothSdpNotificationHandler() {}
 
-void BluetoothSdpNotificationHandler::SdpSearchNotification(int aSdpType,
-                                                            int aRfcommChannel,
-                                                            int aL2capPsm,
-                                                            int aProfileVersion,
-                                                            int aSupportFeatures) {}
+void BluetoothSdpNotificationHandler::SdpSearchNotification(int aUuidSize,
+                                                            const uint8_t* aUuid,
+                                                            const uint8_t* aDeviceAddres,
+                                                            int aSdpSize,
+                                                            const int* aSdpArray) {}
 
 // Result handling
 //
@@ -712,7 +712,7 @@ void BluetoothSdpResultHandler::OnError(BluetoothStatus aStatus) {
 
 void BluetoothSdpResultHandler::SdpSearch() {}
 
-void BluetoothSdpResultHandler::CreateSdpRecord() {}
+void BluetoothSdpResultHandler::CreateSdpRecord(int aSdpType, int aRecordHandle) {}
 
 void BluetoothSdpResultHandler::RemoveSdpRecord() {}
 

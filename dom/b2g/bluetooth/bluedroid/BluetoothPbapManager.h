@@ -114,6 +114,8 @@ class BluetoothPbapManager : public BluetoothSocketObserver,
  private:
   BluetoothPbapManager();
 
+  class SrmProcessTask;
+
   nsresult Init();
   void Uninit();
   void HandleShutdown();
@@ -146,6 +148,20 @@ class BluetoothPbapManager : public BluetoothSocketObserver,
   void AfterPbapDisconnected();
   nsresult MD5Hash(char* buf, uint32_t len);  // mHashRes stores the result
 
+  // help to identify whether this object supports this feature or not
+  bool CheckFeatureSupport(uint32_t aFeatureBit) {
+    return !!(mPceSupportedFeatures & (1 << aFeatureBit));
+  }
+
+  /**
+   * This is a utility function to help build the OBEX body.
+   * This function will read the phone book through 'mVCardDataStream'
+   * and then store it to the user-provided buffer in the OBEX header format.
+   *
+   * The function's result is either 'ObexResponseCode::Continue' or 'ObexResponseCode::Success'
+   */
+  ObexResponseCode FillObexBody(uint8_t aWhere[], int aBufSize, int* aConsumed);
+
   static bool sInShutdown;
   /**
    * The nonce for OBEX authentication procedure.
@@ -176,6 +192,11 @@ class BluetoothPbapManager : public BluetoothSocketObserver,
    */
   bool mPasswordReqNeeded;
 
+  /**
+   * PCE supported features. PCE share this parameter with PSE during ObexRequestCode::Connect
+   */
+  uint32_t mPceSupportedFeatures;
+
   BluetoothAddress mDeviceAddress;
 
   /**
@@ -196,7 +217,8 @@ class BluetoothPbapManager : public BluetoothSocketObserver,
   // Server socket. Once an inbound connection is established, it will hand
   // over the ownership to mSocket, and get a new server socket while Listen()
   // is called.
-  RefPtr<BluetoothSocket> mServerSocket;
+  RefPtr<BluetoothSocket> mRfcommServerSocket;
+  RefPtr<BluetoothSocket> mL2capServerSocket;
 
   /**
    * The vCard data stream for current processing response

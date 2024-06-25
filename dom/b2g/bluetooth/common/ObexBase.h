@@ -336,6 +336,56 @@ class ObexHeaderSet {
   nsTArray<UniquePtr<ObexHeader> > mHeaders;
 };
 
+class ObexAppParameters {
+ public:
+  ObexAppParameters(int aSize) :
+    mData(nullptr), mDataCapacity(aSize), mIndex(0) {
+    mData = new uint8_t[mDataCapacity];
+  }
+
+  ~ObexAppParameters() {
+    delete[] mData;
+  }
+
+  int Append(const uint8_t aTagId,
+             const uint8_t* aValue, int aLength) {
+    if ((mIndex + aLength) > mDataCapacity) {
+      return -1;
+    }
+
+    mData[mIndex++] = aTagId;
+    mData[mIndex++] = aLength;
+
+    memcpy(&mData[mIndex], aValue, aLength);
+    mIndex += aLength;
+
+    return mIndex;
+  }
+
+  /**
+   * Help to identify whether this object has application parameters or not
+   *
+   * return 'true' if the object has data
+   * return 'false' if the object does not have data
+   */
+  bool HasData() {
+    return mIndex != 0;
+  }
+
+  uint8_t* GetData() {
+    return mData;
+  }
+
+  int GetDataSize() {
+    return mIndex;
+  }
+
+ private:
+  uint8_t* mData;
+  int mDataCapacity;
+  int mIndex;
+};
+
 int AppendHeaderName(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aName,
                      int aLength);
 int AppendHeaderBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,

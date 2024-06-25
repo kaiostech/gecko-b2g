@@ -1060,11 +1060,11 @@ class BluetoothGattInterface {
 
 class BluetoothSdpNotificationHandler {
  public:
-  virtual void SdpSearchNotification(int aSdpType,
-                                     int aRfcommChannel,
-                                     int aL2capPsm,
-                                     int aProfileVersion,
-                                     int aSupportFeature);
+  virtual void SdpSearchNotification(int aUuidSize,
+                                     const uint8_t* aUuid,
+                                     const uint8_t* aDeviceAddres,
+                                     int aSdpSize,
+                                     const int* aSdpArray);
 
  protected:
   BluetoothSdpNotificationHandler();
@@ -1076,7 +1076,7 @@ class BluetoothSdpResultHandler
  public:
   virtual void OnError(BluetoothStatus aStatus);
   virtual void SdpSearch();
-  virtual void CreateSdpRecord();
+  virtual void CreateSdpRecord(int aSdpType, int aRecordHandle);
   virtual void RemoveSdpRecord();
 
  protected:
@@ -1093,7 +1093,6 @@ class BluetoothSdpInterface {
                          BluetoothSdpResultHandler* aRes) = 0;
 
   virtual void CreateSdpRecord(const BluetoothSdpRecord& aRecord,
-                               int& aRecordHandle,
                                BluetoothSdpResultHandler* aRes) = 0;
 
   virtual void RemoveSdpRecord(int aSdpHandle,

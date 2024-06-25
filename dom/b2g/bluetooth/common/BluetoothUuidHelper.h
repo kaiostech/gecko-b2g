@@ -28,6 +28,8 @@ class BluetoothUuidHelper {
 
   static BluetoothProfileManagerBase* GetBluetoothProfileManager(
       uint16_t aServiceUuid);
+
+  static BluetoothSdpType GetBluetoothSdpType(uint16_t aServiceUuid);
 };
 
 // TODO/qdot: Move these back into gonk and make the service handler deal with

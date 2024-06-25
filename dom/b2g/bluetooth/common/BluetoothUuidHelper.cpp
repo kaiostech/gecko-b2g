@@ -95,3 +95,26 @@ BluetoothProfileManagerBase* BluetoothUuidHelper::GetBluetoothProfileManager(
   }
   return profile;
 }
+
+BluetoothSdpType BluetoothUuidHelper::GetBluetoothSdpType(uint16_t aServiceUuid) {
+  BluetoothSdpType type = SDP_TYPE_RAW;
+
+  switch (aServiceUuid) {
+    case BluetoothServiceClass::PBAP_PSE:
+      type = SDP_TYPE_PBAP_PSE;
+      break;
+    case BluetoothServiceClass::PBAP_PCE:
+      type = SDP_TYPE_PBAP_PCE;
+      break;
+    case BluetoothServiceClass::MAP_MAS:
+      type = SDP_TYPE_MAP_MAS;
+      break;
+    case BluetoothServiceClass::MAP_MNS:
+      type = SDP_TYPE_MAP_MNS;
+      break;
+    default:
+      break;
+  }
+
+  return type;
+}

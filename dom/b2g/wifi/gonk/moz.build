@@ -76,8 +76,9 @@ LOCAL_INCLUDES += [
     "hal",
 ]
 
-DIRS += [
-    "keystore",
-]
+if CONFIG["ANDROID_VERSION"] != "34":
+    DIRS += [
+        "keystore",
+    ]
 
 FINAL_LIBRARY = "xul"

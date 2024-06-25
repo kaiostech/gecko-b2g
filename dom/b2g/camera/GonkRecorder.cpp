@@ -856,7 +856,12 @@ status_t GonkRecorder::start() {
 
 #if defined(MOZ_WIDGET_GONK)
 sp<MediaSource> GonkRecorder::createAudioSource() {
-#  if ANDROID_VERSION >= 30
+#  if ANDROID_VERSION >= 34
+  audio_attributes_t attr = AUDIO_ATTRIBUTES_INITIALIZER;
+  attr.source = mAudioSource;
+  sp<AudioSource> audioSource = new AudioSource(&attr, AttributionSourceState(),
+                                                mSampleRate, mAudioChannels);
+#  elif ANDROID_VERSION >= 30
   audio_attributes_t attr = AUDIO_ATTRIBUTES_INITIALIZER;
   attr.source = mAudioSource;
   sp<AudioSource> audioSource =

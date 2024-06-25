@@ -27,6 +27,12 @@ class GonkCryptoProxy : public BnCrypto {
   using Memory = IMemoryHeap;
 #endif
 
+#if ANDROID_VERSION >= 34
+  using DrmStatus = android::DrmStatus;
+#else
+  using DrmStatus = status_t;
+#endif
+
  public:
   GonkCryptoProxy(const nsAString& aKeySystem,
                   const sp<GonkDrmSharedData>& aSharedData);
@@ -44,7 +50,7 @@ class GonkCryptoProxy : public BnCrypto {
 
   void notifyResolution(uint32_t width, uint32_t height) override;
 
-  status_t setMediaDrmSession(const Vector<uint8_t>& sessionId) override;
+  DrmStatus setMediaDrmSession(const Vector<uint8_t>& sessionId) override;
 
   ssize_t decrypt(const uint8_t key[16], const uint8_t iv[16],
                   CryptoPlugin::Mode mode, const CryptoPlugin::Pattern& pattern,

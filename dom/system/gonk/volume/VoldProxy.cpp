@@ -287,7 +287,12 @@ bool VoldProxy::Init() {
 bool VoldProxy::Reset() { IMPL_VOLD_FUNCTION(reset); }
 
 bool VoldProxy::OnUserAdded(int32_t aUserId, int32_t aUserSerial) {
+#if ANDROID_VERSION >= 34
+  IMPL_VOLD_FUNCTION(onUserAdded, aUserId, aUserSerial,
+                     /* aSharesStorageWithUserId */ 0);
+#else
   IMPL_VOLD_FUNCTION(onUserAdded, aUserId, aUserSerial);
+#endif
 }
 
 bool VoldProxy::OnUserStarted(int32_t aUserId) {

@@ -59,7 +59,8 @@ void GonkCryptoProxy::notifyResolution(uint32_t width, uint32_t height) {
   }
 }
 
-status_t GonkCryptoProxy::setMediaDrmSession(const Vector<uint8_t>& sessionId) {
+GonkCryptoProxy::DrmStatus GonkCryptoProxy::setMediaDrmSession(
+    const Vector<uint8_t>& sessionId) {
   // Not allowed.
   return INVALID_OPERATION;
 }
@@ -81,7 +82,7 @@ void GonkCryptoProxy::UpdateMediaDrmSession(const Vector<uint8_t>& aKeyId) {
 
   GD_LOGD("%p GonkCryptoProxy::UpdateMediaDrmSession, set new session", this);
   mSessionId = sessionId;
-  auto err = mCrypto->setMediaDrmSession(sessionId);
+  status_t err = mCrypto->setMediaDrmSession(sessionId);
   if (err != OK) {
     GD_LOGE("%p GonkCryptoProxy::UpdateMediaDrmSession, failed %d", this, err);
   }

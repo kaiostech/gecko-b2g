@@ -54,7 +54,7 @@ void GonkDrmSupport::Init(uint32_t aPromiseId,
     return;
   }
 
-  auto err = mDrm->setListener(mDrmListener);
+  status_t err = mDrm->setListener(mDrmListener);
   if (err != OK) {
     GD_LOGE("%p GonkDrmSupport::Init, DRM setListener failed(%d)", this, err);
     InitFailed();
@@ -136,7 +136,7 @@ sp<GonkDrmSessionInfo> GonkDrmSupport::OpenDrmSession(
     MediaKeySessionType aSessionType, const nsCString& aEmeSessionId,
     status_t* aErr) {
   Vector<uint8_t> sessionId;
-  auto err = mDrm->openSession(DrmPlugin::kSecurityLevelMax, sessionId);
+  status_t err = mDrm->openSession(DrmPlugin::kSecurityLevelMax, sessionId);
   if (err != OK) {
     GD_LOGE("%p GonkDrmSupport::OpenDrmSession, DRM openSession failed(%d)",
             this, err);
@@ -166,7 +166,7 @@ status_t GonkDrmSupport::CloseDrmSession(
     return OK;
   }
 
-  auto err = mDrm->closeSession(aSession->DrmId());
+  status_t err = mDrm->closeSession(aSession->DrmId());
   if (err != OK) {
     GD_LOGE("%p GonkDrmSupport::CloseDrmSession, DRM closeSession failed(%d)",
             this, err);
@@ -181,7 +181,7 @@ void GonkDrmSupport::StartProvisioning() {
 
   Vector<uint8_t> request;
   String8 url;
-  auto err =
+  status_t err =
       mDrm->getProvisionRequest(String8("none"), String8(), request, url);
   if (err != OK) {
     GD_LOGE(
@@ -211,7 +211,7 @@ void GonkDrmSupport::UpdateProvisioningResponse(bool aSuccess,
   }
 
   Vector<uint8_t> certificate, wrappedKey;
-  auto err = mDrm->provideProvisionResponse(
+  status_t err = mDrm->provideProvisionResponse(
       GonkDrmConverter::ToByteVector(aResponse), certificate, wrappedKey);
   if (err != OK) {
     GD_LOGE(
@@ -309,7 +309,7 @@ bool GonkDrmSupport::GetKeyRequest(const sp<GonkDrmSessionInfo>& aSession,
   String8 defaultUrl;
   DrmPlugin::KeyRequestType keyRequestType;
 
-  auto err = mDrm->getKeyRequest(
+  status_t err = mDrm->getKeyRequest(
       id, GonkDrmConverter::ToByteVector(aInitData),
       GonkDrmConverter::ToString8(aSession->MimeType()), keyType,
       optionalParameters, request, defaultUrl, &keyRequestType);
@@ -397,7 +397,8 @@ void GonkDrmSupport::LoadSession(const sp<GonkDrmSessionInfo>& aSession,
           return;
         }
 
-        auto err = mDrm->restoreKeys(aSession->DrmId(), aSession->KeySetId());
+        status_t err =
+            mDrm->restoreKeys(aSession->DrmId(), aSession->KeySetId());
         if (err != OK) {
           aFailureCb(nsPrintfCString("DRM restoreKeys failed(%d)", err));
           return;
@@ -448,7 +449,7 @@ void GonkDrmSupport::UpdateSession(const sp<GonkDrmSessionInfo>& aSession,
   auto response = GonkDrmConverter::ToByteVector(aResponse);
   Vector<uint8_t> keySetId;
 
-  auto err = mDrm->provideKeyResponse(id, response, keySetId);
+  status_t err = mDrm->provideKeyResponse(id, response, keySetId);
   if (err != OK) {
     aFailureCb(nsPrintfCString("DRM provideKeyResponse failed(%d)", err));
     return;
@@ -567,8 +568,8 @@ void GonkDrmSupport::SetServerCertificate(uint32_t aPromiseId,
   GD_ASSERT(mDrm);
   GD_LOGD("%p GonkDrmSupport::SetServerCertificate", this);
 
-  auto err = mDrm->setPropertyByteArray(String8("serviceCertificate"),
-                                        GonkDrmConverter::ToByteVector(aCert));
+  status_t err = mDrm->setPropertyByteArray(
+      String8("serviceCertificate"), GonkDrmConverter::ToByteVector(aCert));
   if (err != OK) {
     GD_LOGE(
         "%p GonkDrmSupport::SetServerCertificate, DRM set serviceCertificate "

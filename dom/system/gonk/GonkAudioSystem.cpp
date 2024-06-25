@@ -136,9 +136,9 @@ DeviceTypeSet GonkAudioSystem::deviceBitMaskToTypeSet(audio_devices_t devices) {
 DeviceTypeSet GonkAudioSystem::getDeviceTypesForStream(
     audio_stream_type_t stream) {
 #if ANDROID_VERSION >= 33
-  AudioAttributes aa(AudioSystem::streamTypeToAttributes(stream));
+  auto attr = AudioSystem::streamTypeToAttributes(stream);
   AudioDeviceTypeAddrVector devices;
-  status_t err = AudioSystem::getDevicesForAttributes(aa, &devices, true);
+  status_t err = AudioSystem::getDevicesForAttributes(attr, &devices, true);
   return err == OK ? getAudioDeviceTypes(devices) : DeviceTypeSet();
 #else
   return deviceBitMaskToTypeSet(AudioSystem::getDevicesForStream(stream));

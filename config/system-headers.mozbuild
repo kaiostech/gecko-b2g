@@ -1108,6 +1108,7 @@ if CONFIG["OS_TARGET"] == "Android" or CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "cutils/native_handle.h",
         "cutils/properties.h",
         "cutils/sockets.h",
+        "cutils/trace.h",
         "foundation/ABase.h",
         "foundation/ABitReader.h",
         "foundation/ABuffer.h",
@@ -1576,6 +1577,12 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "sensor/SensorManager.h",
             "utils.h",
         ]
+
+    if CONFIG["ANDROID_VERSION"] >= "34":
+        system_headers += [
+            "SurfaceFlingerProperties.h",
+        ]
+
     if CONFIG["B2G_OEMHOOK"]:
         system_headers += [
             "vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHook.h",

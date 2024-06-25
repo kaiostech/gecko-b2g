@@ -20,12 +20,14 @@ from tqdm import tqdm
 # variable.
 from mozboot.bootstrap import MOZCONFIG_SUGGESTION_TEMPLATE
 
-NDK_VERSION = "r21d"
-
 # Need to use ndk r25b for aosp 13 build.
-PLATFORM_VERSION = os.environ.get("PLATFORM_VERSION");
-if PLATFORM_VERSION == "33":
+PLATFORM_VERSION = os.environ.get("PLATFORM_VERSION")
+if PLATFORM_VERSION == "34":
+    NDK_VERSION = "r26c"
+elif PLATFORM_VERSION == "33":
     NDK_VERSION = "r25b"
+else:
+    NDK_VERSION = "r21d"
 
 CMDLINE_TOOLS_VERSION_STRING = "11.0"
 CMDLINE_TOOLS_VERSION = "9644228"
@@ -693,7 +695,7 @@ def android_ndk_url(os_name, ver=NDK_VERSION):
         # |mach bootstrap| uses 'macosx', but Google uses 'darwin'.
         os_name = "darwin"
 
-    if sys.maxsize > 2 ** 32:
+    if sys.maxsize > 2**32:
         arch = "x86_64"
     else:
         arch = "x86"

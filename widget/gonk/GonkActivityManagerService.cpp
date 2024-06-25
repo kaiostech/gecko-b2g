@@ -131,6 +131,57 @@ android::status_t GonkActivityManagerService::checkPermission(
 }
 #endif
 
+#if ANDROID_VERSION >= 34
+android::status_t GonkActivityManagerService::registerUidObserverForUids(
+    const android::sp<android::IUidObserver>& observer, const int32_t event,
+    const int32_t cutpoint, const android::String16& callingPackage,
+    const int32_t uids[], size_t nUids,
+    /*out*/ android::sp<android::IBinder>& observerToken) {
+  // Gonk doesn't use this interface currently.
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  return 0;
+}
+
+android::status_t GonkActivityManagerService::addUidToObserver(
+    const android::sp<android::IBinder>& observerToken,
+    const android::String16& callingPackage, int32_t uid) {
+  // Gonk doesn't use this interface currently.
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  return 0;
+}
+
+android::status_t GonkActivityManagerService::removeUidFromObserver(
+    const android::sp<android::IBinder>& observerToken,
+    const android::String16& callingPackage, int32_t uid) {
+  // Gonk doesn't use this interface currently.
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  return 0;
+}
+
+android::status_t GonkActivityManagerService::logFgsApiBegin(int32_t apiType,
+                                                             int32_t appUid,
+                                                             int32_t appPid) {
+  // Gonk doesn't use this interface currently.
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  return 0;
+}
+
+android::status_t GonkActivityManagerService::logFgsApiEnd(int32_t apiType,
+                                                           int32_t appUid,
+                                                           int32_t appPid) {
+  // Gonk doesn't use this interface currently.
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  return 0;
+}
+
+android::status_t GonkActivityManagerService::logFgsApiStateChanged(
+    int32_t apiType, int32_t state, int32_t appUid, int32_t appPid) {
+  // Gonk doesn't use this interface currently.
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  return 0;
+}
+#endif
+
 bool GonkActivityManagerService::isUidActive(
     const uid_t uid, const android::String16& callingPackage) {
   ALOGV("%s(), line:%d", __func__, __LINE__);

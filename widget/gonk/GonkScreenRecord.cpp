@@ -518,12 +518,21 @@ static status_t recordScreen(GonkScreenRecord* screenRecordInst,
         GS_LOGE("ERROR: couldn't open file\n");
         goto CleanUp;
       }
+
+#if ANDROID_VERSION >= 34
+      auto createMuxer = &MediaMuxer::create;
+#else
+      auto createMuxer = [](int fd, MediaMuxer::OutputFormat format) {
+        return new MediaMuxer(fd, format);
+      };
+#endif
+
       if (outputFormat == FORMAT_MP4) {
-        muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_MPEG_4);
+        muxer = createMuxer(fd, MediaMuxer::OUTPUT_FORMAT_MPEG_4);
       } else if (outputFormat == FORMAT_WEBM) {
-        muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_WEBM);
+        muxer = createMuxer(fd, MediaMuxer::OUTPUT_FORMAT_WEBM);
       } else {
-        muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_THREE_GPP);
+        muxer = createMuxer(fd, MediaMuxer::OUTPUT_FORMAT_THREE_GPP);
       }
       close(fd);
       // set screen rotation to meta for player to do rotation

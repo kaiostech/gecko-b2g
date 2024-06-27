@@ -172,6 +172,42 @@ class SupplicantStaIfaceCallback
                               QosPolicyData>& /*qosPolicyData*/) override {
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
+#if ANDROID_VERSION >= 34
+  ::android::binder::Status onMloLinksInfoChanged(
+      ::android::hardware::wifi::supplicant::ISupplicantStaIfaceCallback::MloLinkInfoChangeReason reason) override {
+    return ::android::binder::Status::fromStatusT(
+        ::android::OK);
+  }
+  ::android::binder::Status onDppConfigReceived(
+      const ::android::hardware::wifi::supplicant::DppConfigurationData& configData) override {
+    return ::android::binder::Status::fromStatusT(
+        ::android::OK);
+  }
+  ::android::binder::Status onDppConnectionStatusResultSent(::android::hardware::wifi::supplicant::DppStatusErrorCode code) override {
+    return ::android::binder::Status::fromStatusT(
+        ::android::OK);
+  }
+
+  ::android::binder::Status onBssFrequencyChanged(int32_t frequencyMhz) override {
+    return ::android::binder::Status::fromStatusT(
+        ::android::OK);
+  }
+
+  ::android::binder::Status onSupplicantStateChanged(
+    const ::android::hardware::wifi::supplicant::SupplicantStateChangeData& stateChangeData) override;
+
+  ::android::binder::Status onQosPolicyResponseForScs(
+    const ::std::vector<::android::hardware::wifi::supplicant::QosPolicyScsResponseStatus>& qosPolicyScsResponseStatus) override {
+    return ::android::binder::Status::fromStatusT(
+        ::android::OK);
+  }
+
+  ::android::binder::Status onPmkSaCacheAdded(
+    const ::android::hardware::wifi::supplicant::PmkSaCacheData& pmkSaData) override {
+    return ::android::binder::Status::fromStatusT(
+        ::android::OK);
+  }
+#endif
 
  private:
   void NotifyStateChanged(uint32_t aState, const std::string& aSsid,

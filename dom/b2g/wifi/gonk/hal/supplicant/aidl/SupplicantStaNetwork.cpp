@@ -1902,3 +1902,11 @@ void SupplicantStaNetwork::NotifyEapIdentityRequest() {
             "ISupplicantStaNetworkCallback.onServerCertificateAvailable()");
   return ::android::binder::Status::fromStatusT(::android::OK);
 }
+
+#if ANDROID_VERSION >= 34
+::android::binder::Status SupplicantStaNetwork::onPermanentIdReqDenied() {
+  WIFI_LOGD(LOG_TAG,
+            "ISupplicantStaNetworkCallback.onPermanentIdReqDenied()");
+  return ::android::binder::Status::fromStatusT(::android::OK);
+}
+#endif

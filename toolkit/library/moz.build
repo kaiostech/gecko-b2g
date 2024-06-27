@@ -244,7 +244,6 @@ def Libxul(name, output_category=None):
                 "android.hardware.power-V3-cpp",
                 "android.hardware.sensors@2.1",
                 "android.hardware.vibrator-V2-cpp",
-                "android.hardware.wifi.supplicant-V1-cpp",
                 "android.hardware.wifi@1.5",
                 "audiopolicy-aidl-cpp",
                 "libsensor",
@@ -255,6 +254,7 @@ def Libxul(name, output_category=None):
         if CONFIG["ANDROID_VERSION"] == "33":
             AOSPSharedObjects(
                 "android.hardware.graphics.composer3-V1-ndk",
+                "android.hardware.wifi.supplicant-V1-cpp",
                 "android.media.audio.common.types-V1-cpp",
             )
         if CONFIG["ANDROID_VERSION"] == "34":
@@ -263,6 +263,7 @@ def Libxul(name, output_category=None):
                 "android.hardware.graphics.composer3-V2-ndk",
                 "android.hardware.sensors-V2-ndk",
                 "android.hardware.wifi-V1-cpp",
+                "android.hardware.wifi.supplicant-V2-cpp",
                 "android.media.audio.common.types-V2-cpp",
                 "libSurfaceFlingerProp",
             )

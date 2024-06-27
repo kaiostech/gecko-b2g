@@ -57,6 +57,28 @@ SupplicantStaIfaceCallback::SupplicantStaIfaceCallback(
   return ::android::binder::Status::fromStatusT(::android::OK);
 }
 
+#if ANDROID_VERSION >= 34
+::android::binder::Status SupplicantStaIfaceCallback::onSupplicantStateChanged(
+  const ::android::hardware::wifi::supplicant::SupplicantStateChangeData& stateChangeData)
+{
+  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onSupplicantStateChanged()");
+  std::string bssidStr = ConvertMacToString(stateChangeData.bssid);
+  std::string ssidStr(stateChangeData.ssid.begin(), stateChangeData.ssid.end());
+
+  if (stateChangeData.newState != ::android::hardware::wifi::supplicant::StaIfaceCallbackState::
+                      DISCONNECTED) {
+    mStateBeforeDisconnect = stateChangeData.newState;
+  }
+  if (stateChangeData.newState ==
+      ::android::hardware::wifi::supplicant::StaIfaceCallbackState::COMPLETED) {
+    NotifyConnected(ssidStr, bssidStr);
+  }
+
+  NotifyStateChanged((uint32_t)stateChangeData.newState, ssidStr, bssidStr);
+  return ::android::binder::Status::fromStatusT(::android::OK);
+}
+#endif
+
 void SupplicantStaIfaceCallback::NotifyConnected(const std::string& aSsid,
                                                  const std::string& aBssid) {
   nsCString iface(mInterfaceName);

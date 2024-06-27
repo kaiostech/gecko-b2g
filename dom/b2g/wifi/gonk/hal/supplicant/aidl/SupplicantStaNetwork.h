@@ -298,6 +298,9 @@ class SupplicantStaNetwork : virtual public android::RefBase,
       int32_t depth, const std::vector<uint8_t>& subject,
       const std::vector<uint8_t>& certHash,
       const std::vector<uint8_t>& certBlob) override;
+#if ANDROID_VERSION >= 34
+  ::android::binder::Status onPermanentIdReqDenied() override;
+#endif
 
   SupplicantStatusCode SetSsid(const std::string& aSsid);
   SupplicantStatusCode SetBssid(const std::string& aBssid);

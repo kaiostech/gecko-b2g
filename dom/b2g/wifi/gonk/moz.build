@@ -57,18 +57,17 @@ UNIFIED_SOURCES = [
     "WifiProxyService.cpp",
 ]
 
-if CONFIG["ANDROID_VERSION"] in ("29", "30"):
-    UNIFIED_SOURCES += [
-        "hal/supplicant/hidl/SupplicantCallback.cpp",
-        "hal/supplicant/hidl/SupplicantStaManager.cpp",
-        "hal/supplicant/hidl/SupplicantStaNetwork.cpp",
-    ]
-
 if CONFIG["ANDROID_VERSION"] >= "33":
     UNIFIED_SOURCES += [
-        "hal/supplicant/aidl/SupplicantCallback.cpp",
-        "hal/supplicant/aidl/SupplicantStaManager.cpp",
-        "hal/supplicant/aidl/SupplicantStaNetwork.cpp",
+        "hal/aidl/SupplicantCallback.cpp",
+        "hal/aidl/SupplicantStaManager.cpp",
+        "hal/aidl/SupplicantStaNetwork.cpp",
+    ]
+else:
+    UNIFIED_SOURCES += [
+        "hal/hidl/SupplicantCallback.cpp",
+        "hal/hidl/SupplicantStaManager.cpp",
+        "hal/hidl/SupplicantStaNetwork.cpp",
     ]
 
 if CONFIG["ANDROID_VERSION"] >= "34":

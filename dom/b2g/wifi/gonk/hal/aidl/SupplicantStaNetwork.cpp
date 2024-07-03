@@ -89,9 +89,7 @@ Result_t SupplicantStaNetwork::SetConfiguration(
     stateCode = SetBssid(config.mBssid);
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       WIFI_LOGW(LOG_TAG, "SetBssid fail");
-      // FIXME: Returning fail result when setting BSSID failed. This causes
-      // Wi-Fi reassociation to fail. For now, let's print a log temporarily. We
-      // need to investigate why setting BSSID fails in AOSP 13.
+      return ConvertStatusToResult(stateCode);
     }
   }
 
@@ -411,14 +409,14 @@ SupplicantStatusCode SupplicantStaNetwork::SetSsid(const std::string& aSsid) {
 
 SupplicantStatusCode SupplicantStaNetwork::SetBssid(const std::string& aBssid) {
   MOZ_ASSERT(mNetwork);
-  std::string bssidStr(aBssid);
-  Dequote(bssidStr);
   WIFI_LOGD(LOG_TAG, "bssid => %s", aBssid.c_str());
 
-  std::vector<uint8_t> bssid(bssidStr.begin(), bssidStr.end());
+  std::array<uint8_t, 6> bssid;
+  ConvertMacToByteArray(aBssid, bssid);
+  std::vector<uint8_t> bssidVector(bssid.begin(), bssid.end());
 
   Status status;
-  status = mNetwork->setBssid(bssid);
+  status = mNetwork->setBssid(bssidVector);
   WIFI_LOGD(LOG_TAG, "set bssid return: %d", status.isOk());
   return status.isOk() ? SupplicantStatusCode::SUCCESS
                        : SupplicantStatusCode::FAILURE_UNKNOWN;

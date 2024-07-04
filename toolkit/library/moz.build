@@ -236,7 +236,6 @@ def Libxul(name, output_category=None):
                 "libvold_binder",
             )
             AOSPSharedObjects(
-                "android.frameworks.sensorservice@1.0",
                 "android.frameworks.stats@1.0",
                 "android.frameworks.stats-V1-ndk",
                 "android.hardware.gnss-V2-cpp",
@@ -246,8 +245,6 @@ def Libxul(name, output_category=None):
                 "android.hardware.vibrator-V2-cpp",
                 "android.hardware.wifi@1.5",
                 "audiopolicy-aidl-cpp",
-                "libsensor",
-                "libsensorservicehidl",
                 "netd_aidl_interface-V10-cpp",
                 "oemnetd_aidl_interface-cpp",
             )
@@ -259,7 +256,6 @@ def Libxul(name, output_category=None):
             )
         if CONFIG["ANDROID_VERSION"] == "34":
             AOSPSharedObjects(
-                "android.frameworks.sensorservice-V1-ndk",
                 "android.hardware.graphics.composer3-V2-ndk",
                 "android.hardware.sensors-V2-ndk",
                 "android.hardware.wifi-V1-cpp",

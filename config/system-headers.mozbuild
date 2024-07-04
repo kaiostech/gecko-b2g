@@ -1547,7 +1547,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "aidl/android/hardware/graphics/composer3/Composition.h",
             "aidl/android/hardware/graphics/composer3/IComposer.h",
             "android/binder_ibinder_platform.h",
-            "android/frameworks/sensorservice/1.0/ISensorManager.h",
             "android/hardware/gnss/BnAGnssCallback.h",
             "android/hardware/gnss/BnGnssCallback.h",
             "android/hardware/gnss/IGnss.h",
@@ -1572,14 +1571,10 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "AudioPolicyInterface.h",
             "AudioPolicyService.h",
             "composer-command-buffer/2.4/ComposerCommandBuffer.h",
-            "DirectReportChannel.h",
-            "EventQueue.h",
             "hardware_legacy/AudioPolicyInterface.h",
             "hardware_legacy/AudioPolicyManagerBase.h",
             "hidl/HidlTransportSupport.h",
             "input/PropertyMap.h",
-            "sensor/SensorManager.h",
-            "utils.h",
         ]
 
     if CONFIG["ANDROID_VERSION"] >= "34":

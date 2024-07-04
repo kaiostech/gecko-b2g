@@ -71,16 +71,6 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "gonk/android_sensors/ISensorsWrapper.h",
         "gonk/GonkSensorsHal.h",
     ]
-    if CONFIG["ANDROID_VERSION"] == "33":
-        EXPORTS.gonk += [
-            "gonk/GonkSensorManager.h",
-        ]
-        UNIFIED_SOURCES += [
-            "gonk/GonkSensorManager.cpp",
-        ]
-        XPCOM_MANIFESTS += [
-            "gonk/components.conf",
-        ]
     if CONFIG["PRODUCT_MANUFACTURER_MTK"]:
         UNIFIED_SOURCES += [
             "gonk/mtk_fm/GonkFMRadio.cpp",

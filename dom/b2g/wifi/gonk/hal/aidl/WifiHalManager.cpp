@@ -120,18 +120,6 @@ Result_t WifiHal::InitWifiInterface() {
 
   mWifi = android::waitForVintfService<IWifi>();
   if (mWifi != nullptr) {
-    WIFI_LOGE(LOG_TAG, "About to register event callback");
-    Status status;
-    status = mWifi->registerEventCallback(this);
-
-    if (!status.isOk()) {
-      WIFI_LOGE(LOG_TAG, "registerEventCallback failed");
-      mWifi = nullptr;
-      return nsIWifiResult::ERROR_COMMAND_FAILED;
-    } else {
-      WIFI_LOGE(LOG_TAG, "Wifi Event Callback registered");
-    }
-
     // wifi hal just initialized, stop wifi in case driver is loaded.
     StopWifiModule();
   } else {
@@ -380,27 +368,4 @@ Result_t WifiHal::GetVendorCapabilities() {
   // merge capabilities mask
   mCapabilities = staFeatures | (chipFeatures << 15);
   return CHECK_SUCCESS(status.isOk());
-}
-
-/**
- * IWifiEventCallback implementation
- */
-::android::binder::Status WifiHal::onStart() {
-  WIFI_LOGD(LOG_TAG, "WifiEventCallback.onStart()");
-  return ::android::binder::Status::fromStatusT(::android::OK);
-}
-
-::android::binder::Status WifiHal::onStop() {
-  WIFI_LOGD(LOG_TAG, "WifiEventCallback.onStop()");
-  return ::android::binder::Status::fromStatusT(::android::OK);
-}
-
-::android::binder::Status WifiHal::onFailure(WifiStatusCode status) {
-  WIFI_LOGD(LOG_TAG, "WifiEventCallback.onFailure(): %d", status);
-  return ::android::binder::Status::fromStatusT(::android::OK);
-}
-
-::android::binder::Status WifiHal::onSubsystemRestart(WifiStatusCode status) {
-  WIFI_LOGD(LOG_TAG, "WifiEventCallback.onSubsystemRestart(): %d", status);
-  return ::android::binder::Status::fromStatusT(::android::OK);
 }

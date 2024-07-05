@@ -32,7 +32,7 @@ using ::android::hardware::wifi::WifiStatusCode;
 
 BEGIN_WIFI_NAMESPACE
 
-class WifiHal : virtual public ::android::hardware::wifi::BnWifiEventCallback {
+class WifiHal {
  public:
   static WifiHal* Get();
   static void CleanUp();
@@ -60,11 +60,6 @@ class WifiHal : virtual public ::android::hardware::wifi::BnWifiEventCallback {
   virtual ~WifiHal() {}
 
  private:
-  //...................... IWifiEventCallback ......................../
-  ::android::binder::Status onFailure(WifiStatusCode status) override;
-  ::android::binder::Status onStart() override;
-  ::android::binder::Status onStop() override;
-  ::android::binder::Status onSubsystemRestart(WifiStatusCode status) override;
 
   WifiHal();
   Result_t InitWifiInterface();

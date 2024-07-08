@@ -239,6 +239,10 @@ pub fn get_shader_features(flags: ShaderFeatureFlags) -> ShaderFeatures {
         }
     }
 
+    for name in &["glcursor_color"] {
+        shaders.insert(name, vec![String::new()]);
+    }
+
     shaders
 }
 

@@ -60,6 +60,8 @@
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "ThemeChangeKind.h"
 
+#include "mozilla/webrender/RenderThread.h"
+
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gonk", ##args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ##args)
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, "Gonk", ##args)
@@ -266,7 +268,8 @@ class DispatchTouchInputOnMainThread : public mozilla::Runnable {
 /*static*/ void nsWindow::KickOffCompositionImpl(
     CompositorBridgeParent* aCompositorBridge) {
   // Removed in https://bugzilla.mozilla.org/show_bug.cgi?id=1785021
-  // aCompositorBridge->Invalidate();
+  // Need take back,  otherwise,  cursor is not redraw properly.
+  aCompositorBridge->Invalidate(wr::RenderReasons::FLUSH);
   aCompositorBridge->ScheduleComposition(wr::RenderReasons::FLUSH);
 }
 
@@ -662,25 +665,26 @@ nsWindow::MakeFullScreen(bool aFullScreen) {
   return NS_OK;
 }
 
-// void nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager,
-//                                  LayoutDeviceIntRect aRect) {
-//   if (aManager && mGLCursorImageManager) {
-//     CompositorOGL* compositor =
-//         static_cast<CompositorOGL*>(aManager->GetCompositor());
-//     if (compositor) {
-//       if (mGLCursorImageManager->ShouldDrawGLCursor() &&
-//           mGLCursorImageManager->IsCursorImageReady(mCursor.mDefaultCursor))
-//           {
-//         GLCursorImageManager::GLCursorImage cursorImage =
-//             mGLCursorImageManager->GetGLCursorImage(mCursor.mDefaultCursor);
-//         LayoutDeviceIntPoint position =
-//             mGLCursorImageManager->GetGLCursorPosition();
-//         compositor->DrawGLCursor(aRect, position, cursorImage.mSurface,
-//                                  cursorImage.mImgSize, cursorImage.mHotspot);
-//       }
-//     }
-//   }
-// }
+// Get GLCursorInfo for OGL to draw virtual cursor
+//
+mozilla::gfx::DataSourceSurface* nsWindow::GetGLCursorInfo(
+    LayoutDeviceIntPoint& aCursorPos, nsIntSize& aImgSize,
+    LayoutDeviceIntPoint& aHotspot) {
+  if (mGLCursorImageManager) {
+    if (mGLCursorImageManager->ShouldDrawGLCursor() &&
+        mGLCursorImageManager->IsCursorImageReady(mCursor.mDefaultCursor)) {
+      GLCursorImageManager::GLCursorImage cursorImage =
+          mGLCursorImageManager->GetGLCursorImage(mCursor.mDefaultCursor);
+      aCursorPos = mGLCursorImageManager->GetGLCursorPosition();
+      aImgSize = cursorImage.mImgSize;
+      aHotspot.x = (int)cursorImage.mHotspot.x;
+      aHotspot.y = (int)cursorImage.mHotspot.y;
+
+      return cursorImage.mSurface;
+    }
+  }
+  return nullptr;
+}
 
 already_AddRefed<DrawTarget> nsWindow::StartRemoteDrawing() {
   RefPtr<DrawTarget> buffer = mScreen->StartRemoteDrawing();

@@ -105,6 +105,8 @@ RendererOGL::RendererOGL(RefPtr<RenderThread>&& aThread,
       mBridge(aBridge),
       mWindowId(aWindowId),
       mDisableNativeCompositor(false),
+      mGLCursorEnable(false),
+      mGLCursorSurfaceCache(nullptr),
       mLastPipelineInfo(new WebRenderPipelineInfo) {
   MOZ_ASSERT(mThread);
   MOZ_ASSERT(mCompositor);
@@ -147,6 +149,45 @@ static void DoWebRenderDisableNativeCompositor(
   aBridge->NotifyWebRenderDisableNativeCompositor();
 }
 
+void RendererOGL::SetGLCursor() {
+  LayoutDeviceIntPoint cursorPos, hotspot;
+  nsIntSize cursorSize;
+  RefPtr<DataSourceSurface> surface;
+  unsigned char* data = nullptr;
+  uintptr_t dataSize = 0;
+
+  surface = mCompositor->GetWidget()->RealWidget()->GetGLCursorInfo(
+      cursorPos, cursorSize, hotspot);
+
+  if (surface) {
+    if (surface != mGLCursorSurfaceCache) {
+      mGLCursorSurfaceCache = surface;
+
+      DataSourceSurface::ScopedMap map(surface, DataSourceSurface::READ);
+      uintptr_t stride = map.GetStride();
+      SurfaceFormat format = surface->GetFormat();
+      gfx::IntSize size = surface->GetSize();
+
+      MOZ_ASSERT(size.width == cursorSize.width &&
+                 size.height == cursorSize.height);
+      MOZ_ASSERT(format == SurfaceFormat::B8G8R8A8);
+
+      data = map.GetData();
+      dataSize = stride * size.height;
+    }
+    mGLCursorEnable = true;
+    wr_renderer_set_glcursor(mRenderer, true, (int)(cursorPos.x - hotspot.x),
+                             (int)(cursorPos.y - hotspot.y),
+                             (int)cursorSize.width, (int)cursorSize.height,
+                             data, dataSize);
+  } else if (mGLCursorEnable) {
+    // as cursor can move out of window and come back quickly, suggest not clean
+    // cursor
+    mGLCursorEnable = false;
+    wr_renderer_set_glcursor(mRenderer, false, 0, 0, 0, 0, nullptr, 0);
+  }
+}
+
 RenderedFrameId RendererOGL::UpdateAndRender(
     const Maybe<gfx::IntSize>& aReadbackSize,
     const Maybe<wr::ImageFormat>& aReadbackFormat,
@@ -157,6 +198,8 @@ RenderedFrameId RendererOGL::UpdateAndRender(
 #if defined(XP_MACOSX)
   widgetContext.mGL = mCompositor->gl();
 #endif
+
+  SetGLCursor();
 
   if (!mCompositor->GetWidget()->PreRender(&widgetContext)) {
     // XXX This could cause oom in webrender since pending_texture_updates is

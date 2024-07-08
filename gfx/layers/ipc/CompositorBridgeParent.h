@@ -552,6 +552,7 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   bool ResumeComposition();
   bool ResumeCompositionAndResize(int x, int y, int width, int height);
   bool IsPaused();
+  void Invalidate(const wr::RenderReasons& aReasons);
 
   typedef std::map<LayersId, CompositorBridgeParent::LayerTreeState>
       LayerTreeMap;

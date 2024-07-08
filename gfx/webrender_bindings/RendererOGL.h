@@ -15,6 +15,10 @@
 #include "mozilla/webrender/webrender_ffi.h"
 #include "mozilla/webrender/RendererScreenshotGrabber.h"
 
+#include "Units.h"
+
+#include "mozilla/gfx/2D.h"
+
 namespace mozilla {
 
 namespace gfx {
@@ -143,6 +147,10 @@ class RendererOGL {
    * mContentPipelineEpochs.
    */
   bool DidPaintContent(const wr::WebRenderPipelineInfo* aFrameEpochs);
+
+  void SetGLCursor();
+  bool mGLCursorEnable;
+  RefPtr<gfx::DataSourceSurface> mGLCursorSurfaceCache;
 
   RefPtr<RenderThread> mThread;
   UniquePtr<RenderCompositor> mCompositor;

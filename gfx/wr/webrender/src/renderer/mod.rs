@@ -117,6 +117,7 @@ use std::collections::hash_map::Entry;
 use time::precise_time_ns;
 
 mod debug;
+mod glcursor;
 mod gpu_buffer;
 mod gpu_cache;
 mod shade;
@@ -125,6 +126,7 @@ mod upload;
 pub(crate) mod init;
 
 pub use debug::DebugRenderer;
+pub use glcursor::GLCursorRenderer;
 pub use shade::{Shaders, SharedShaders};
 pub use vertex::{desc, VertexArrayKind, MAX_VERTEX_TEXTURE_WIDTH};
 pub use gpu_buffer::{GpuBuffer, GpuBufferBuilder, GpuBufferAddress};
@@ -773,6 +775,9 @@ pub struct Renderer {
     clear_caches_with_quads: bool,
     clear_alpha_targets_with_quads: bool,
 
+    glcursor_enable: bool,
+    glcursor: glcursor::LazyInitializedGLCursorRenderer,
+
     debug: debug::LazyInitializedDebugRenderer,
     debug_flags: DebugFlags,
     profile: TransactionProfile,
@@ -920,6 +925,15 @@ impl Renderer {
         position: DeviceIntPoint,
     ) {
         self.cursor_position = position;
+    }
+
+    /// set the glcursor.
+    pub fn set_glcursor(
+        &mut self,
+        enable: bool, x: i32, y: i32, width: i32, height: i32, cursor_buffer: *mut u8, size: usize,
+    ) {
+        self.glcursor_enable = enable;
+        self.glcursor.set_glcursor(&mut self.device, enable, x, y, width, height, cursor_buffer, size);
     }
 
     pub fn get_max_texture_size(&self) -> i32 {
@@ -1680,6 +1694,22 @@ impl Renderer {
             debug_renderer.render(
                 &mut self.device,
                 debug_overlay.and(device_size),
+                scale,
+                surface_origin_is_top_left,
+            );
+        }
+
+        if let Some(glcursor_renderer) = self.glcursor.try_get_mut() {
+            let scale = { 1.0 };
+            let surface_origin_is_top_left = match self.current_compositor_kind {
+                CompositorKind::Native { .. } => true,
+                CompositorKind::Draw { .. } => self.device.surface_origin_is_top_left(),
+            };
+            // If there is a glcursor overlay, render it. Otherwise, just clear
+            // the glcursor renderer.
+            glcursor_renderer.render(
+                &mut self.device,
+                device_size,
                 scale,
                 surface_origin_is_top_left,
             );
@@ -4810,6 +4840,7 @@ impl Renderer {
                 fb_rect.max.y = fb_rect.min.y + h;
             }
 
+
             let draw_target = DrawTarget::Default {
                 rect: fb_rect,
                 total_size: device_size * fb_scale,
@@ -4847,6 +4878,10 @@ impl Renderer {
 
     pub fn debug_renderer(&mut self) -> Option<&mut DebugRenderer> {
         self.debug.get_mut(&mut self.device)
+    }
+
+    pub fn glcursor_renderer(&mut self) -> Option<&mut GLCursorRenderer> {
+        self.glcursor.get_mut(&mut self.device)
     }
 
     pub fn get_debug_flags(&self) -> DebugFlags {
@@ -5307,6 +5342,7 @@ impl Renderer {
         self.texture_resolver.deinit(&mut self.device);
         self.vaos.deinit(&mut self.device);
         self.debug.deinit(&mut self.device);
+        self.glcursor.deinit(&mut self.device);
 
         if let Ok(shaders) = Rc::try_unwrap(self.shaders) {
             shaders.into_inner().deinit(&mut self.device);

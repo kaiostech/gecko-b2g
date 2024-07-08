@@ -452,6 +452,13 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   // virtual void DrawWindowOverlay(LayerManagerComposite* aManager,
   //                                LayoutDeviceIntRect aRect) override {}
 
+  /* Draw virtual cursor */
+  virtual mozilla::gfx::DataSourceSurface* GetGLCursorInfo(
+      LayoutDeviceIntPoint& aCursorPos, nsIntSize& aImgSize,
+      LayoutDeviceIntPoint& aHotspot) override {
+    return nullptr;
+  }
+
   virtual RefPtr<mozilla::layers::NativeLayerRoot> GetNativeLayerRoot() {
     return nullptr;
   }

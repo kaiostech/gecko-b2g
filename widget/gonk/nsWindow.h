@@ -166,6 +166,10 @@ class nsWindow final : public nsBaseWidget {
 
   //   void DrawWindowOverlay(LayerManagerComposite* aManager,
   //                          LayoutDeviceIntRect aRect);
+  /* Draw virtual cursor */
+  mozilla::gfx::DataSourceSurface* GetGLCursorInfo(LayoutDeviceIntPoint& aCursorPos,
+    nsIntSize& aImgSize, LayoutDeviceIntPoint& aHotspot);
+
 
  private:
   void EnsureGLCursorImageManager();

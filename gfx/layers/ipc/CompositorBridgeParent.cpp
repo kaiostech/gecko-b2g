@@ -517,6 +517,12 @@ mozilla::ipc::IPCResult CompositorBridgeParent::RecvStopFrameTimeRecording(
   return IPC_OK();
 }
 
+void CompositorBridgeParent::Invalidate(const wr::RenderReasons& aReasons) {
+  if (mWrBridge) {
+    mWrBridge->ScheduleForcedGenerateFrame(aReasons);
+  }
+}
+
 void CompositorBridgeParent::ActorDestroy(ActorDestroyReason why) {
   mCanSend = false;
 

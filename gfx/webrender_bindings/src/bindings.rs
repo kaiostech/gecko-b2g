@@ -585,6 +585,20 @@ impl CrashAnnotator for MozCrashAnnotator {
 }
 
 #[no_mangle]
+pub extern "C" fn wr_renderer_set_glcursor(
+    renderer: &mut Renderer,
+    enable: bool,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    cursor_buffer: *mut u8,
+    size: usize,
+) {
+    renderer.set_glcursor(enable, x, y, width, height, cursor_buffer, size);
+}
+
+#[no_mangle]
 pub extern "C" fn wr_renderer_set_clear_color(renderer: &mut Renderer, color: ColorF) {
     renderer.set_clear_color(color);
 }

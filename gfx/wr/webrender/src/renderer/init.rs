@@ -28,7 +28,7 @@ use crate::scene_builder_thread::{SceneBuilderThread, SceneBuilderThreadChannels
 use crate::texture_cache::{TextureCache, TextureCacheConfig};
 use crate::picture_textures::PictureTextures;
 use crate::renderer::{
-    debug, gpu_cache, vertex, gl,
+    debug, gpu_cache, vertex, gl, glcursor,
     Renderer, DebugOverlayState, BufferDamageTracker, PipelineInfo, TextureResolver,
     RendererError, ShaderPrecacheFlags, VERTEX_DATA_TEXTURE_COUNT,
     upload::UploadTexturePool,
@@ -718,6 +718,8 @@ pub fn create_webrender_instance(
         shaders,
         debug: debug::LazyInitializedDebugRenderer::new(),
         debug_flags: DebugFlags::empty(),
+        glcursor_enable: false,
+        glcursor: glcursor::LazyInitializedGLCursorRenderer::new(),
         profile: TransactionProfile::new(),
         frame_counter: 0,
         resource_upload_time: 0.0,

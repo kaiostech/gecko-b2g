@@ -43,6 +43,7 @@
 #include "nsTHashMap.h"
 #include "mozilla/widget/InitData.h"
 #include "nsXULAppAPI.h"
+#include "mozilla/gfx/2D.h"
 
 // forward declarations
 class nsIBidiKeyboard;
@@ -1216,6 +1217,11 @@ class nsIWidget : public nsISupports {
    * Always called on the main thread.
    */
   virtual void PrepareWindowEffects() = 0;
+
+  /* Draw virtual cursor */
+  virtual mozilla::gfx::DataSourceSurface* GetGLCursorInfo(
+      LayoutDeviceIntPoint& aCursorPos, nsIntSize& aImgSize,
+      LayoutDeviceIntPoint& aHotspot) = 0;
 
   /**
    * Called when Gecko knows which themed widgets exist in this window.

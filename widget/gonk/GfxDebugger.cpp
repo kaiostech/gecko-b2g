@@ -35,7 +35,7 @@
 
 using namespace android;
 using mozilla::layers::APZCTreeManager;
-using mozilla::layers::AsyncPanZoomController;
+//using mozilla::layers::AsyncPanZoomController;
 using mozilla::layers::SharedBufferManagerParent;
 
 namespace mozilla {

@@ -15,7 +15,7 @@
 #include "mozilla/ipc/StreamSocket.h"
 #include "mozilla/ipc/StreamSocketConsumer.h"
 #include "mozilla/ipc/UnixSocketConnector.h"
-#include "mozilla/layers/LayerManagerComposite.h"
+//#include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "mozilla/layers/SharedBufferManagerParent.h"
 
@@ -80,9 +80,9 @@ class GfxDebugger final : public StreamSocketConsumer,
 
   void OnDisconnect(int aIndex);
 
-  void SetLayerManager(mozilla::layers::LayerManagerComposite* lmc) {
-    mLayerManager = lmc;
-  }
+  // void SetLayerManager(mozilla::layers::LayerManagerComposite* lmc) {
+  //   mLayerManager = lmc;
+  // }
 
   void SetCompositorBridge(mozilla::layers::CompositorBridgeParent* cbp) {
     mCompositorBridge = cbp;
@@ -110,7 +110,7 @@ class GfxDebugger final : public StreamSocketConsumer,
 
   bool mShutdown;
 
-  mozilla::layers::LayerManagerComposite* mLayerManager;
+  //mozilla::layers::LayerManagerComposite* mLayerManager;
 
   mozilla::layers::CompositorBridgeParent* mCompositorBridge;
 

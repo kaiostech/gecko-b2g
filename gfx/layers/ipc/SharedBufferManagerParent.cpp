@@ -15,7 +15,7 @@
 #include "mozilla/Unused.h"
 #include "nsIMemoryReporter.h"
 #ifdef MOZ_WIDGET_GONK
-// #include "GfxDebugger.h"
+#include "GfxDebugger.h"
 #  include "mozilla/LinuxUtils.h"
 #  include "ui/PixelFormat.h"
 #endif
@@ -193,7 +193,7 @@ SharedBufferManagerParent::SharedBufferManagerParent(base::ProcessId aOwner,
   sManagers[aOwner] = this;
 
 #ifdef MOZ_WIDGET_GONK
-//  GfxDebugger::GetInstance();
+  GfxDebugger::GetInstance();
 #endif
 }
 

@@ -802,6 +802,11 @@ void nsFocusManager::WindowRaised(mozIDOMWindowProxy* aWindow,
   RefPtr<Element> currentFocus = GetFocusedDescendant(
       window, eIncludeAllDescendants, getter_AddRefs(currentWindow));
 
+  LogContent("  window raised", window);
+  LogContent("   -> focused element", window->GetFocusedElement());
+  LogContent("  window to focus", currentWindow);
+  LogContent("   -> element to focus", currentFocus);
+
   NS_ASSERTION(currentWindow, "window raised with no window current");
   if (!currentWindow) {
     return;
@@ -1860,6 +1865,9 @@ Maybe<uint64_t> nsFocusManager::SetFocusInner(Element* aNewContent,
   } else {
     // otherwise, for inactive windows and when the caller cannot steal the
     // focus, update the node in the window, and  raise the window if desired.
+    LogGeneral(
+        "   Window not yet activated, but set the focus element to new "
+        "window.");
     if (allowFrameSwitch) {
       AdjustWindowFocus(newBrowsingContext, true, IsWindowVisible(newWindow),
                         actionId);
@@ -2089,6 +2097,9 @@ bool nsFocusManager::AdjustInProcessWindowFocus(
 
     if (frameElement != window->GetFocusedElement()) {
       window->SetFocusedElement(frameElement);
+      LogGeneral("   > AdjustInProcessWindowFocus");
+      LogContent("    -> window", window);
+      LogContent("    -> focused element", window->GetFocusedElement());
 
       RefPtr<nsFrameLoaderOwner> loaderOwner = do_QueryObject(frameElement);
       MOZ_ASSERT(loaderOwner);

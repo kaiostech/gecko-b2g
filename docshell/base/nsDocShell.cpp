@@ -4826,6 +4826,11 @@ nsDocShell::GetVisibility(bool* aVisibility) {
 void nsDocShell::ActivenessMaybeChanged() {
   const bool isActive = mBrowsingContext->IsActive();
   if (RefPtr<PresShell> presShell = GetPresShell()) {
+#ifdef MOZ_B2G
+    if (isActive == presShell->IsUnderHiddenEmbedderElement()) {
+      return;
+    }
+#endif
     presShell->ActivenessMaybeChanged();
   }
 

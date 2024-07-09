@@ -3611,6 +3611,14 @@ void BrowsingContext::DidSet(FieldIndex<IDX_IsUnderHiddenEmbedderElement>,
       Unused << child->SetIsUnderHiddenEmbedderElement(hidden);
     }
   }
+
+#ifdef MOZ_B2G
+  PreOrderWalk([&](BrowsingContext* aContext) {
+    if (nsCOMPtr<nsIDocShell> ds = aContext->GetDocShell()) {
+      nsDocShell::Cast(ds)->ActivenessMaybeChanged();
+    }
+  });
+#endif
 }
 
 bool BrowsingContext::IsPopupAllowed() {

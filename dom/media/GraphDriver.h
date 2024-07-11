@@ -660,16 +660,6 @@ class AudioCallbackDriver : public GraphDriver, public MixerCallbackReceiver {
            mFallbackDriverState == FallbackDriverState::Running;
   }
 
-#ifdef MOZ_WIDGET_GONK
-  /* Returns true if this audio callback driver is starting or has successfully
-   * started but is still running on the fallback driver. */
-  bool SwitchingToAudioThread() {
-    return mAudioStreamState == AudioStreamState::Pending ||
-           (mAudioStreamState == AudioStreamState::Running &&
-            mFallbackDriverState == FallbackDriverState::Running);
-  }
-#endif
-
   /* Whether the underlying cubeb stream has been started and has not stopped
    * or errored. */
   bool IsStarted() { return mAudioStreamState > AudioStreamState::Starting; };

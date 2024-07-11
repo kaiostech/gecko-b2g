@@ -315,6 +315,7 @@ static const KeycodeLabel KEYCODES[] = {
     {"PROFILE_SWITCH", 288},
     {"MICROPHONE_TOGGLE", 289},
     {"MESSAGE", 290},
+    {"FAVORITE_CONTACTS", 291},
 
     // NOTE: If you add a new keycode here you must also add it to several other
     // files.

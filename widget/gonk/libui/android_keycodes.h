@@ -363,7 +363,8 @@ enum {
    * May be consumed by system to switch current viewer profile. */
   AKEYCODE_PROFILE_SWITCH = 288,
   AKEYCODE_MICROPHONE_TOGGLE = 289,
-  AKEYCODE_MESSAGE = 290
+  AKEYCODE_MESSAGE = 290,
+  AKEYCODE_FAVORITE_CONTACTS = 291
 
   // NOTE: If you add a new keycode here you must also add it to several other
   // files.

@@ -69,19 +69,25 @@ Result_t WifiHal::StartWifiModule() {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
-  // FIXME: Whether we need retry? And HOW?
-  // int32_t triedCount = 0;
-  // while (triedCount <= START_HAL_RETRY_TIMES) {
+  int32_t triedCount = 0;
   Status status;
   WIFI_LOGD(LOG_TAG, "start wifi");
-  status = mWifi->start();
-  if (status.isOk()) {
-    WIFI_LOGD(LOG_TAG, "start IWifi succeeded");
-    return nsIWifiResult::SUCCESS;
-  } else {
-    WIFI_LOGE(LOG_TAG, "Cannot start IWifi");
-    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  while (triedCount <= START_HAL_RETRY_TIMES) {
+    status = mWifi->start();
+    if (status.isOk()) {
+      if (triedCount != 0) {
+        WIFI_LOGD(LOG_TAG, "start IWifi succeeded after trying %d times",
+                  triedCount);
+      }
+      return nsIWifiResult::SUCCESS;
+    } else {
+      WIFI_LOGD(LOG_TAG, "Cannot start IWifi: Retrying...");
+      usleep(300);
+      triedCount++;
+    }
   }
+  WIFI_LOGE(LOG_TAG, "Cannot start IWifi after trying %d times", triedCount);
+  return nsIWifiResult::ERROR_COMMAND_FAILED;
 }
 
 Result_t WifiHal::StopWifiModule() {

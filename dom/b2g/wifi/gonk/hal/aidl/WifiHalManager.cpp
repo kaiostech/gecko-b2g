@@ -12,6 +12,10 @@
 #include <mozilla/ClearOnShutdown.h>
 
 using ::android::binder::Status;
+using ::android::hardware::wifi::MacAddress;
+using ::android::hardware::wifi::Ssid;
+using ::android::hardware::wifi::StaRoamingCapabilities;
+using ::android::hardware::wifi::StaRoamingConfig;
 using ::android::hardware::wifi::StaRoamingState;
 using ::android::hardware::wifi::WifiStatusCode;
 
@@ -304,8 +308,69 @@ Result_t WifiHal::SetFirmwareRoaming(bool aEnable) {
 
 Result_t WifiHal::ConfigureFirmwareRoaming(
     RoamingConfigurationOptions* mRoamingConfig) {
-  // FIXME: Not support first.
-  return nsIWifiResult::ERROR_NOT_SUPPORTED;
+  // make sure firmware roaming is supported
+  if ((mCapabilities & nsIWifiResult::FEATURE_CONTROL_ROAMING) == 0) {
+    WIFI_LOGE(LOG_TAG, "Firmware roaming is not supported");
+    return nsIWifiResult::ERROR_NOT_SUPPORTED;
+  }
+
+  if (mStaIface == nullptr) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
+  // check firmware roaming capabilities
+  Status status;
+  StaRoamingCapabilities roamingCaps;
+  status = mStaIface->getRoamingCapabilities(&roamingCaps);
+
+  if (!status.isOk()) {
+    WIFI_LOGE(LOG_TAG, "Failed to get roaming capabilities");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  // set the block and allow list to firmware
+  StaRoamingConfig roamingConfig;
+  size_t blockListSize = 0;
+  size_t allowListSize = 0;
+  std::vector<MacAddress> bssidBlockList;
+  std::vector<Ssid> ssidAllowList;
+
+  if (!mRoamingConfig->mBssidDenylist.IsEmpty()) {
+    for (auto& item : mRoamingConfig->mBssidDenylist) {
+      if (blockListSize++ > roamingCaps.maxBlocklistSize) {
+        break;
+      }
+      std::string bssidStr = NS_ConvertUTF16toUTF8(item).get();
+      std::array<uint8_t, 6> bssid;
+      ConvertMacToByteArray(bssidStr, bssid);
+      MacAddress blockListEntry;
+      blockListEntry.data = bssid;
+      bssidBlockList.push_back(blockListEntry);
+    }
+  }
+
+  if (!mRoamingConfig->mSsidAllowlist.IsEmpty()) {
+    for (auto& item : mRoamingConfig->mSsidAllowlist) {
+      if (allowListSize++ > roamingCaps.maxAllowlistSize) {
+        break;
+      }
+      std::string ssidStr = NS_ConvertUTF16toUTF8(item).get();
+      Dequote(ssidStr);
+      std::array<uint8_t, 32> ssid;
+      for (size_t i = 0; i < ssid.size(); i++) {
+        ssid[i] = ssidStr.at(i);
+      }
+      Ssid allowListEntry = {};
+      allowListEntry.data = ssid;
+      ssidAllowList.push_back(allowListEntry);
+    }
+  }
+
+  roamingConfig.bssidBlocklist = bssidBlockList;
+  roamingConfig.ssidAllowlist = ssidAllowList;
+
+  status = mStaIface->configureRoaming(roamingConfig);
+  return CHECK_SUCCESS(status.isOk());
 }
 
 std::string WifiHal::GetInterfaceName(const IfaceConcurrencyType& aType) {

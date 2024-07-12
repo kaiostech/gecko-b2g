@@ -109,27 +109,7 @@ class BluetoothServiceBluedroid::ProfileInitResultHandler final
     }
   }
 
- private:
-  void Proceed() const {
-    BluetoothService* bs = BluetoothService::Get();
-    NS_ENSURE_TRUE_VOID(bs);
-
-    sBtCoreInterface = sBtInterface->GetBluetoothCoreInterface();
-    NS_ENSURE_TRUE_VOID(sBtCoreInterface);
-
-    sBtCoreInterface->SetNotificationHandler(
-        reinterpret_cast<BluetoothServiceBluedroid*>(bs));
-
-    sBtCoreInterface->Enable(new EnableResultHandler());
-  }
-
-  unsigned char mNumProfiles;
-};
-
-class BluetoothServiceBluedroid::InitResultHandler final
-    : public BluetoothResultHandler {
- public:
-  void Init() override {
+  static void InitProfileList(void) {
     static void (*const sInitManager[])(BluetoothProfileResultHandler*) = {
         BluetoothSdpManager::InitSdpInterface,
         BluetoothMapSmsManager::InitMapSmsInterface,
@@ -146,12 +126,70 @@ class BluetoothServiceBluedroid::InitResultHandler final
     // Register all the bluedroid callbacks before enable() gets called. This is
     // required to register a2dp callbacks before a2dp media task starts up.
     // If any interface cannot be initialized, turn on bluetooth core anyway.
-    RefPtr<ProfileInitResultHandler> res =
-        new ProfileInitResultHandler(MOZ_ARRAY_LENGTH(sInitManager));
+    RefPtr<BluetoothServiceBluedroid::ProfileInitResultHandler> res =
+        new BluetoothServiceBluedroid::ProfileInitResultHandler(MOZ_ARRAY_LENGTH(sInitManager));
 
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(sInitManager); ++i) {
       sInitManager[i](res);
     }
+  }
+
+  class SetAdapterPropertyDiscoverableResultHandler
+      final : public BluetoothCoreResultHandler {
+   public:
+    void OnError(BluetoothStatus aStatus) override {
+      BT_LOGR("Fail to set: BT_SCAN_MODE_CONNECTABLE");
+    }
+  };
+
+ private:
+  void Proceed() const {
+    // We enable the Bluetooth adapter here. Disabling is implemented
+    // in |CleanupResultHandler|, which runs at the end of the shutdown
+    // procedure. We cannot disable the adapter immediately, because re-
+    // enabling it might interfere with the shutdown procedure.
+    BluetoothService::AcknowledgeToggleBt(true);
+
+    // Bluetooth scan mode is SCAN_MODE_CONNECTABLE by default, i.e., it should
+    // be connectable and non-discoverable.
+    sBtCoreInterface->SetAdapterProperty(
+        BluetoothProperty(PROPERTY_ADAPTER_SCAN_MODE, SCAN_MODE_CONNECTABLE),
+        new SetAdapterPropertyDiscoverableResultHandler());
+
+    // Trigger OPP & PBAP managers to listen
+    BluetoothOppManager* opp = BluetoothOppManager::Get();
+    if (!opp || !opp->Listen()) {
+      BT_LOGR("Fail to start BluetoothOppManager listening");
+    }
+
+    BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+    if (!pbap || !pbap->Listen()) {
+      BT_LOGR("Fail to start BluetoothPbapManager listening");
+    }
+
+    BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+    if (!map || !map->Listen()) {
+      BT_LOGR("Fail to start BluetoothMapSmsManager listening");
+    }
+  }
+
+  unsigned char mNumProfiles;
+};
+
+class BluetoothServiceBluedroid::InitResultHandler final
+    : public BluetoothResultHandler {
+ public:
+  void Init() override {
+    BluetoothService* bs = BluetoothService::Get();
+    NS_ENSURE_TRUE_VOID(bs);
+
+    sBtCoreInterface = sBtInterface->GetBluetoothCoreInterface();
+    NS_ENSURE_TRUE_VOID(sBtCoreInterface);
+
+    sBtCoreInterface->SetNotificationHandler(
+        reinterpret_cast<BluetoothServiceBluedroid*>(bs));
+
+    sBtCoreInterface->Enable(new EnableResultHandler());
   }
 
   void OnError(BluetoothStatus aStatus) override {
@@ -1650,12 +1688,6 @@ void BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState) {
   }
 
   if (mEnabled) {
-    // We enable the Bluetooth adapter here. Disabling is implemented
-    // in |CleanupResultHandler|, which runs at the end of the shutdown
-    // procedure. We cannot disable the adapter immediately, because re-
-    // enabling it might interfere with the shutdown procedure.
-    BluetoothService::AcknowledgeToggleBt(true);
-
     // Bluetooth just enabled, clear runnable arrays.
     mGetDeviceRequests.Clear();
     mChangeDiscoveryRunnables.Clear();
@@ -1666,27 +1698,7 @@ void BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState) {
     mDeviceNameMap.Clear();
     mDeviceCodMap.Clear();
 
-    // Bluetooth scan mode is SCAN_MODE_CONNECTABLE by default, i.e., it should
-    // be connectable and non-discoverable.
-    sBtCoreInterface->SetAdapterProperty(
-        BluetoothProperty(PROPERTY_ADAPTER_SCAN_MODE, SCAN_MODE_CONNECTABLE),
-        new SetAdapterPropertyDiscoverableResultHandler());
-
-    // Trigger OPP & PBAP managers to listen
-    BluetoothOppManager* opp = BluetoothOppManager::Get();
-    if (!opp || !opp->Listen()) {
-      BT_LOGR("Fail to start BluetoothOppManager listening");
-    }
-
-    BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-    if (!pbap || !pbap->Listen()) {
-      BT_LOGR("Fail to start BluetoothPbapManager listening");
-    }
-
-    BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-    if (!map || !map->Listen()) {
-      BT_LOGR("Fail to start BluetoothMapSmsManager listening");
-    }
+    ProfileInitResultHandler::InitProfileList();
   }
 
   // Resolve promise if existed

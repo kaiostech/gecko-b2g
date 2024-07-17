@@ -19,7 +19,7 @@
 #include "hidl/WifiHalManager.h"
 #endif
 #include "WificondControl.h"
-#include "SoftapManager.h"
+#include "hidl/SoftapManager.h"
 #if ANDROID_VERSION >= 33
 #include "aidl/SupplicantStaManager.h"
 #else

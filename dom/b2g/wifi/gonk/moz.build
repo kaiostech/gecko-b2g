@@ -42,10 +42,10 @@ EXPORTS += [
 
 UNIFIED_SOURCES = [
     "hal/AnqpElement.cpp",
+    "hal/hidl/SoftapManager.cpp",
     "hal/PasspointHandler.cpp",
     "hal/ScanEventService.cpp",
     "hal/SoftapEventService.cpp",
-    "hal/SoftapManager.cpp",
     "hal/WifiCommon.cpp",
     "hal/WificondControl.cpp",
     "hal/WifiNative.cpp",

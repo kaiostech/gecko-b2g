@@ -30,6 +30,8 @@ class nsClipboard final : public nsBaseClipboard {
  private:
   ~nsClipboard() = default;
   mozilla::UniquePtr<mozilla::GonkClipboardData> mClipboard;
+  // One sequence number is enough since gonk supports global-clipboard only.
+  uint32_t mSequenceNumber = 0;
 };
 
 #endif

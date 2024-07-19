@@ -42,6 +42,14 @@ nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
   MOZ_DIAGNOSTIC_ASSERT(
       nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
 
+  auto increaseSequenceNumber = [this]() {
+    if (mSequenceNumber == UINT32_MAX) {
+      mSequenceNumber = 0;
+    } else {
+      mSequenceNumber++;
+    }
+  };
+
   if (!XRE_IsParentProcess()) {
     // Re-direct to the clipboard proxy.
     RefPtr<nsClipboardProxy> clipboardProxy = new nsClipboardProxy();
@@ -66,6 +74,8 @@ nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
     nsAutoString utf16string;
     wideString->GetData(utf16string);
     mClipboard->SetText(utf16string);
+
+    increaseSequenceNumber();
     return NS_OK;
   }
 
@@ -159,6 +169,8 @@ nsClipboard::SetNativeClipboardData(nsITransferable* aTransferable,
       imageAdded = true;
     }
   }
+
+  increaseSequenceNumber();
 
   return NS_OK;
 }
@@ -343,5 +355,5 @@ mozilla::Result<int32_t, nsresult>
 nsClipboard::GetNativeClipboardSequenceNumber(int32_t aWhichClipboard) {
   MOZ_DIAGNOSTIC_ASSERT(
       nsIClipboard::IsClipboardTypeSupported(aWhichClipboard));
-  return Err(NS_ERROR_NOT_AVAILABLE);
+  return mSequenceNumber;
 }

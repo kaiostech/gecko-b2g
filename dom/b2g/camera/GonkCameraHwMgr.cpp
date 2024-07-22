@@ -255,8 +255,9 @@ nsresult GonkCameraHardware::Init() {
   GonkBufferQueue::createBufferQueue(&producer, &consumer);
   static_cast<GonkBufferQueueProducer*>(producer.get())
       ->setSynchronousMode(false);
-  mNativeWindow = new GonkNativeWindow(
-      consumer, GonkCameraHardware::MIN_UNDEQUEUED_BUFFERS);
+  mNativeWindow =
+      new GonkNativeWindow(consumer, GRALLOC_USAGE_HW_TEXTURE,
+                           GonkCameraHardware::MIN_UNDEQUEUED_BUFFERS, false);
   mCamera->setPreviewTarget(producer);
 
   mNativeWindow->setNewFrameCallback(this);

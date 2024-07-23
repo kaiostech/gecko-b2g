@@ -29,6 +29,7 @@ case "${TARGET_ARCH}" in
         ARCH_ABI="android"
         TARGET_TRIPLE=$ARCH_NAME-linux-$ARCH_ABI
         BINSUFFIX=64
+        FOLDERSUFFIX="_cfi"
         ;;
     x86)
         ARCH_NAME="i686"
@@ -246,9 +247,9 @@ EOF
 
 # Store the generated AIDL headers in the sysroot
 sed 's/$/\//' >> "${includes_list}" << EOF
-out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_${ARCH_FOLDER}_static_cfi/gen/aidl
-out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_${ARCH_FOLDER}_static_cfi/gen/aidl
-out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_${ARCH_FOLDER}_shared_cfi/gen/aidl
+out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_${ARCH_FOLDER}_static${FOLDERSUFFIX}/gen/aidl
+out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_${ARCH_FOLDER}_static${FOLDERSUFFIX}/gen/aidl
+out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_${ARCH_FOLDER}_shared${FOLDERSUFFIX}/gen/aidl
 out/soong/.intermediates/frameworks/av/media/libaudioclient/audiopolicy-types-aidl-cpp-source/gen/include
 out/soong/.intermediates/frameworks/av/media/libaudioclient/spatializer-aidl-cpp-source/gen/include
 out/soong/.intermediates/frameworks/av/media/libaudioclient/audioflinger-aidl-cpp-source/gen/include

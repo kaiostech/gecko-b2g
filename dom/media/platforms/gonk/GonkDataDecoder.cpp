@@ -274,7 +274,9 @@ bool GonkDataDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
     LOGD("%p fetch input EOS", this);
     return true;
   }
-  if (mInputQueue.GetSize() == 0) {
+
+  RefPtr<MediaRawData> sample = mInputQueue.PopFront();
+  if (!sample) {
     nsresult rv = mThread->Dispatch(NS_NewRunnableFunction(
         "GonkDataDecoder::FetchInput", [self = Self(), this]() {
           if (!mDecodePromise.IsEmpty()) {
@@ -287,7 +289,6 @@ bool GonkDataDecoder::FetchInput(const sp<MediaCodecBuffer>& aBuffer,
     return false;
   }
 
-  RefPtr<MediaRawData> sample = mInputQueue.PopFront();
   GonkBufferWriter writer(aBuffer);
   writer.Clear();
   if (!writer.Append(sample->Data(), sample->Size())) {

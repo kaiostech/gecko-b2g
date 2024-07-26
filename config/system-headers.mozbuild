@@ -1677,10 +1677,14 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
 
     if CONFIG["ANDROID_VERSION"] >= "34":
         system_headers += [
+            "aidl/android/hardware/sensors/ISensors.h",
+            "aidl/android/hardware/sensors/BnSensorsCallback.h",
             "android/hardware/wifi/IWifi.h",
             "android/hardware/wifi/BnWifiEventCallback.h",
             "android/hardware/wifi/BnWifiChipEventCallback.h",
             "android/hardware/wifi/BnWifiStaIfaceEventCallback.h",
+            "cutils/ashmem.h",
+            "fmq/EventFlag.h",
             "SurfaceFlingerProperties.h",
         ]
 

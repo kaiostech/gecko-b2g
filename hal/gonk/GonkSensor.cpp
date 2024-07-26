@@ -17,7 +17,11 @@
 #include "Hal.h"
 #include "base/task.h"
 
+#if ANDROID_VERSION >= 34
+#include "gonk/GonkSensorsHal.h"
+#else
 #include "gonk/old/GonkSensorsHal.h"
+#endif
 
 using namespace mozilla::hal;
 

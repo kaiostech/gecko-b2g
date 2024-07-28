@@ -106,11 +106,11 @@ class HwcComposer2D : public mozilla::layers::Composer2D {
   void SendtoLayerScope();
 
   UniquePtr<HwcHALBase> mHal;
-  HwcList* mList;
+  HwcList* mList = nullptr;
   nsIntRect mScreenRect;
-  int mMaxLayerCount;
-  bool mColorFill;
-  bool mRBSwapSupport;
+  int mMaxLayerCount = 0;
+  bool mColorFill = false;
+  bool mRBSwapSupport = false;
   // Holds all the dynamically allocated RectVectors needed
   // to render the current frame
   std::list<HwcUtils::RectVector> mVisibleRegions;
@@ -118,11 +118,11 @@ class HwcComposer2D : public mozilla::layers::Composer2D {
   layers::FenceHandle mPrevDisplayFence;
   nsTArray<HwcLayer> mCachedSidebandLayers;
   // nsTArray<layers::LayerComposite*> mHwcLayerMap;
-  bool mPrepared;
-  bool mHasHWVsync;
-  bool mStopRenderWithHwc;
-  bool mAlwaysEnabled;
-  layers::CompositorBridgeParent* mCompositorBridgeParent;
+  bool mPrepared = false;
+  bool mHasHWVsync = false;
+  bool mStopRenderWithHwc = false;
+  bool mAlwaysEnabled = false;
+  layers::CompositorBridgeParent* mCompositorBridgeParent = nullptr;
   Mutex mLock;
 };
 

@@ -86,16 +86,7 @@ __attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
 
 static StaticRefPtr<HwcComposer2D> sInstance;
 
-HwcComposer2D::HwcComposer2D()
-    : mList(nullptr),
-      mMaxLayerCount(0),
-      mColorFill(false),
-      mRBSwapSupport(false),
-      mPrepared(false),
-      mHasHWVsync(false),
-      mStopRenderWithHwc(false),
-      mAlwaysEnabled(false),
-      mLock("mozilla.HwcComposer2D.mLock") {
+HwcComposer2D::HwcComposer2D() : mLock("mozilla.HwcComposer2D.mLock") {
   mHal = HwcHALBase::CreateHwcHAL();
   if (!mHal->HasHwc()) {
     LOGD("no hwc support");

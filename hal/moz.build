@@ -87,6 +87,11 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "gonk/sprd_fm/fmr_err.cpp",
             "gonk/sprd_fm/GonkFMRadio.cpp",
         ]
+    elif CONFIG['ANDROID_VERSION'] >= '34':
+        SOURCES += [
+            "gonk/qti_fm/fmr_core.cpp",
+            "gonk/qti_fm/GonkFMRadio.cpp",
+        ]
     else:
         UNIFIED_SOURCES += [
             "gonk/GonkFMRadio.cpp",

@@ -20,6 +20,8 @@ using mozilla::hal::ProcessPriority from "mozilla/HalTypes.h";
 using nsIntRect from "nsRect.h";
 using PRTime from "prtime.h";
 using mozilla::hal::FMRadioCountry from "mozilla/HalTypes.h";
+using mozilla::hal::FMRadioBand from "mozilla/HalTypes.h";
+using mozilla::hal::FMRadioRDSStd from "mozilla/HalTypes.h";
 using mozilla::hal::FMRadioOperation from "mozilla/HalTypes.h";
 using mozilla::hal::FMRadioOperationStatus from "mozilla/HalTypes.h";
 
@@ -93,6 +95,8 @@ struct FMRadioSettings {
   uint32_t lowerLimit;
   uint32_t spaceType;
   uint32_t preEmphasis;
+  FMRadioBand band;
+  FMRadioRDSStd rdsStd;
 };
 
 } // namespace hal

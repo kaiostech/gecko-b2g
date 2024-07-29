@@ -25,6 +25,8 @@ void GetFMRadioSettings(hal::FMRadioSettings* aInfo) {
   aInfo->lowerLimit() = 0;
   aInfo->spaceType() = 0;
   aInfo->preEmphasis() = 0;
+  aInfo->band() = hal::FM_USER_UNKNOWN_BAND;
+  aInfo->rdsStd() = hal::FM_RDS_STD_UNKNOWN;
 }
 
 void SetFMRadioFrequency(const uint32_t frequency) {}

@@ -109,6 +109,24 @@ enum FMRadioSeekDirection {
   NUM_FM_RADIO_SEEK_DIRECTION
 };
 
+enum FMRadioBand {
+  FM_USER_UNKNOWN_BAND = -1,
+  FM_US_BAND,
+  FM_EU_BAND,
+  FM_JAPAN_STANDARD_BAND,
+  FM_JAPAN_WIDE_BAND,
+  FM_USER_DEFINED_BAND,
+  NUM_FM_RADIO_BAND
+};
+
+enum FMRadioRDSStd {
+  FM_RDS_STD_UNKNOWN = -1,
+  FM_RDS_STD_RBDS,
+  FM_RDS_STD_RDS,
+  FM_RDS_STD_NONE,
+  NUM_FM_RADIO_RDSSTD
+};
+
 enum FMRadioCountry {
   FM_RADIO_COUNTRY_UNKNOWN = -1,
   FM_RADIO_COUNTRY_US,  // USA
@@ -273,6 +291,24 @@ struct ParamTraits<mozilla::hal::FMRadioSeekDirection>
           mozilla::hal::FMRadioSeekDirection,
           mozilla::hal::FM_RADIO_SEEK_DIRECTION_UNKNOWN,
           mozilla::hal::NUM_FM_RADIO_SEEK_DIRECTION> {};
+
+/**
+ * Serializer for FMRadioBand
+ **/
+template <>
+struct ParamTraits<mozilla::hal::FMRadioBand>
+    : public ContiguousEnumSerializer<mozilla::hal::FMRadioBand,
+                                      mozilla::hal::FM_USER_UNKNOWN_BAND,
+                                      mozilla::hal::NUM_FM_RADIO_BAND> {};
+
+/**
+ * Serializer for FMRadioRDSStd
+ **/
+template <>
+struct ParamTraits<mozilla::hal::FMRadioRDSStd>
+    : public ContiguousEnumSerializer<mozilla::hal::FMRadioRDSStd,
+                                      mozilla::hal::FM_RDS_STD_UNKNOWN,
+                                      mozilla::hal::NUM_FM_RADIO_RDSSTD> {};
 
 /**
  * Serializer for FMRadioCountry

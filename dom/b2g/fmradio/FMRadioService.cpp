@@ -24,6 +24,7 @@
 
 #define TUNE_THREAD_TIMEOUT_MS 5000
 
+#define BAND_87500_107900_kHz 0
 #define BAND_87500_108000_kHz 1
 #define BAND_76000_108000_kHz 2
 #define BAND_76000_90000_kHz 3
@@ -105,6 +106,10 @@ FMRadioService::FMRadioService()
       mUpperBoundInKHz = 108000;
       mLowerBoundInKHz = 76000;
       break;
+    case BAND_87500_107900_kHz:
+      mUpperBoundInKHz = 107900;
+      mLowerBoundInKHz = 87500;
+      break;
     case BAND_87500_108000_kHz:
     default:
       mUpperBoundInKHz = 108000;
@@ -175,6 +180,8 @@ void FMRadioService::EnableFMRadio() {
   info.lowerLimit() = mLowerBoundInKHz;
   info.spaceType() = mChannelWidthInKHz;
   info.preEmphasis() = mPreemphasis;
+  info.rdsStd() = hal::FM_RDS_STD_RDS; //default RDS std
+  info.band() = hal::FM_USER_DEFINED_BAND; //default band
 
   hal::EnableFMRadio(info);
 

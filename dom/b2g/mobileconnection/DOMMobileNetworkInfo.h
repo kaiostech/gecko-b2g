@@ -22,9 +22,10 @@ class DOMMobileNetworkInfo final : public nsISupports, public nsWrapperCache {
 
   explicit DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow);
 
-  DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow, const nsAString& aShortName,
-                       const nsAString& aLongName, const nsAString& aMcc,
-                       const nsAString& aMnc, const nsAString& aState);
+  DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow, const nsAString& aRat,
+                       const nsAString& aShortName, const nsAString& aLongName,
+                       const nsAString& aMcc, const nsAString& aMnc,
+                       const nsAString& aState);
 
   void Update(nsIMobileNetworkInfo* aInfo);
 
@@ -35,7 +36,7 @@ class DOMMobileNetworkInfo final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<MobileNetworkInfo> GetNetwork() const {
     RefPtr<MobileNetworkInfo> info =
-        new MobileNetworkInfo(mShortName, mLongName, mMcc, mMnc, mState);
+        new MobileNetworkInfo(mRat, mShortName, mLongName, mMcc, mMnc, mState);
     return info.forget();
   }
 
@@ -52,6 +53,8 @@ class DOMMobileNetworkInfo final : public nsISupports, public nsWrapperCache {
     return Nullable<MobileNetworkState>();
   }
 
+  void GetRat(nsAString& aRat) const { aRat = mRat; }
+
   void GetShortName(nsAString& aShortName) const { aShortName = mShortName; }
 
   void GetLongName(nsAString& aLongName) const { aLongName = mLongName; }
@@ -65,6 +68,7 @@ class DOMMobileNetworkInfo final : public nsISupports, public nsWrapperCache {
 
  private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
+  nsString mRat;
   nsString mShortName;
   nsString mLongName;
   nsString mMcc;

@@ -293,6 +293,10 @@
 #  include "mozilla/dom/RSUChild.h"
 #endif
 
+#ifdef B2G_ESIM
+#include "mozilla/dom/EUiccChild.h"
+#endif
+
 #include "ClearOnShutdown.h"
 #include "DomainPolicy.h"
 #include "GfxInfoBase.h"
@@ -2304,6 +2308,22 @@ PRSUChild* ContentChild::AllocPRSUChild() {
 }
 
 bool ContentChild::DeallocPRSUChild(PRSUChild* aActor) {
+  delete aActor;
+  return true;
+}
+#endif
+
+#ifdef B2G_ESIM
+PEUiccChild*
+ContentChild::AllocPEUiccChild()
+{
+  MOZ_CRASH("No one should be allocating PEUiccChild actors");
+  return nullptr;
+}
+
+bool
+ContentChild::DeallocPEUiccChild(PEUiccChild* aActor)
+{
   delete aActor;
   return true;
 }

@@ -12,7 +12,8 @@ enum DataCallType {
   "hipri",
   "xcap",
   "cbs",
-  "Emergency"
+  "Emergency",
+  "enterprise"
 };
 
 enum DataCallState {
@@ -41,6 +42,7 @@ interface DataCallManager {
              object. Otherwise, rejected with an error message.
    */
   Promise<DataCall> requestDataCall(DataCallType type,
+                                    optional long dnn,
                                     optional unsigned long serviceId);
 
   /**

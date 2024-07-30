@@ -90,4 +90,29 @@ interface nsIMobileCellInfo: nsISupports
    * if registered on a CDMA or EVDO system.
    */
   readonly attribute bool cdmaSystemIsInPRL;
+
+  /**
+   * The tracking area code for LTE or NR
+   */
+  readonly attribute long tac;
+
+  /**
+   * The Cell Identity for LTE or NR
+   */
+  readonly attribute long long ci;
+
+  /**
+   * The Physical Cell Identity for LTE or NR
+   */
+  readonly attribute long pci;
+
+  /**
+   * The Absolute Radio Frequency Channel Number for LTE or NR
+   */
+  readonly attribute long arfcns;
+
+  /**
+   * The Bands used by the cell for LTE or NR
+   */
+  readonly attribute long long bands;
 };

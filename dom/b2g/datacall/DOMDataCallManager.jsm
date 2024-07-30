@@ -43,7 +43,7 @@ var RIL_DEBUG = ChromeUtils.import(
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "gDataCallHelper", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gDataCallHelper", function () {
   return {
     // Should match with enum DataCallState in DataCallManager webidl.
     convertToDataCallState(aState, aReason) {
@@ -246,7 +246,7 @@ DOMDataCallManager.prototype = {
   /*
    * DataCallManager implementation.
    */
-  requestDataCall(aType, aServiceId) {
+  requestDataCall(aType, aDnn, aServiceId) {
     if (DEBUG) {
       this.debug("requestDataCall: " + aType + " - " + aServiceId);
     }
@@ -265,6 +265,7 @@ DOMDataCallManager.prototype = {
       let data = {
         resolverId,
         type: networkType,
+        dnn: aDnn,
         serviceId: aServiceId,
         windowId: this._innerWindowId,
       };
@@ -400,10 +401,7 @@ DOMDataCall.prototype = {
 
   _generateID() {
     // generateUUID() gives a UUID surrounded by {...}, slice them off.
-    return Services.uuid
-      .generateUUID()
-      .toString()
-      .slice(1, -1);
+    return Services.uuid.generateUUID().toString().slice(1, -1);
   },
 
   _sendMessage(aMessageName, aData) {

@@ -8,6 +8,10 @@
 interface nsIMobileNetworkInfo: nsISupports
 {
   /**
+   * Radio access type.
+   */
+  readonly attribute AString rat;
+  /**
    * Short name of the network operator.
    */
   readonly attribute AString shortName;

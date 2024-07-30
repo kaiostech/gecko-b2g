@@ -1785,7 +1785,7 @@ void GonkGPSGeolocationProvider::RequestDataConnection(bool isEmergencySupl) {
 
     int32_t type = isEmergencySupl ? nsINetworkInfo::NETWORK_TYPE_MOBILE_ECC
                                    : nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL;
-    nsresult rv = mRadioInterface->SetupDataCallByType(type);
+    nsresult rv = mRadioInterface->SetupDataCallByType(type, -1);
 
     if (NS_FAILED(rv)) {
       ERR("Failed to setup SUPL data call.");
@@ -1809,7 +1809,7 @@ void GonkGPSGeolocationProvider::ReleaseDataConnection(bool isEmergencySupl) {
   LOG("nsIRadioInterface->DeactivateDataCallByType()");
   int32_t type = isEmergencySupl ? nsINetworkInfo::NETWORK_TYPE_MOBILE_ECC
                                  : nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL;
-  nsresult rv = mRadioInterface->DeactivateDataCallByType(type);
+  nsresult rv = mRadioInterface->DeactivateDataCallByType(type, -1);
 
   if (NS_FAILED(rv)) {
     ERR("Failed to deactivate SUPL data call.");

@@ -92,6 +92,10 @@ include protocol PSandboxTesting;
 include protocol PRSU;
 #endif
 
+#ifdef B2G_ESIM
+include protocol PEUicc;
+#endif
+
 //#ifdef ENABLE_EMBMS
 //include protocol PLteBroadcast;
 //#endif
@@ -705,6 +709,10 @@ sync protocol PContent
 #endif
 #ifdef ENABLE_RSU
     manages PRSU;
+#endif
+
+#ifdef B2G_ESIM
+    manages PEUicc;
 #endif
     manages PHal;
     manages PHandlerService;
@@ -1396,6 +1404,10 @@ parent:
 
 #ifdef ENABLE_RSU
     async PRSU();
+#endif
+
+#ifdef B2G_ESIM
+    async PEUicc();
 #endif
 
 #ifdef MOZ_WEBRTC

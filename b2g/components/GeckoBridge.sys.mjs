@@ -18,6 +18,7 @@ const kWatchedPrefs = [
   "device.bt",
   "device.cdma-apn",
   "device.commercial.ref",
+  "device.euicc",
   "device.dfc",
   "device.dual-lte",
   "device.flip",

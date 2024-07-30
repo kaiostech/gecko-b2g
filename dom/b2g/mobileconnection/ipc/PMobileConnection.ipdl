@@ -36,6 +36,7 @@ child:
   async NotifyNetworkSelectionModeChanged(int32_t aMode);
   async NotifySignalStrengthChanged(nsMobileSignalStrength aSignalStrength);
   async NotifyModemRestart(nsString aReason);
+  async NotifyScanResultReceived(nsMobileNetworkInfo[] aScanResults);
   async NotifyDeviceIdentitiesChanged(nsMobileDeviceIdentities aDeviceIdentities);
 
 parent:
@@ -97,6 +98,36 @@ struct SetRoamingPreferenceRequest
 struct GetRoamingPreferenceRequest
 {
 };
+
+struct SetVoNrEnabledRequest
+{
+  bool enabled;
+};
+
+struct IsVoNrEnabledRequest
+{
+};
+
+struct SetNrDualConnectivityStateRequest
+{
+  int32_t mode;
+};
+
+struct IsNrDualConnectivityEnabledRequest
+{
+};
+
+struct StartNetworkScanRequest
+{
+  int32_t scanType;
+  int32_t interval;
+  int32_t maxSearchTime;
+  bool incrementalResults;
+  int32_t incrementalResultsPeriodicity;
+  nsString mccMncs;
+  nsGeckoRadioAccessSpecifier[] specifiers;
+};
+
 
 struct SetVoicePrivacyModeRequest
 {
@@ -169,6 +200,8 @@ struct ExitEmergencyCbModeRequest
 struct SetRadioEnabledRequest
 {
   bool enabled;
+  bool forEmergencyCall;
+  bool preferredForEmergencyCall;
 };
 
 struct GetDeviceIdentitiesRequest
@@ -192,6 +225,10 @@ union MobileConnectionRequest
   GetPreferredNetworkTypeRequest;
   SetRoamingPreferenceRequest;
   GetRoamingPreferenceRequest;
+  SetVoNrEnabledRequest;
+  IsVoNrEnabledRequest;
+  SetNrDualConnectivityStateRequest;
+  IsNrDualConnectivityEnabledRequest;
   SetVoicePrivacyModeRequest;
   GetVoicePrivacyModeRequest;
   SetCallForwardingRequest;
@@ -208,6 +245,7 @@ union MobileConnectionRequest
   GetDeviceIdentitiesRequest;
   GetSignalStrengthRequest;
   StopNetworkScanRequest;
+  StartNetworkScanRequest;
 };
 
 } // namespace mobileconnection

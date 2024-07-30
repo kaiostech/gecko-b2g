@@ -74,7 +74,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIMobileConnectionService"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function () {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
@@ -330,7 +330,14 @@ DataCallService.prototype = {
 
   _setupDataCall(aData, aTargetCallback, aTarget) {
     if (DEBUG) {
-      this.debug("Setup data call for " + aData.serviceId + "-" + aData.type);
+      this.debug(
+        "Setup data call for " +
+          aData.serviceId +
+          "-" +
+          aData.type +
+          "-" +
+          aData.dnn
+      );
     }
 
     let serviceId =
@@ -338,6 +345,7 @@ DataCallService.prototype = {
         ? aData.serviceId
         : this._dataDefaultServiceId;
     let type = aData.type;
+    let dnn = aData.dnn;
 
     let context = this.getDataCallContext(type);
     if (!context) {
@@ -379,7 +387,7 @@ DataCallService.prototype = {
 
     try {
       // Call this no matter what for ref counting in RadioInterfaceLayer.
-      ril.setupDataCallByType(type);
+      ril.setupDataCallByType(type, dnn);
     } catch (e) {
       // Throws when setup request fail.
       aTargetCallback({ errorMsg: "Error when setup data call: " + e });

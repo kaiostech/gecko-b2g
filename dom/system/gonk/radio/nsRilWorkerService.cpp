@@ -5,28 +5,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsRilWorkerService.h"
-#include "mozilla/Preferences.h"
-#include "mozilla/ModuleUtils.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/ModuleUtils.h"
+#include "mozilla/Preferences.h"
 #include "nsAppRunner.h"
 
 #if !defined(RILWORKERSERVICE_LOG_TAG)
-#  define RILWORKERSERVICE_LOG_TAG "RilWorkerService"
+#define RILWORKERSERVICE_LOG_TAG "RilWorkerService"
 #endif
 
 #undef INFO
 #undef ERROR
 #undef DEBUG
-#define INFO(args...) \
+#define INFO(args...)                                                          \
   __android_log_print(ANDROID_LOG_INFO, RILWORKERSERVICE_LOG_TAG, ##args)
-#define ERROR(args...) \
+#define ERROR(args...)                                                         \
   __android_log_print(ANDROID_LOG_ERROR, RILWORKERSERVICE_LOG_TAG, ##args)
-#define DEBUG(args...)                                                 \
-  do {                                                                 \
-    if (gRilDebug_isLoggingEnabled) {                                  \
-      __android_log_print(ANDROID_LOG_DEBUG, RILWORKERSERVICE_LOG_TAG, \
-                          ##args);                                     \
-    }                                                                  \
+#define DEBUG(args...)                                                         \
+  do {                                                                         \
+    if (gRilDebug_isLoggingEnabled) {                                          \
+      __android_log_print(                                                     \
+        ANDROID_LOG_DEBUG, RILWORKERSERVICE_LOG_TAG, ##args);                  \
+    }                                                                          \
   } while (0)
 
 /*================ Implementation of Class nsCellBroadcastService=============*/
@@ -36,7 +36,9 @@ mozilla::StaticRefPtr<nsRilWorkerService> gRilWorkerService;
 
 NS_IMPL_ISUPPORTS(nsRilWorkerService, nsIRilWorkerService)
 
-nsRilWorkerService::nsRilWorkerService() : mNumRilWorkers(1) {
+nsRilWorkerService::nsRilWorkerService()
+  : mNumRilWorkers(1)
+{
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!gRilWorkerService);
 
@@ -52,8 +54,9 @@ nsRilWorkerService::nsRilWorkerService() : mNumRilWorkers(1) {
   }
 }
 
-NS_IMETHODIMP nsRilWorkerService::GetRilWorker(uint32_t clientId,
-                                               nsIRilWorker** aRilWorker) {
+NS_IMETHODIMP
+nsRilWorkerService::GetRilWorker(uint32_t clientId, nsIRilWorker** aRilWorker)
+{
   DEBUG("GetRilWorker = %d", clientId);
   nsCOMPtr<nsIRilWorker> worker;
 
@@ -66,13 +69,14 @@ NS_IMETHODIMP nsRilWorkerService::GetRilWorker(uint32_t clientId,
   }
 }
 
-nsRilWorkerService::~nsRilWorkerService() {
-  /* destructor code */
+nsRilWorkerService::~nsRilWorkerService()
+{
   MOZ_ASSERT(!gRilWorkerService);
 }
 
 already_AddRefed<nsRilWorkerService>
-nsRilWorkerService::CreateRilWorkerService() {
+nsRilWorkerService::CreateRilWorkerService()
+{
   if (!XRE_IsParentProcess()) {
     return nullptr;
   }

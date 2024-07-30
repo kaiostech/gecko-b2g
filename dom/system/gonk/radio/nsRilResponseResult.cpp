@@ -15,18 +15,19 @@
 #undef DEBUG
 #define INFO(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define ERROR(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
-#define DEBUG(args...)                                         \
-  do {                                                         \
-    if (gRilDebug_isLoggingEnabled) {                          \
-      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args); \
-    }                                                          \
+#define DEBUG(args...)                                                         \
+  do {                                                                         \
+    if (gRilDebug_isLoggingEnabled) {                                          \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args);                 \
+    }                                                                          \
   } while (0)
 
-#define RILRESPONSERESULT_CID                        \
-  {                                                  \
-    0xe058deee, 0xe10a, 0x4165, {                    \
-      0x80, 0x98, 0xfc, 0x86, 0x50, 0x13, 0xda, 0x1d \
-    }                                                \
+#define RILRESPONSERESULT_CID                                                  \
+  {                                                                            \
+    0xe058deee, 0xe10a, 0x4165,                                                \
+    {                                                                          \
+      0x80, 0x98, 0xfc, 0x86, 0x50, 0x13, 0xda, 0x1d                           \
+    }                                                                          \
   }
 
 /*============================================================================
@@ -42,17 +43,20 @@ NS_IMPL_ISUPPORTS(nsRilResponseResult, nsIRilResponseResult)
 nsRilResponseResult::nsRilResponseResult(const nsAString& aRilMessageType,
                                          int32_t aRilMessageToken,
                                          int32_t aErrorMsg)
-    : nsRilResult(aRilMessageType, aRilMessageToken, aErrorMsg) {
+  : nsRilResult(aRilMessageType, aRilMessageToken, aErrorMsg)
+{
   DEBUG("init nsRilResponseResult");
 }
 
 /**
  * For DeviceIdentity
  */
-void nsRilResponseResult::updateDeviceIdentity(const nsAString& aImei,
-                                               const nsAString& aImeisv,
-                                               const nsAString& aEsn,
-                                               const nsAString& aMeid) {
+void
+nsRilResponseResult::updateDeviceIdentity(const nsAString& aImei,
+                                          const nsAString& aImeisv,
+                                          const nsAString& aEsn,
+                                          const nsAString& aMeid)
+{
   DEBUG("updateDeviceIdentity");
   mImei = aImei;
   mImeisv = aImeisv;
@@ -63,7 +67,9 @@ void nsRilResponseResult::updateDeviceIdentity(const nsAString& aImei,
 /**
  * For VoiceRadioTechnology
  */
-void nsRilResponseResult::updateVoiceRadioTechnology(int32_t aRadioTech) {
+void
+nsRilResponseResult::updateVoiceRadioTechnology(int32_t aRadioTech)
+{
   DEBUG("updateVoiceRadioTechnology");
   mRadioTech = aRadioTech;
 }
@@ -71,8 +77,9 @@ void nsRilResponseResult::updateVoiceRadioTechnology(int32_t aRadioTech) {
 /**
  * For BasebandVersionResponse
  */
-void nsRilResponseResult::updateBasebandVersion(
-    const nsAString& aBasebandVersion) {
+void
+nsRilResponseResult::updateBasebandVersion(const nsAString& aBasebandVersion)
+{
   DEBUG("updateBasebandVersion");
   mBasebandVersion = aBasebandVersion;
 }
@@ -80,16 +87,26 @@ void nsRilResponseResult::updateBasebandVersion(
 /**
  * For IccCardStatus
  */
-void nsRilResponseResult::updateIccCardStatus(nsCardStatus* aCardStatus) {
+void
+nsRilResponseResult::updateIccCardStatus(nsCardStatus* aCardStatus)
+{
   DEBUG("updateIccCardStatus");
   mCardStatus = aCardStatus;
+}
+
+void
+nsRilResponseResult::updateAllowedCarriers(nsAllowedCarriers* aAllowedCarriers)
+{
+  DEBUG("updateAllowedCarriers");
+  mAllowedCarriers = aAllowedCarriers;
 }
 
 /**
  * For VoiceRegStatus
  */
-void nsRilResponseResult::updateVoiceRegStatus(
-    nsVoiceRegState* aVoiceRegState) {
+void
+nsRilResponseResult::updateVoiceRegStatus(nsVoiceRegState* aVoiceRegState)
+{
   DEBUG("updateVoiceRegStatus");
   mVoiceRegState = aVoiceRegState;
 }
@@ -97,7 +114,9 @@ void nsRilResponseResult::updateVoiceRegStatus(
 /**
  * For DataRegStatus
  */
-void nsRilResponseResult::updateDataRegStatus(nsDataRegState* aDataRegState) {
+void
+nsRilResponseResult::updateDataRegStatus(nsDataRegState* aDataRegState)
+{
   DEBUG("updateDataRegStatus");
   mDataRegState = aDataRegState;
 }
@@ -105,7 +124,9 @@ void nsRilResponseResult::updateDataRegStatus(nsDataRegState* aDataRegState) {
 /**
  * For OperatorInfo
  */
-void nsRilResponseResult::updateOperator(nsOperatorInfo* aOperatorInfo) {
+void
+nsRilResponseResult::updateOperator(nsOperatorInfo* aOperatorInfo)
+{
   DEBUG("updateOperatorInfo");
   mOperatorInfo = aOperatorInfo;
 }
@@ -113,7 +134,9 @@ void nsRilResponseResult::updateOperator(nsOperatorInfo* aOperatorInfo) {
 /**
  * For NetworkSelectionMode
  */
-void nsRilResponseResult::updateNetworkSelectionMode(bool aNwModeManual) {
+void
+nsRilResponseResult::updateNetworkSelectionMode(bool aNwModeManual)
+{
   DEBUG("updateNetworkSelectionMode");
   mNwModeManual = aNwModeManual;
 }
@@ -121,16 +144,26 @@ void nsRilResponseResult::updateNetworkSelectionMode(bool aNwModeManual) {
 /**
  * For SignalStrength
  */
-void nsRilResponseResult::updateSignalStrength(
-    nsSignalStrength* aSignalStrength) {
+void
+nsRilResponseResult::updateSignalStrength(nsSignalStrength* aSignalStrength)
+{
   DEBUG("updateSignalStrength");
   mSignalStrength = aSignalStrength;
+}
+
+void
+nsRilResponseResult::updateGetBarringInfoResult(nsIGetBarringInfoResult* aInfo)
+{
+  DEBUG("updateGetBarringInfoResult");
+  mBarringInfoResult = aInfo;
 }
 
 /**
  * For GetSmscAddress
  */
-void nsRilResponseResult::updateSmscAddress(const nsAString& aSmsc) {
+void
+nsRilResponseResult::updateSmscAddress(const nsAString& aSmsc)
+{
   DEBUG("updateSmscAddress");
   mSmsc = aSmsc;
 }
@@ -138,7 +171,9 @@ void nsRilResponseResult::updateSmscAddress(const nsAString& aSmsc) {
 /**
  * For getCurrentCallsResponse
  */
-void nsRilResponseResult::updateCurrentCalls(nsTArray<RefPtr<nsCall>>& aCalls) {
+void
+nsRilResponseResult::updateCurrentCalls(nsTArray<RefPtr<nsCall>>& aCalls)
+{
   DEBUG("updateCurrentCalls");
   mCalls = aCalls.Clone();
 }
@@ -146,8 +181,10 @@ void nsRilResponseResult::updateCurrentCalls(nsTArray<RefPtr<nsCall>>& aCalls) {
 /**
  * For getLastCallsFailCause
  */
-void nsRilResponseResult::updateFailCause(int32_t aCauseCode,
-                                          const nsAString& aVendorCause) {
+void
+nsRilResponseResult::updateFailCause(int32_t aCauseCode,
+                                     const nsAString& aVendorCause)
+{
   DEBUG("updateFailCause");
   mCauseCode = aCauseCode;
   mVendorCause = aVendorCause;
@@ -156,7 +193,9 @@ void nsRilResponseResult::updateFailCause(int32_t aCauseCode,
 /**
  * For getPreferredNetworkType
  */
-void nsRilResponseResult::updatePreferredNetworkType(int32_t aType) {
+void
+nsRilResponseResult::updatePreferredNetworkType(int32_t aType)
+{
   DEBUG("updateType");
   mType = aType;
 }
@@ -164,8 +203,10 @@ void nsRilResponseResult::updatePreferredNetworkType(int32_t aType) {
 /**
  * For getAvailableNetwork
  */
-void nsRilResponseResult::updateAvailableNetworks(
-    nsTArray<RefPtr<nsOperatorInfo>>& aAvailableNetworks) {
+void
+nsRilResponseResult::updateAvailableNetworks(
+  nsTArray<RefPtr<nsOperatorInfo>>& aAvailableNetworks)
+{
   DEBUG("updateAvailableNetworks");
   mAvailableNetworks = aAvailableNetworks.Clone();
 }
@@ -173,8 +214,9 @@ void nsRilResponseResult::updateAvailableNetworks(
 /**
  * For setupDataCAll
  */
-void nsRilResponseResult::updateDataCallResponse(
-    nsSetupDataCallResult* aDcResponse) {
+void
+nsRilResponseResult::updateDataCallResponse(nsSetupDataCallResult* aDcResponse)
+{
   DEBUG("updateDataCallResponse");
   mDcResponse = aDcResponse;
 }
@@ -182,8 +224,10 @@ void nsRilResponseResult::updateDataCallResponse(
 /**
  * For getDataCallList
  */
-void nsRilResponseResult::updateDcList(
-    nsTArray<RefPtr<nsSetupDataCallResult>>& aDcLists) {
+void
+nsRilResponseResult::updateDcList(
+  nsTArray<RefPtr<nsSetupDataCallResult>>& aDcLists)
+{
   DEBUG("updateDcList");
   mDcLists = aDcLists.Clone();
 }
@@ -191,8 +235,10 @@ void nsRilResponseResult::updateDcList(
 /**
  * For getCellInfoList
  */
-void nsRilResponseResult::updateCellInfoList(
-    nsTArray<RefPtr<nsRilCellInfo>>& aCellInfoLists) {
+void
+nsRilResponseResult::updateCellInfoList(
+  nsTArray<RefPtr<nsRilCellInfo>>& aCellInfoLists)
+{
   DEBUG("updateCellInfoList");
   mCellInfoLists = aCellInfoLists.Clone();
 }
@@ -200,15 +246,26 @@ void nsRilResponseResult::updateCellInfoList(
 /**
  * For getIMSI
  */
-void nsRilResponseResult::updateIMSI(const nsAString& aIMSI) {
+void
+nsRilResponseResult::updateIMSI(const nsAString& aIMSI)
+{
   DEBUG("updateIMSI");
   mIMSI = aIMSI;
+}
+
+void
+nsRilResponseResult::updateAllocatedId(int32_t aId)
+{
+  DEBUG("updateAllocatedId");
+  mAllocatedId = aId;
 }
 
 /**
  * For IccIOForApp
  */
-void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
+void
+nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult)
+{
   DEBUG("updateIccIoResult");
   mIccIoResult = aIccIoResult;
 }
@@ -216,7 +273,9 @@ void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
 /**
  * For getClir
  */
-void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
+void
+nsRilResponseResult::updateClir(int32_t aN, int32_t aM)
+{
   DEBUG("updateClir");
   mCLIR_N = aN;
   mCLIR_M = aM;
@@ -225,8 +284,10 @@ void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
 /**
  * For getCallForwardStatus
  */
-void nsRilResponseResult::updateCallForwardStatusList(
-    nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists) {
+void
+nsRilResponseResult::updateCallForwardStatusList(
+  nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists)
+{
   DEBUG("updateCallForwardStatusList");
   mCallForwardInfoLists = aCallForwardInfoLists.Clone();
 }
@@ -234,8 +295,9 @@ void nsRilResponseResult::updateCallForwardStatusList(
 /**
  * For getCallWaiting
  */
-void nsRilResponseResult::updateCallWaiting(bool aEnable,
-                                            int32_t aServiceClass) {
+void
+nsRilResponseResult::updateCallWaiting(bool aEnable, int32_t aServiceClass)
+{
   DEBUG("updateCallWaiting");
   mCWEnable = aEnable;
   mServiceClass = aServiceClass;
@@ -244,7 +306,9 @@ void nsRilResponseResult::updateCallWaiting(bool aEnable,
 /**
  * For getFacilityLockForApp
  */
-void nsRilResponseResult::updateServiceClass(int32_t aServiceClass) {
+void
+nsRilResponseResult::updateServiceClass(int32_t aServiceClass)
+{
   DEBUG("updateServiceClass");
   mServiceClass = aServiceClass;
 }
@@ -252,7 +316,9 @@ void nsRilResponseResult::updateServiceClass(int32_t aServiceClass) {
 /**
  * For getClip
  */
-void nsRilResponseResult::updateClip(int32_t aProvisioned) {
+void
+nsRilResponseResult::updateClip(int32_t aProvisioned)
+{
   DEBUG("updateClip");
   mProvisioned = aProvisioned;
 }
@@ -260,25 +326,41 @@ void nsRilResponseResult::updateClip(int32_t aProvisioned) {
 /**
  * For getNeighboringCellIds
  */
-void nsRilResponseResult::updateNeighboringCells(
-    nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell) {
+void
+nsRilResponseResult::updateNeighboringCells(
+  nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell)
+{
   DEBUG("updateNeighboringCells");
   mNeighboringCell = aNeighboringCell.Clone();
+}
+
+void
+nsRilResponseResult::updateRadioAccessSpecifiers(
+  nsTArray<RefPtr<nsIRadioAccessSpecifier>>& aSpecifiers)
+{
+  DEBUG("updateRadioAccessSpecifiers");
+  for (uint32_t i = 0; i < aSpecifiers.Length(); i++) {
+    mSpecifiers.AppendElement(aSpecifiers[i]);
+  }
 }
 
 /**
  * For queryTtyMode
  */
-void nsRilResponseResult::updateTtyMode(int32_t aTtyMode) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateTtyMode");
+void
+nsRilResponseResult::updateTtyMode(int32_t aTtyMode)
+{
+  __android_log_print(
+    ANDROID_LOG_INFO, " nsRilResponseResult", "updateTtyMode");
   mTtyMode = aTtyMode;
 }
 
 /**
  * For getMute
  */
-void nsRilResponseResult::updateMute(bool aMuteEnabled) {
+void
+nsRilResponseResult::updateMute(bool aMuteEnabled)
+{
   DEBUG("updateMute");
   mMuteEnabled = aMuteEnabled;
 }
@@ -286,7 +368,9 @@ void nsRilResponseResult::updateMute(bool aMuteEnabled) {
 /**
  * For Icc pin/pul
  */
-void nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries) {
+void
+nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries)
+{
   DEBUG("updateRemainRetries = %d", aRemainingRetries);
   mRemainingRetries = aRemainingRetries;
 }
@@ -294,7 +378,9 @@ void nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries) {
 /**
  * For GetPreferredVoicePrivacy
  */
-void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
+void
+nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy)
+{
   DEBUG("updateVoicePrivacy");
   mEnhancedVoicePrivacy = aEnhancedVoicePrivacy;
 }
@@ -302,8 +388,9 @@ void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
 /**
  * For GetRadioCapability.
  */
-void nsRilResponseResult::updateRadioCapability(
-    nsRadioCapability* aRadioCapability) {
+void
+nsRilResponseResult::updateRadioCapability(nsRadioCapability* aRadioCapability)
+{
   DEBUG("updateRadioCapability");
   mRadioCapability = aRadioCapability;
 }
@@ -311,114 +398,281 @@ void nsRilResponseResult::updateRadioCapability(
 /**
  * For sendSMS
  */
-void nsRilResponseResult::updateSendSmsResponse(
-    nsSendSmsResult* aSendSmsResult) {
+void
+nsRilResponseResult::updateSendSmsResponse(nsSendSmsResult* aSendSmsResult)
+{
   DEBUG("updateSendSmsResponse");
   mSendSmsResult = aSendSmsResult;
 }
 
+/**
+ * @brief For getModemStackStatus
+ *
+ * @param aModemStackEnabled
+ * @return ** void
+ */
+void
+nsRilResponseResult::updateModemStackStatusReponse(bool aModemStackEnabled)
+{
+  DEBUG("updateModemStackStatusReponse");
+  mModemStackEnabled = aModemStackEnabled;
+}
+
+/**
+ * @brief For areUiccApplicationsEnabled
+ *
+ * @param aEanbled
+ * @return ** void
+ */
+
+void
+nsRilResponseResult::updateUiccAppEnabledReponse(bool aEanbled)
+{
+  DEBUG("updateUiccAppEnabledReponse");
+  mUiccAppEnabled = aEanbled;
+}
+void
+nsRilResponseResult::updateUpdatedRecordIndex(int32_t aIndex)
+{
+  DEBUG("updateUpdatedRecordIndex");
+  mUpdatedRecordIndex = aIndex;
+}
+
+void
+nsRilResponseResult::updateSimSlotStatus(
+  nsTArray<RefPtr<nsISimSlotStatus>>& aStatus)
+{
+  DEBUG("updateSimSlotStatus");
+  mSimSlotStatus = aStatus.Clone();
+}
+
+void
+nsRilResponseResult::updateNrDualConnectivityEnabled(bool aEanbled)
+{
+  DEBUG("updateNrDualConnectivityEnabled");
+  mNrDualConnectivityEnabled = aEanbled;
+}
+
+/**
+ * @brief For getPreferredNetworkTypeBitmap
+ *
+ * @param aAllowedNetworkTypesBitmask
+ * @return ** void
+ */
+void
+nsRilResponseResult::updateAllowedNetworkTypesBitmask(
+  int32_t aAllowedNetworkTypesBitmask)
+{
+  DEBUG("updateAllowedNetworkTypesBitmask");
+  mAllowedNetworkTypesBitmask = aAllowedNetworkTypesBitmask;
+}
+
+/**
+ * @brief For isVoNREnabled
+ *
+ * @param aVoNREnabled
+ * @return ** void
+ */
+void
+nsRilResponseResult::updateVoNREnabled(bool aVoNREnabled)
+{
+  DEBUG("updateVoNREnabled %b", aVoNREnabled);
+  mVoNrEnabled = aVoNREnabled;
+}
+
+void
+nsRilResponseResult::updateKeppAliveStatus(nsIKeepAliveStatus* aStatus)
+{
+  DEBUG("updateKeppAliveStatus");
+  mKeepAliveStatus = aStatus;
+}
+
+void
+nsRilResponseResult::updatePhonebookCapacity(nsIPhonebookCapacity* aParm)
+{
+  DEBUG("updatePhonebookCapacity");
+  mPhoneBookCapacity = aParm;
+}
+
+void
+nsRilResponseResult::updateSimDepersonalizationResult(
+  nsISupplySimDepersonalizationResult* aResult)
+{
+  DEBUG("updateSimDepersonalizationResult");
+  mSimDepersonalizationResult = aResult;
+}
+
+void
+nsRilResponseResult::updateSlicingConfig(nsISlicingConfig* aConfig)
+{
+  DEBUG("updateSlicingConfig");
+  mSlicingConfig = aConfig;
+}
+
 nsRilResponseResult::~nsRilResponseResult() {}
 
-// nsRilRsponseResult
-NS_IMETHODIMP nsRilResponseResult::GetRilMessageType(
-    nsAString& aRilMessageType) {
+NS_IMETHODIMP
+nsRilResponseResult::GetRilMessageType(nsAString& aRilMessageType)
+{
   aRilMessageType = mRilMessageType;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetRilMessageToken(
-    int32_t* aRilMessageToken) {
+NS_IMETHODIMP
+nsRilResponseResult::GetSimSlotStatus(
+  nsTArray<RefPtr<nsISimSlotStatus>>& aSimSlotStatus)
+{
+  aSimSlotStatus = mSimSlotStatus.Clone();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetRilMessageToken(int32_t* aRilMessageToken)
+{
   *aRilMessageToken = mRilMessageToken;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetErrorMsg(int32_t* aErrorMsg) {
+NS_IMETHODIMP
+nsRilResponseResult::GetErrorMsg(int32_t* aErrorMsg)
+{
   *aErrorMsg = mErrorMsg;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetImei(nsAString& aImei) {
+NS_IMETHODIMP
+nsRilResponseResult::GetImei(nsAString& aImei)
+{
   aImei = mImei;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetImeisv(nsAString& aImeisv) {
+NS_IMETHODIMP
+nsRilResponseResult::GetImeisv(nsAString& aImeisv)
+{
   aImeisv = mImeisv;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetEsn(nsAString& aEsn) {
+NS_IMETHODIMP
+nsRilResponseResult::GetEsn(nsAString& aEsn)
+{
   aEsn = mEsn;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetMeid(nsAString& aMeid) {
+NS_IMETHODIMP
+nsRilResponseResult::GetMeid(nsAString& aMeid)
+{
   aMeid = mMeid;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetRadioTech(int32_t* aRadioTech) {
+NS_IMETHODIMP
+nsRilResponseResult::GetRadioTech(int32_t* aRadioTech)
+{
   *aRadioTech = mRadioTech;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetBasebandVersion(
-    nsAString& aBasebandVersion) {
+NS_IMETHODIMP
+nsRilResponseResult::GetBasebandVersion(nsAString& aBasebandVersion)
+{
   aBasebandVersion = mBasebandVersion;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetCardStatus(nsICardStatus** aCardStatus) {
+NS_IMETHODIMP
+nsRilResponseResult::GetCardStatus(nsICardStatus** aCardStatus)
+{
   RefPtr<nsICardStatus> cardStatus(mCardStatus);
   cardStatus.forget(aCardStatus);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetVoiceRegStatus(
-    nsIVoiceRegState** aVoiceRegState) {
+NS_IMETHODIMP
+nsRilResponseResult::GetVoiceRegStatus(nsIVoiceRegState** aVoiceRegState)
+{
   RefPtr<nsIVoiceRegState> voiceRegState(mVoiceRegState);
   voiceRegState.forget(aVoiceRegState);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetDataRegStatus(
-    nsIDataRegState** aDataRegState) {
+NS_IMETHODIMP
+nsRilResponseResult::GetDataRegStatus(nsIDataRegState** aDataRegState)
+{
   RefPtr<nsIDataRegState> dataRegState(mDataRegState);
   dataRegState.forget(aDataRegState);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetOperator(
-    nsIOperatorInfo** aOperatorInfo) {
+NS_IMETHODIMP
+nsRilResponseResult::GetOperator(nsIOperatorInfo** aOperatorInfo)
+{
   RefPtr<nsIOperatorInfo> operatorInfo(mOperatorInfo);
   operatorInfo.forget(aOperatorInfo);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetNwModeManual(bool* aNwModeManual) {
+NS_IMETHODIMP
+nsRilResponseResult::GetNwModeManual(bool* aNwModeManual)
+{
   *aNwModeManual = mNwModeManual;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetSignalStrength(
-    nsISignalStrength** aSignalStrength) {
+NS_IMETHODIMP
+nsRilResponseResult::GetSignalStrength(nsISignalStrength** aSignalStrength)
+{
   RefPtr<nsISignalStrength> signalStrength(mSignalStrength);
   signalStrength.forget(aSignalStrength);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetSmsc(nsAString& aSmsc) {
+NS_IMETHODIMP
+nsRilResponseResult::GetSimDepersonalizationResult(
+  nsISupplySimDepersonalizationResult** aResult)
+{
+  RefPtr<nsISupplySimDepersonalizationResult> result(
+    mSimDepersonalizationResult);
+  result.forget(aResult);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetKeepAliveStatus(nsIKeepAliveStatus** aKeepAliveStatus)
+{
+  RefPtr<nsIKeepAliveStatus> keepAliveStatus(mKeepAliveStatus);
+  keepAliveStatus.forget(aKeepAliveStatus);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetPhonebookCapacity(nsIPhonebookCapacity** aParm)
+{
+  RefPtr<nsIPhonebookCapacity> data(mPhoneBookCapacity);
+  data.forget(aParm);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetSmsc(nsAString& aSmsc)
+{
   aSmsc = mSmsc;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetCurrentCalls(uint32_t* count,
-                                                   nsICall*** calls) {
+NS_IMETHODIMP
+nsRilResponseResult::GetCurrentCalls(uint32_t* count, nsICall*** calls)
+{
   *count = mCalls.Length();
   nsICall** call = (nsICall**)moz_xmalloc(*count * sizeof(nsICall*));
 
@@ -430,26 +684,41 @@ NS_IMETHODIMP nsRilResponseResult::GetCurrentCalls(uint32_t* count,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetCauseCode(int32_t* aCauseCode) {
+NS_IMETHODIMP
+nsRilResponseResult::GetCauseCode(int32_t* aCauseCode)
+{
   *aCauseCode = mCauseCode;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetVendorCause(nsAString& aVendorCause) {
+NS_IMETHODIMP
+nsRilResponseResult::GetVendorCause(nsAString& aVendorCause)
+{
   aVendorCause = mVendorCause;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetType(int32_t* aType) {
+NS_IMETHODIMP
+nsRilResponseResult::GetType(int32_t* aType)
+{
   *aType = mType;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetAvailableNetworks(
-    uint32_t* count, nsIOperatorInfo*** networks) {
+NS_IMETHODIMP
+nsRilResponseResult::GetAllocatedId(int32_t* aId)
+{
+  *aId = mAllocatedId;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetAvailableNetworks(uint32_t* count,
+                                          nsIOperatorInfo*** networks)
+{
   *count = mAvailableNetworks.Length();
   nsIOperatorInfo** network =
-      (nsIOperatorInfo**)moz_xmalloc(*count * sizeof(nsIOperatorInfo*));
+    (nsIOperatorInfo**)moz_xmalloc(*count * sizeof(nsIOperatorInfo*));
 
   for (uint32_t i = 0; i < *count; i++) {
     NS_ADDREF(network[i] = mAvailableNetworks[i]);
@@ -459,19 +728,22 @@ NS_IMETHODIMP nsRilResponseResult::GetAvailableNetworks(
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetDcResponse(
-    nsISetupDataCallResult** aDcResponse) {
+NS_IMETHODIMP
+nsRilResponseResult::GetDcResponse(nsISetupDataCallResult** aDcResponse)
+{
   RefPtr<nsISetupDataCallResult> dcResponse(mDcResponse);
   dcResponse.forget(aDcResponse);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetDataCallLists(
-    uint32_t* count, nsISetupDataCallResult*** datacalls) {
+NS_IMETHODIMP
+nsRilResponseResult::GetDataCallLists(uint32_t* count,
+                                      nsISetupDataCallResult*** datacalls)
+{
   *count = mDcLists.Length();
   nsISetupDataCallResult** datacall = (nsISetupDataCallResult**)moz_xmalloc(
-      *count * sizeof(nsISetupDataCallResult*));
+    *count * sizeof(nsISetupDataCallResult*));
 
   for (uint32_t i = 0; i < *count; i++) {
     NS_ADDREF(datacall[i] = mDcLists[i]);
@@ -481,11 +753,13 @@ NS_IMETHODIMP nsRilResponseResult::GetDataCallLists(
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetCellInfoList(
-    uint32_t* count, nsIRilCellInfo*** cellInfos) {
+NS_IMETHODIMP
+nsRilResponseResult::GetCellInfoList(uint32_t* count,
+                                     nsIRilCellInfo*** cellInfos)
+{
   *count = mCellInfoLists.Length();
   nsIRilCellInfo** cellInfo =
-      (nsIRilCellInfo**)moz_xmalloc(*count * sizeof(nsIRilCellInfo*));
+    (nsIRilCellInfo**)moz_xmalloc(*count * sizeof(nsIRilCellInfo*));
 
   for (uint32_t i = 0; i < *count; i++) {
     NS_ADDREF(cellInfo[i] = mCellInfoLists[i]);
@@ -495,33 +769,44 @@ NS_IMETHODIMP nsRilResponseResult::GetCellInfoList(
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetImsi(nsAString& aIMSI) {
+NS_IMETHODIMP
+nsRilResponseResult::GetImsi(nsAString& aIMSI)
+{
   aIMSI = mIMSI;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetIccIo(nsIIccIoResult** aIccIoResult) {
+NS_IMETHODIMP
+nsRilResponseResult::GetIccIo(nsIIccIoResult** aIccIoResult)
+{
   RefPtr<nsIIccIoResult> iccIoResult(mIccIoResult);
   iccIoResult.forget(aIccIoResult);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetN(int32_t* aN) {
+NS_IMETHODIMP
+nsRilResponseResult::GetN(int32_t* aN)
+{
   *aN = mCLIR_N;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetM(int32_t* aM) {
+NS_IMETHODIMP
+nsRilResponseResult::GetM(int32_t* aM)
+{
   *aM = mCLIR_M;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetCallForwardStatus(
-    uint32_t* count, nsICallForwardInfo*** callForwardInfos) {
+NS_IMETHODIMP
+nsRilResponseResult::GetCallForwardStatus(
+  uint32_t* count,
+  nsICallForwardInfo*** callForwardInfos)
+{
   *count = mCallForwardInfoLists.Length();
   nsICallForwardInfo** callForwardInfo =
-      (nsICallForwardInfo**)moz_xmalloc(*count * sizeof(nsICallForwardInfo*));
+    (nsICallForwardInfo**)moz_xmalloc(*count * sizeof(nsICallForwardInfo*));
 
   for (uint32_t i = 0; i < *count; i++) {
     NS_ADDREF(callForwardInfo[i] = mCallForwardInfoLists[i]);
@@ -531,26 +816,34 @@ NS_IMETHODIMP nsRilResponseResult::GetCallForwardStatus(
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetEnable(bool* aEnable) {
+NS_IMETHODIMP
+nsRilResponseResult::GetEnable(bool* aEnable)
+{
   *aEnable = mCWEnable;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetServiceClass(int32_t* aServiceClass) {
+NS_IMETHODIMP
+nsRilResponseResult::GetServiceClass(int32_t* aServiceClass)
+{
   *aServiceClass = mServiceClass;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetProvisioned(int32_t* aProvisioned) {
+NS_IMETHODIMP
+nsRilResponseResult::GetProvisioned(int32_t* aProvisioned)
+{
   *aProvisioned = mProvisioned;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetNeighboringCids(
-    uint32_t* count, nsINeighboringCell*** cells) {
+NS_IMETHODIMP
+nsRilResponseResult::GetNeighboringCids(uint32_t* count,
+                                        nsINeighboringCell*** cells)
+{
   *count = mNeighboringCell.Length();
   nsINeighboringCell** cell =
-      (nsINeighboringCell**)moz_xmalloc(*count * sizeof(nsINeighboringCell*));
+    (nsINeighboringCell**)moz_xmalloc(*count * sizeof(nsINeighboringCell*));
 
   for (uint32_t i = 0; i < *count; i++) {
     NS_ADDREF(cell[i] = mNeighboringCell[i]);
@@ -560,38 +853,124 @@ NS_IMETHODIMP nsRilResponseResult::GetNeighboringCids(
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetTtyMode(int32_t* aTtyMode) {
+NS_IMETHODIMP
+nsRilResponseResult::GetTtyMode(int32_t* aTtyMode)
+{
   *aTtyMode = mTtyMode;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetMuteEnable(bool* aMuteEnable) {
+NS_IMETHODIMP
+nsRilResponseResult::GetMuteEnable(bool* aMuteEnable)
+{
   *aMuteEnable = mMuteEnabled;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetRemainingRetries(
-    int32_t* aRemainingRetries) {
+NS_IMETHODIMP
+nsRilResponseResult::GetRemainingRetries(int32_t* aRemainingRetries)
+{
   *aRemainingRetries = mRemainingRetries;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetEnhancedVoicePrivacy(
-    bool* aEnhancedVoicePrivacy) {
+NS_IMETHODIMP
+nsRilResponseResult::GetUiccAppEnabled(bool* aIsEnabled)
+{
+  *aIsEnabled = mUiccAppEnabled;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetUpdatedRecordIndex(int32_t* aIndex)
+{
+  *aIndex = mUpdatedRecordIndex;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetNrDualConnectivityEnabled(bool* aIsEnabled)
+{
+  *aIsEnabled = mNrDualConnectivityEnabled;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetEnhancedVoicePrivacy(bool* aEnhancedVoicePrivacy)
+{
   *aEnhancedVoicePrivacy = mEnhancedVoicePrivacy;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetRadioCapability(
-    nsIRadioCapability** aRadioCapability) {
+NS_IMETHODIMP
+nsRilResponseResult::GetRadioCapability(nsIRadioCapability** aRadioCapability)
+{
   RefPtr<nsIRadioCapability> radioCapability(mRadioCapability);
   radioCapability.forget(aRadioCapability);
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilResponseResult::GetSms(nsISendSmsResult** aSendSmsResult) {
+NS_IMETHODIMP
+nsRilResponseResult::GetSms(nsISendSmsResult** aSendSmsResult)
+{
   RefPtr<nsISendSmsResult> sendSmsResult(mSendSmsResult);
   sendSmsResult.forget(aSendSmsResult);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetModemStackEnabled(bool* aModemStackEnabled)
+{
+  *aModemStackEnabled = mModemStackEnabled;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetAllowedNetworkTypesBitmask(
+  int32_t* aAllowedNetworkTypesBitmask)
+{
+  *aAllowedNetworkTypesBitmask = mAllowedNetworkTypesBitmask;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetAllowedCarriers(nsIAllowedCarriers** aAllowedCarriers)
+{
+  RefPtr<nsIAllowedCarriers> allowedCarriers(mAllowedCarriers);
+  allowedCarriers.forget(aAllowedCarriers);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetSlicingConfig(nsISlicingConfig** aConfig)
+{
+  RefPtr<nsISlicingConfig> config(mSlicingConfig);
+  config.forget(aConfig);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetSpecifiers(
+  nsTArray<RefPtr<nsIRadioAccessSpecifier>>& aSpecifiers)
+{
+  for (unsigned int i = 0; i < mSpecifiers.Length(); i++) {
+    aSpecifiers.AppendElement(mSpecifiers[i]);
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetBarringInfoResults(nsIGetBarringInfoResult** aInfo)
+{
+  RefPtr<nsIGetBarringInfoResult> data(mBarringInfoResult);
+  data.forget(aInfo);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsRilResponseResult::GetVoNREnabled(bool* aVoNREnabled)
+{
+  *aVoNREnabled = mVoNrEnabled;
   return NS_OK;
 }
 

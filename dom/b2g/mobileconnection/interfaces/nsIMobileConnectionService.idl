@@ -13,8 +13,9 @@ interface nsIMobileNetworkInfo;
 interface nsIMobileSignalStrength;
 interface nsINeighboringCellIdsCallback;
 interface nsIVariant;
+interface nsIGeckoRadioAccessSpecifier;
 
-[scriptable, uuid(237c945c-74a7-4d7c-bf57-674a419df7a7)]
+[scriptable, uuid(07853e99-a571-4ea2-a604-d5fd16d26a2b)]
 interface nsIMobileConnectionListener : nsISupports
 {
   /**
@@ -119,6 +120,12 @@ interface nsIMobileConnectionListener : nsISupports
    * Notify when modem restart
    */
   void notifyModemRestart(in AString reason);
+
+  /**
+   * Notify network scan results
+   */
+  void notifyScanResultReceived(in uint32_t count,
+                                [array, size_is(count)] in nsIMobileNetworkInfo networks);
 };
 
 %{C++
@@ -169,7 +176,7 @@ interface nsIMobileConnectionCallback : nsISupports
   "@mozilla.org/mobileconnection/mobileconnectionservice;1"
 %}
 
-[scriptable, uuid(eaba3c4a-0dd5-4919-b1a2-7812e49dbbcb)]
+[scriptable, uuid(73f9ffe6-1ad3-44ef-bc1e-0d28a035a032)]
 interface nsIMobileConnectionService : nsISupports
 {
   readonly attribute unsigned long numItems;
@@ -293,6 +300,17 @@ interface nsIMobileConnection : nsISupports
   const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_LTE            = 20;
   const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_CDMA_EVDO_AUTO = 21;
   const long PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE_CDMA_EVDO_GSM_WCDMA  = 22;
+  const long PREFERRED_NETWORK_TYPE_NR_ONLY                           = 23;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE                            = 24;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_CDMA_EVDO                  = 25;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_GSM_WCDMA                  = 26;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_CDMA_EVDO_GSM_WCDMA        = 27;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_WCDMA                      = 28;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA                    = 29;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_GSM                = 30;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_WCDMA              = 31;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_GSM_WCDMA          = 32;
+  const long PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA= 33;
 
   /**
    * CDMA roaming preference.
@@ -300,6 +318,19 @@ interface nsIMobileConnection : nsISupports
   const long CDMA_ROAMING_PREFERENCE_HOME       = 0;
   const long CDMA_ROAMING_PREFERENCE_AFFILIATED = 1;
   const long CDMA_ROAMING_PREFERENCE_ANY        = 2;
+
+  /**
+   * NRDC STATE.
+   */
+  const long NRDC_STATE_ENABLE       = 0;
+  const long NRDC_STATE_DISABLE      = 1;
+  const long NRDC_STATE_DISABLE_IMMEDIATE        = 2;
+
+  /**
+   * Scan Type.
+   */
+  const long SCAN_ONE_SHOT       = 0; // Performs the scan only once
+  const long SCAN_PERIODIC       = 1; // Performs the scan periodically until cancelled
 
   /**
    * Supported network type.
@@ -491,6 +522,110 @@ interface nsIMobileConnection : nsISupports
    * 'GenericFailure'.
    */
   void getRoamingPreference(in nsIMobileConnectionCallback requestCallback);
+
+  /**
+   * Enable or disable VoNr.
+   *
+   * @param enabled
+   *        Enable(true) or disable(false) VONR.
+   * @param requestCallback
+   *        Called when request is finished.
+   *
+   * If successful, the notifySuccess() will be called.
+   *
+   * Otherwise, the notifyError() will be called, and the error will be either
+   * 'RadioNotAvailable', 'RequestNotSupported', InvalidParameter',
+   * 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  void setVoNrEnabled(in bool enabled,
+                            in nsIMobileConnectionCallback requestCallback);
+
+  /**
+   * Query current state of VONR.
+   *
+   * @param requestCallback
+   *        Called when request is finished.
+   *
+   * If successful, the NotifySuccessWithBoolean() will be called, and
+   * the result 'enabled' will indicate the
+   * current state of VONR.
+   *
+   * Otherwise, the notifyError() will be called, and the error will be either
+   * 'RadioNotAvailable', 'RequestNotSupported', 'IllegalSIMorME', or
+   * 'GenericFailure'.
+   */
+  void isVoNrEnabled(in nsIMobileConnectionCallback requestCallback);
+
+  /**
+   * Enable or disable E-UTRA-NR dual connectivity. If disabled then UE will not connect
+   * to secondary carrier.
+   *
+   * @param state
+   *        One of the nsIMobileConnection.NRDC_STATE_* values.
+   * @param requestCallback
+   *        Called when request is finished.
+   *
+   * If successful, the notifySuccess() will be called.
+   *
+   * Otherwise, the notifyError() will be called, and the error will be either
+   * 'RadioNotAvailable', 'RequestNotSupported', InvalidParameter',
+   * 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  void setNrDualConnectivityState(in long state,
+                            in nsIMobileConnectionCallback requestCallback);
+
+  /**
+   * Query current state of E-UTRA-NR dual connectivity.
+   *
+   * @param requestCallback
+   *        Called when request is finished.
+   *
+   * If successful, the NotifySuccessWithBoolean() will be called, and
+   * the result 'enabled' will be boolean to indicate whether the
+   * current NRDC enabled.
+   *
+   * Otherwise, the notifyError() will be called, and the error will be either
+   * 'RadioNotAvailable', 'RequestNotSupported', 'IllegalSIMorME', or
+   * 'GenericFailure'.
+   */
+  void isNrDualConnectivityEnabled(in nsIMobileConnectionCallback requestCallback);
+
+  /**
+   * Starts a network scan.
+   *
+   * @param scanType
+   *        One of the nsIMobileConnection.SCAN_* values.
+   * @param interval
+   *        Time interval in seconds between the completion of one scan and the start of a subsequent scan.
+   *        Only valid when 'scanType' is 'SCAN_PERIODIC'. Range {5,300}.
+   * @param maxSearchTime
+   *        Maximum duration of the periodic search (in seconds).
+   *        Only valid when 'scanType' is 'SCAN_PERIODIC'. Range {60,3600}.
+   * @param incrementalResults
+   *        Indicates whether the modem must report incremental results of the network scan
+   *        to the client.
+   * @param incrementalResultsPeriodicity
+   *        Indicates the periodicity with which the modem must report incremental results to  the client (in seconds).
+   *        Range {1,10}.This value must be less than or equal to maxSearchTime. If incremental results are
+   *        not requested, implementations may ignore this value.
+   * @param mccMncs
+   *        Describes the List of PLMN ids (MCC-MNC).Separate each mccmnc with semicolon(;).
+   * @param specifiers
+   *        Networks with bands/channels to scan.
+   *        The max count is 8.
+   * @param requestCallback
+   *        Called when request is finished.
+   *
+   * If successful, the notifySuccess() will be called.
+   *
+   * Otherwise, the notifyError() will be called, and the error will be either
+   * 'RadioNotAvailable', 'RequestNotSupported', InvalidParameter',
+   * 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  void startNetworkScan(in long scanType, in long interval, in long maxSearchTime,
+                        in bool incrementalResults, in long incrementalResultsPeriodicity, in AString mccMncs,
+                        in Array<nsIGeckoRadioAccessSpecifier> specifiers,
+                        in nsIMobileConnectionCallback requestCallback);
 
   /**
    * Set voice privacy preference.
@@ -761,7 +896,7 @@ interface nsIMobileConnection : nsISupports
    * 'disabling'. Calling the function in above conditions will receive
    * 'InvalidStateError' error.
    */
-  void setRadioEnabled(in bool enabled,
+  void setRadioEnabled(in bool enabled, in bool forEmergencyCall, in bool preferredForEmergencyCall,
                        in nsIMobileConnectionCallback requestCallback);
 
   /**

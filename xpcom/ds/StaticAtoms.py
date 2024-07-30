@@ -2580,6 +2580,7 @@ STATIC_ATOMS = [
     Atom("oncardstatechange", "oncardstatechange"),
     Atom("oncfstatechange", "oncfstatechange"),
     Atom("onmodemrestart", "onmodemrestart"),
+    Atom("onnetworkscanresult", "onnetworkscanresult"),
     Atom("onnetworkselectionmodechange", "onnetworkselectionmodechange"),
     Atom("onotastatuschange", "onotastatuschange"),
     Atom("onsignalstrengthchange", "onsignalstrengthchange"),
@@ -2600,6 +2601,7 @@ STATIC_ATOMS = [
     Atom("onreadsuccess", "onreadsuccess"),
     Atom("onreaderror", "onreaderror"),
     Atom("ondeleted", "ondeleted"),
+    Atom("onindicationreceived", "onindicationreceived"),
     # B2G_RIL_END
     # CSS pseudo-elements -- these must appear in the same order as
     # in nsCSSPseudoElementList.h

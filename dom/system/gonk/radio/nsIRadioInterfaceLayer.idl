@@ -21,12 +21,11 @@ interface nsIRadioInterface : nsISupports
    *        or one of the nsINetworkInfo.NETWORK_TYPE_MOBILE_* values.
    * @error For some case api would through an error.
    */
-  void setupDataCallByType(in long networkType);
-  void deactivateDataCallByType(in long networkType);
+  void setupDataCallByType(in long networkType, [optional] in long dnn);
+
+  void deactivateDataCallByType(in long networkType, [optional] in long dnn);
   long getDataCallStateByType(in long networkType);
-
   void updateRILNetworkInterface();
-
   void sendWorkerMessage(in AString type,
               [optional] in jsval message,
               [optional] in nsIRilSendWorkerMessageCallback callback);

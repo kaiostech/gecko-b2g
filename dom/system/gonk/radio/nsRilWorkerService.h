@@ -7,14 +7,15 @@
 #ifndef nsRilWorkerService_H
 #define nsRilWorkerService_H
 
-#include <nsISupportsImpl.h>
-#include <nsIRilWorkerService.h>
-#include <nsTArray.h>
-#include <nsRilWorker.h>
 #include "nsCOMPtr.h"
+#include <nsIRilWorkerService.h>
+#include <nsISupportsImpl.h>
+#include <nsRilWorker.h>
+#include <nsTArray.h>
 
-class nsRilWorkerService final : public nsIRilWorkerService {
- public:
+class nsRilWorkerService final : public nsIRilWorkerService
+{
+public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIRILWORKERSERVICE
 
@@ -22,10 +23,9 @@ class nsRilWorkerService final : public nsIRilWorkerService {
 
   nsRilWorkerService();
 
- private:
+private:
   ~nsRilWorkerService();
   nsTArray<RefPtr<nsRilWorker>> mRilWorkers;
   int32_t mNumRilWorkers;
 };
-
 #endif

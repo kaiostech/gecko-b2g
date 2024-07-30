@@ -1,0 +1,212 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * XPCOM component for cdma sms information.
+ */
+[scriptable, uuid(37511151-ae40-4de5-a0c4-12a424621be2)]
+interface nsICdmaSmsAddress: nsISupports
+{
+
+  const unsigned long CDMA_SMS_DIGIT_MODE_FOUR_BIT = 0;
+  const unsigned long CDMA_SMS_DIGIT_MODE_EIGHT_BIT = 1;
+
+  //CDMA_SMS_DIGIT_MODE_*
+  readonly attribute long digitMode; // CdmaSmsDigitMode is of two types : 4 bit and 8 bit.
+                                     // For 4-bit type, only "digits" field defined below in
+                                     // this struct is used.
+
+  const unsigned long CDMA_SMS_NUMBER_MODE_NOT_DATA_NETWORK = 0;
+  const unsigned long CDMA_SMS_NUMBER_MODE_DATA_NETWORK = 1;
+
+  //CDMA_SMS_NUMBER_MODE_*
+  readonly attribute long numberMode; // Used only when digitMode is 8-bit
+
+  const unsigned long CDMA_SMS_NUMBER_TYPE_UNKNOWN = 0;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_INTERNATIONAL_OR_DATA_IP = 1;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_NATIONAL = 2;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_NETWORK = 3;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_SUBSCRIBER = 4;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_ALPHANUMERIC = 5;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_ABBREVIATED = 6;
+  const unsigned long CDMA_SMS_NUMBER_TYPE_RESERVED = 7;
+
+  //CDMA_SMS_NUMBER_TYPE_*
+  readonly attribute long numberType; // Used only when digitMode is 8-bit.
+                                      // To specify an international address, use the following:
+                                      // digitMode = CdmaSmsDigitMode:EIGHT_BIT:
+                                      // numberMode = CdmaSmsNumberMode:NOT_DATA_NETWORK
+                                      // numberType = CdmaSmsNumberType:INTERNATIONAL_OR_DATA_IP
+                                      // numberPlan = CdmaSmsNumberPlan:TELEPHONY
+                                      // numberOfDigits = number of digits
+                                      // digits = ASCII digits, e.g. '1', '2', '3', '4', and '5'
+
+  const unsigned long CDMA_SMS_NUMBER_PLAN_UNKNOWN = 0;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_TELEPHONY = 1;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_2 = 2;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_DATA = 3;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_TELEX = 4;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_5 = 5;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_6 = 6;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_7 = 7;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_8 = 8;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_PRIVATE = 9;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_10 = 10;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_11 = 11;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_12 = 12;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_13 = 13;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_14 = 14;
+  const unsigned long CDMA_SMS_NUMBER_PLAN_RESERVED_15 = 15;
+
+  //CDMA_SMS_NUMBER_PLAN_*
+  readonly attribute long numberPlan; // Used only when digitMode is 8-bit
+  readonly attribute Array<uint8_t> digits; // Each byte in this array represents a 4 bit or 8-bit
+                                      // digit of address data
+};
+
+/**
+ * XPCOM component for cdma sms information.
+ */
+[scriptable, uuid(3da8961d-c34c-4ef7-9ce7-2690cf830bab)]
+interface nsICdmaSmsSubAddress: nsISupports
+{
+    //CdmaSmsSubaddressType
+    const unsigned long CDMA_SMS_SUB_ADDRESS_TYPE_NSAP = 0;
+    const unsigned long CDMA_SMS_SUB_ADDRESS_TYPE_USER_SPECIFIED = 1;
+
+    //CDMA_SMS_SUB_ADDRESS_TYPE_*
+    readonly attribute long subAddressType;
+    readonly attribute boolean odd;                             // true means the last byte's lower 4 bits must be ignored
+    readonly attribute Array<uint8_t> digits;                  // Each byte represents an 8-bit digit of subaddress data
+};
+
+/**
+ * XPCOM component for cdma sms information.
+ */
+[scriptable, uuid(7ae96290-6d24-4b7d-bbb5-33bdabafb990)]
+interface nsICdmaSmsMessage: nsISupports
+{
+    readonly attribute long teleserviceId;
+    readonly attribute boolean isServicePresent;
+    readonly attribute long serviceCategory;
+    readonly attribute nsICdmaSmsAddress address;
+    readonly attribute nsICdmaSmsSubAddress subAddress;
+    readonly attribute Array<uint8_t> bearerData;  // 3GPP2 C.S0015-B, v2.0,
+};
+
+[scriptable, uuid(4d770000-d4d2-4211-bfd0-163706690bf6)]
+interface nsIPhonebookRecordInfo: nsISupports
+{
+     /** Record index. 0 is used to insert a record */
+    readonly attribute long recordId;
+    /** Alpha identifier, empty string if no value */
+    readonly attribute AString name;
+    /** Dialling number, empty string if no value */
+    readonly attribute AString number;
+    /** Email addresses */
+    readonly attribute Array<AString> emails;
+    /** Additional numbers */
+    readonly attribute Array<AString> additionalNumbers;
+};
+
+/**
+ * XPCOM component for simPhonebookRecordsReceived.
+ */
+[scriptable, uuid(79e63909-6353-42d8-ad55-df10df26318e)]
+interface nsISimPhonebookRecordsEvent: nsISupports
+{
+    /** Status of PbReceivedStatus */
+    readonly attribute unsigned long status;
+
+    /** PhonebookRecordInfo list*/
+    readonly attribute Array<nsIPhonebookRecordInfo> phonebookRecordInfos;
+};
+
+[scriptable, uuid(834db4c7-7787-491f-af5c-d5a230681ea5)]
+interface nsIImsiEncryptionInfo : nsISupports
+{
+  readonly attribute AString mcc; // MCC of the Carrier.
+  readonly attribute AString mnc; // MNC of the Carrier.
+  readonly attribute Array<octet> carrierKey; // Carrier specific key to be used for encryption. It must
+                                    // be opaque to the framework. This is the byte-stream
+                                    // representation of the key. This is an external encoded
+                                    // form for the key used when a standard representation of
+                                    // the key is needed outside the Java Virtual Machine, as
+                                    // when transmitting the key to some other party.
+                                    // The key is encoded according to a standard format
+                                    // (such as X.509 SubjectPublicKeyInfo or PKCS#8), and is
+                                    // returned using the getEncoded method as defined on the
+                                    // java.security.Key interface.
+  readonly attribute AString keyIdentifier;  // This is an opaque value we're given by the carrier
+                                    // and is returned to the carrier. This is used by the server to
+                                    // help it locate the private key to decrypt the permanent
+                                    // identity.
+  readonly attribute long long expirationTime;
+};
+
+[scriptable, uuid(8714f7f7-f9b6-4dff-bdff-2bd2eba385f7)]
+interface nsIRadioAccessSpecifier : nsISupports
+{
+  readonly attribute long radioAccessNetwork;
+  readonly attribute Array<long> geranBands;
+  readonly attribute Array<long> utranBands;
+  readonly attribute Array<long> eutranBands;
+  readonly attribute Array<long> ngranBands;
+  readonly attribute Array<long> channels;
+};
+
+[scriptable, uuid(bd28d7b1-80d2-4e65-adde-8156ae3a76dc)]
+interface nsINetworkScanRequest : nsISupports
+{
+  readonly attribute long type;
+  readonly attribute long interval;
+  readonly attribute Array<nsIRadioAccessSpecifier> specifiers;
+  readonly attribute long maxSearchTime;
+  readonly attribute boolean incrementalResults;
+  readonly attribute long incrementalResultsPeriodicity;
+  readonly attribute Array<AString> mccMncs;
+};
+
+[scriptable, uuid(7e1befcd-1c26-49ae-afb7-cfee840bf70a)]
+interface nsICarrier : nsISupports
+{
+  readonly attribute AString mcc;
+  readonly attribute AString mnc;
+  //enum matchType should be value of
+  //  ALL = 0, Apply to all carriers with the same mcc/mnc
+  //  SPN = 1, Use SPN and mcc/mnc to identify the carrier
+  //  IMSI_PREFIX = 2, Use IMSI prefix and mcc/mnc to identify the carrier
+  //  GID1 = 3, Use GID1 and mcc/mnc to identify the carrier
+  //  GID2 = 4, Use GID2 and mcc/mnc to identify the carrier
+  readonly attribute uint8_t matchType; // Specify match type for the carrier.
+                                        // If it’s ALL, matchData is empty string;
+                                        // otherwise, matchData is the value for the match type.
+  readonly attribute AString matchData;
+};
+
+[scriptable, uuid(78488049-8f7c-4159-8ecb-666a07270c3b)]
+interface nsICarrierRestrictionsWithPriority : nsISupports
+{
+  /**
+   * List of allowed carriers.
+   * The character '?' is used as wildcard character to match any value.
+   */
+  readonly attribute Array<nsICarrier> allowedCarriers;
+  /**
+   * List of excluded carriers.
+   * The character '?' is used as wildcard character to match any value.
+   */
+  readonly attribute Array<nsICarrier> excludedCarriers;
+  /**
+   * True means that only carriers included in the allowed list and not in the excluded list
+   * are permitted. Eg. allowedCarriers match mcc/mnc, excludedCarriers has same mcc/mnc and
+   * gid1 is ABCD. It means except the carrier whose gid1 is ABCD, all carriers with the
+   * same mcc/mnc are allowed.
+   * False means that all carriers are allowed except those included in the excluded list
+   * and not in the allowed list.
+   */
+  readonly attribute boolean allowedCarriersPrioritized;
+};

@@ -86,6 +86,19 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.power-V3-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.1.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.2.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.3.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.4.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.5.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio@1.6.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.data-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.voice-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.messaging-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.modem-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.network-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.sim-V1-ndk.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.radio.config-V1-ndk.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.sensors@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.sensors@2.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.sensors@2.1.so
@@ -102,6 +115,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.media.audio.common.types-V1-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.system.wifi.keystore@1.0.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hidl.safe_union@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats@1.0.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.frameworks.stats-V1-ndk.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_stub.so
@@ -295,6 +309,19 @@ out/soong/.intermediates/hardware/interfaces/power/aidl/android.hardware.power-V
 out/soong/.intermediates/frameworks/hardware/interfaces/stats/aidl/android.frameworks.stats-V1-ndk-source/gen/include/
 out/soong/.intermediates/hardware/interfaces/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/radio/1.1/android.hardware.radio@1.1_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/radio/1.2/android.hardware.radio@1.2_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/radio/1.3/android.hardware.radio@1.3_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/radio/1.4/android.hardware.radio@1.4_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/radio/1.5/android.hardware.radio@1.5_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/radio/1.6/android.hardware.radio@1.6_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.data-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.voice-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.modem-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.messaging-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.network-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.sim-V1-ndk-source/gen/include
+out/soong/.intermediates/hardware/interfaces/radio/aidl/android.hardware.radio.config-V1-ndk-source/gen/include
 out/soong/.intermediates/hardware/interfaces/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/sensors/2.0/android.hardware.sensors@2.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/sensors/2.1/android.hardware.sensors@2.1_genc++_headers/gen
@@ -312,10 +339,22 @@ out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.0/android.hardwar
 out/soong/.intermediates/system/hardware/interfaces/wifi/keystore/1.0/android.system.wifi.keystore@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
+out/soong/.intermediates/system/libhidl/transport/safe_union/1.0/android.hidl.safe_union@1.0_genc++_headers/gen
 EOF
 
 copy_to_sysroot "${includes_list}" "include"
 
+if [ "$ENABLE_ESIM" = "true" ]; then
+    # Put AIDL headers and libraries of ESIM into sysroot
+    rsync --times --no-relative --copy-links \
+        "${src}/out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/vendor.qti.hardware.radio.lpa-V1-ndk.so" \
+        "${dest}/b2g-sysroot/libs/"
+    rsync --times --no-relative --copy-links -r \
+        "${src}/out/soong/.intermediates/vendor/qcom/proprietary/commonsys-intf/telephony/interfaces/aidl/lpa/vendor.qti.hardware.radio.lpa-V1-ndk-source/gen/include/" \
+        "${dest}/b2g-sysroot/include/"
+else
+    echo "ESIM is not enabled"
+fi
 
 lib_c="${src}/out/target/product/${GONK_PRODUCT_NAME}/system/apex/com.android.runtime.release/lib${BINSUFFIX}/bionic/libc.so"
 if test -f ${lib_c}; then

@@ -31,11 +31,11 @@ ChromeUtils.import("resource://gre/modules/systemlibs.js");
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "SIM", function() {
+XPCOMUtils.defineLazyGetter(lazy, "SIM", function () {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
 });
 
-XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function () {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
@@ -192,7 +192,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIGonkVoicemailService"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gRadioEnabledController", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRadioEnabledController", function () {
   let _ril = null;
   let _pendingMessages = []; // For queueing "setRadioEnabled" message.
   let _isProcessingPending = false;
@@ -360,7 +360,7 @@ XPCOMUtils.defineLazyGetter(lazy, "gRadioEnabledController", function() {
       radioInterface.sendRilRequest(
         "setRadioEnabled",
         message.data,
-        function(response) {
+        function (response) {
           if (response.errorMsg) {
             // If request fails, set current radio state to unknown, since we will
             // handle it in |mobileConnectionService|.
@@ -390,15 +390,14 @@ XPCOMUtils.defineLazyGetter(lazy, "gRadioEnabledController", function() {
     },
 
     _deactivateDataCallsForClient(clientId) {
-      return function() {
+      return function () {
         let deferred = (_deactivatingDeferred[clientId] = PromiseUtils.defer());
-        let dataCallHandler = lazy.gDataCallManager.getDataCallHandler(
-          clientId
-        );
+        let dataCallHandler =
+          lazy.gDataCallManager.getDataCallHandler(clientId);
 
         dataCallHandler.deactivateAllDataCalls(
           lazy.RIL.DATACALL_DEACTIVATE_RADIO_SHUTDOWN,
-          function() {
+          function () {
             deferred.resolve();
           }
         );
@@ -443,7 +442,7 @@ XPCOMUtils.defineLazyGetter(lazy, "gRadioEnabledController", function() {
 try {
   Services.prefs.setIntPref(
     kPrefRilNumRadioInterfaces,
-    (function() {
+    (function () {
       try {
         let configuration = libcutils.property_get(PROP_MULTISIM_CONFIG, "");
         switch (configuration) {
@@ -470,8 +469,14 @@ function DataCall(aAttributes) {
       this[key] = lazy.RIL.RIL_DATACALL_PDP_TYPES.indexOf(aAttributes[key]);
       continue;
     }
-
-    this[key] = aAttributes[key];
+    if (key === "addresses") {
+      this[key] = aAttributes[key][0] ? aAttributes[key][0].address : "";
+      for (let index = 1; index < aAttributes[key].length; index++) {
+        this[key] = this[key] + " " + aAttributes[key][index].address;
+      }
+    } else {
+      this[key] = aAttributes[key];
+    }
   }
 }
 DataCall.prototype = {
@@ -483,11 +488,72 @@ DataCall.prototype = {
   active: -1,
   pdpType: -1,
   ifname: null,
-  addreses: null,
+  addresses: null,
   dnses: null,
   gateways: null,
   pcscf: null,
   mtu: -1,
+  mtuV4: -1,
+  mtuV6: -1,
+  pduSessionId: 0,
+  handoverFailureMode: 0,
+  trafficDescriptors: [],
+  sliceInfo: null,
+  defaultQos: null,
+  qosSessions: [],
+};
+
+function MobileNetworkInfo(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+MobileNetworkInfo.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileNetworkInfo]),
+  rat: null,
+  shortName: null,
+  longName: null,
+  mcc: null,
+  mnc: null,
+  state: null,
+};
+
+function RadioAccessSpecifier(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+RadioAccessSpecifier.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIRadioAccessSpecifier]),
+  geranBands: [],
+  utranBands: [],
+  eutranBands: [],
+  ngranBands: [],
+  channels: [],
+};
+
+function NetworkScanRequest(aAttributes) {
+  for (let key in aAttributes) {
+    if (key === "specifiers") {
+      this.specifiers = [];
+      for (let i = 0; i < aAttributes[key].length; i++) {
+        this.specifiers.push(new RadioAccessSpecifier(aAttributes[key][i]));
+      }
+      break;
+    }
+    this[key] = aAttributes[key];
+  }
+}
+
+NetworkScanRequest.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsINetworkScanRequest]),
+  type: 0,
+  interval: 0,
+  maxSearchTime: 0,
+  incrementalResults: false,
+  incrementalResultsPeriodicity: 0,
+  mccMncs: [],
+  specifiers: [],
 };
 
 function DataProfile(aAttributes) {
@@ -517,9 +583,55 @@ DataProfile.prototype = {
   roamingProtocol: null,
   bearerBitmap: -1,
   mtu: -1,
+  mtuV4: -1,
+  mtuV6: -1,
   mvnoType: null,
   mvnoMatchData: null,
   modemCognitive: false,
+  //Radio 1.4
+  preferred: false,
+  persist: false,
+};
+
+function LinkAddress(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+LinkAddress.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsILinkAddress]),
+
+  address: null,
+  properties: -1,
+  deprecationTime: -1, //0x7FFFFFFFFFFFFFFF,
+  expirationTime: -1, //0x7FFFFFFFFFFFFFFF,
+};
+
+function SliceInfo(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+SliceInfo.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsISliceInfo]),
+
+  sst: -1,
+  sliceDifferentiator: -1,
+  mappedHplmnSst: -1,
+  mappedHplmnSD: -1,
+  status: -1,
+};
+
+function TrafficDescriptor(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+TrafficDescriptor.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsITrafficDescriptor]),
+
+  dnn: null,
+  osAppId: [],
 };
 
 function RadioInterfaceLayer() {
@@ -586,7 +698,7 @@ RadioInterfaceLayer.prototype = {
 XPCOMUtils.defineLazyGetter(
   RadioInterfaceLayer.prototype,
   "numRadioInterfaces",
-  function() {
+  function () {
     try {
       //Cameron config the default value to 1.
       return Services.prefs.getIntPref(kPrefRilNumRadioInterfaces, 1);
@@ -631,6 +743,7 @@ function RadioInterface(aClientId) {
 
   this.oemHook = null;
 
+  this.isNSA5GAvailable = false;
   /**
    * Cell Broadcast Search Lists.
    */
@@ -805,6 +918,15 @@ RadioInterface.prototype = {
    * Global Cell Broadcast switch.
    */
   cellBroadcastDisabled: false,
+
+  /**
+   * Global NSA available.
+   */
+  isNSA5GAvailable: false,
+
+  /**
+   * Cell Broadcast search lists.
+   */
 
   /**
    * Parsed Cell Broadcast search lists.
@@ -1191,6 +1313,7 @@ RadioInterface.prototype = {
         break;
       case "cellInfoList":
         let cellInfoLists = message.getCellInfo();
+        this.handleCellInfoList(message);
         // Gecko do not handle this UNSL command.
         if (DEBUG) {
           this.debug(
@@ -1198,6 +1321,23 @@ RadioInterface.prototype = {
               JSON.stringify(cellInfoLists)
           );
         }
+        break;
+      case "networkScanResult":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [UNSL]< RIL_UNSOL_NETWORK_SCAN_RESULT cellInfoLists = " +
+              JSON.stringify(message.networkScanResult)
+          );
+        }
+        let networkScanResult = message.networkScanResult;
+        //let isPending = !(networkScanResult.status === 2);//assigned a value but never used
+        let scanResults = this.handleScanResultList(
+          networkScanResult.networkInfos
+        );
+        lazy.gMobileConnectionService.notifyScanResultReceived(
+          this.clientId,
+          scanResults
+        );
         break;
       case "simRefresh":
         let refreshResult = message.refreshResult;
@@ -1298,8 +1438,48 @@ RadioInterface.prototype = {
           );
         }
         break;
+      case "currentEmergencyNumberList":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [UNSL]< currentEmergencyNumberList message= " +
+              JSON.stringify(message.emergencyNumber)
+          );
+        }
+        break;
+      case "slicingConfigChanged":
+        let slicingConfig = message.slicingConfig;
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [UNSL]< slicingConfigChanged message= " +
+              JSON.stringify(message.slicingConfig)
+          );
+        }
+
+        let dcHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
+        let sliceInfos = [];
+        for (let i = 0; i < slicingConfig.sliceInfo.length; i++) {
+          sliceInfos.push(new SliceInfo(slicingConfig.sliceInfo[i]));
+        }
+        dcHandler.updateSlicingConfig(sliceInfos);
+        break;
+      case "currentPhysicalChannelConfigs":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [UNSL]< currentPhysicalChannelConfigs message= " +
+              JSON.stringify(message.physicalChannelConfig)
+          );
+        }
+        break;
+      case "barringInfoChanged":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [UNSL]< barringInfoChanged message= " +
+              JSON.stringify(message.barringInfoChangedEvent)
+          );
+        }
+        break;
       default:
-        throw new Error(
+        this.debug(
           "Don't know about this message type: " + message.rilMessageType
         );
     }
@@ -1307,7 +1487,11 @@ RadioInterface.prototype = {
   /* eslint-enable complexity */
 
   handleRilConnected(newState) {
-    this.sendRilRequest("setRadioEnabled", { enabled: false });
+    this.sendRilRequest("setRadioEnabled", {
+      enabled: false,
+      forEmergencyCall: false,
+      preferredForEmergencyCall: false,
+    });
     this.sendRilRequest("setCellInfoListRate", null);
     // Always ensure that we are not in emergency callback mode when init.
     this.exitEmergencyCbMode();
@@ -1585,7 +1769,7 @@ RadioInterface.prototype = {
   },
 
   setCellBroadcastSearchList(options) {
-    let getSearchListStr = function(aSearchList) {
+    let getSearchListStr = function (aSearchList) {
       if (typeof aSearchList === "string" || aSearchList instanceof String) {
         return aSearchList;
       }
@@ -1815,12 +1999,14 @@ RadioInterface.prototype = {
 
   setDataRegistration(attach) {
     let deferred = PromiseUtils.defer();
-    this.sendWorkerMessage("setDataRegistration", { attach }, function(
-      response
-    ) {
-      // Always resolve to proceed with the following steps.
-      deferred.resolve(response.errorMsg ? response.errorMsg : null);
-    });
+    this.sendWorkerMessage(
+      "setDataRegistration",
+      { attach },
+      function (response) {
+        // Always resolve to proceed with the following steps.
+        deferred.resolve(response.errorMsg ? response.errorMsg : null);
+      }
+    );
     /*
     this.workerMessenger.send("setDataRegistration",
                               {attach: attach},
@@ -2423,7 +2609,7 @@ RadioInterface.prototype = {
 
     let clientId = this.clientId;
 
-    aRecords.forEach(function(aRecord) {
+    aRecords.forEach(function (aRecord) {
       if (aRecord.display) {
         lazy.gMobileConnectionService.notifyCdmaInfoRecDisplay(
           clientId,
@@ -2545,16 +2731,16 @@ RadioInterface.prototype = {
 
   // TODO: Bug 928861 - B2G NetworkManager: Provide a more generic function
   //                    for connecting
-  setupDataCallByType(networkType) {
+  setupDataCallByType(networkType, dnn) {
     let connHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
-    connHandler.setupDataCallByType(networkType);
+    connHandler.setupDataCallByType(networkType, dnn);
   },
 
   // TODO: Bug 928861 - B2G NetworkManager: Provide a more generic function
   //                    for connecting
-  deactivateDataCallByType(networkType) {
+  deactivateDataCallByType(networkType, dnn) {
     let connHandler = lazy.gDataCallManager.getDataCallHandler(this.clientId);
-    connHandler.deactivateDataCallByType(networkType);
+    connHandler.deactivateDataCallByType(networkType, dnn);
   },
 
   // TODO: Bug 904514 - [meta] NetworkManager enhancement
@@ -2606,6 +2792,28 @@ RadioInterface.prototype = {
 
     // Handle solic reponse by function then call the call back.
     switch (response.rilMessageType) {
+      case "setPreferredNetworkTypeBitmap":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_SET_PREFEERED_NETWORK_TYPE_BITMAP  response:" +
+                JSON.stringify(response)
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_SET_PREFEERED_NETWORK_TYPE_BITMAP error = " +
+              +result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
       case "getICCStatus":
         if (response.errorMsg == 0) {
           if (DEBUG) {
@@ -3233,6 +3441,29 @@ RadioInterface.prototype = {
           );
         }
         break;
+      case "getSlicingConfig":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_GET_SLICING_CONFIG config = " +
+                JSON.stringify(response.config)
+            );
+          }
+          result.slicingConfig = response.slicingConfig;
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_GET_SLICING_CONFIG error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
       case "setupDataCall":
         if (response.errorMsg == 0) {
           if (DEBUG) {
@@ -3838,6 +4069,29 @@ RadioInterface.prototype = {
           );
         }
         break;
+      case "getAllowedNetworkTypesBitmap":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_GET_ALLOWED_NETWORK_TYPE allowedNetworkTypesBitmask = " +
+                response.allowedNetworkTypesBitmask
+            );
+          }
+          result.type = response.allowedNetworkTypesBitmask;
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_GET_ALLOWED_NETWORK_TYPE error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
       case "getNeighboringCellIds":
         if (response.errorMsg == 0) {
           if (DEBUG) {
@@ -3886,6 +4140,115 @@ RadioInterface.prototype = {
       case "setRoamingPreference":
         break;
       case "queryRoamingPreference":
+        break;
+      case "setVoNrEnabled":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_SET_VONR_ENABLED "
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_SET_VONR_ENABLED error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
+      case "isVoNrEnabled":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_IS_VONR_ENABLED enable = " +
+                response.voNREnabled
+            );
+          }
+          result.enabled = response.voNREnabled;
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_IS_VONR_ENABLED error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
+      case "setNrDualConnectivityState":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_SET_NRDC_STATE "
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_SET_NRDC_STATE error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
+      case "isNrDualConnectivityEnabled":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_IS_NRDC_ENABLED enable = " +
+                response.nrDualConnectivityEnabled
+            );
+          }
+          result.enabled = response.nrDualConnectivityEnabled;
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_IS_NRDC_ENABLED error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
+      case "startNetworkScan":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_START_NETWORK_SCAN "
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_START_NETWORK_SCAN error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
         break;
       case "setTtyMode":
         break;
@@ -4154,7 +4517,7 @@ RadioInterface.prototype = {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
-              "] < RIL_REQUEST_VOICE_RADIO_TECH error = " +
+              "] < RIL_REQUEST_GET_CELL_INFO_LIST error = " +
               result.errorMsg +
               " (" +
               response.errorMsg +
@@ -4664,19 +5027,207 @@ RadioInterface.prototype = {
       this.requestNetworkInfo();
     }
   },
-  /**
-   * Process LTE signal strength to the signal info object.
-   *
-   * @param signal
-   *        The signal object reported from RIL/modem.
-   *
-   * @return The object of signal strength info.
-   *         Or null if invalid signal input.
-   *
-   * TODO: Bug 982013: reconsider the format of signal strength APIs for
-   *       GSM/CDMA/LTE to expose details, such as rsrp and rsnnr,
-   *       individually.
-   */
+
+  updateCellProperty(cell, propName, newValue) {
+    if (cell[propName] === undefined || cell[propName] !== newValue) {
+      cell[propName] = newValue;
+      return true;
+    }
+    return false;
+  },
+
+  getLacFromCellIdentity(cellIdentity) {
+    switch (cellIdentity.cellInfoType) {
+      case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_GSM:
+        return cellIdentity.cellIdentityGsm.lac;
+      case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_WCDMA:
+        return cellIdentity.cellIdentityWcdma.lac;
+      case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_TD_SCDMA:
+        return cellIdentity.cellIdentityTdScdma.lac;
+      default:
+        return undefined;
+    }
+  },
+
+  calculatebands(bands, type = "EUTRAN") {
+    let result = 0;
+    bands.forEach(band => {
+      const bandValue = lazy.RIL[`GECKO_${type}_BAND_MASK`][band];
+      if (bandValue) {
+        result |= bandValue;
+      }
+    });
+    return result;
+  },
+
+  updateRadioTech(curState, newState) {
+    const radioTech = newState.rat;
+    if (curState.radioTech === undefined || curState.radioTech !== radioTech) {
+      curState.radioTech = radioTech;
+      curState.type = lazy.RIL.GECKO_RADIO_TECH[radioTech] || null;
+      if (radioTech === 14 && this.isNSA5GAvailable) {
+        curState.type = "nr";
+      }
+      return true;
+    }
+    return false;
+  },
+
+  getCidFromCellIdentity(cellIdentity) {
+    switch (cellIdentity.cellInfoType) {
+      case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_GSM:
+        return cellIdentity.cellIdentityGsm.cid;
+      case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_WCDMA:
+        return cellIdentity.cellIdentityWcdma.cid;
+      case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_TD_SCDMA:
+        return cellIdentity.cellIdentityTdScdma.cid;
+      default:
+        return undefined;
+    }
+  },
+
+  updateCellState(newState, curState) {
+    let changed = false;
+
+    const cellIdentity = newState.cellIdentity;
+
+    if (cellIdentity) {
+      switch (cellIdentity.cellInfoType) {
+        case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_GSM:
+        case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_WCDMA:
+        case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_TD_SCDMA: {
+          const lac = this.getLacFromCellIdentity(cellIdentity);
+          const cid = this.getCidFromCellIdentity(cellIdentity);
+
+          if (
+            this.updateCellProperty(curState.cell, "gsmLocationAreaCode", lac)
+          ) {
+            changed = true;
+          }
+          if (this.updateCellProperty(curState.cell, "gsmCellId", cid)) {
+            changed = true;
+          }
+          break;
+        }
+        case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_LTE: {
+          if (DEBUG) {
+            console.log(
+              "LTE cell info: " + JSON.stringify(cellIdentity.cellIdentityLte)
+            );
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "tac",
+              cellIdentity.cellIdentityLte.tac
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "ci",
+              cellIdentity.cellIdentityLte.ci
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "pci",
+              cellIdentity.cellIdentityLte.pci
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "arfcn",
+              cellIdentity.cellIdentityLte.earfcn
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "bands",
+              this.calculatebands(cellIdentity.cellIdentityLte.bands)
+            )
+          ) {
+            changed = true;
+          }
+          break;
+        }
+        case Ci.nsICellInfoType.RADIO_CELL_INFO_TYPE_NR: {
+          if (DEBUG) {
+            console.log(
+              "NR cell info: " + JSON.stringify(cellIdentity.cellIdentityNr)
+            );
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "tac",
+              cellIdentity.cellIdentityNr.tac
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "ci",
+              cellIdentity.cellIdentityNr.nci
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "pci",
+              cellIdentity.cellIdentityNr.pci
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "arfcn",
+              cellIdentity.cellIdentityNr.nrarfcn
+            )
+          ) {
+            changed = true;
+          }
+          if (
+            this.updateCellProperty(
+              curState.cell,
+              "bands",
+              this.calculatebands(cellIdentity.cellIdentityNr.bands, "NGRAN")
+            )
+          ) {
+            changed = true;
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } else if (DEBUG) {
+      console.log("cellIdentity null.");
+    }
+
+    if (this.updateRadioTech(curState, newState)) {
+      changed = true;
+    }
+
+    return changed;
+  },
 
   /**
    * Process the network registration flags.
@@ -4717,108 +5268,19 @@ RadioInterface.prototype = {
     if (!curState.cell) {
       curState.cell = {};
     }
-    //Cameron TODO need to separate it to GSM/WCDMA/LTE/TDSCDMA
-    // Current MobileCellInfo only support GSM or CDMA.
-    if (newState.cellIdentity) {
-      switch (newState.cellIdentity.cellInfoType) {
-        case Ci.nsIRilResponseResult.RADIO_CELL_INFO_TYPE_GSM: {
-          let lac = newState.cellIdentity.cellIdentityGsm.lac;
-          if (
-            curState.cell.gsmLocationAreaCode === undefined ||
-            curState.cell.gsmLocationAreaCode !== lac
-          ) {
-            curState.cell.gsmLocationAreaCode = lac;
-            changed = true;
-          }
 
-          let cid = newState.cellIdentity.cellIdentityGsm.cid;
-          if (
-            curState.cell.gsmCellId === undefined ||
-            curState.cell.gsmCellId !== cid
-          ) {
-            curState.cell.gsmCellId = cid;
-            changed = true;
-          }
-          break;
-        }
-        case Ci.nsIRilResponseResult.RADIO_CELL_INFO_TYPE_WCDMA: {
-          let lac = newState.cellIdentity.cellIdentityWcdma.lac;
-          if (
-            curState.cell.gsmLocationAreaCode === undefined ||
-            curState.cell.gsmLocationAreaCode !== lac
-          ) {
-            curState.cell.gsmLocationAreaCode = lac;
-            changed = true;
-          }
-
-          let cid = newState.cellIdentity.cellIdentityWcdma.cid;
-          if (
-            curState.cell.gsmCellId === undefined ||
-            curState.cell.gsmCellId !== cid
-          ) {
-            curState.cell.gsmCellId = cid;
-            changed = true;
-          }
-          break;
-        }
-        case Ci.nsIRilResponseResult.RADIO_CELL_INFO_TYPE_TD_SCDMA: {
-          let lac = newState.cellIdentity.cellIdentityTdScdma.lac;
-          if (
-            curState.cell.gsmLocationAreaCode === undefined ||
-            curState.cell.gsmLocationAreaCode !== lac
-          ) {
-            curState.cell.gsmLocationAreaCode = lac;
-            changed = true;
-          }
-
-          let cid = newState.cellIdentity.cellIdentityTdScdma.cid;
-          if (
-            curState.cell.gsmCellId === undefined ||
-            curState.cell.gsmCellId !== cid
-          ) {
-            curState.cell.gsmCellId = cid;
-            changed = true;
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    } else if (DEBUG) {
-      this.debug("cellIdentity null.");
-    }
+    changed = this.updateCellState(newState, curState);
 
     let radioTech = newState.rat;
     if (curState.radioTech === undefined || curState.radioTech !== radioTech) {
       changed = true;
       curState.radioTech = radioTech;
       curState.type = lazy.RIL.GECKO_RADIO_TECH[radioTech] || null;
+      if (radioTech === 14 && this.isNSA5GAvailable) {
+        curState.type = "nr";
+      }
     }
 
-    // From TS 23.003, 0000 and 0xfffe are indicated that no valid LAI exists
-    // in MS. So we still need to report the '0000' as well.
-    /*let lac = this.parseInt(newState[1], -1, 16);
-    if (curState.cell.gsmLocationAreaCode === undefined ||
-        curState.cell.gsmLocationAreaCode !== lac) {
-      curState.cell.gsmLocationAreaCode = lac;
-      changed = true;
-    }
-
-    let cid = this.parseInt(newState[2], -1, 16);
-    if (curState.cell.gsmCellId === undefined ||
-        curState.cell.gsmCellId !== cid) {
-      curState.cell.gsmCellId = cid;
-      changed = true;
-    }
-
-    let radioTech = (newState[3] === undefined ?
-                     NETWORK_CREG_TECH_UNKNOWN :
-                     this.parseInt(newState[3], NETWORK_CREG_TECH_UNKNOWN));
-    if (curState.radioTech === undefined || curState.radioTech !== radioTech) {
-      changed = true;
-      curState.radioTech = radioTech;
-      curState.type = GECKO_RADIO_TECH[radioTech] || null;
-    }*/
     return changed;
   },
 
@@ -4882,6 +5344,7 @@ RadioInterface.prototype = {
       }
     }
 
+    rs.isNSA = this.isNSA5GAvailable;
     if (stateChanged) {
       rs.rilMessageType = "voiceregistrationstatechange";
       this._sendNetworkInfoMessage(
@@ -4899,7 +5362,13 @@ RadioInterface.prototype = {
     }
     let rs = this.dataRegistrationState;
     let state = response.dataRegStatus;
-    let stateChanged = this._processCREG(rs, state);
+    let stateChanged = false;
+    this.isNSA5GAvailable = this._isNSA5G(rs, state);
+    if (this.isNSA5GAvailable !== rs.isNSA) {
+      rs.isNSA = this.isNSA5GAvailable;
+      stateChanged = true;
+    }
+    stateChanged = this._processCREG(rs, state) || stateChanged;
     if (stateChanged) {
       rs.rilMessageType = "dataregistrationstatechange";
       this._sendNetworkInfoMessage(
@@ -4907,6 +5376,35 @@ RadioInterface.prototype = {
         rs
       );
     }
+  },
+
+  _isNSA5G(curState, newState) {
+    // handle vops info and nrindication and nrVops
+    let isEndcAvailable = false;
+    let isDcNrRestricted = false;
+    let isNrAvailable = false;
+    //let stateChanged = false;//assigned a value but never used
+
+    if (newState.nrIndicators !== undefined && newState.nrIndicators !== null) {
+      isEndcAvailable = newState.nrIndicators.isEndcAvailable;
+      isDcNrRestricted = newState.nrIndicators.isDcNrRestricted;
+      isNrAvailable = newState.nrIndicators.isNrAvailable;
+    }
+
+    /* PhysicalChannelConfigs length > 1, && rat = NR */
+    if (curState.isEndcAvailable !== isEndcAvailable) {
+      curState.isEndcAvailable = isEndcAvailable;
+      //stateChanged = true;
+    }
+    if (curState.isDcNrRestricted !== isDcNrRestricted) {
+      curState.isDcNrRestricted = isDcNrRestricted;
+      //stateChanged = true;
+    }
+    if (curState.isNrAvailable !== isNrAvailable) {
+      curState.isNrAvailable = isNrAvailable;
+      //stateChanged = true;
+    }
+    return curState.isNrAvailable && curState.isEndcAvailable;
   },
 
   handleChangedEmergencyCbMode(active) {
@@ -5204,7 +5702,7 @@ RadioInterface.prototype = {
     }
 
     // Reference :
-    // http://androidxref.com/7.1.1_r6/xref/frameworks/base/telephony/java/android/telephony/NeighboringCellInfo.java#113
+    // http://androidxref.com/7.1.1_r6/xref/frameworks/base/telephony/java/android/telephony/.java#113
     if (
       !this._isGsmTechGroup(radioTech) ||
       radioTech === lazy.RIL.NETWORK_CREG_TECH_GSM ||
@@ -5377,6 +5875,11 @@ RadioInterface.prototype = {
     signal.lteTimingAdvance = signalStrength.lteSignalStrength.timingAdvance;
 
     signal.tdscdmaRscp = signalStrength.tdscdmaSignalStrength.rscp;
+
+    // For NR
+    signal.ssRsrp = signalStrength.nrSignalStrength.ssRsrp;
+    signal.ssRsrq = signalStrength.nrSignalStrength.ssRsrq;
+    signal.ssSinr = signalStrength.nrSignalStrength.ssSinr;
 
     if (DEBUG) {
       this.debug("signal strength: " + JSON.stringify(signal));
@@ -5729,6 +6232,7 @@ RadioInterface.prototype = {
       case Ci.nsIRadioTechnologyState.RADIO_CREG_TECH_TD_SCDMA:
       case Ci.nsIRadioTechnologyState.RADIO_CREG_TECH_IWLAN:
       case Ci.nsIRadioTechnologyState.RADIO_CREG_TECH_LTE_CA:
+      case Ci.nsIRadioTechnologyState.RADIO_CREG_TECH_NR:
         return true;
     }
 
@@ -6041,6 +6545,72 @@ RadioInterface.prototype = {
     return cellInfoLists;
   },
 
+  handleScanResultList(rilCellInfoLists) {
+    let operatorInfos = [];
+    for (let i = 0; i < rilCellInfoLists.length; i++) {
+      this.debug(
+        "handleScanResultList[" +
+          i +
+          "] = " +
+          JSON.stringify(rilCellInfoLists[i])
+      );
+      let operatorInfo = {};
+      if (rilCellInfoLists[i].registered) {
+        operatorInfo.state = "connected";
+      } else {
+        operatorInfo.state = null;
+      }
+      switch (rilCellInfoLists[i].cellInfoType) {
+        case lazy.RIL.CELL_INFO_TYPE_GSM:
+          //nsICellIdentityGsm
+          operatorInfo.rat = "gsm";
+          operatorInfo.mcc = rilCellInfoLists[i].gsm.cellIdentityGsm.mcc;
+          operatorInfo.mnc = rilCellInfoLists[i].gsm.cellIdentityGsm.mnc;
+          operatorInfo.longName =
+            rilCellInfoLists[i].gsm.cellIdentityGsm.operatorNames.alphaLong;
+          operatorInfo.shortName =
+            rilCellInfoLists[i].gsm.cellIdentityGsm.operatorNames.alphaShort;
+          break;
+
+        case lazy.RIL.CELL_INFO_TYPE_WCDMA:
+          //nsICellIdentityWcdma
+          operatorInfo.rat = "wcdma";
+          operatorInfo.mcc = rilCellInfoLists[i].wcdma.cellIdentityWcdma.mcc;
+          operatorInfo.mnc = rilCellInfoLists[i].wcdma.cellIdentityWcdma.mnc;
+          operatorInfo.longName =
+            rilCellInfoLists[i].wcdma.cellIdentityWcdma.operatorNames.alphaLong;
+          operatorInfo.shortName =
+            rilCellInfoLists[
+              i
+            ].wcdma.cellIdentityWcdma.operatorNames.alphaShort;
+          break;
+
+        case lazy.RIL.CELL_INFO_TYPE_LTE:
+          //nsICellIdentityLte
+          operatorInfo.rat = "lte";
+          operatorInfo.mcc = rilCellInfoLists[i].lte.cellIdentityLte.mcc;
+          operatorInfo.mnc = rilCellInfoLists[i].lte.cellIdentityLte.mnc;
+          operatorInfo.longName =
+            rilCellInfoLists[i].lte.cellIdentityLte.operatorNames.alphaLong;
+          operatorInfo.shortName =
+            rilCellInfoLists[i].lte.cellIdentityLte.operatorNames.alphaShort;
+          break;
+
+        case lazy.RIL.CELL_INFO_TYPE_NR:
+          operatorInfo.rat = "nr";
+          operatorInfo.mcc = rilCellInfoLists[i].nr.cellIdentityNr.mcc;
+          operatorInfo.mnc = rilCellInfoLists[i].nr.cellIdentityNr.mnc;
+          operatorInfo.longName =
+            rilCellInfoLists[i].nr.cellIdentityNr.operatorNames.alphaLong;
+          operatorInfo.shortName =
+            rilCellInfoLists[i].nr.cellIdentityNr.operatorNames.alphaShort;
+          break;
+      }
+      operatorInfos.push(new MobileNetworkInfo(operatorInfo));
+    }
+    return operatorInfos;
+  },
+
   handleIccIoResult(response) {
     // Get the requset options.
     let token = response.rilMessageToken;
@@ -6279,7 +6849,22 @@ RadioInterface.prototype = {
               message.enabled
           );
         }
-        this.rilworker.setRadioPower(message.rilMessageToken, message.enabled);
+        this.rilworker.setRadioPower(
+          message.rilMessageToken,
+          message.enabled,
+          message.forEmergencyCall,
+          message.preferredForEmergencyCall
+        );
+        break;
+      case "getSlicingConfig":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_GET_SLICING_CONFIG"
+          );
+        }
+        this.rilworker.getSlicingConfig(message.rilMessageToken);
         break;
       case "sendSMS":
         if (this._isCdma) {
@@ -6327,20 +6912,79 @@ RadioInterface.prototype = {
               message.rilMessageToken +
               "] > RIL_REQUEST_SETUP_DATA_CALL radioTechnology = " +
               message.radioTechnology +
+              ", accessNetworkType = " +
+              message.accessNetworkType +
               ", DataProfile = " +
               JSON.stringify(message.profile) +
+              ", modemConfig = " +
+              message.modemConfig +
+              ", allowRoaming = " +
+              message.allowRoaming +
               ", isRoaming = " +
               message.isRoaming +
-              ", allowRoaming = " +
-              message.allowRoaming
+              ", reason = " +
+              message.reason +
+              ", pduSessionId = " +
+              message.pduSessionId +
+              ", sliceInfo = " +
+              JSON.stringify(message.sliceInfo) +
+              ", trafficDescriptor = " +
+              JSON.stringify(message.trafficDescriptor) +
+              ", matchAllRuleAllowed = " +
+              message.matchAllRuleAllowed
+          );
+        }
+        if (!(message.addresses instanceof Array)) {
+          message.errorMsg = lazy.RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+          this.handleRilResponse(message);
+          return;
+        }
+        let addresses = [];
+        message.addresses.forEach(function (address) {
+          if (!(address instanceof Ci.nsILinkAddress)) {
+            addresses.push(new LinkAddress(address));
+          } else {
+            addresses.push(address);
+          }
+        });
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_SETUP_DATA_CALL addresses = " +
+              JSON.stringify(addresses)
+          );
+        }
+
+        if (!(message.dnses instanceof Array)) {
+          message.errorMsg = lazy.RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+          this.handleRilResponse(message);
+          return;
+        }
+        let dnses = message.dnses.map(dns => String(dns));
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_SETUP_DATA_CALL dnses = " +
+              JSON.stringify(dnses)
           );
         }
         this.rilworker.setupDataCall(
           message.rilMessageToken,
           message.radioTechnology,
+          message.accessNetworkType,
           new DataProfile(message.profile),
+          message.modemConfig,
+          message.allowRoaming,
           message.isRoaming,
-          message.allowRoaming
+          message.reason,
+          addresses,
+          dnses,
+          message.pduSessionId,
+          new SliceInfo(message.sliceInfo),
+          new TrafficDescriptor(message.trafficDescriptor),
+          message.matchAllRuleAllowed
         );
         break;
       case "iccIO":
@@ -6749,6 +7393,20 @@ RadioInterface.prototype = {
           networkType
         );
         break;
+      case "setPreferredNetworkTypeBitmap":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_SET_PREFERRED_NETWORK_BITMAP networkTypeBitmap = " +
+              message.type
+          );
+        }
+        this.rilworker.setPreferredNetworkTypeBitmap(
+          message.rilMessageToken,
+          message.type
+        );
+        break;
       case "getPreferredNetworkType":
         if (DEBUG) {
           this.debug(
@@ -6758,6 +7416,16 @@ RadioInterface.prototype = {
           );
         }
         this.rilworker.getPreferredNetworkType(message.rilMessageToken);
+        break;
+      case "getAllowedNetworkTypesBitmap":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_GET_ALLOWED_NETWORK_TYPE"
+          );
+        }
+        this.rilworker.getAllowedNetworkTypesBitmap(message.rilMessageToken);
         break;
       case "getNeighboringCellIds":
         if (DEBUG) {
@@ -6772,6 +7440,65 @@ RadioInterface.prototype = {
       case "setRoamingPreference":
         break;
       case "queryRoamingPreference":
+        break;
+      case "setVoNrEnabled":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_SET_VONR_ENABLED state = " +
+              message.enabled
+          );
+        }
+        this.rilworker.setVoNrEnabled(message.rilMessageToken, message.enabled);
+        break;
+      case "isVoNrEnabled":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_IS_VONR_ENABLED"
+          );
+        }
+        this.rilworker.isVoNrEnabled(message.rilMessageToken);
+        break;
+      case "setNrDualConnectivityState":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_SET_NRDC_STATE state = " +
+              message.mode
+          );
+        }
+        this.rilworker.setNrDualConnectivityState(
+          message.rilMessageToken,
+          message.mode
+        );
+        break;
+      case "isNrDualConnectivityEnabled":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_IS_NRDC_ENABLED"
+          );
+        }
+        this.rilworker.isNrDualConnectivityEnabled(message.rilMessageToken);
+        break;
+      case "startNetworkScan":
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              message.rilMessageToken +
+              "] > RIL_REQUEST_START_NETWORK_SCAN options = " +
+              JSON.stringify(message.options)
+          );
+        }
+        this.rilworker.startNetworkScan(
+          message.rilMessageToken,
+          new NetworkScanRequest(message.options)
+        );
         break;
       case "setTtyMode":
         if (DEBUG) {
@@ -8244,7 +8971,7 @@ RadioInterface.prototype = {
     }
 
     let profileList = [];
-    message.profileList.forEach(function(profile) {
+    message.profileList.forEach(function (profile) {
       if (!(profile instanceof Ci.nsIDataProfile)) {
         profileList.push(new DataProfile(profile));
       } else {
@@ -8293,7 +9020,7 @@ RadioInterface.prototype = {
     }
 
     if (callback) {
-      this.sendRilRequest(rilMessageType, message, function(response) {
+      this.sendRilRequest(rilMessageType, message, function (response) {
         return callback.handleResponse(response);
       });
     } else {

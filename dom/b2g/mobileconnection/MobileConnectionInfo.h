@@ -31,7 +31,7 @@ class MobileConnectionInfo final : public nsIMobileConnectionInfo,
                        bool aEmergencyCallsOnly, bool aRoaming,
                        nsIMobileNetworkInfo* aNetworkInfo,
                        const nsAString& aType, nsIMobileCellInfo* aCellInfo,
-                       int32_t aReasonDataDenied);
+                       int32_t aReasonDataDenied, bool aIsNSA5GAvailable);
 
   void UpdateDOMNetworkInfo(nsIMobileConnectionInfo* aInfo);
 
@@ -59,6 +59,8 @@ class MobileConnectionInfo final : public nsIMobileConnectionInfo,
 
   int32_t ReasonDataDenied() const { return mReasonDataDenied; }
 
+  bool IsNSA5GAvailable() const { return mIsNSA5GAvailable; }
+
  private:
   ~MobileConnectionInfo() {}
 
@@ -73,6 +75,7 @@ class MobileConnectionInfo final : public nsIMobileConnectionInfo,
   Nullable<MobileConnectionState> mState;
   Nullable<MobileConnectionType> mType;
   int32_t mReasonDataDenied;
+  bool mIsNSA5GAvailable;
 };
 
 }  // namespace dom

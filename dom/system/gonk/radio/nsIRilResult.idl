@@ -3,6 +3,105 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsISupports.idl"
+#include "nsIDataCallInterfaceService.idl"
+
+interface nsICarrier;
+interface nsICarrierRestrictionsWithPriority;
+interface nsILinkAddress;
+interface nsISliceInfo;
+interface nsITrafficDescriptor;
+interface nsIPortRange;
+interface nsIQosFilter;
+interface nsIQosSession;
+interface nsIQosBandwidth;
+interface nsINrQos;
+interface nsIEpsQos;
+interface nsIQos;
+
+[scriptable, uuid(77a2b919-6142-4172-9d17-5cd8e8d3f1c7)]
+interface nsISimPortInfo: nsISupports
+{
+  /**
+   * Integrated Circuit Card IDentifier (ICCID) is unique identifier of the SIM card. File is
+   * located in the SIM card at EFiccid (0x2FE2) as per ETSI 102.221. The ICCID is defined by
+   * the ITU-T recommendation E.118 ISO/IEC 7816.
+   *
+   * This data is applicable only when cardState is CardStatus.STATE_PRESENT.
+   *
+   * This is the ICCID of the currently enabled profile. If no profile is enabled,
+   * then it will contain the default boot profile’s ICCID.
+   * If the EFiccid does not exist in the default boot profile, it will be null.
+   */
+   readonly attribute AString iccId;
+
+  /**
+   * Logical slot id is identifier of the active slot
+   */
+  readonly attribute long logicalSlotId;
+
+  /**
+   * Port active status in the slot.
+   * Inactive means logical modem is no longer associated to the port.
+   * Active means logical modem is associated to the port.
+   */
+  readonly attribute boolean portActive;
+};
+
+[scriptable, uuid(25423065-ddf3-4247-b2fb-402259ce0687)]
+interface nsISimSlotStatus: nsISupports
+{
+  /**
+   * Card state in the physical slot. Values are CardStatus.[STATE_ABSENT, STATE_PRESENT,
+   * STATE_ERROR, STATE_RESTRICTED].
+   */
+  readonly attribute long  cardState;
+
+  /**
+   * An Answer To Reset (ATR) is a message output by a Smart Card conforming to ISO/IEC 7816
+   * standards, following electrical reset of the card's chip. The ATR conveys information about
+   * the communication parameters proposed by the card, and the card's nature and state.
+   *
+   * This data is applicable only when cardState is CardStatus.STATE_PRESENT.
+   */
+  readonly attribute AString atr;
+
+  /**
+   * The EID is the eUICC identifier. The EID shall be stored within the ECASD and can be
+   * retrieved by the Device at any time using the standard GlobalPlatform GET DATA command.
+   *
+   * This data is mandatory and applicable only when cardState is CardStatus.STATE_PRESENT and SIM
+   * card supports eUICC.
+   */
+  readonly attribute AString eid;
+
+  /**
+   * PortInfo contains the ICCID, logical slot ID, and port state.
+   * Cardstate has no relationship with whether the slot is active or inactive. Should always
+   * report up at least 1 port otherwise the logicalSlotIndex and portActive info will be lost.
+   * For example, the pSIM can be removed, but the slot can still be active. In that case, the
+   * SIM_STATUS reported for the corresponding logical stack will show CARDSTATE_ABSENT.
+   * Similarly, even if there is no profile enabled on the eSIM, that port can still be the
+   * active port in the slot mapping.
+   */
+  readonly attribute Array<nsISimPortInfo> portInfo;
+};
+
+/*
+ * XPCOM component for keep avlice status information.
+ */
+[scriptable, uuid(f2a18a89-b638-4996-9e24-8bbc1e4309b6)]
+interface nsIKeepAliveStatus: nsISupports
+{
+
+  const long KEEP_ALIVE_STATUS_CODE_ACTIVE = 0;
+  const long KEEP_ALIVE_STATUS_CODE_INACTIVE = 1;
+  const long KEEP_ALIVE_STATUS_CODE_PENDING = 2;
+
+  // KEEP_ALIVE_STATUS_CODE_*
+  readonly attribute long keepAliveStatusCode;
+  readonly attribute long sessionHandle;
+
+};
 
 /**
  * XPCOM component for GSM signal Strength information.
@@ -20,12 +119,26 @@ interface nsIGsmSignalStrength: nsISupports
 /**
  * XPCOM component for WCDMA signal Strength information.
  */
-[scriptable, uuid(577c53e3-9383-4c16-8406-533ae2241033)]
+[scriptable, uuid(a247222a-e3b8-4c67-a872-675f68f97212)]
 interface nsIWcdmaSignalStrength: nsISupports
 {
   readonly attribute long signalStrength; // Valid values are (0-96, 99) as defined in
                                           // TS 27.007 8.69
   readonly attribute long bitErrorRate;   // bit error rate (0-49, 99) as defined in TS 27.007 8.69
+
+    /**
+   * CPICH RSCP as defined in TS 25.215 5.1.1
+   * Valid values are (0-96, 255) as defined in TS 27.007 8.69
+   * INT_MAX denotes that the value is invalid/unreported.
+   */
+  readonly attribute long rscp;
+
+  /**
+   * Ec/No value as defined in TS 25.215 5.1.5
+   * Valid values are (0-49, 255) as defined in TS 27.007 8.69
+   * INT_MAX denotes that the value is invalid/unreported.
+   */
+  readonly attribute long ecno;
 };
 
 /**
@@ -97,6 +210,7 @@ interface nsILteSignalStrength: nsISupports
                                             // INT_MAX : 0x7FFFFFFF denotes invalid value.
                                             // Reference: 3GPP 36.321 section 6.1.3.5
                                             // also: http://www.cellular-planningoptimization.com/2010/02/timing-advance-with-calculation.html
+    readonly attribute unsigned long cqiTableIndex;// CSI channel quality indicator (CQI) table index.
 };
 
 /**
@@ -105,10 +219,105 @@ interface nsILteSignalStrength: nsISupports
 [scriptable, uuid(73f8bf6a-b56a-417c-8435-11999e053e09)]
 interface nsITdScdmaSignalStrength: nsISupports
 {
+      /**
+       * UTRA carrier RSSI as defined in TS 25.225 5.1.4
+       * Valid values are (0-31, 99) as defined in TS 27.007 8.5
+       * INT_MAX denotes that the value is invalid/unreported.
+       */
+      readonly attribute long signalStrength;
+
+      /**
+       * Transport Channel BER as defined in TS 25.225 5.2.5
+       * Valid values are (0-7, 99) as defined in TS 27.007 8.5
+       * INT_MAX denotes that the value is invalid/unreported.
+       */
+      readonly attribute long bitErrorRate;
+
+
       readonly attribute long rscp;    // The Received Signal Code Power in dBm multiplied by -1.
                                        // Range : 25 to 120
                                        // INT_MAX: 0x7FFFFFFF denotes invalid value.
                                        // Reference: 3GPP TS 25.123, section 9.1.1.1
+};
+
+/**
+ * XPCOM component for 5g Nr signal Strength information.
+ */
+[scriptable, uuid(bc58b5ab-c3c9-4df0-ad95-3bf2cc9174ec)]
+interface nsINrSignalStrength: nsISupports
+{
+    /**
+     * SS reference signal received power, multipled by -1.
+     *
+     * Reference: 3GPP TS 38.215.
+     *
+     * Range [44, 140], INT_MAX means invalid/unreported.
+     */
+      readonly attribute long csiRsrp;
+    /**
+     * SS reference signal received quality, multipled by -1.
+     *
+     * Reference: 3GPP TS 38.215, 3GPP TS 38.133 section 10.
+     *
+     * Range [-20 dB, 43 dB], INT_MAX means invalid/unreported.
+     */
+      readonly attribute long csiRsrq;
+    /**
+     * SS signal-to-noise and interference ratio.
+     *
+     * Reference: 3GPP TS 38.215 section 5.1.*, 3GPP TS 38.133 section 10.1.16.1.
+     *
+     * Range [-23, 40], INT_MAX means invalid/unreported.
+     */
+      readonly attribute long csiSinr;
+    /**
+     * CSI reference signal received power, multipled by -1.
+     *
+     * Reference: 3GPP TS 38.215.
+     *
+     * Range [44, 140], INT_MAX means invalid/unreported.
+     */
+      readonly attribute long ssRsrp;
+    /**
+     * CSI reference signal received quality, multipled by -1.
+     *
+     * Reference: 3GPP TS 38.215.
+     *
+     * Range [3, 20], INT_MAX means invalid/unreported.
+     */
+      readonly attribute long ssRsrq;
+    /**
+     * CSI signal-to-noise and interference ratio.
+     *
+     * Reference: 3GPP TS 138.215 section 5.1.*, 3GPP TS 38.133 section 10.1.16.1.
+     *
+     * Range [-23, 40], INT_MAX means invalid/unreported.
+     */
+      readonly attribute long ssSinr;
+
+    /**
+     * CSI channel quality indicator (CQI) table index. There are multiple CQI tables.
+     * The definition of CQI in each table is different.
+     *
+     * Reference: 3GPP TS 138.214 section 5.2.2.1.
+     *
+     * Range [1, 3], INT_MAX means invalid/unreported.
+     */
+    readonly attribute unsigned long csiCqiTableIndex;
+
+    /**
+     * CSI channel quality indicator (CQI) for all subbands.
+     *
+     * If the CQI report is for the entire wideband, a single CQI index is provided.
+     * If the CQI report is for all subbands, one CQI index is provided for each subband,
+     * in ascending order of subband index.
+     * If CQI is not available, the CQI report is empty.
+     *
+     * Reference: 3GPP TS 138.214 section 5.2.2.1.
+     *
+     * Range [0, 15], 0xFF means invalid/unreported.
+     */
+    readonly attribute Array<long> csiCqiReport;
 };
 
 /**
@@ -118,11 +327,12 @@ interface nsITdScdmaSignalStrength: nsISupports
 interface nsISignalStrength: nsISupports
 {
   readonly attribute nsIGsmSignalStrength gsmSignalStrength;
-  //readonly attribute nsIWcdmaSignalStrength wcdmaSignalStrength;
+  readonly attribute nsIWcdmaSignalStrength wcdmaSignalStrength;
   readonly attribute nsICdmaSignalStrength cdmaSignalStrength;
   readonly attribute nsIEvdoSignalStrength evdoSignalStrength;
   readonly attribute nsILteSignalStrength lteSignalStrength;
   readonly attribute nsITdScdmaSignalStrength tdscdmaSignalStrength;
+  readonly attribute nsINrSignalStrength nrSignalStrength;
 };
 
 /**
@@ -152,6 +362,7 @@ interface nsIRadioTechnologyState: nsISupports
   const long RADIO_CREG_TECH_TD_SCDMA = 17;
   const long RADIO_CREG_TECH_IWLAN = 18;
   const long RADIO_CREG_TECH_LTE_CA = 19;
+  const long RADIO_CREG_TECH_NR = 20;
 };
 
 /**
@@ -344,7 +555,352 @@ interface nsIDataCallFailCause: nsISupports
                                                           // mode was up on same APN/data profile - no retry until
                                                           // tethered call is off
   const long DATACALL_FAIL_ERROR_UNSPECIFIED = 0xffff;
-};
+  const long DATACALL_FAIL_LLC_SNDCP = 25;                // Network cannot provide the requested service and PDP context is deactivated because of LLC
+                                                          // or SNDCP failure.
+  const long DATACALL_FAIL_ACTIVATION_REJECTED_BCM_VIOLATION = 48; // UE requested to modify QoS parameters or the bearer control mode, which is not compatible
+                                                                   // with the selected bearer control mode.
+  const long DATACALL_FAIL_COLLISION_WITH_NETWORK_INITIATED_REQUEST = 56;  // Network has already initiated the activation, modification, or deactivation of bearer
+                                                                           // resources that was requested by the UE.
+  const long DATACALL_FAIL_ONLY_IPV4V6_ALLOWED = 57;      // Network supports IPv4v6 PDP type only. Non-IP type is not allowed. In LTE mode of operation,
+                                                          // this is a PDN throttling cause code, meaning the UE may throttle further requests to the
+                                                          // same APN.
+  const long DATACALL_FAIL_ONLY_NON_IP_ALLOWED = 58;      // Network supports non-IP PDP type only. IPv4, IPv6 and IPv4v6 is not allowed. In LTE mode of
+                                                          // operation, this is a PDN throttling cause code, meaning the UE can throttle further requests
+                                                          // to the same APN.
+  /*const long DATACALL_FAIL_UNSUPPORTED_QCI_VALUE = 59;    // QCI (QoS Class Identifier) indicated in the UE request cannot be supported.
+  const long DATACALL_FAIL_BEARER_HANDLING_NOT_SUPPORTED = 60; // Procedure requested by the UE was rejected because the bearer handling is not supported.
+  const long DATACALL_FAIL_INVALID_DNS_ADDR = 123;        // Not receiving a DNS address that was mandatory.
+  const long DATACALL_FAIL_INVALID_PCSCF_OR_DNS_ADDRESS = 124; // Not receiving either a PCSCF or a DNS address, one of them being mandatory.
+  const long DATACALL_FAIL_CALL_PREEMPT_BY_EMERGENCY_APN = 127; // Emergency call bring up on a different ePDG.
+  const long DATACALL_FAIL_UE_INITIATED_DETACH_OR_DISCONNECT = 128; // UE performs a detach or disconnect PDN action based on TE requirements.
+  const long DATACALL_FAIL_MIP_FA_REASON_UNSPECIFIED = 2000; // Reason unspecified for foreign agent rejected MIP (Mobile IP) registration.
+  const long DATACALL_FAIL_MIP_FA_ADMIN_PROHIBITED = 2001; //  Foreign agent administratively prohibited MIP (Mobile IP) registration.
+  const long DATACALL_FAIL_MIP_FA_INSUFFICIENT_RESOURCES = 2002; // Foreign agent rejected MIP (Mobile IP) registration because of insufficient resources.
+  const long DATACALL_FAIL_MIP_FA_MOBILE_NODE_AUTHENTICATION_FAILURE = 2003; // Foreign agent rejected MIP (Mobile IP) registration because of MN-AAA authenticator was
+                                                                             // wrong.
+  const long DATACALL_FAIL_MIP_FA_HOME_AGENT_AUTHENTICATION_FAILURE = 2004; // Foreign agent rejected MIP (Mobile IP) registration because of home agent authentication
+                                                                            // failure.
+  const long DATACALL_FAIL_MIP_FA_REQUESTED_LIFETIME_TOO_LONG = 2005; // Foreign agent rejected MIP (Mobile IP) registration because of requested lifetime was too
+                                                                      // long.
+  const long DATACALL_FAIL_MIP_FA_MALFORMED_REQUEST = 2006; // Foreign agent rejected MIP (Mobile IP) registration because of malformed request.
+  const long DATACALL_FAIL_MIP_FA_MALFORMED_REPLY = 2007; // Foreign agent rejected MIP (Mobile IP) registration because of malformed reply.
+  const long DATACALL_FAIL_MIP_FA_ENCAPSULATION_UNAVAILABLE = 2008; // Foreign agent rejected MIP (Mobile IP) registration because of requested encapsulation was
+                                                                    // unavailable.
+  const long DATACALL_FAIL_MIP_FA_VJ_HEADER_COMPRESSION_UNAVAILABLE = 2009; // Foreign agent rejected MIP (Mobile IP) registration of VJ Header Compression was unavailable.
+  const long DATACALL_FAIL_MIP_FA_REVERSE_TUNNEL_UNAVAILABLE = 2010; // Foreign agent rejected MIP (Mobile IP) registration because of reverse tunnel was
+                                                                     // unavailable.
+  const long DATACALL_FAIL_MIP_FA_REVERSE_TUNNEL_IS_MANDATORY = 2011; // Foreign agent rejected MIP (Mobile IP) registration because of reverse tunnel was mandatory
+                                                                      // but not requested by device.
+  const long DATACALL_FAIL_MIP_FA_DELIVERY_STYLE_NOT_SUPPORTED = 2012; // Foreign agent rejected MIP (Mobile IP) registration because of delivery style was not
+                                                                       // supported.
+  const long DATACALL_FAIL_MIP_FA_MISSING_NAI = 2013; // Foreign agent rejected MIP (Mobile IP) registration because of missing NAI (Network Access
+                                                      // Identifier).
+  const long DATACALL_FAIL_MIP_FA_MISSING_HOME_AGENT = 2014; // Foreign agent rejected MIP (Mobile IP) registration because of missing Home Agent.
+  const long DATACALL_FAIL_MIP_FA_MISSING_HOME_ADDRESS = 2015; // Foreign agent rejected MIP (Mobile IP) registration because of missing Home Address.
+  const long DATACALL_FAIL_MIP_FA_UNKNOWN_CHALLENGE = 2016; // Foreign agent rejected MIP (Mobile IP) registration because of unknown challenge.
+  const long DATACALL_FAIL_MIP_FA_MISSING_CHALLENGE = 2017; // Foreign agent rejected MIP (Mobile IP) registration because of missing challenge.
+  const long DATACALL_FAIL_MIP_FA_STALE_CHALLENGE = 2018; // Foreign agent rejected MIP (Mobile IP) registration because of stale challenge.
+  const long DATACALL_FAIL_MIP_HA_REASON_UNSPECIFIED = 2019; // Reason unspecified for home agent rejected MIP (Mobile IP) registration.
+  const long DATACALL_FAIL_MIP_HA_ADMIN_PROHIBITED = 2020;//  Home agent administratively prohibited MIP (Mobile IP) registration.
+  const long DATACALL_FAIL_MIP_HA_INSUFFICIENT_RESOURCES = 2021; // Home agent rejected MIP (Mobile IP) registration because of insufficient resources.
+  const long DATACALL_FAIL_MIP_HA_MOBILE_NODE_AUTHENTICATION_FAILURE = 2022; // Home agent rejected MIP (Mobile IP) registration because of MN-HA authenticator was wrong.
+  const long DATACALL_FAIL_MIP_HA_FOREIGN_AGENT_AUTHENTICATION_FAILURE = 2023; // Home agent rejected MIP (Mobile IP) registration because of foreign agent authentication
+                                                                               // failure.
+  const long DATACALL_FAIL_MIP_HA_REGISTRATION_ID_MISMATCH = 2024; // Home agent rejected MIP (Mobile IP) registration because of registration id mismatch.
+  const long DATACALL_FAIL_MIP_HA_MALFORMED_REQUEST = 2025; // Home agent rejected MIP (Mobile IP) registration because of malformed request.
+  const long DATACALL_FAIL_MIP_HA_UNKNOWN_HOME_AGENT_ADDRESS = 2026; // Home agent rejected MIP (Mobile IP) registration because of unknown home agent address.
+  const long DATACALL_FAIL_MIP_HA_REVERSE_TUNNEL_UNAVAILABLE = 2027; // Home agent rejected MIP (Mobile IP) registration because of reverse tunnel was unavailable.
+  const long DATACALL_FAIL_MIP_HA_REVERSE_TUNNEL_IS_MANDATORY = 2028; // Home agent rejected MIP (Mobile IP) registration because of reverse tunnel is mandatory but
+                                                                      // not requested by device.
+  const long DATACALL_FAIL_MIP_HA_ENCAPSULATION_UNAVAILABLE = 2029; // Home agent rejected MIP (Mobile IP) registration because of encapsulation unavailable.
+  const long DATACALL_FAIL_CLOSE_IN_PROGRESS = 2030; // Tearing down is in progress.
+  const long DATACALL_FAIL_NETWORK_INITIATED_TERMINATION = 2031; // Brought down by the network.
+  const long DATACALL_FAIL_MODEM_APP_PREEMPTED = 2032; // Another application in modem preempts the data call.
+  const long DATACALL_FAIL_PDN_IPV4_CALL_DISALLOWED = 2033; // IPV4 PDN is in throttled state due to network providing only IPV6 address during the previous
+                                                            // VSNCP bringup (subs_limited_to_v6).
+  const long DATACALL_FAIL_PDN_IPV4_CALL_THROTTLED = 2034; // IPV4 PDN is in throttled state due to previous VSNCP bringup failure(s).
+  const long DATACALL_FAIL_PDN_IPV6_CALL_DISALLOWED = 2035; // IPV6 PDN is in throttled state due to network providing only IPV4 address during the previous
+                                                            // VSNCP bringup (subs_limited_to_v4).
+  const long DATACALL_FAIL_PDN_IPV6_CALL_THROTTLED = 2036; // IPV6 PDN is in throttled state due to previous VSNCP bringup failure(s).
+  const long DATACALL_FAIL_MODEM_RESTART = 2037; // Modem restart.
+  const long DATACALL_FAIL_PDP_PPP_NOT_SUPPORTED = 2038; // PDP PPP calls are not supported.
+  const long DATACALL_FAIL_UNPREFERRED_RAT = 2039; // RAT on which the data call is attempted/connected is no longer the preferred RAT.
+  const long DATACALL_FAIL_PHYSICAL_LINK_CLOSE_IN_PROGRESS = 2040; // Physical link is in the process of cleanup.
+  const long DATACALL_FAIL_APN_PENDING_HANDOVER = 2041; // Interface bring up is attempted for an APN that is yet to be handed over to target RAT.
+  const long DATACALL_FAIL_PROFILE_BEARER_INCOMPATIBLE = 2042; // APN bearer type in the profile does not match preferred network mode.
+  const long DATACALL_FAIL_SIM_CARD_CHANGED = 2043; // Card was refreshed or removed.
+  const long DATACALL_FAIL_LOW_POWER_MODE_OR_POWERING_DOWN = 2044; // Device is going into lower power mode or powering down.
+  const long DATACALL_FAIL_APN_DISABLED = 2045; // APN has been disabled.
+  const long DATACALL_FAIL_MAX_PPP_INACTIVITY_TIMER_EXPIRED = 2046; // Maximum PPP inactivity timer expired.
+  const long DATACALL_FAIL_IPV6_ADDRESS_TRANSFER_FAILED = 2047; // IPv6 address transfer failed.
+  const long DATACALL_FAIL_TRAT_SWAP_FAILED = 2048; // Target RAT swap failed.
+  const long DATACALL_FAIL_EHRPD_TO_HRPD_FALLBACK = 2049; // Device falls back from eHRPD to HRPD.
+  const long DATACALL_FAIL_MIP_CONFIG_FAILURE = 2050; // UE is in MIP-only configuration but the MIP configuration fails on call bring up due to
+                                                      // incorrect provisioning.
+  const long DATACALL_FAIL_PDN_INACTIVITY_TIMER_EXPIRED = 2051; // PDN inactivity timer expired due to no data transmission in a configurable duration of time.
+  const long DATACALL_FAIL_MAX_IPV4_CONNECTIONS = 2052; // IPv4 data call bring up is rejected because the UE already maintains the allotted maximum
+                                                        // number of IPv4 data connections.
+  const long DATACALL_FAIL_MAX_IPV6_CONNECTIONS = 2053; // IPv6 data call bring up is rejected because the UE already maintains the allotted maximum
+                                                        // number of IPv6 data connections.
+  const long DATACALL_FAIL_APN_MISMATCH = 2054; // New PDN bring up is rejected during interface selection because the UE has already allotted
+                                                // the available interfaces for other PDNs.
+  const long DATACALL_FAIL_IP_VERSION_MISMATCH = 2055; // New call bring up is rejected since the existing data call IP type doesn't match the
+                                                       // requested IP.
+  const long DATACALL_FAIL_DUN_CALL_DISALLOWED = 2056; // Dial up networking (DUN) call bring up is rejected since UE is in eHRPD RAT.
+  const long DATACALL_FAIL_INTERNAL_EPC_NONEPC_TRANSITION = 2057; // Rejected/Brought down since UE is transition between EPC and NONEPC RAT.
+  const long DATACALL_FAIL_INTERFACE_IN_USE = 2058; // The current interface is being in use.
+  const long DATACALL_FAIL_APN_DISALLOWED_ON_ROAMING = 2059; // PDN connection to the APN is disallowed on the roaming network.
+  const long DATACALL_FAIL_APN_PARAMETERS_CHANGED = 2060; // APN-related parameters are changed.
+  const long DATACALL_FAIL_NULL_APN_DISALLOWED = 2061; // PDN is attempted to be brought up with NULL APN but NULL APN is not supported.
+  const long DATACALL_FAIL_THERMAL_MITIGATION = 2062; // Thermal level increases and causes calls to be torn down when normal mode of operation is
+                                                      // not allowed.
+  const long DATACALL_FAIL_DATA_SETTINGS_DISABLED = 2063; // PDN Connection to a given APN is disallowed because data is disabled from the device user
+                                                          // interface settings.
+  const long DATACALL_FAIL_DATA_ROAMING_SETTINGS_DISABLED = 2064; // PDN Connection to a given APN is disallowed because data roaming is disabled from the device
+                                                                  // user interface settings and the UE is roaming.
+  const long DATACALL_FAIL_DDS_SWITCHED = 2065; // DDS (Default data subscription) switch occurs.
+  const long DATACALL_FAIL_FORBIDDEN_APN_NAME = 2066; // PDN being brought up with an APN that is part of forbidden APN Name list.
+  const long DATACALL_FAIL_DDS_SWITCH_IN_PROGRESS = 2067; // Default data subscription switch is in progress.
+  const long DATACALL_FAIL_CALL_DISALLOWED_IN_ROAMING = 2068; // Roaming is disallowed during call bring up.
+  const long DATACALL_FAIL_NON_IP_NOT_SUPPORTED = 2069; // UE is unable to bring up a non-IP data call because the device is not camped on a NB1 cell.
+  const long DATACALL_FAIL_PDN_NON_IP_CALL_THROTTLED = 2070; // Non-IP PDN is in throttled state due to previous VSNCP bringup failure(s).
+  const long DATACALL_FAIL_PDN_NON_IP_CALL_DISALLOWED = 2071; // Non-IP PDN is in disallowed state due to the network providing only an IP address.
+  const long DATACALL_FAIL_CDMA_LOCK = 2072; //  Device in CDMA locked state.
+  const long DATACALL_FAIL_CDMA_INTERCEPT = 2073; // Received an intercept order from the base station.
+  const long DATACALL_FAIL_CDMA_REORDER = 2074; // Receiving a reorder from the base station.
+  const long DATACALL_FAIL_CDMA_RELEASE_DUE_TO_SO_REJECTION = 2075; // Receiving a release from the base station with a SO (Service Option) Reject reason.
+  const long DATACALL_FAIL_CDMA_INCOMING_CALL = 2076; // Receiving an incoming call from the base station.
+  const long DATACALL_FAIL_CDMA_ALERT_STOP = 2077; // Received an alert stop from the base station due to incoming only.
+  const long DATACALL_FAIL_CHANNEL_ACQUISITION_FAILURE = 2078; // Channel acquisition failures. This indicates that device has failed acquiring all the
+                                                               // channels in the PRL.
+  const long DATACALL_FAIL_MAX_ACCESS_PROBE = 2079; // Maximum access probes transmitted.
+  const long DATACALL_FAIL_CONCURRENT_SERVICE_NOT_SUPPORTED_BY_BASE_STATION = 2080; // Concurrent service is not supported by base station.
+  const long DATACALL_FAIL_NO_RESPONSE_FROM_BASE_STATION = 2081; // There was no response received from the base station.
+  const long DATACALL_FAIL_REJECTED_BY_BASE_STATION = 2082; // The base station rejecting the call.
+  const long DATACALL_FAIL_CONCURRENT_SERVICES_INCOMPATIBLE = 2083; // The concurrent services requested were not compatible.
+  const long DATACALL_FAIL_NO_CDMA_SERVICE = 2084; // Device does not have CDMA service.
+  const long DATACALL_FAIL_RUIM_NOT_PRESENT = 2085; // RUIM not being present.
+  const long DATACALL_FAIL_CDMA_RETRY_ORDER = 2086; // Receiving a retry order from the base station.
+  const long DATACALL_FAIL_ACCESS_BLOCK = 2087; // Access blocked by the base station.
+  const long DATACALL_FAIL_ACCESS_BLOCK_ALL = 2088; // Access blocked by the base station for all mobile devices.
+  const long DATACALL_FAIL_IS707B_MAX_ACCESS_PROBES = 2089; // Maximum access probes for the IS-707B call.
+  const long DATACALL_FAIL_THERMAL_EMERGENCY = 2090; // Put device in thermal emergency.
+  const long DATACALL_FAIL_CONCURRENT_SERVICES_NOT_ALLOWED = 2091; // In favor of a voice call or SMS when concurrent voice and data are not supported.
+  const long DATACALL_FAIL_INCOMING_CALL_REJECTED = 2092; // The other clients rejected incoming call.
+  const long DATACALL_FAIL_NO_SERVICE_ON_GATEWAY = 2093; // No service on the gateway.
+  const long DATACALL_FAIL_NO_GPRS_CONTEXT = 2094; //  GPRS context is not available
+  const long DATACALL_FAIL_ILLEGAL_MS = 2095; // Network refuses service to the MS because either an identity of the MS is not acceptable to
+                                              // the network or the MS does not pass the authentication check.
+  const long DATACALL_FAIL_ILLEGAL_ME = 2096; // ME could not be authenticated and the ME used is not acceptable to the network.
+  const long DATACALL_FAIL_GPRS_SERVICES_AND_NON_GPRS_SERVICES_NOT_ALLOWED = 2097; // Not allowed to operate either GPRS or non-GPRS services.
+  const long DATACALL_FAIL_GPRS_SERVICES_NOT_ALLOWED = 2098; // MS is not allowed to operate GPRS services.
+  const long DATACALL_FAIL_MS_IDENTITY_CANNOT_BE_DERIVED_BY_THE_NETWORK = 2099; // No matching identity or context could be found in the network.
+  const long DATACALL_FAIL_IMPLICITLY_DETACHED = 2100; // Mobile reachable timer has expired, or the GMM context data related to the subscription does
+                                                       // not exist in the SGSN.
+  const long DATACALL_FAIL_PLMN_NOT_ALLOWED = 2101; // UE requests GPRS service, or the network initiates a detach request in a PLMN which does not
+                                                    // offer roaming for GPRS services to that MS.
+  const long DATACALL_FAIL_LOCATION_AREA_NOT_ALLOWED = 2102; // MS requests service, or the network initiates a detach request, in a location area where the
+                                                             // HPLMN determines that the MS, by subscription, is not allowed to operate.
+  const long DATACALL_FAIL_GPRS_SERVICES_NOT_ALLOWED_IN_THIS_PLMN = 2103; // UE requests GPRS service or the network initiates a detach request in a PLMN that does not
+                                                                          // offer roaming for GPRS services.
+  const long DATACALL_FAIL_PDP_DUPLICATE = 2104; // PDP context already exists.
+  const long DATACALL_FAIL_UE_RAT_CHANGE = 2105; // RAT change on the UE.
+  const long DATACALL_FAIL_CONGESTION = 2106; // Network cannot serve a request from the MS due to congestion.
+  const long DATACALL_FAIL_NO_PDP_CONTEXT_ACTIVATED = 2107; // MS requests an establishment of the radio access bearers for all active PDP contexts by
+                                                            // sending a service request message indicating data to the network, but the SGSN does not have
+                                                            // any active PDP context.
+  const long DATACALL_FAIL_ACCESS_CLASS_DSAC_REJECTION = 2108; // Access class blocking restrictions for the current camped cell.
+  const long DATACALL_FAIL_PDP_ACTIVATE_MAX_RETRY_FAILED = 2109; // SM attempts PDP activation for a maximum of four attempts.
+  const long DATACALL_FAIL_RADIO_ACCESS_BEARER_FAILURE = 2110; // Radio access bearer failure.
+  const long DATACALL_FAIL_ESM_UNKNOWN_EPS_BEARER_CONTEXT = 2111; // Invalid EPS bearer identity in the request.
+  const long DATACALL_FAIL_DRB_RELEASED_BY_RRC = 2112; // Data radio bearer is released by the RRC.
+  const long DATACALL_FAIL_CONNECTION_RELEASED = 2113; // Indicate the connection was released.
+  const long DATACALL_FAIL_EMM_DETACHED = 2114; // UE is detached.
+  const long DATACALL_FAIL_EMM_ATTACH_FAILED = 2115; // Attach procedure is rejected by the network.
+  const long DATACALL_FAIL_EMM_ATTACH_STARTED = 2116; // Attach procedure is started for EMC purposes.
+  const long DATACALL_FAIL_LTE_NAS_SERVICE_REQUEST_FAILED = 2117; // Service request procedure failure.
+  const long DATACALL_FAIL_DUPLICATE_BEARER_ID = 2118; // Active dedicated bearer was requested using the same default bearer ID.
+  const long DATACALL_FAIL_ESM_COLLISION_SCENARIOS = 2119; // Collision scenarios for the UE and network-initiated procedures.
+  const long DATACALL_FAIL_ESM_BEARER_DEACTIVATED_TO_SYNC_WITH_NETWORK = 2120; // Bearer must be deactivated to synchronize with the network.
+  const long DATACALL_FAIL_ESM_NW_ACTIVATED_DED_BEARER_WITH_ID_OF_DEF_BEARER = 2121; // Active dedicated bearer was requested for an existing default bearer.
+  const long DATACALL_FAIL_ESM_BAD_OTA_MESSAGE = 2121; // Bad OTA message is received from the network.
+  const long DATACALL_FAIL_ESM_DOWNLOAD_SERVER_REJECTED_THE_CALL = 2123; // Download server rejected the call.
+  const long DATACALL_FAIL_ESM_CONTEXT_TRANSFERRED_DUE_TO_IRAT = 2124; // PDN was disconnected by the downlaod server due to IRAT.
+  const long DATACALL_FAIL_DS_EXPLICIT_DEACTIVATION = 2125; // Dedicated bearer will be deactivated regardless of the network response.
+  const long DATACALL_FAIL_ESM_LOCAL_CAUSE_NONE = 2126; // No specific local cause is mentioned, usually a valid OTA cause.
+  const long DATACALL_FAIL_LTE_THROTTLING_NOT_REQUIRED = 2127; // Throttling is not needed for this service request failure.
+  const long DATACALL_FAIL_ACCESS_CONTROL_LIST_CHECK_FAILURE = 2128; // Access control list check failure at the lower layer.
+  const long DATACALL_FAIL_SERVICE_NOT_ALLOWED_ON_PLMN = 2129; // Service is not allowed on the requested PLMN.
+  const long DATACALL_FAIL_EMM_T3417_EXPIRED = 2130; // T3417 timer expiration of the service request procedure.
+  const long DATACALL_FAIL_EMM_T3417_EXT_EXPIRED = 2131; // Extended service request fails due to expiration of the T3417 EXT timer.
+  const long DATACALL_FAIL_RRC_UPLINK_DATA_TRANSMISSION_FAILURE = 2132; // Transmission failure of radio resource control (RRC) uplink data.
+  const long DATACALL_FAIL_RRC_UPLINK_DELIVERY_FAILED_DUE_TO_HANDOVER = 2133; // Radio resource control (RRC) uplink data delivery failed due to a handover.
+  const long DATACALL_FAIL_RRC_UPLINK_CONNECTION_RELEASE = 2134; // Radio resource control (RRC) uplink data delivery failed due to a connection release.
+  const long DATACALL_FAIL_RRC_UPLINK_RADIO_LINK_FAILURE = 2135; // Radio resource control (RRC) uplink data delivery failed due to a radio link failure.
+  const long DATACALL_FAIL_RRC_UPLINK_ERROR_REQUEST_FROM_NAS = 2136; // Radio resource control (RRC) is not connected but the non-access stratum (NAS) sends an
+                                                                     // uplink data request.
+  const long DATACALL_FAIL_RRC_CONNECTION_ACCESS_STRATUM_FAILURE = 2137; // Radio resource control (RRC) connection failure at access stratum.
+  const long DATACALL_FAIL_RRC_CONNECTION_ANOTHER_PROCEDURE_IN_PROGRESS = 2138; // Radio resource control (RRC) connection establishment is aborted due to another procedure.
+  const long DATACALL_FAIL_RRC_CONNECTION_ACCESS_BARRED = 2139; // Radio resource control (RRC) connection establishment failed due to access barrred.
+  const long DATACALL_FAIL_RRC_CONNECTION_CELL_RESELECTION = 2140; // Radio resource control (RRC) connection establishment failed due to cell reselection at
+                                                                   // access stratum.
+  const long DATACALL_FAIL_RRC_CONNECTION_CONFIG_FAILURE = 2141; // Connection establishment failed due to configuration failure at the radio resource control
+                                                                 // (RRC).
+  const long DATACALL_FAIL_RRC_CONNECTION_TIMER_EXPIRED = 2142; // Radio resource control (RRC) connection could not be established in the time limit.
+  const long DATACALL_FAIL_RRC_CONNECTION_LINK_FAILURE = 2143; // Connection establishment failed due to a link failure at the radio resource control (RRC).
+  const long DATACALL_FAIL_RRC_CONNECTION_CELL_NOT_CAMPED = 2144; // Connection establishment failed as the radio resource control (RRC) is not camped on any
+                                                                  // cell.
+  const long DATACALL_FAIL_RRC_CONNECTION_SYSTEM_INTERVAL_FAILURE = 2145; // Connection establishment failed due to a service interval failure at the radio resource
+                                                                          // control (RRC).
+  const long DATACALL_FAIL_RRC_CONNECTION_REJECT_BY_NETWORK = 2146; // Radio resource control (RRC) connection establishment failed due to the network rejecting the
+                                                                    // UE connection request.
+  const long DATACALL_FAIL_RRC_CONNECTION_NORMAL_RELEASE = 2147; // Normal radio resource control (RRC) connection release.
+  const long DATACALL_FAIL_RRC_CONNECTION_RADIO_LINK_FAILURE = 2148; // Radio resource control (RRC) connection release failed due to radio link failure conditions.
+  const long DATACALL_FAIL_RRC_CONNECTION_REESTABLISHMENT_FAILURE = 2149; // Radio resource control (RRC) connection re-establishment failure.
+  const long DATACALL_FAIL_RRC_CONNECTION_OUT_OF_SERVICE_DURING_CELL_REGISTER = 2150; // UE is out of service during the call register.
+  const long DATACALL_FAIL_RRC_CONNECTION_ABORT_REQUEST = 2151; // Connection has been released by the radio resource control (RRC) due to an abort request.
+  const long DATACALL_FAIL_RRC_CONNECTION_SYSTEM_INFORMATION_BLOCK_READ_ERROR = 2152; // Radio resource control (RRC) connection released due to a system information block read
+                                                                                      // error.
+  const long DATACALL_FAIL_NETWORK_INITIATED_DETACH_WITH_AUTO_REATTACH = 2153; // Network-initiated detach with reattach.
+  const long DATACALL_FAIL_NETWORK_INITIATED_DETACH_NO_AUTO_REATTACH = 2154; // Network-initiated detach without reattach.
+  const long DATACALL_FAIL_ESM_PROCEDURE_TIME_OUT = 2155; // ESM procedure maximum attempt timeout failure.
+  const long DATACALL_FAIL_INVALID_CONNECTION_ID = 2156; // No PDP exists with the given connection ID while modifying or deactivating or activation for
+                                                         // an already active PDP.
+  const long DATACALL_FAIL_MAXIMIUM_NSAPIS_EXCEEDED = 2157; // Maximum NSAPIs have been exceeded during PDP activation.
+  const long DATACALL_FAIL_INVALID_PRIMARY_NSAPI = 2158; // Primary context for NSAPI does not exist.
+  const long DATACALL_FAIL_CANNOT_ENCODE_OTA_MESSAGE = 2159; // Unable to encode the OTA message for MT PDP or deactivate PDP.
+  const long DATACALL_FAIL_RADIO_ACCESS_BEARER_SETUP_FAILURE = 2160; // Radio access bearer is not established by the lower layers during activation, modification,
+                                                                     // or deactivation.
+  const long DATACALL_FAIL_PDP_ESTABLISH_TIMEOUT_EXPIRED = 2161; // Expiration of the PDP establish timer with a maximum of five retries.
+  const long DATACALL_FAIL_PDP_MODIFY_TIMEOUT_EXPIRED = 2162; // Expiration of the PDP modify timer with a maximum of four retries.
+  const long DATACALL_FAIL_PDP_INACTIVE_TIMEOUT_EXPIRED = 2163; // Expiration of the PDP deactivate timer with a maximum of four retries.
+  const long DATACALL_FAIL_PDP_LOWERLAYER_ERROR = 2164; // PDP activation failed due to RRC_ABORT or a forbidden PLMN.
+  const long DATACALL_FAIL_PDP_MODIFY_COLLISION = 2165; // MO PDP modify collision when the MT PDP is already in progress.
+  const long DATACALL_FAIL_MAXINUM_SIZE_OF_L2_MESSAGE_EXCEEDED = 2166; // Maximum size of the L2 message was exceeded.
+  const long DATACALL_FAIL_NAS_REQUEST_REJECTED_BY_NETWORK = 2167; // Non-access stratum (NAS) request was rejected by the network.
+  const long DATACALL_FAIL_RRC_CONNECTION_INVALID_REQUEST = 2168; // Radio resource control (RRC) connection establishment failure due to an error in the request
+                                                                  // message.
+  const long DATACALL_FAIL_RRC_CONNECTION_TRACKING_AREA_ID_CHANGED = 2169; // Radio resource control (RRC) connection establishment failure due to a change in the tracking
+                                                                           // area ID.
+  const long DATACALL_FAIL_RRC_CONNECTION_RF_UNAVAILABLE = 2170; // Radio resource control (RRC) connection establishment failure due to the RF was unavailable.
+  const long DATACALL_FAIL_RRC_CONNECTION_ABORTED_DUE_TO_IRAT_CHANGE = 2171; // Radio resource control (RRC) connection was aborted before deactivating the LTE stack due to
+                                                                             // a successful LTE to WCDMA/GSM/TD-SCDMA IRAT change.
+  const long DATACALL_FAIL_RRC_CONNECTION_RELEASED_SECURITY_NOT_ACTIVE = 2172; // If the UE has an LTE radio link failure before security is established, the radio resource
+                                                                               // control (RRC) connection must be released and the UE must return to idle.
+  const long DATACALL_FAIL_RRC_CONNECTION_ABORTED_AFTER_HANDOVER = 2173; // Radio resource control (RRC) connection was aborted by the non-access stratum (NAS) after an
+                                                                         // IRAT to LTE IRAT handover.
+  const long DATACALL_FAIL_RRC_CONNECTION_ABORTED_AFTER_IRAT_CELL_CHANGE = 2174; // Radio resource control (RRC) connection was aborted before deactivating the LTE stack after a
+                                                                                 // successful LTE to GSM/EDGE IRAT cell change order procedure.
+  const long DATACALL_FAIL_RRC_CONNECTION_ABORTED_DURING_IRAT_CELL_CHANGE = 2175; // Radio resource control (RRC) connection was aborted in the middle of a LTE to GSM IRAT cell
+                                                                                  // change order procedure.
+  const long DATACALL_FAIL_IMSI_UNKNOWN_IN_HOME_SUBSCRIBER_SERVER = 2176; // IMSI present in the UE is unknown in the home subscriber server.
+  const long DATACALL_FAIL_IMEI_NOT_ACCEPTED = 2177; // IMEI of the UE is not accepted by the network.
+  const long DATACALL_FAIL_EPS_SERVICES_AND_NON_EPS_SERVICES_NOT_ALLOWED = 2178; // EPS and non-EPS services are not allowed by the network.
+  const long DATACALL_FAIL_EPS_SERVICES_NOT_ALLOWED_IN_PLMN = 2179; // EPS services are not allowed in the PLMN.
+  const long DATACALL_FAIL_MSC_TEMPORARILY_NOT_REACHABLE = 2180; // Mobile switching center is temporarily unreachable.
+  const long DATACALL_FAIL_CS_DOMAIN_NOT_AVAILABLE = 2181; // CS domain is not available.
+  const long DATACALL_FAIL_ESM_FAILURE = 2182; // ESM level failure.
+  const long DATACALL_FAIL_MAC_FAILURE = 2183; // MAC level failure.
+  const long DATACALL_FAIL_SYNCHRONIZATION_FAILURE = 2184; // Synchronization failure.
+  const long DATACALL_FAIL_UE_SECURITY_CAPABILITIES_MISMATCH = 2185; // UE security capabilities mismatch.
+  const long DATACALL_FAIL_SECURITY_MODE_REJECTED = 2186; // Unspecified security mode reject.
+  const long DATACALL_FAIL_UNACCEPTABLE_NON_EPS_AUTHENTICATION = 2187; // Unacceptable non-EPS authentication.
+  const long DATACALL_FAIL_CS_FALLBACK_CALL_ESTABLISHMENT_NOT_ALLOWED = 2188; // CS fallback call establishment is not allowed.
+  const long DATACALL_FAIL_NO_EPS_BEARER_CONTEXT_ACTIVATED = 2189; // No EPS bearer context was activated.
+  const long DATACALL_FAIL_INVALID_EMM_STATE = 2190; // Invalid EMM state.
+  const long DATACALL_FAIL_NAS_LAYER_FAILURE = 2191; // Non-Access Spectrum layer failure.
+  const long DATACALL_FAIL_MULTIPLE_PDP_CALL_NOT_ALLOWED = 2192; // Multiple PDP call feature is disabled.
+  const long DATACALL_FAIL_EMBMS_NOT_ENABLED = 2193; // Data call has been brought down because EMBMS is not enabled at the RRC layer.
+  const long DATACALL_FAIL_IRAT_HANDOVER_FAILED = 2194; // Data call was unsuccessfully transferred during the IRAT handover.
+  const long DATACALL_FAIL_EMBMS_REGULAR_DEACTIVATION = 2195; // EMBMS data call has been successfully brought down.
+  const long DATACALL_FAIL_TEST_LOOPBACK_REGULAR_DEACTIVATION = 2196; // Test loop-back data call has been successfully brought down.
+  const long DATACALL_FAIL_LOWER_LAYER_REGISTRATION_FAILURE = 2197; // Lower layer registration failure.
+  const long DATACALL_FAIL_DATA_PLAN_EXPIRED = 2198; // Network initiates a detach on LTE with error cause "data plan has been replenished or has
+                                                     // expired".
+  const long DATACALL_FAIL_UMTS_HANDOVER_TO_IWLAN = 2199; // UMTS interface is brought down due to handover from UMTS to iWLAN.
+  const long DATACALL_FAIL_EVDO_CONNECTION_DENY_BY_GENERAL_OR_NETWORK_BUSY = 2200; // Received a connection deny due to general or network busy on EVDO network.
+  const long DATACALL_FAIL_EVDO_CONNECTION_DENY_BY_BILLING_OR_AUTHENTICATION_FAILURE = 2201; // Received a connection deny due to billing or authentication failure on EVDO network.
+  const long DATACALL_FAIL_EVDO_HDR_CHANGED = 2202; // HDR system has been changed due to redirection or the PRL was not preferred.
+  const long DATACALL_FAIL_EVDO_HDR_EXITED = 2203; // Device exited HDR due to redirection or the PRL was not preferred.
+  const long DATACALL_FAIL_EVDO_HDR_NO_SESSION = 2204; // Device does not have an HDR session.
+  const long DATACALL_FAIL_EVDO_USING_GPS_FIX_INSTEAD_OF_HDR_CALL = 2205; // It is ending an HDR call origination in favor of a GPS fix.
+  const long DATACALL_FAIL_EVDO_HDR_CONNECTION_SETUP_TIMEOUT = 2206; // Connection setup on the HDR system was time out.
+  const long DATACALL_FAIL_FAILED_TO_ACQUIRE_COLOCATED_HDR = 2207; // Device failed to acquire a co-located HDR for origination.
+  const long DATACALL_FAIL_OTASP_COMMIT_IN_PROGRESS = 2208; // OTASP commit is in progress.
+  const long DATACALL_FAIL_NO_HYBRID_HDR_SERVICE = 2209; // Device has no hybrid HDR service.
+  const long DATACALL_FAIL_HDR_NO_LOCK_GRANTED = 2210; // HDR module could not be obtained because of the RF locked.
+  const long DATACALL_FAIL_DBM_OR_SMS_IN_PROGRESS = 2211; // DBM or SMS is in progress.
+  const long DATACALL_FAIL_HDR_FADE = 2212; // HDR module released the call due to fade.
+  const long DATACALL_FAIL_HDR_ACCESS_FAILURE = 2213; // HDR system access failure.
+  const long DATACALL_FAIL_UNSUPPORTED_1X_PREV = 2214; // P_rev supported by 1 base station is less than 6, which is not supported for a 1X data call.
+                                                       // The UE must be in the footprint of BS which has p_rev >= 6 to support this SO33 call.
+  const long DATACALL_FAIL_LOCAL_END = 2215; // Client ended the data call.
+  const long DATACALL_FAIL_NO_SERVICE = 2216; // Device has no service.
+  const long DATACALL_FAIL_FADE = 2217; // Device lost the system due to fade.
+  const long DATACALL_FAIL_NORMAL_RELEASE = 2218; // Receiving a release from the base station with no reason.
+  const long DATACALL_FAIL_ACCESS_ATTEMPT_ALREADY_IN_PROGRESS = 2219; // Access attempt is already in progress.
+  const long DATACALL_FAIL_REDIRECTION_OR_HANDOFF_IN_PROGRESS = 2220; // Device is in the process of redirecting or handing off to a different target system.
+  const long DATACALL_FAIL_EMERGENCY_MODE = 2221; // Device is operating in Emergency mode.
+  const long DATACALL_FAIL_PHONE_IN_USE = 2222; // Device is in use (e.g., voice call).
+  const long DATACALL_FAIL_INVALID_MODE = 2223; // Device operational mode is different from the mode requested in the traffic channel bring up.
+  const long DATACALL_FAIL_INVALID_SIM_STATE = 2224; // SIM was marked by the network as invalid for the circuit and/or packet service domain.
+  const long DATACALL_FAIL_NO_COLLOCATED_HDR = 2225; // There is no co-located HDR.
+  const long DATACALL_FAIL_UE_IS_ENTERING_POWERSAVE_MODE = 2226; // UE is entering power save mode.
+  const long DATACALL_FAIL_DUAL_SWITCH = 2227; // Dual switch from single standby to dual standby is in progress.
+  const long DATACALL_FAIL_PPP_TIMEOUT = 2228; // Data call bring up fails in the PPP setup due to a timeout. (e.g., an LCP conf ack was not
+                                               // received from the network)
+  const long DATACALL_FAIL_PPP_AUTH_FAILURE = 2229; // Data call bring up fails in the PPP setup due to an authorization failure.
+                                                    // (e.g., authorization is required, but not negotiated with the network during an LCP phase)
+  const long DATACALL_FAIL_PPP_OPTION_MISMATCH = 2230; // Data call bring up fails in the PPP setup due to an option mismatch.
+  const long DATACALL_FAIL_PPP_PAP_FAILURE = 2231; // Data call bring up fails in the PPP setup due to a PAP failure.
+  const long DATACALL_FAIL_PPP_CHAP_FAILURE = 2232; // Data call bring up fails in the PPP setup due to a CHAP failure.
+  const long DATACALL_FAIL_PPP_CLOSE_IN_PROGRESS = 2233; // Data call bring up fails in the PPP setup because the PPP is in the process of cleaning the
+                                                         // previous PPP session.
+  const long DATACALL_FAIL_LIMITED_TO_IPV4 = 2234; // IPv6 interface bring up fails because the network provided only the IPv4 address for the
+                                                   // upcoming PDN permanent client can reattempt a IPv6 call bring up after the IPv4 interface is
+                                                   // also brought down. However, there is no guarantee that the network will provide a IPv6
+                                                   // address.
+  const long DATACALL_FAIL_LIMITED_TO_IPV6 = 2235; // IPv4 interface bring up fails because the network provided only the IPv6 address for the
+                                                   // upcoming PDN permanent client can reattempt a IPv4 call bring up after the IPv6 interface is
+                                                   // also brought down. However there is no guarantee that the network will provide a IPv4
+                                                   // address.
+  const long DATACALL_FAIL_VSNCP_TIMEOUT = 2236; // Data call bring up fails in the VSNCP phase due to a VSNCP timeout error.
+  const long DATACALL_FAIL_VSNCP_GEN_ERROR = 2237; // Data call bring up fails in the VSNCP phase due to a general error. It's used when there is
+                                                   // no other specific error code available to report the failure.
+  const long DATACALL_FAIL_VSNCP_APN_UNATHORIZED = 2238; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                         // configuration request because the requested APN is unauthorized.
+  const long DATACALL_FAIL_VSNCP_PDN_LIMIT_EXCEEDED = 2239; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                            // configuration request because the PDN limit has been exceeded.
+  const long DATACALL_FAIL_VSNCP_NO_PDN_GATEWAY_ADDRESS = 2240; // Data call bring up fails in the VSNCP phase due to the network rejected the VSNCP
+                                                                // configuration request due to no PDN gateway address.
+  const long DATACALL_FAIL_VSNCP_PDN_GATEWAY_UNREACHABLE = 2241; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                                 // configuration request because the PDN gateway is unreachable.
+  const long DATACALL_FAIL_VSNCP_PDN_GATEWAY_REJECT = 2242; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                            // configuration request due to a PDN gateway reject.
+  const long DATACALL_FAIL_VSNCP_INSUFFICIENT_PARAMETERS = 2243; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                                 // configuration request with the reason of insufficient parameter.
+  const long DATACALL_FAIL_VSNCP_RESOURCE_UNAVAILABLE = 2244; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                              // configuration request with the reason of resource unavailable.
+  const long DATACALL_FAIL_VSNCP_ADMINISTRATIVELY_PROHIBITED = 2245; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                                     // configuration request with the reason of administratively prohibited at the HSGW.
+  const long DATACALL_FAIL_VSNCP_PDN_ID_IN_USE = 2246; // Data call bring up fails in the VSNCP phase due to a network rejection of PDN ID in use, or
+                                                       // all existing PDNs are brought down with this end reason because one of the PDN bring up was
+                                                       // rejected by the network with the reason of PDN ID in use.
+  const long DATACALL_FAIL_VSNCP_SUBSCRIBER_LIMITATION = 2247; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                               // configuration request for the reason of subscriber limitation.
+  const long DATACALL_FAIL_VSNCP_PDN_EXISTS_FOR_THIS_APN = 2248; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                                 // configuration request because the PDN exists for this APN.
+  const long DATACALL_FAIL_VSNCP_RECONNECT_NOT_ALLOWED = 2249; // Data call bring up fails in the VSNCP phase due to a network rejection of the VSNCP
+                                                               // configuration request with reconnect to this PDN not allowed, or an active data call is
+                                                               // terminated by the network because reconnection to this PDN is not allowed. Upon receiving
+                                                               // this error code from the network, the modem infinitely throttles the PDN until the next power
+                                                               // cycle.
+  const long DATACALL_FAIL_IPV6_PREFIX_UNAVAILABLE = 2250; // Device failure to obtain the prefix from the network.
+  const long DATACALL_FAIL_HANDOFF_PREFERENCE_CHANGED = 2251; // System preference change back to SRAT during handoff
+  const long DATACALL_FAIL_SLICE_REJECTED = 2252; // Data call fail due to the slice not being allowed for the data call.
+  const long DATACALL_FAIL_MATCH_ALL_RULE_NOT_ALLOWED = 2253; // No matching rule available for the request, and match-all rule is not allowed for it.
+  const long DATACALL_FAIL_ALL_MATCHING_RULES_FAILED = 2254; //  If connection failed for all matching URSP rules.
+*/};
 
 /**
  * XPCOM component for data call result information.
@@ -356,7 +912,7 @@ interface nsISetupDataCallResult: nsISupports
                                                                  // error.
   readonly attribute long failCause;                             // Data call fail cause. DataCallFailCause.NONE if no
                                                               // error.
-  readonly attribute long suggestedRetryTime;                 // If status != DataCallFailCause.NONE, this field
+  readonly attribute long long suggestedRetryTime;                 // If status != DataCallFailCause.NONE, this field
                                                               // indicates the suggested retry back-off timer value RIL
                                                               // wants to override the one pre-configured in FW.
                                                               // The unit is milliseconds.
@@ -373,12 +929,13 @@ interface nsISetupDataCallResult: nsISupports
                                                               // is the type supported such as "IP" or "IPV6".
   readonly attribute AString ifname;                          // The network interface name
 
-  readonly attribute AString addresses;                       // A space-delimited list of addresses with optional "/"
+  readonly attribute Array<nsILinkAddress> addresses;         // A space-delimited list of addresses with optional "/"
                                                               // prefix length, e.g., "192.0.1.3" or
                                                               // "192.0.1.11/16 2001:db8::1/64".
                                                               // Typically 1 IPv4 or 1 IPv6 or
                                                               // one of each. If the prefix length is absent the
                                                               // addresses are assumed to be point to point with IPv4
+                                                              // In hal v1.5 or higher, change type from String to nsILinkAddress
                                                               // having a prefix length of 32 and IPv6 128.
   readonly attribute AString dnses;                           // A space-delimited list of DNS server addresses,
                                                               // e.g., "192.0.1.3" or "192.0.1.11 2001:db8::1".
@@ -391,7 +948,33 @@ interface nsISetupDataCallResult: nsISupports
                                                               // via PCO(Protocol Configuration Option) for IMS client.
   readonly attribute long mtu;                                // MTU received from network
                                                               // Value <= 0 means network has either not sent a
+                                                              // value or sent an invalid value.
+                                                              // In hal v1.5 or higher, mtu is max(mtuV4, mtuV6).
+  readonly attribute long mtuV4;                              // MTU IPV4 received from network
+                                                              // Value <= 0 means network has either not sent a
                                                               // value or sent an invalid value
+  readonly attribute long mtuV6;                              // MTU IPV6 received from network
+                                                              // Value <= 0 means network has either not sent a
+                                                              // value or sent an invalid value
+
+  readonly attribute long pduSessionId;
+
+  const long HANDOVER_FAILURE_MODE_LEGACY = 0;
+  const long HANDOVER_FAILURE_MODE_DO_FALLBACK = 1;
+  const long HANDOVER_FAILURE_MODE_NO_FALLBACK_RETRY_HANDOVER = 2;
+  const long HANDOVER_FAILURE_MODE_NO_FALLBACK_RETRY_SETUP_NORMAL = 3;
+
+  // HANDOVER_FAILURE_MODE_*
+  readonly attribute long handoverFailureMode;
+
+  readonly attribute Array<nsITrafficDescriptor> trafficDescriptors;
+
+  readonly attribute nsISliceInfo sliceInfo;
+
+  readonly attribute nsIQos defaultQos;
+
+  readonly attribute Array<nsIQosSession> qosSessions;
+
 };
 
 /**
@@ -430,6 +1013,54 @@ interface nsISimRefreshResult: nsISupports
 };
 
 /**
+ * XPCOM component for operator names of cell.
+ */
+[scriptable, uuid(547aa30d-020d-4ec2-a1af-70de447a5c34)]
+interface nsICellIdentityOperatorNames: nsISupports
+{
+    /**
+     * Long alpha Operator Name String or Enhanced Operator Name String.
+     */
+    readonly attribute AString alphaLong;
+
+    /**
+     * Short alpha Operator Name String or Enhanced Operator Name String
+     */
+    readonly attribute AString alphaShort;
+
+};
+
+/**
+ * XPCOM component for Closed Subscriber Group Info.
+ */
+[scriptable, uuid(3ac197b7-633e-4850-96e4-a37cc7b63cb7)]
+interface nsICellIdentityCsgInfo: nsISupports
+{
+    /**
+     * Indicates whether the cell is restricted to only CSG members. A cell not broadcasting the
+     * CSG Indication but reporting CSG information is considered a Hybrid Cell.
+     * Refer to the "csg-Indication" field in 3GPP TS 36.331 section 6.2.2
+     * SystemInformationBlockType1.
+     * Also refer to "CSG Indicator" in 3GPP TS 25.331 section 10.2.48.8.1 and TS 25.304.
+     */
+    readonly attribute boolean csgIndication;
+
+    /**
+     * The human-readable name of the closed subscriber group operating this cell.
+     * Refer to "hnb-Name" in TS 36.331 section 6.2.2 SystemInformationBlockType9.
+     * Also refer to "HNB Name" in 3GPP TS25.331 section 10.2.48.8.23 and TS 23.003 section 4.8.
+     */
+    readonly attribute AString homeNodebName;
+
+    /**
+     * The identity of the closed subscriber group that the cell belongs to.
+     * Refer to "CSG-Identity" in TS 36.336 section 6.3.4.
+     * Also refer to "CSG Identity" in 3GPP TS 25.331 section 10.3.2.8 and TS 23.003 section 4.7.
+     */
+    readonly attribute long csgIdentity;
+};
+
+/**
  * XPCOM component for GSM CellIdentity.
  */
 [scriptable, uuid(4adc170a-4fdc-4f4b-8a64-fd8d81d8cc33)]
@@ -444,6 +1075,11 @@ interface nsICellIdentityGsm: nsISupports
     readonly attribute long arfcn;    // 16-bit GSM Absolute RF channel number; this value must
                                       // be valid
     readonly attribute long bsic;     // 6-bit Base Station Identity Code, 0xFF if unknown
+
+    readonly attribute nsICellIdentityOperatorNames operatorNames;
+
+    readonly attribute Array<AString> additionalPlmns; // Additional PLMN-IDs beyond the primary PLMN broadcast for this cell
+
 };
 
 /**
@@ -465,6 +1101,24 @@ interface nsICellIdentityCdma: nsISupports
                                           // 0.25 seconds and ranges from -1296000 to 1296000,
                                           // both values inclusive (corresponding to a range of -90
                                           // to +90 degrees). INT_MAX if unknown
+    readonly attribute nsICellIdentityOperatorNames operatorNames;
+};
+
+/**
+ * XPCOM component for CellInfoLte of lte cell on radio v1.4 .
+ */
+[scriptable, uuid(ff4c6591-0a9f-4ea2-9385-57f3e80f10c5)]
+interface nsICellConfigLte: nsISupports
+{
+    /**
+     * Indicates that if E-UTRA-NR Dual Connectivity (EN-DC) is supported by the LTE cell.
+     *
+     * True if the plmn-InfoList-r15 is present in SIB2 and at least one bit in this list is true,
+     * otherwise this value should be false.
+     *
+     * Reference: 3GPP TS 36.331 v15.2.2 6.3.1 System information blocks.
+     */
+    readonly attribute boolean isEndcAvailable;
 };
 
 /**
@@ -482,6 +1136,12 @@ interface nsICellIdentityLte: nsISupports
     readonly attribute long tac;      // 16-bit tracking area code, INT_MAX if unknown
     readonly attribute long earfcn;   // 18-bit LTE Absolute RF Channel Number; this value must
                                       // be valid
+    readonly attribute nsICellIdentityOperatorNames operatorNames;
+    readonly attribute long bandwidth;
+
+    readonly attribute Array<AString> additionalPlmns; // Additional PLMN-IDs beyond the primary PLMN broadcast for this cell
+    readonly attribute nsICellIdentityCsgInfo csgInfo;
+    readonly attribute Array<long> bands;
 };
 
 /**
@@ -490,16 +1150,21 @@ interface nsICellIdentityLte: nsISupports
 [scriptable, uuid(ba3d31bd-5919-4225-9df4-6ee71a931407)]
 interface nsICellIdentityWcdma: nsISupports
 {
-    readonly attribute AString mcc;                           // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
-    readonly attribute AString mnc;                           // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX
+    readonly attribute AString mcc;       // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
+    readonly attribute AString mnc;       // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX
                                           // if unknown
-    readonly attribute long lac;                          // 16-bit Location Area Code, 0..65535, INT_MAX if unknown
-    readonly attribute long cid;                          // 28-bit UMTS Cell Identity described in
+    readonly attribute long lac;          // 16-bit Location Area Code, 0..65535, INT_MAX if unknown
+    readonly attribute long cid;          // 28-bit UMTS Cell Identity described in
                                           // TS 25.331, 0..268435455, INT_MAX if unknown
     readonly attribute long psc;                          // 9-bit UMTS Primary Scrambling Code described in
                                           // TS 25.331, 0..511; this value must be valid
     readonly attribute long uarfcn;                       // 16-bit UMTS Absolute RF Channel Number; this value must
                                           // be valid
+    readonly attribute nsICellIdentityOperatorNames operatorNames;
+
+    readonly attribute Array<AString> additionalPlmns; // Additional PLMN-IDs beyond the primary PLMN broadcast for this cell
+
+    readonly attribute nsICellIdentityCsgInfo csgInfo;
 };
 
 /**
@@ -517,6 +1182,37 @@ interface nsICellIdentityTdScdma: nsISupports
                                           // TS 25.331, 0..268435455, INT_MAX if unknown
     readonly attribute long cpid;         // 8-bit Cell Parameters ID described in
                                           // TS 25.331, 0..127, INT_MAX if unknown
+    readonly attribute nsICellIdentityOperatorNames operatorNames;
+    readonly attribute long uarfcn;
+
+    readonly attribute Array<AString> additionalPlmns; // Additional PLMN-IDs beyond the primary PLMN broadcast for this cell
+
+    readonly attribute nsICellIdentityCsgInfo csgInfo;
+};
+
+/**
+ * XPCOM component for NR CellIdentity.
+ */
+[scriptable, uuid(e100ca3c-027e-41d7-a66d-d92eba6b37ae)]
+interface nsICellIdentityNr: nsISupports
+{
+  readonly attribute AString mcc;            // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
+  readonly attribute AString mnc;            // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX if
+                                             // unknown
+  readonly attribute unsigned long long nci; // NR Cell Identity in range [0, 68719476735] (36 bits)
+                                             // described in 3GPP TS 38.331, which unambiguously identifies
+                                             // a cell within a PLMN.
+  readonly attribute unsigned long pci;      // Physical cell id in range [0, 1007] described in 3GPP TS 38.331.
+                                             // This value must be valid.
+  readonly attribute long tac;               // 8-bit Cell Parameters ID described in
+                                             // TS 25.331, 0..127, INT_MAX if unknown
+  readonly attribute long nrarfcn;           // NR Absolute Radio Frequency Channel Number, in range [0, 3279165].
+                                             // Reference: 3GPP TS 38.101-1 and 3GPP TS 38.101-2 section 5.4.2.1.
+                                             // This value must be valid.
+  readonly attribute nsICellIdentityOperatorNames operatorNames;
+
+  readonly attribute Array<AString> additionalPlmns; // Additional PLMN-IDs beyond the primary PLMN broadcast for this cell
+  readonly attribute Array<long> bands;
 };
 
 /**
@@ -548,6 +1244,7 @@ interface nsICellInfoLte: nsISupports
 {
     readonly attribute nsICellIdentityLte cellIdentityLte;
     readonly attribute nsILteSignalStrength signalStrengthLte;
+    readonly attribute nsICellConfigLte cellConfig;
 };
 
 /**
@@ -570,6 +1267,15 @@ interface nsICellInfoTdScdma: nsISupports
     readonly attribute nsITdScdmaSignalStrength signalStrengthTdScdma;
 };
 
+/**
+ * XPCOM component for Nr Cell information.
+ */
+[scriptable, uuid(e81a9d03-d65d-4847-adc6-b655d88459ee)]
+interface nsICellInfoNr: nsISupports
+{
+    readonly attribute nsICellIdentityNr cellIdentityNr;
+    readonly attribute nsINrSignalStrength signalStrengthNr;
+};
 
 /**
  * XPCOM component for Cell information type.
@@ -584,6 +1290,23 @@ interface nsICellInfoType: nsISupports
   const long RADIO_CELL_INFO_TYPE_LTE = 3;
   const long RADIO_CELL_INFO_TYPE_WCDMA = 4;
   const long RADIO_CELL_INFO_TYPE_TD_SCDMA = 5;
+  const long RADIO_CELL_INFO_TYPE_NR = 6;
+};
+
+/**
+ * XPCOM component for Cell information type.
+ */
+[scriptable, uuid(2e044ae2-1bea-42b5-bae5-33cc03a036f8)]
+interface nsICellDiscriminator: nsISupports
+{
+  // Radio cell type.
+  const long RADIO_CELL_INFO_TYPE_NOINIT = 0;
+  const long RADIO_CELL_INFO_TYPE_GSM = 1;
+  const long RADIO_CELL_INFO_TYPE_WCDMA = 2;
+  const long RADIO_CELL_INFO_TYPE_TD_SCDMA = 3;
+  const long RADIO_CELL_INFO_TYPE_CDMA = 4;
+  const long RADIO_CELL_INFO_TYPE_LTE = 5;
+  const long RADIO_CELL_INFO_TYPE_NR = 6;
 };
 
 /**
@@ -602,6 +1325,18 @@ interface nsITimeStampType: nsISupports
 };
 
 /**
+ * XPCOM component for Cell information time stamp type.
+ */
+[scriptable, uuid(30831c63-19b5-4be8-8d69-c3f1b474b30b)]
+interface nsICellConnectionStatus: nsISupports
+{
+  // Radio information time stamp type.
+  const long RADIO_CELL_CONNECTION_STATUS_NONE = 0;
+  const long RADIO_CELL_CONNECTION_STATUS_PRIMARY_SERVING = 1;
+  const long RADIO_CELL_CONNECTION_STATUS_SECONDARY_SERVING = 2;
+};
+
+/**
  * XPCOM component for Cell information.
  */
 [scriptable, uuid(8962f622-8e68-43b7-af5e-c95d02360ddd)]
@@ -610,7 +1345,7 @@ interface nsIRilCellInfo: nsISupports
     readonly attribute long cellInfoType;            // cell type for selecting from union CellInfo
     readonly attribute boolean registered;           // true if this cell is registered false if not registered
     readonly attribute long timeStampType;           // type of time stamp represented by timeStamp
-    readonly attribute long timeStamp;               // Time in nanos as returned by ril_nano_time
+    readonly attribute unsigned long long timeStamp; // Time in nanos as returned by ril_nano_time
 
     // Only one of the below vectors must be of size 1 based on the CellInfoType and others must be
     // of size 0
@@ -624,6 +1359,12 @@ interface nsIRilCellInfo: nsISupports
                                                           // empty
     readonly attribute nsICellInfoTdScdma tdscdma;        // Valid only if type = tdscdma and size = 1 else must be
                                                           // empty
+    readonly attribute nsICellInfoNr nr;                  // Valid only if type = nr and size = 1 else must be
+                                                          // empty
+    /**
+     * Connection status for the cell.
+     */
+    readonly attribute long connectionStatus;             //NONE = 0, PRIMARY_SERVING = 1, SECONDARY_SERVING = 2
 };
 
 /**
@@ -756,6 +1497,10 @@ interface nsICardStatus : nsISupports
   /* each app contain one APP_STATUS_ */
   void getAppStatus([optional] out unsigned long count,
                     [array, size_is(count), retval] out nsIAppStatus applications);
+  readonly attribute long physicalSlotId;
+  readonly attribute AString atr;
+  readonly attribute AString iccid;
+  readonly attribute AString eid;
 };
 
 /**
@@ -769,6 +1514,25 @@ interface nsIUusInfo : nsISupports
   /* UUS_DCS_ */
   readonly attribute long uusDcs;
   readonly attribute AString uusData;
+};
+
+/**
+ * XPCOM component for Cell information type.
+ */
+[scriptable, uuid(8b548952-8155-4c25-8003-5f1f6bd65c67)]
+interface nsIAudioQuality: nsISupports
+{
+  // Radio cell type.
+  const long RADIO_CALL_AUDIOQUALITY_UNSPECIFIED = 0;
+  const long RADIO_CALL_AUDIOQUALITY_AMR = 1;
+  const long RADIO_CALL_AUDIOQUALITY_AMR_WB = 2;
+  const long RADIO_CALL_AUDIOQUALITY_GSM_EFR = 3;
+  const long RADIO_CALL_AUDIOQUALITY_GSM_FR = 4;
+  const long RADIO_CALL_AUDIOQUALITY_GSM_HR = 5;
+  const long RADIO_CALL_AUDIOQUALITY_EVRC = 6;
+  const long RADIO_CALL_AUDIOQUALITY_EVRC_B = 7;
+  const long RADIO_CALL_AUDIOQUALITY_EVRC_WB = 8;
+  const long RADIO_CALL_AUDIOQUALITY_EVRC_NW = 9;
 };
 
 /**
@@ -794,6 +1558,12 @@ interface nsICall : nsISupports
   readonly attribute long namePresentation;
   void getUusInfo([optional] out unsigned long count,
                   [array, size_is(count), retval] out nsIUusInfo uusInfos);
+  readonly attribute long audioQuality;
+  /**
+   * Forwarded number. It can set only one forwarded number based on 3GPP rule of the CS.
+   * Reference: 3GPP TS 24.008 section 10.5.4.21b
+   */
+  readonly attribute AString forwardedNumber;
 };
 
 // We don't need it, due to only one int and one string parameter.
@@ -818,21 +1588,197 @@ interface nsICellIdentity : nsISupports
   // Only one of the below vectors must be of size 1, based on a valid cellInfoType and
   // others must be of size 0. If cell info type is NONE, then all the vectors
   // must be of size 0.
-  /*void getCellIdentityGsm([array, size_is(count)] out nsICellIdentityGsm gsms,
-                          [retval] out unsigned long count);
-  void getCellIdentityWcdma([array, size_is(count)] out nsICellIdentityWcdma wcdmas,
-                            [retval] out unsigned long count);
-  void getCellIdentityCdma([array, size_is(count)] out nsICellIdentityCdma cdmas,
-                           [retval] out unsigned long count);
-  void getCellIdentityLte([array, size_is(count)] out nsICellIdentityLte ltes,
-                          [retval] out unsigned long count);
-  void getCellIdentityTdscdma([array, size_is(count)] out nsICellIdentityTdScdma tdscdmas,
-                              [retval] out unsigned long count);*/
   readonly attribute nsICellIdentityGsm cellIdentityGsm;
   readonly attribute nsICellIdentityWcdma cellIdentityWcdma;
   readonly attribute nsICellIdentityCdma cellIdentityCdma;
   readonly attribute nsICellIdentityLte cellIdentityLte;
   readonly attribute nsICellIdentityTdScdma cellIdentityTdScdma;
+  readonly attribute nsICellIdentityNr cellIdentityNr;
+};
+
+[scriptable, uuid(26acfcd4-729e-475a-9233-4df2c2628fd1)]
+interface nsIBarringTypeSpecificInfo : nsISupports
+{
+    /** The barring factor as a percentage 0-100 */
+    readonly attribute long factor;
+
+    /** The number of seconds between re-evaluations of barring */
+    readonly attribute  long  timeSeconds;
+
+    /**
+     * Indicates whether barring is currently being applied.
+     *
+     * <p>True if the UE applies barring to a conditionally barred
+     * service based on the conditional barring parameters.
+     *
+     * <p>False if the service is conditionally barred but barring
+     * is not currently applied, which could be due to either the
+     * barring criteria not having been evaluated (if the UE has not
+     * attempted to use the service) or due to the criteria being
+     * evaluated and the UE being permitted to use the service
+     * despite conditional barring.
+     */
+    readonly attribute boolean isBarred;
+};
+
+/**
+ * XPCOM component for registrationFailed event.
+ */
+[scriptable, uuid(3bd8f6da-d199-4e5e-a02c-6c2d1dd4ae84)]
+interface nsIRegistrationFailedEvent: nsISupports
+{
+    readonly attribute nsICellIdentity cellIdentity;
+    /**
+     * A 5 or 6 digit alphanumeric PLMN (MCC|MNC) among those broadcast by the
+     * cell that was chosen for the failed registration attempt.
+     */
+    readonly attribute AString chosenPlmn;
+    /**
+     * Domain::CS, Domain::PS, or both in case of a combined procedure.
+     * CS = 1,
+     * PS = 2,
+     */
+    readonly attribute long domain;
+    /**
+     * The primary failure cause code of the procedure.
+     */
+    readonly attribute long causeCode;
+    /**
+     * The cause code of any secondary/combined procedure if appropriate.
+     */
+    readonly attribute long additionalCauseCode;
+};
+
+[scriptable, uuid(d96a53b2-9111-4061-92f8-4003bc592cc2)]
+interface nsIBarringInfo : nsISupports
+{
+    /**
+     * Applicable to UTRAN
+     *
+     *
+     * Barring for all CS services, including registration
+     */
+    const long  SERVICE_TYPE_CS_SERVICE = 0;
+
+    const long   SERVICE_TYPE_PS_SERVICE = 1; // ::android::hardware::radio::V1_5::BarringInfo::ServiceType.CS_SERVICE implicitly + 1 *.
+
+    /**
+     * Barring for mobile-originated circuit-switched voice calls
+     */
+    const long SERVICE_TYPE_CS_VOICE = 2 ;// ::android::hardware::radio::V1_5::BarringInfo::ServiceType.PS_SERVICE implicitly + 1 *.
+
+    /**
+     * Applicable to EUTRAN, NGRAN
+     *
+     *
+     * Barring for mobile-originated signalling for any purpose
+     */
+    const long   SERVICE_TYPE_MO_SIGNALLING = 3 ;// ::android::hardware::radio::V1_5::BarringInfo::ServiceType.CS_VOICE implicitly + 1 *.
+
+    /**
+     * Barring for mobile-originated internet or other interactive data
+     */
+    const long  SERVICE_TYPE_MO_DATA = 4; // ::android::hardware::radio::V1_5::BarringInfo::ServiceType.MO_SIGNALLING implicitly + 1 *.
+
+    /**
+     * Barring for circuit-switched fallback calling
+     */
+    const long SERVICE_TYPE_CS_FALLBACK = 5; // ::android::hardware::radio::V1_5::BarringInfo::ServiceType.MO_DATA implicitly + 1 *.
+
+    /**
+     * Barring for IMS voice calling
+     */
+    const long SERVICE_TYPE_MMTEL_VOICE = 6; // ::android::hardware::radio::V1_5::BarringInfo::ServiceType.CS_FALLBACK implicitly + 1 *.
+
+    /**
+     * Barring for IMS video calling
+     */
+    const long SERVICE_TYPE_MMTEL_VIDEO = 7; // ::android::hardware::radio::V1_5::BarringInfo::ServiceType.MMTEL_VOICE implicitly + 1 *.
+
+    /**
+     * Applicable to UTRAN, EUTRAN, NGRAN
+     *
+     *
+     * Barring for emergency services, either CS or emergency MMTEL
+    */
+    const long SERVICE_TYPE_EMERGENCY = 8; // ::android::hardware::radio::V1_5::BarringInfo::ServiceType.MMTEL_VIDEO implicitly + 1 *.
+
+    /**
+     * Barring for short message services
+     */
+    const long SERVICE_TYPE_SMS = 9 ;// ::android::hardware::radio::V1_5::BarringInfo::ServiceType.EMERGENCY implicitly + 1 *.
+
+    /**
+     * const long SERVICE_TYPE_OPERATOR-specific barring codes; applicable to NGRAN
+     */
+    const long SERVICE_TYPE_OPERATOR_1 = 1001;
+    const long SERVICE_TYPE_OPERATOR_2 = 1002;
+    const long SERVICE_TYPE_OPERATOR_3 = 1003;
+    const long SERVICE_TYPE_OPERATOR_4 = 1004;
+    const long SERVICE_TYPE_OPERATOR_5 = 1005;
+    const long SERVICE_TYPE_OPERATOR_6 = 1006;
+    const long SERVICE_TYPE_OPERATOR_7 = 1007;
+    const long SERVICE_TYPE_OPERATOR_8 = 1008;
+    const long SERVICE_TYPE_OPERATOR_9 = 1009;
+    const long SERVICE_TYPE_OPERATOR_10 = 1010;
+    const long SERVICE_TYPE_OPERATOR_11 = 1011;
+    const long SERVICE_TYPE_OPERATOR_12 = 1012;
+    const long SERVICE_TYPE_OPERATOR_13 = 1013;
+    const long SERVICE_TYPE_OPERATOR_14 = 1014;
+    const long SERVICE_TYPE_OPERATOR_15 = 1015;
+    const long SERVICE_TYPE_OPERATOR_16 = 1016;
+    const long SERVICE_TYPE_OPERATOR_17 = 1017;
+    const long SERVICE_TYPE_OPERATOR_18 = 1018;
+    const long SERVICE_TYPE_OPERATOR_19 = 1019;
+    const long SERVICE_TYPE_OPERATOR_20 = 1020;
+    const long SERVICE_TYPE_OPERATOR_21 = 1021;
+    const long SERVICE_TYPE_OPERATOR_22 = 1022;
+    const long SERVICE_TYPE_OPERATOR_23 = 1023;
+    const long SERVICE_TYPE_OPERATOR_24 = 1024;
+    const long SERVICE_TYPE_OPERATOR_25 = 1025;
+    const long SERVICE_TYPE_OPERATOR_26 = 1026;
+    const long SERVICE_TYPE_OPERATOR_27 = 1027;
+    const long SERVICE_TYPE_OPERATOR_28 = 1028;
+    const long SERVICE_TYPE_OPERATOR_29 = 1029;
+    const long SERVICE_TYPE_OPERATOR_30 = 1030;
+    const long SERVICE_TYPE_OPERATOR_31 = 1031;
+    const long SERVICE_TYPE_OPERATOR_32 = 1032;
+
+    /**
+     * Device is not barred for the given service
+     */
+    const long  BARRING_TYPE_NONE = 0;
+
+    /**
+     * Device may be barred based on time and probability factors
+     */
+    const long BARRING_TYPE_CONDITIONAL = 1;
+
+    /*
+     * Device is unconditionally barred
+     */
+    const long BARRING_TYPE_UNCONDITIONAL = 2;
+
+    readonly attribute long serviceType;
+
+    //BARRING_TYPE_*
+    readonly attribute long barringType;
+
+    readonly attribute nsIBarringTypeSpecificInfo barringTypeSpecificInfo;
+};
+
+[scriptable, uuid(1dda7a1d-5236-4679-9297-2a4ebaaeb545)]
+interface nsIBarringInfoChanged: nsISupports
+{
+    readonly attribute nsICellIdentity cellIdentity;
+    readonly attribute Array<nsIBarringInfo> barringInfos;
+};
+
+
+[scriptable, uuid(c45e73fb-29c5-43da-a893-c539be8abe94)]
+interface nsIGetBarringInfoResult : nsISupports {
+  readonly attribute nsICellIdentity cellIdentity;
+  readonly attribute Array<nsIBarringInfo> barringInfos;
 };
 
 /**
@@ -844,26 +1790,142 @@ interface nsIVoiceRegState : nsISupports
   /* REG_STATE_ */
   readonly attribute long regState;
   readonly attribute long rat;
+  readonly attribute nsICellIdentity cellIdentity;
+  readonly attribute AString registeredPlmn;
   readonly attribute boolean cssSupported;
   readonly attribute long roamingIndicator;
   readonly attribute long systemIsInPrl;
   readonly attribute long defaultRoamingIndicator;
   readonly attribute long reasonForDenial;
-  readonly attribute nsICellIdentity cellIdentity;
+};
+
+/**
+ * XPCOM component for NrIndicators of 5G.
+ */
+[scriptable, uuid(ca7c23fc-c9cb-42bc-9b91-808859ea28d3)]
+interface nsINrIndicators : nsISupports
+{
+    /**
+     * Indicates that if E-UTRA-NR Dual Connectivity (EN-DC) is supported by the primary serving
+     * cell.
+     *
+     * True the primary serving cell is LTE cell and the plmn-InfoList-r15 is present in SIB2 and
+     * at least one bit in this list is true, otherwise this value should be false.
+     *
+     * Reference: 3GPP TS 36.331 v15.2.2 6.3.1 System information blocks.
+     */
+    readonly attribute boolean isEndcAvailable;
+
+    /**
+     * True if use of dual connectivity with NR is restricted.
+     * Reference: 3GPP TS 24.301 v15.03 section 9.3.3.12A.
+     */
+    readonly attribute boolean isDcNrRestricted;
+
+    /**
+     * True if the bit N is in the PLMN-InfoList-r15 is true and the selected PLMN is present in
+     * plmn-IdentityList at position N.
+     * Reference: 3GPP TS 36.331 v15.2.2 section 6.3.1 PLMN-InfoList-r15.
+     *            3GPP TS 36.331 v15.2.2 section 6.2.2 SystemInformationBlockType1 message.
+     */
+    readonly attribute boolean isNrAvailable;
+};
+/**
+ * XPCOM component for LteVopsInfo of DataRegState.
+ */
+[scriptable, uuid(860922be-3ef5-472d-8e07-81a5c9ebb502)]
+interface nsILteVopsInfo : nsISupports
+{
+    /**
+     * This indicates if camped network support VoLTE services. This information is received
+     * from LTE network during LTE NAS registration procedure through LTE ATTACH ACCEPT/TAU
+     * ACCEPT. Refer 3GPP 24.301 EPS network feature support -> IMS VoPS
+     */
+    readonly attribute boolean isVopsSupported;
+    /**
+     * This indicates if camped network support VoLTE emergency bearers. This information
+     * is received from LTE network through two sources:
+     * a. During LTE NAS registration procedure through LTE ATTACH ACCEPT/TAU ACCEPT. Refer
+     *    3GPP 24.301 EPS network feature support -> EMC BS
+     * b. In case device is not registered on network. Refer 3GPP 25.331 LTE RRC
+     *    SIB1 : ims-EmergencySupport-r9
+     * If device is registered on LTE, then this field indicates (a).
+     * In case of limited service on LTE this field indicates (b).
+     */
+    readonly attribute boolean isEmcBearerSupported;
+};
+
+/**
+ * XPCOM component for NrVopsInfo of DataRegState.
+ */
+[scriptable, uuid(e91009f1-442a-419c-87f1-aead78c98e7a)]
+interface nsINrVopsInfo : nsISupports
+{
+    /**
+     * This indicates if the camped network supports VoNR services, and what kind of services
+     * it supports. This information is received from NR network during NR NAS registration
+     * procedure through NR REGISTRATION ACCEPT.
+     * Refer 3GPP 24.501 EPS 5GS network feature support -> IMS VoPS
+     */
+    readonly attribute long vopsSupported;
+    /**
+     * This indicates if the camped network supports VoNR emergency service. This information
+     * is received from NR network through two sources:
+     * a. During NR NAS registration procedure through NR REGISTRATION ACCEPT.
+     *    Refer 3GPP 24.501 EPS 5GS network feature support -> EMC
+     * b. In case the device is not registered on the network.
+     *    Refer 3GPP 38.331 SIB1 : ims-EmergencySupport
+     *    If device is registered on NR, then this field indicates whether the cell
+     *    supports IMS emergency bearer services for UEs in limited service mode.
+     */
+    readonly attribute long emcSupported;
+    /**
+     * This indicates if the camped network supports VoNR emergency service fallback. This
+     * information is received from NR network during NR NAS registration procedure through
+     * NR REGISTRATION ACCEPT.
+     * Refer 3GPP 24.501 EPS 5GS network feature support -> EMF
+     */
+    readonly attribute long emfSupported;
 };
 
 /**
  * XPCOM component for DataRegState.
  */
-[scriptable, uuid(28441bc2-2fb4-4520-be49-19e4b831e892)]
+[scriptable, uuid(284a0847-43c1-41e0-bc03-dc9826212316)]
 interface nsIDataRegState : nsISupports
 {
+  // Use to give the type of union param:vopsInfo.
+  const uint8_t NOINIT = 0;
+  const uint8_t LTEVOPSINFOR = 1;
+
+  // From 24.008 6.1.3.0 and 10.5.6.2 the maximum number of PDP Contexts is 16.
+  const uint8_t MAX_DATA_CALLS = 16;
+
   /* REG_STATE_ */
   readonly attribute long regState;
   readonly attribute long rat;
   readonly attribute long reasonDataDenied;
   readonly attribute long maxDataCalls;
   readonly attribute nsICellIdentity cellIdentity;
+  readonly attribute AString registeredPlmn;
+
+  /**
+   * Network capabilities for voice over PS services. This info is valid only on LTE network and
+   * must be present when device is camped on LTE. vopsInfo must be empty when device is camped
+   * only on 2G/3G.
+   */
+  readonly attribute  nsILteVopsInfo vopsInfo;
+  /**
+   * The parameters of NR 5G Non-Standalone. This value is only valid on E-UTRAN, otherwise
+   * must be empty.
+   */
+  readonly attribute nsINrIndicators nrIndicators;
+  /**
+    * Network capabilities for voice over PS services. This info is valid only on NR
+    * network and must be present when the device is camped on NR. VopsInfo must be
+    * empty when the device is not camped on NR.
+    */
+  readonly attribute nsINrVopsInfo nrVopsInfo;
 };
 
 /**
@@ -955,18 +2017,6 @@ interface nsIActivityStatsInfo : nsISupports
 /**
  * XPCOM component for AllowedCarriers.
  */
-[scriptable, uuid(369a767b-3d45-4467-a767-5fcafe4ef122)]
-interface nsICarrier : nsISupports
-{
-  readonly attribute AString mcc;
-  readonly attribute AString mnc;
-  readonly attribute long matchType;
-  readonly attribute AString matchData;
-};
-
-/**
- * XPCOM component for AllowedCarriers.
- */
 [scriptable, uuid(d1263f13-02e5-4cdd-8a25-2c49aa2131d9)]
 interface nsICarrierRestrictions : nsISupports
 {
@@ -974,6 +2024,181 @@ interface nsICarrierRestrictions : nsISupports
                           [array, size_is(count), retval] out nsICarrier allowedCarriers);
   void getExcludedCarriers([optional] out unsigned long count,
                            [array, size_is(count), retval] out nsICarrier excludedCarriers);
+};
+
+/**
+ * XPCOM component for AllowedCarriersResult.
+ */
+[scriptable, uuid(45a42158-a320-4531-910c-9858c3fdc642)]
+interface nsIAllowedCarriers : nsISupports
+{
+  // const valus for SimLockMultiSimPolicy
+  /**
+   * Indicates that configuration applies to each slot independently.
+   */
+  const long NO_MULTISIM_POLICY = 0;
+  /**
+   * Indicates that any SIM card can be used as far as one valid card is present in the device.
+   * For the modem, a SIM card is valid when its content (i.e. MCC, MNC, GID, SPN) matches the
+   * carrier restriction configuration.
+   */
+  const long ONE_VALID_SIM_MUST_BE_PRESENT = 1;
+
+  readonly attribute nsICarrierRestrictionsWithPriority crp;
+
+  readonly attribute long simLockMultiSimPolicy;
+};
+
+/**
+ * XPCOM component for LinkCapacityEstimate.
+ */
+[scriptable, uuid(cd74b32b-92ee-4d83-93d3-ed85c1adef9c)]
+interface nsILinkCapacityEstimate : nsISupports
+{
+  /**
+   * Estimated downlink capacity in kbps. This bandwidth estimate shall be the estimated
+   * maximum sustainable link bandwidth (as would be measured at the Upper PDCP or SNDCP SAP).
+   * If the DL Aggregate Maximum Bit Rate is known, this value shall not exceed the DL-AMBR
+   * for the Internet PDN connection.
+   */
+  readonly attribute long downlinkCapacityKbps;
+  /**
+   * Estimated uplink capacity in kbps. This bandwidth estimate shall be the estimated
+   * maximum sustainable link bandwidth (as would be measured at the Upper PDCP or SNDCP SAP).
+   * If the UL Aggregate Maximum Bit Rate is known, this value shall not exceed the UL-AMBR
+   * for the Internet PDN connection.
+   */
+  readonly attribute long uplinkCapacityKbps;
+
+   /**
+    * Estimated downlink capacity of secondary carrier in a dual connected NR mode in kbps.
+    * This bandwidth estimate shall be the estimated maximum sustainable link bandwidth
+    * (as would be measured at the Upper PDCP or SNDCP SAP). This is valid only
+    * in if device is connected to both primary and secodary in dual connected
+    * mode. This must be filled with 0 if secondary is not connected or if
+    * modem does not support this feature.
+    */
+   readonly attribute unsigned long secondaryDownlinkCapacityKbps;
+
+   /**
+    * Estimated uplink capacity secondary carrier in a dual connected NR mode in kbps.
+    * This bandwidth estimate shall be the estimated
+    * maximum sustainable link bandwidth (as would be measured at the Upper PDCP or SNDCP SAP).
+    * This is valid only in if device is connected to both primary and secodary in dual connected
+    * mode.This must be filled with 0 if secondary is not connected or if modem
+    * does not support this feature.
+    */
+    readonly attribute unsigned long secondaryUplinkCapacityKbps;
+};
+
+/**
+ * XPCOM component for PhysicalChannelConfig.
+ */
+[scriptable, uuid(eea9f97e-716d-4f0e-ba1b-c186dd2d685a)]
+interface nsIPhysicalChannelConfig : nsISupports
+{
+
+  /**
+   * Connection status for cell. Valid values are PRIMARY_SERVING and SECONDARY_SERVING.
+   */
+  readonly attribute long status;
+
+  /**
+   * Cell bandwidth, in kHz.
+   */
+  readonly attribute unsigned long cellBandwidthDownlink;
+
+  /**
+   * The radio technology for this physical channel.
+   */
+  readonly attribute long rat;
+
+  /**
+   * Indicates whether frequencyRange or channelNumber is valid
+   * 0 means frequencyRange is valid
+   * 1 means channleNumber is valid
+   */
+  readonly attribute uint8_t discriminator;
+
+  // only frequencyRange or channelNumber will be valid
+  /** A rough frequency range. */
+  readonly attribute long frequencyRange;
+
+  /** The Absolute Radio Frequency Channel Number. */
+  readonly attribute long channelNumber;
+
+  /**
+   * A list of data calls mapped to this physical channel. The context id must match the cid of
+   * @1.4::SetupDataCallResult. An empty list means the physical channel has no data call mapped
+   * to it.
+   */
+  readonly attribute Array<long> contextIds;
+  /**
+   * The physical cell identifier for this cell.
+   *
+   * In UTRAN, this value is primary scrambling code. The range is [0, 511].
+   * Reference: 3GPP TS 25.213 section 5.2.2.
+   *
+   * In EUTRAN, this value is physical layer cell identity. The range is [0, 503].
+   * Reference: 3GPP TS 36.211 section 6.11.
+   *
+   * In 5G RAN, this value is physical layer cell identity. The range is [0, 1008].
+   * Reference: 3GPP TS 38.211 section 7.4.2.1.
+   */
+  readonly attribute unsigned long physicalCellId;
+
+  /** Downlink Absolute Radio Frequency Channel Number */
+  readonly attribute long downlinkChannelNumber;
+
+  /** Uplink Absolute Radio Frequency Channel Number */
+  readonly attribute long uplinkChannelNumber;
+
+  /** Downlink cell bandwidth, in kHz. Replace with cellBandwidthDownlink */
+  // readonly attribute long cellBandwidthDownlinkKhz;
+
+  /** Uplink cell bandwidth, in kHz */
+  readonly attribute long cellBandwidthUplinkKhz;
+
+  /**
+   * Indicates ran type
+   * 0 means geranBand
+   * 1 means utranBand
+   * 2 means eutranBand
+   * 3 means ngranBand
+   */
+  readonly attribute long ran_discriminator;
+  /** Valid only if radioAccessNetwork = GERAN. */
+  readonly attribute long geranBand;
+  /** Valid only if radioAccessNetwork = UTRAN. */
+  readonly attribute long utranBand;
+  /** Valid only if radioAccessNetwork = EUTRAN. */
+  readonly attribute long eutranBand;
+  /** Valid only if radioAccessNetwork = NGRAN. */
+  readonly attribute long ngranBand;
+};
+
+/**
+ * XPCOM component for NetworkScanResult.
+ */
+[scriptable, uuid(c338dd60-a3d3-42ca-a5ad-d06be1d3184d)]
+interface nsINetworkScanResult : nsISupports
+{
+  /**
+   * The status of the scan.
+   * PARTIAL = 1, // The result contains a part of the scan results
+   * COMPLETE = 2, // The result contains the last part of the scan results
+   */
+  readonly attribute long status;
+
+  /**
+   * The error code of the incremental result.
+   */
+  readonly attribute long error;
+
+  /**
+   * List of network information as CellInfo.
+   */
+  readonly attribute Array<nsIRilCellInfo> networkInfos;
 };
 
 /**
@@ -1028,10 +2253,182 @@ interface nsICdmaSmsAddress: nsISupports
 /**
  * XPCOM component for cdma sms information.
  */
-/*[scriptable, uuid(3da8961d-c34c-4ef7-9ce7-2690cf830bab)]
-interface nsICdmaSmsSubaddress: nsISupports
+[scriptable, uuid(94c48961-3f4c-4123-89dd-1212febdff84)]
+interface nsIEmergencyNumber: nsISupports
 {
-    CdmaSmsSubaddressType subaddressType;
-    bool odd;                             // true means the last byte's lower 4 bits must be ignored
-    vec<uint8_t> digits;                  // Each byte represents an 8-bit digit of subaddress data
-};*/
+    readonly attribute AString number;
+    readonly attribute AString mcc;
+    readonly attribute AString mnc;
+    readonly attribute unsigned long categories;
+    readonly attribute Array<AString> urns;
+    readonly attribute unsigned long sources;
+};
+
+[scriptable, uuid(bb482cad-afc5-4ac2-96cf-ecf99df5f2af)]
+interface  nsISupplySimDepersonalizationResult: nsISupports
+{
+    /* @param persoType SIM PersoSubstate type*/
+    readonly attribute  long persoType;
+
+    /*remainingRetries postiive values indicates number of retries remaining,
+     * must be equal to -1 if number of retries is infinite.*/
+    readonly attribute  long remainingRetries;
+};
+
+
+[scriptable, uuid(c066514a-289b-4b19-9896-06be31c6b85f)]
+interface nsIRouteSelectionDescriptor : nsISupports
+{
+    /**
+     * Unknown protocol
+     */
+    const  long PDP_PROTOCOL_TYPE_UNKNOWN = -1;
+    /**
+     * Internet protocol
+     */
+    const  long PDP_PROTOCOL_TYPE_IP = 0;
+    /**
+     * Internet protocol, version 6
+     */
+    const  long PDP_PROTOCOL_TYPE_IPV6 = 1;
+    /**
+     * Virtual PDP type introduced to handle dual IP stack UE capability.
+     */
+    const  long PDP_PROTOCOL_TYPE_IPV4V6 = 2;
+    /**
+     * Point to point protocol
+     */
+    const  long PDP_PROTOCOL_TYPE_PPP = 3;
+    /**
+     * Transfer of Non-IP data to external packet data network
+     */
+    const  long PDP_PROTOCOL_TYPE_NON_IP = 4;
+    /**
+     * Transfer of Unstructured data to the Data Network via N6
+     */
+    const  long PDP_PROTOCOL_TYPE_UNSTRUCTURED = 5;
+
+    /**
+     * Precedence value in the range of 0 to 255. Higher value has lower
+     * precedence.
+     */
+    readonly attribute long  precedence;
+
+    // PDP_PROTOCOL_TYPE_*
+    readonly attribute long sessionType;
+
+    /**
+      * Enum representing session and service continuity mode as defined in
+       * 3GPP TS 23.501.
+    */
+    const long  SSC_MODE1 = 1;
+    const long  SSC_MODE2 = 2;
+    const long  SSC_MODE3 = 3;
+
+    // SSC_MODE1, SSC_MODE2, SSC_MODE3
+    readonly attribute long  sscMode;
+
+    readonly attribute Array<nsISliceInfo> sliceInfo;
+
+    readonly attribute Array<AString> dnn;
+
+};
+
+[scriptable, uuid(91450b00-4b6e-4d09-9913-48bd4bb638b3)]
+interface nsIUrspRule : nsISupports {
+      /**
+     * Precedence value in the range of 0 to 255. Higher value has lower
+     * precedence.
+     */
+    readonly attribute long  precedence;
+    /**
+     * Used as a matcher for network requests.
+     */
+    readonly attribute Array<nsITrafficDescriptor> trafficDescriptors;
+    /**
+     * List of routes (connection parameters) that must be used for requests
+     * matching a trafficDescriptor.
+     */
+    readonly attribute Array<nsIRouteSelectionDescriptor> routeSelectionDescriptor;
+
+};
+
+/**
+  represents the current slicing configuration.
+ */
+[scriptable, uuid(35edb95a-d9b4-4b4d-aabd-42b7544009fd)]
+interface nsISlicingConfig : nsISupports {
+    /**
+     * array contains current URSP rules. Empty represents that no
+     * rules are configured.
+     */
+    readonly attribute Array<nsIUrspRule> urspRules;
+    /**
+     * List of all slices.
+     */
+    readonly attribute Array<nsISliceInfo> sliceInfo;
+};
+
+[scriptable, uuid(0ef3b700-1d76-4c69-bfb5-f5e03d1b25a3)]
+interface  nsIPhonebookCapacity: nsISupports
+{
+  /**
+     * Maximum number of ADN records possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxAdnRecords;
+
+    /**
+     * Used ADN records in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long usedAdnRecords;
+
+    /**
+     * Maximum email records possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxEmailRecords;
+
+    /**
+     * Used email records in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long usedEmailRecords;
+
+    /**
+     * Maximum additional number records possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxAdditionalNumberRecords;
+
+    /**
+     * Used additional number records in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long usedAdditionalNumberRecords;
+
+    /**
+     * Maximum name length possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxNameLen;
+
+    /**
+     * Maximum number length possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxNumberLen;
+
+    /**
+     * Maximum email length possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxEmailLen;
+
+    /**
+     * Maximum additional number length possible in the SIM phonebook
+     * Needs to be non-negative
+     */
+    readonly attribute  long maxAdditionalNumberLen;
+};

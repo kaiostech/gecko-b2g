@@ -1355,6 +1355,7 @@ CancellableTransaction.prototype = {
   notifyDeviceIdentitiesChanged() {},
   notifySignalStrengthChanged() {},
   notifyModemRestart(reason) {},
+  notifyScanResultReceived(scanResults) {},
 };
 
 /**

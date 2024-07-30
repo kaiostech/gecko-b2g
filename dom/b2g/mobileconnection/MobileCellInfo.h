@@ -26,7 +26,9 @@ class MobileCellInfo final : public nsIMobileCellInfo, public nsWrapperCache {
                  int32_t aCdmaBaseStationId, int32_t aCdmaBaseStationLatitude,
                  int32_t aCdmaBaseStationLongitude, int32_t aCdmaSystemId,
                  int32_t aCdmaNetworkId, int16_t aCdmaRoamingIndicator,
-                 int16_t aCdmaDefaultRoamingIndicator, bool aCdmaSystemIsInPRL);
+                 int16_t aCdmaDefaultRoamingIndicator, bool aCdmaSystemIsInPRL,
+                 int32_t aTac, int64_t aCi, int32_t aPci, int32_t aArfcns,
+                 int64_t aBands);
 
   void Update(nsIMobileCellInfo* aInfo);
 
@@ -58,6 +60,12 @@ class MobileCellInfo final : public nsIMobileCellInfo, public nsWrapperCache {
 
   bool CdmaSystemIsInPRL() const { return mCdmaSystemIsInPRL; }
 
+  int32_t Tac() const { return mTac; }
+  int64_t Ci() const { return mCi; }
+  int32_t Pci() const { return mPci; }
+  int32_t Arfcns() const { return mArfcns; }
+  int64_t Bands() const { return mBands; }
+
  private:
   ~MobileCellInfo() {}
 
@@ -73,6 +81,11 @@ class MobileCellInfo final : public nsIMobileCellInfo, public nsWrapperCache {
   int16_t mCdmaRoamingIndicator;
   int16_t mCdmaDefaultRoamingIndicator;
   bool mCdmaSystemIsInPRL;
+  int32_t mTac;
+  int64_t mCi;
+  int32_t mPci;
+  int32_t mArfcns;
+  int64_t mBands;
 };
 
 }  // namespace dom

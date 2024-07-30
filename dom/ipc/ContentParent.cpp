@@ -340,6 +340,10 @@ using namespace mozilla::system;
 #  include "mozilla/dom/RSUParent.h"
 #endif
 
+#ifdef B2G_ESIM
+#include "mozilla/dom/EUiccParent.h"
+#endif
+
 #include "mozilla/RemoteSpellCheckEngineParent.h"
 
 #include "Crypto.h"
@@ -5327,6 +5331,22 @@ PRSUParent* ContentParent::AllocPRSUParent() {
 
 bool ContentParent::DeallocPRSUParent(PRSUParent* aActor) {
   RefPtr<RSUParent> actor = dont_AddRef(static_cast<RSUParent*>(aActor));
+  return true;
+}
+#endif
+
+#ifdef B2G_ESIM
+PEUiccParent*
+ContentParent::AllocPEUiccParent()
+{
+  RefPtr<EUiccParent> actor = new EUiccParent();
+  return actor.forget().take();
+}
+
+bool
+ContentParent::DeallocPEUiccParent(PEUiccParent* aActor)
+{
+  RefPtr<EUiccParent> actor = dont_AddRef(static_cast<EUiccParent*>(aActor));
   return true;
 }
 #endif

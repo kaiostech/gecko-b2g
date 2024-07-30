@@ -7,17 +7,19 @@
 #ifndef nsRilIndicationResult_H
 #define nsRilIndicationResult_H
 
-#include "nsISupports.h"
-#include <nsISupportsImpl.h>
-#include "nsTArray.h"
 #include "nsCOMArray.h"
 #include "nsCOMPtr.h"
-#include "nsRilResult.h"
 #include "nsIRilIndicationResult.h"
+#include "nsISupports.h"
+#include "nsRilResult.h"
+#include "nsTArray.h"
+#include <nsISupportsImpl.h>
 
-class nsRilIndicationResult final : public nsRilResult,
-                                    public nsIRilIndicationResult {
- public:
+class nsRilIndicationResult final
+  : public nsRilResult
+  , public nsIRilIndicationResult
+{
+public:
   NS_DECL_THREADSAFE_ISUPPORTS
   // NS_DECL_ISUPPORTS
   NS_DECL_NSIRILINDICATIONRESULT
@@ -38,7 +40,7 @@ class nsRilIndicationResult final : public nsRilResult,
   void updateCurrentSignalStrength(nsSignalStrength* aSignalStrength);
   // For dataCallListChanged
   void updateDataCallListChanged(
-      nsTArray<RefPtr<nsSetupDataCallResult>>& aDatacalls);
+    nsTArray<RefPtr<nsSetupDataCallResult>>& aDatacalls);
   // For suppSvcNotify
   void updateSuppSvcNotify(nsSuppSvcNotification* aSuppSvc);
   // For stkProactiveCommand & stkEventNotify
@@ -67,7 +69,7 @@ class nsRilIndicationResult final : public nsRilResult,
   void updateSrvccStateNotify(int32_t aSrvccState);
   // For hardwareConfigChanged
   void updateHardwareConfigChanged(
-      nsTArray<RefPtr<nsHardwareConfig>>& aConfigs);
+    nsTArray<RefPtr<nsHardwareConfig>>& aConfigs);
   // For radioCapabilityIndication
   void updateRadioCapabilityIndication(nsRadioCapability* aRc);
   // For stkCallControlAlphaNotify
@@ -78,6 +80,32 @@ class nsRilIndicationResult final : public nsRilResult,
   void updatePcoData(nsIPcoDataInfo* aPco);
   // For modemReset
   void updateModemReset(const nsAString& aReason);
+  // For currentLinkCapacityEstimate
+  void updateCurrentLinkCapacityEstimate(nsLinkCapacityEstimate* aClce);
+  // For physicalChannelConfig
+  void updatePhysicalChannelConfig(
+    nsTArray<RefPtr<nsPhysicalChannelConfig>>& aPcc);
+  // For EmergencyNumber
+  void updateCurrentEmergencyNumberList(
+    nsTArray<RefPtr<nsEmergencyNumber>>& aEmergNums);
+  // For AllowedCarriers
+  void updateAllowedCarriers(nsAllowedCarriers* aAllowedCarriers);
+  // For NetworkScan
+  void updateScanResult(nsNetworkScanResult* aNetworkScanResult);
+  // For networksice
+  void updateSlicingConfig(nsSlicingConfig* aSlicingConfig);
+  // For UiccApplications whether enabled or not
+  void updateUiccApplicationsEnabled(bool aUiccApplicationsEnabled);
+  // For registrationFailed
+  void updateRegistrationFailed(nsRegistrationFailedEvent* aRegFailedEvent);
+  // For barringInfoChanged
+  void updateBarringInfoChanged(nsBarringInfoChanged* aBarringInfoChangedEvent);
+  // For unthrottleApn
+  void updateUnthrottleApn(const nsAString& aUnthrottleApn);
+  // For simPhonebookRecordsReceived
+  void updateSimPhonebookRecords(
+    nsSimPhonebookRecordsEvent* aSimPBRecordsEvent);
+  void updateSimSlotStatus(nsTArray<RefPtr<nsISimSlotStatus>>&);
 
   int32_t mRadioState;
   int32_t mRecordNumber;
@@ -106,9 +134,20 @@ class nsRilIndicationResult final : public nsRilResult,
   nsCOMPtr<nsIPcoDataInfo> mPco;
   nsString mReason;
   nsTArray<int32_t> mPdu;
+  RefPtr<nsLinkCapacityEstimate> mClce;
+  nsTArray<RefPtr<nsPhysicalChannelConfig>> mPccs;
+  nsTArray<RefPtr<nsEmergencyNumber>> mEmergNums;
+  RefPtr<nsAllowedCarriers> mAllowedCarriers;
+  RefPtr<nsNetworkScanResult> mNetworkScanResult;
+  bool mUiccApplicationsEnabled;
+  RefPtr<nsRegistrationFailedEvent> mRegFailedEvent;
+  RefPtr<nsBarringInfoChanged> mBarringInfoChangedEvent;
+  nsString mUnthrottleApn;
+  RefPtr<nsSimPhonebookRecordsEvent> mSimPBRecordsEvent;
+  RefPtr<nsSlicingConfig> mSlicingConfig;
+  nsTArray<RefPtr<nsISimSlotStatus>> mSimSlotStatus;
 
- private:
+private:
   ~nsRilIndicationResult();
 };
-
-#endif  // nsRilIndicationResult_H
+#endif // nsRilIndicationResult_H

@@ -22,13 +22,20 @@ XPIDL_SOURCES += [
     "nsIGonkDataCallInterfaceService.idl",
     "nsINetworkTimeService.idl",
     "nsIRadioInterfaceLayer.idl",
+    "nsIRadioTypes.idl",
     "nsIRilIndicationResult.idl",
     "nsIRilResponseResult.idl",
     "nsIRilResult.idl",
     "nsIRilWorkerService.idl",
 ]
 
+if CONFIG["ANDROID_VERSION"] >= "33":
+  XPIDL_SOURCES += [
+    "nsIRadioProxyServiceManager.idl",
+  ]
+
 UNIFIED_SOURCES += [
+    "nsRadioTypes.cpp",
     "nsRilIndication.cpp",
     "nsRilIndicationResult.cpp",
     "nsRilResponse.cpp",
@@ -38,7 +45,18 @@ UNIFIED_SOURCES += [
     "nsRilWorkerService.cpp",
 ]
 
+if CONFIG["ANDROID_VERSION"] >= "33":
+  UNIFIED_SOURCES += [
+      "nsRadioProxyServiceManager.cpp",
+  ]
+
+if CONFIG["ANDROID_VERSION"] >= "33":
+  EXPORTS += [
+    "nsRadioProxyServiceManager.h",
+  ]
+
 EXPORTS += [
+    "nsRadioTypes.h",
     "nsRilIndication.h",
     "nsRilIndicationResult.h",
     "nsRilResponse.h",

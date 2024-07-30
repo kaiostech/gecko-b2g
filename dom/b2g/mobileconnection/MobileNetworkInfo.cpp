@@ -12,12 +12,14 @@ NS_IMPL_ISUPPORTS(MobileNetworkInfo, nsIMobileNetworkInfo)
 
 MobileNetworkInfo::MobileNetworkInfo() {}
 
-MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,
+MobileNetworkInfo::MobileNetworkInfo(const nsAString& aRat,
+                                     const nsAString& aShortName,
                                      const nsAString& aLongName,
                                      const nsAString& aMcc,
                                      const nsAString& aMnc,
                                      const nsAString& aState)
-    : mShortName(aShortName),
+    : mRat(aRat),
+      mShortName(aShortName),
       mLongName(aLongName),
       mMcc(aMcc),
       mMnc(aMnc),
@@ -28,6 +30,7 @@ MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,
 
 void MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   if (!aInfo) {
+    mRat = nullptr;
     mShortName = nullptr;
     mLongName = nullptr;
     mMcc = nullptr;
@@ -36,6 +39,7 @@ void MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
     return;
   }
 
+  aInfo->GetRat(mRat);
   aInfo->GetShortName(mShortName);
   aInfo->GetLongName(mLongName);
   aInfo->GetMcc(mMcc);
@@ -44,6 +48,12 @@ void MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
 }
 
 // nsIMobileNetworkInfo
+
+NS_IMETHODIMP
+MobileNetworkInfo::GetRat(nsAString& aRat) {
+  aRat = mRat;
+  return NS_OK;
+}
 
 NS_IMETHODIMP
 MobileNetworkInfo::GetShortName(nsAString& aShortName) {

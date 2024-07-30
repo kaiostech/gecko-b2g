@@ -9,6 +9,11 @@ enum MobileNetworkState {"available", "connected", "forbidden"};
 interface DOMMobileNetworkInfo
 {
   /**
+   * Radio access type.
+   */
+  readonly attribute DOMString? rat;
+
+  /**
    * Short name of the network operator.
    */
   readonly attribute DOMString? shortName;

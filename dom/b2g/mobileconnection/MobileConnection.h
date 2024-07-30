@@ -102,6 +102,17 @@ class MobileConnection final : public DOMEventTargetHelper,
   already_AddRefed<DOMRequest> SetRoamingPreference(MobileRoamingMode& aMode,
                                                     ErrorResult& aRv);
 
+  already_AddRefed<DOMRequest> SetVoNrEnabled(bool enabled, ErrorResult& aRv);
+
+  already_AddRefed<DOMRequest> IsVoNrEnabled(ErrorResult& aRv);
+
+  already_AddRefed<DOMRequest> SetNrDualConnectivityState(NrDualConnectivityState& aMode,
+                                                    ErrorResult& aRv);
+  already_AddRefed<DOMRequest> IsNrDualConnectivityEnabled(ErrorResult& aRv);
+
+  already_AddRefed<DOMRequest> StartNetworkScan(const MobileNetworkScan& aOptions,
+                                             ErrorResult& aRv);
+
   already_AddRefed<DOMRequest> GetRoamingPreference(ErrorResult& aRv);
 
   already_AddRefed<DOMRequest> SetVoicePrivacyMode(bool aEnabled,
@@ -152,6 +163,7 @@ class MobileConnection final : public DOMEventTargetHelper,
   IMPL_EVENT_HANDLER(clirmodechange)
   IMPL_EVENT_HANDLER(signalstrengthchange)
   IMPL_EVENT_HANDLER(modemrestart)
+  IMPL_EVENT_HANDLER(networkscanresult)
   IMPL_EVENT_HANDLER(networkselectionmodechange)
 
  private:

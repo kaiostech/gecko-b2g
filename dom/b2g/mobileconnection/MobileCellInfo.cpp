@@ -31,7 +31,13 @@ MobileCellInfo::MobileCellInfo(nsPIDOMWindowInner* aWindow)
       mCdmaNetworkId(-1),
       mCdmaRoamingIndicator(-1),
       mCdmaDefaultRoamingIndicator(-1),
-      mCdmaSystemIsInPRL(false) {}
+      mCdmaSystemIsInPRL(false),
+      mTac(-1),
+      mCi(-1),
+      mPci(-1),
+      mArfcns(-1),
+      mBands(0) {
+      }
 
 MobileCellInfo::MobileCellInfo(int32_t aGsmLocationAreaCode, int64_t aGsmCellId,
                                int32_t aCdmaBaseStationId,
@@ -40,7 +46,12 @@ MobileCellInfo::MobileCellInfo(int32_t aGsmLocationAreaCode, int64_t aGsmCellId,
                                int32_t aCdmaSystemId, int32_t aCdmaNetworkId,
                                int16_t aCdmaRoamingIndicator,
                                int16_t aCdmaDefaultRoamingIndicator,
-                               bool aCdmaSystemIsInPRL)
+                               bool aCdmaSystemIsInPRL,
+                               int32_t aTac,
+                               int64_t aCi,
+                               int32_t aPci,
+                               int32_t aArfcns,
+                               int64_t aBands)
     : mGsmLocationAreaCode(aGsmLocationAreaCode),
       mGsmCellId(aGsmCellId),
       mCdmaBaseStationId(aCdmaBaseStationId),
@@ -50,7 +61,12 @@ MobileCellInfo::MobileCellInfo(int32_t aGsmLocationAreaCode, int64_t aGsmCellId,
       mCdmaNetworkId(aCdmaNetworkId),
       mCdmaRoamingIndicator(aCdmaRoamingIndicator),
       mCdmaDefaultRoamingIndicator(aCdmaDefaultRoamingIndicator),
-      mCdmaSystemIsInPRL(aCdmaSystemIsInPRL) {
+      mCdmaSystemIsInPRL(aCdmaSystemIsInPRL),
+      mTac(aTac),
+      mCi(aCi),
+      mPci(aPci),
+      mArfcns(aArfcns),
+      mBands(aBands) {
   // The instance created by this way is only used for IPC stuff. It won't be
   // exposed to JS directly, we will clone this instance to the one that is
   // maintained in MobileConnectionChild.
@@ -71,6 +87,11 @@ void MobileCellInfo::Update(nsIMobileCellInfo* aInfo) {
   aInfo->GetCdmaRoamingIndicator(&mCdmaRoamingIndicator);
   aInfo->GetCdmaDefaultRoamingIndicator(&mCdmaDefaultRoamingIndicator);
   aInfo->GetCdmaSystemIsInPRL(&mCdmaSystemIsInPRL);
+  aInfo->GetTac(&mTac);
+  aInfo->GetCi(&mCi);
+  aInfo->GetPci(&mPci);
+  aInfo->GetArfcns(&mArfcns);
+  aInfo->GetBands(&mBands);
 }
 
 JSObject* MobileCellInfo::WrapObject(JSContext* aCx,
@@ -139,5 +160,34 @@ MobileCellInfo::GetCdmaDefaultRoamingIndicator(
 NS_IMETHODIMP
 MobileCellInfo::GetCdmaSystemIsInPRL(bool* aCdmaSystemIsInPRL) {
   *aCdmaSystemIsInPRL = CdmaSystemIsInPRL();
+  return NS_OK;
+}
+NS_IMETHODIMP
+MobileCellInfo::GetTac(int32_t* aTac) {
+  *aTac = Tac();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MobileCellInfo::GetCi(int64_t* aCi) {
+  *aCi = Ci();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MobileCellInfo::GetPci(int32_t* aPci) {
+  *aPci = Pci();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MobileCellInfo::GetArfcns(int32_t* aArfcns) {
+  *aArfcns = Arfcns();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MobileCellInfo::GetBands(int64_t* aBands) {
+  *aBands = Bands();
   return NS_OK;
 }

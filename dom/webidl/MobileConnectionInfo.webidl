@@ -6,7 +6,7 @@ enum MobileConnectionState {"notSearching", "searching", "denied", "registered"}
 enum MobileConnectionType {"gsm", "gprs", "edge", "umts", "hsdpa", "hsupa",
                            "hspa", "hspa+", "is95a", "is95b", "1xrtt", "evdo0",
                            "evdoa", "evdob", "ehrpd", "lte", "tdscdma", "iwlan",
-                           "lte_ca"};
+                           "lte_ca", "nr"};
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
@@ -71,4 +71,10 @@ interface MobileConnectionInfo
   */
 
   readonly attribute long reasonDataDenied;
+
+  /**
+   * Indicates whether device should show 5G in LTE.
+   *
+   */
+  readonly attribute boolean isNSA5GAvailable;
 };

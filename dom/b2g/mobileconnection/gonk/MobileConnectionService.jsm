@@ -125,6 +125,330 @@ CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_ANONYMOUS_INCOMING] =
 
 // TODO: Customization for rsrp/rssnr range.
 const rsrp_thresh = [-140, -128, -118, -108, -98, -44];
+const ssRsrp_thresh = [-140, -110, -90, -80, -65, -44];
+
+const NetworkType = {
+  GSM:
+    RIL.RADIO_ACCESS_FAMILY_GPRS |
+    RIL.RADIO_ACCESS_FAMILY_EDGE |
+    RIL.RADIO_ACCESS_FAMILY_GSM,
+  WCDMA:
+    RIL.RADIO_ACCESS_FAMILY_HSUPA |
+    RIL.RADIO_ACCESS_FAMILY_HSDPA |
+    RIL.RADIO_ACCESS_FAMILY_HSPA |
+    RIL.RADIO_ACCESS_FAMILY_HSPAP |
+    RIL.RADIO_ACCESS_FAMILY_UMTS,
+  CDMA:
+    RIL.RADIO_ACCESS_FAMILY_IS95A |
+    RIL.RADIO_ACCESS_FAMILY_IS95B |
+    RIL.RADIO_ACCESS_FAMILY_1XRTT,
+  EVDO:
+    RIL.RADIO_ACCESS_FAMILY_EVDO0 |
+    RIL.RADIO_ACCESS_FAMILY_EVDOA |
+    RIL.RADIO_ACCESS_FAMILY_EVDOB |
+    RIL.RADIO_ACCESS_FAMILY_EHRPD,
+  LTE: RIL.RADIO_ACCESS_FAMILY_LTE | RIL.RADIO_ACCESS_FAMILY_LTE_CA,
+  NR: RIL.RADIO_ACCESS_FAMILY_NR,
+  TDSCDMA: RIL.RADIO_ACCESS_FAMILY_TD_SCDMA,
+};
+
+const networkTypeMap = new Map([
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_GSM,
+    NetworkType.GSM | NetworkType.WCDMA,
+  ],
+  [Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_GSM_ONLY, NetworkType.GSM],
+  [Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_ONLY, NetworkType.WCDMA],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_GSM_AUTO,
+    NetworkType.GSM | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_CDMA_EVDO,
+    NetworkType.CDMA | NetworkType.EVDO,
+  ],
+  [Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_CDMA_ONLY, NetworkType.CDMA],
+  [Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_EVDO_ONLY, NetworkType.EVDO],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_GSM_CDMA_EVDO,
+    NetworkType.GSM | NetworkType.WCDMA | NetworkType.EVDO | NetworkType.CDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_CDMA_EVDO,
+    NetworkType.LTE | NetworkType.CDMA | NetworkType.EVDO,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM,
+    NetworkType.LTE | NetworkType.GSM | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM_CDMA_EVDO,
+    NetworkType.LTE |
+      NetworkType.GSM |
+      NetworkType.WCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO,
+  ],
+  [Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_ONLY, NetworkType.LTE],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA,
+    NetworkType.LTE | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_ONLY,
+    NetworkType.TDSCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA,
+    NetworkType.TDSCDMA | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE,
+    NetworkType.TDSCDMA | NetworkType.LTE,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM,
+    NetworkType.TDSCDMA | NetworkType.GSM,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_LTE,
+    NetworkType.TDSCDMA | NetworkType.GSM | NetworkType.LTE,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA_LTE,
+    NetworkType.TDSCDMA | NetworkType.WCDMAGSM | NetworkType.LTE,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_LTE,
+    NetworkType.TDSCDMA |
+      NetworkType.GSM |
+      NetworkType.WCDMAGSM |
+      NetworkType.LTE,
+  ],
+  [
+    Ci.nsIMobileConnection
+      .PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_CDMA_EVDO_AUTO,
+    NetworkType.TDSCDMA |
+      NetworkType.GSM |
+      NetworkType.WCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO,
+  ],
+  [
+    Ci.nsIMobileConnection
+      .PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE_CDMA_EVDO_GSM_WCDMA,
+    NetworkType.LTE |
+      NetworkType.TDSCDMA |
+      NetworkType.GSM |
+      NetworkType.WCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO,
+  ],
+  [Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_ONLY, NetworkType.NR],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE,
+    NetworkType.NR | NetworkType.LTE,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_CDMA_EVDO,
+    NetworkType.NR | NetworkType.LTE | NetworkType.CDMA | NetworkType.EVDO,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_GSM_WCDMA,
+    NetworkType.NR | NetworkType.LTE | NetworkType.GSM | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_CDMA_EVDO_GSM_WCDMA,
+    NetworkType.NR |
+      NetworkType.LTE |
+      NetworkType.CDMA |
+      NetworkType.EVDO |
+      NetworkType.GSM |
+      NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_WCDMA,
+    NetworkType.NR | NetworkType.LTE | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA,
+    NetworkType.NR | NetworkType.LTE | NetworkType.TDSCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_GSM,
+    NetworkType.NR | NetworkType.LTE | NetworkType.TDSCDMA | NetworkType.GSM,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_WCDMA,
+    NetworkType.NR | NetworkType.LTE | NetworkType.TDSCDMA | NetworkType.WCDMA,
+  ],
+  [
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_GSM_WCDMA,
+    NetworkType.NR |
+      NetworkType.LTE |
+      NetworkType.TDSCDMA |
+      NetworkType.WCDMA |
+      NetworkType.GSM,
+  ],
+  [
+    Ci.nsIMobileConnection
+      .PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA,
+    NetworkType.NR |
+      NetworkType.LTE |
+      NetworkType.TDSCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO |
+      NetworkType.GSM |
+      NetworkType.WCDMA,
+  ],
+]);
+
+const networkTypeBitMap = new Map([
+  [
+    NetworkType.GSM | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_GSM,
+  ],
+  [NetworkType.GSM, Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_GSM_ONLY],
+  [NetworkType.WCDMA, Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_ONLY],
+  [
+    NetworkType.CDMA | NetworkType.EVDO,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_CDMA_EVDO,
+  ],
+  [NetworkType.CDMA, Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_CDMA_ONLY],
+  [NetworkType.EVDO, Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_EVDO_ONLY],
+  [
+    NetworkType.GSM | NetworkType.WCDMA | NetworkType.EVDO | NetworkType.CDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_GSM_CDMA_EVDO,
+  ],
+  [
+    NetworkType.LTE | NetworkType.CDMA | NetworkType.EVDO,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_CDMA_EVDO,
+  ],
+  [
+    NetworkType.LTE | NetworkType.GSM | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM,
+  ],
+  [
+    NetworkType.LTE |
+      NetworkType.GSM |
+      NetworkType.WCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM_CDMA_EVDO,
+  ],
+  [NetworkType.LTE, Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_ONLY],
+  [
+    NetworkType.LTE | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA,
+  ],
+  [
+    NetworkType.TDSCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_ONLY,
+  ],
+  [
+    NetworkType.TDSCDMA | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA,
+  ],
+  [
+    NetworkType.TDSCDMA | NetworkType.LTE,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE,
+  ],
+  [
+    NetworkType.TDSCDMA | NetworkType.GSM,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM,
+  ],
+  [
+    NetworkType.TDSCDMA | NetworkType.GSM | NetworkType.LTE,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_LTE,
+  ],
+  [
+    NetworkType.TDSCDMA | NetworkType.WCDMAGSM | NetworkType.LTE,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA_LTE,
+  ],
+  [
+    NetworkType.TDSCDMA |
+      NetworkType.GSM |
+      NetworkType.WCDMAGSM |
+      NetworkType.LTE,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_LTE,
+  ],
+  [
+    NetworkType.TDSCDMA |
+      NetworkType.GSM |
+      NetworkType.WCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO,
+    Ci.nsIMobileConnection
+      .PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_CDMA_EVDO_AUTO,
+  ],
+  [
+    NetworkType.LTE |
+      NetworkType.TDSCDMA |
+      NetworkType.GSM |
+      NetworkType.WCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO,
+    Ci.nsIMobileConnection
+      .PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE_CDMA_EVDO_GSM_WCDMA,
+  ],
+  [NetworkType.NR, Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_ONLY],
+  [
+    NetworkType.NR | NetworkType.LTE,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE,
+  ],
+  [
+    NetworkType.NR | NetworkType.LTE | NetworkType.CDMA | NetworkType.EVDO,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_CDMA_EVDO,
+  ],
+  [
+    NetworkType.NR | NetworkType.LTE | NetworkType.GSM | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_GSM_WCDMA,
+  ],
+  [
+    NetworkType.NR |
+      NetworkType.LTE |
+      NetworkType.CDMA |
+      NetworkType.EVDO |
+      NetworkType.GSM |
+      NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_CDMA_EVDO_GSM_WCDMA,
+  ],
+  [
+    NetworkType.NR | NetworkType.LTE | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_WCDMA,
+  ],
+  [
+    NetworkType.NR | NetworkType.LTE | NetworkType.TDSCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA,
+  ],
+  [
+    NetworkType.NR | NetworkType.LTE | NetworkType.TDSCDMA | NetworkType.GSM,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_GSM,
+  ],
+  [
+    NetworkType.NR | NetworkType.LTE | NetworkType.TDSCDMA | NetworkType.WCDMA,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_WCDMA,
+  ],
+  [
+    NetworkType.NR |
+      NetworkType.LTE |
+      NetworkType.TDSCDMA |
+      NetworkType.WCDMA |
+      NetworkType.GSM,
+    Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_GSM_WCDMA,
+  ],
+  [
+    NetworkType.NR |
+      NetworkType.LTE |
+      NetworkType.TDSCDMA |
+      NetworkType.CDMA |
+      NetworkType.EVDO |
+      NetworkType.GSM |
+      NetworkType.WCDMA,
+    Ci.nsIMobileConnection
+      .PREFERRED_NETWORK_TYPE_NR_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA,
+  ],
+]);
 
 const lazy = {};
 
@@ -216,6 +540,7 @@ function debug(s) {
 }
 
 function MobileNetworkInfo() {
+  this.rat = null;
   this.shortName = null;
   this.longName = null;
   this.mcc = null;
@@ -262,6 +587,10 @@ MobileSignalStrength.prototype = {
 
   tdscdmaRscp: SIGNAL_UNKNOWN_VALUE,
 
+  ssRsrp: SIGNAL_UNKNOWN_VALUE,
+  ssRsrq: SIGNAL_UNKNOWN_VALUE,
+  ssSinr: SIGNAL_UNKNOWN_VALUE,
+
   _validateInfo(aSignalStrength) {
     let ss = aSignalStrength;
 
@@ -292,6 +621,14 @@ MobileSignalStrength.prototype = {
         ? -ss.tdscdmaRscp
         : SIGNAL_UNKNOWN_VALUE;
 
+    // For NR
+    ss.ssRsrp =
+      ss.ssRsrp >= 44 && ss.ssRsrp <= 140 ? -ss.ssRsrp : SIGNAL_UNKNOWN_VALUE;
+    ss.ssRsrq =
+      ss.ssRsrq >= -20 && ss.ssRsrq <= 43 ? -ss.ssRsrq : SIGNAL_UNKNOWN_VALUE;
+    ss.ssSinr =
+      ss.ssSinr >= -23 && ss.ssSinr <= 40 ? ss.ssSinr : SIGNAL_UNKNOWN_VALUE;
+
     return ss;
   },
 
@@ -312,11 +649,14 @@ MobileSignalStrength.prototype = {
 
       let level;
       if (isGsm) {
-        level = this._getLteLevel();
+        level = this._getNrLevel();
         if (level == SIGNAL_STRENGTH_NONE_OR_UNKNOWN) {
-          level = this._getTdscdmaLevel();
+          level = this._getLteLevel();
           if (level == SIGNAL_STRENGTH_NONE_OR_UNKNOWN) {
-            level = this._getGsmLevel();
+            level = this._getTdscdmaLevel();
+            if (level == SIGNAL_STRENGTH_NONE_OR_UNKNOWN) {
+              level = this._getGsmLevel();
+            }
           }
         }
       } else {
@@ -335,6 +675,86 @@ MobileSignalStrength.prototype = {
 
       aResolve();
     });
+  },
+
+  _getNrLevel() {
+    let levelSsRsrp = -1;
+    let levelSsRsrq = -1;
+    let levelSsSinr = -1;
+
+    if (this.ssRsrp > ssRsrp_thresh[5]) {
+      levelSsRsrp = -1;
+    } else if (this.ssRsrp > ssRsrp_thresh[4]) {
+      levelSsRsrp = SIGNAL_STRENGTH_GREAT;
+    } else if (this.ssRsrp > ssRsrp_thresh[3]) {
+      levelSsRsrp = SIGNAL_STRENGTH_GOOD;
+    } else if (this.ssRsrp > ssRsrp_thresh[2]) {
+      levelSsRsrp = SIGNAL_STRENGTH_MODERATE;
+    } else if (this.ssRsrp > ssRsrp_thresh[1]) {
+      levelSsRsrp = SIGNAL_STRENGTH_POOR;
+    } else if (this.ssRsrp > ssRsrp_thresh[0]) {
+      levelSsRsrp = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
+    }
+
+    if (this.ssSinr > 40) {
+      levelSsSinr = -1;
+    } else if (this.ssSinr >= 30) {
+      levelSsSinr = SIGNAL_STRENGTH_GREAT;
+    } else if (this.ssSinr >= 15) {
+      levelSsSinr = SIGNAL_STRENGTH_GOOD;
+    } else if (this.ssSinr >= 5) {
+      levelSsSinr = SIGNAL_STRENGTH_MODERATE;
+    } else if (this.ssSinr >= -5) {
+      levelSsSinr = SIGNAL_STRENGTH_POOR;
+    } else if (this.ssSinr > -23) {
+      levelSsSinr = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
+    }
+
+    if (DEBUG) {
+      this._debug(
+        "getNrLevel - ssRsrp  : " +
+          this.ssRsrp +
+          ". ssSinr : " +
+          this.ssSinr +
+          ". levelSsRsrp : " +
+          levelSsRsrp +
+          ". levelSsSinr : " +
+          levelSsSinr
+      );
+    }
+
+    if (levelSsRsrp != -1 && levelSsSinr != -1) {
+      return levelSsRsrp < levelSsSinr ? levelSsSinr : levelSsRsrp;
+    }
+
+    if (levelSsSinr != -1) {
+      return levelSsSinr;
+    }
+
+    if (levelSsRsrp != -1) {
+      return levelSsRsrp;
+    }
+
+    if (this.ssRsrq > 20) {
+      levelSsRsrq = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
+    } else if (this.ssRsrq >= 6) {
+      levelSsRsrq = SIGNAL_STRENGTH_GREAT;
+    } else if (this.ssRsrq >= -7) {
+      levelSsRsrq = SIGNAL_STRENGTH_GOOD;
+    } else if (this.ssRsrq >= -19) {
+      levelSsRsrq = SIGNAL_STRENGTH_MODERATE;
+    } else if (this.ssRsrq >= -31) {
+      levelSsRsrq = SIGNAL_STRENGTH_POOR;
+    } /*if (this.ssRsrq >= -43)*/ else {
+      levelSsRsrq = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
+    }
+
+    if (DEBUG) {
+      this._debug(
+        "getNrLevel - ssRsrq : " + this.ssRsrq + ". levelSsRsrq :" + levelSsRsrq
+      );
+    }
+    return levelSsRsrq;
   },
 
   _getLteLevel() {
@@ -553,6 +973,11 @@ function MobileCellInfo() {
   this.cdmaRoamingIndicator = -1;
   this.cdmaSystemIsInPRL = false;
   this.cdmaDefaultRoamingIndicator = -1;
+  this.tac = -1;
+  this.ci = -1;
+  this.pci = -1;
+  this.arfcn = -1;
+  this.bands = 0;
 }
 MobileCellInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileCellInfo]),
@@ -568,6 +993,7 @@ function MobileConnectionInfo() {
   this.cell = null;
   this.type = null;
   this.reasonDataDenied = 0;
+  this.isNSA5GAvailable = false;
 }
 MobileConnectionInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnectionInfo]),
@@ -581,6 +1007,7 @@ MobileConnectionInfo.prototype = {
   cell: null,
   type: null,
   reasonDataDenied: 0,
+  isNSA5GAvailable: false,
 };
 
 function MobileDeviceIdentities() {}
@@ -1071,7 +1498,7 @@ MobileConnectionProvider.prototype = {
    */
   shutdownRequest() {
     return new Promise((aResolve, aReject) => {
-      this.setRadioEnabled(false, {
+      this.setRadioEnabled(false, false, false, {
         notifySuccess: () => {
           aResolve();
         },
@@ -1580,7 +2007,11 @@ MobileConnectionProvider.prototype = {
       let action = this._expectedRadioState === RIL.GECKO_RADIOSTATE_ENABLED;
       this._radioInterface.sendWorkerMessage(
         "setRadioEnabled",
-        { enabled: action },
+        {
+          enabled: action,
+          forEmergencyCall: aMessage.forEmergencyCall,
+          preferredForEmergencyCall: aMessage.preferredForEmergencyCall,
+        },
         function (aResponse) {
           if (!aCallback) {
             return false;
@@ -1730,6 +2161,35 @@ MobileConnectionProvider.prototype = {
     );
   },
 
+  _convertTypeToBitmap(type) {
+    if (!networkTypeMap.has(type)) {
+      return RIL.RADIO_ACCESS_FAMILY_UNKNOWN;
+    }
+
+    return networkTypeMap.get(type);
+  },
+  _convertBitmapToType(bitmap) {
+    bitmap = (NetworkType.GSM & bitmap) > 0 ? NetworkType.GSM | bitmap : bitmap;
+    bitmap =
+      (NetworkType.WCDMA & bitmap) > 0 ? NetworkType.WCDMA | bitmap : bitmap;
+    bitmap =
+      (NetworkType.CDMA & bitmap) > 0 ? NetworkType.CDMA | bitmap : bitmap;
+    bitmap =
+      (NetworkType.EVDO & bitmap) > 0 ? NetworkType.EVDO | bitmap : bitmap;
+    bitmap = (NetworkType.LTE & bitmap) > 0 ? NetworkType.LTE | bitmap : bitmap;
+    bitmap = (NetworkType.NR & bitmap) > 0 ? NetworkType.NR | bitmap : bitmap;
+    bitmap =
+      (NetworkType.TDSCDMA & bitmap) > 0
+        ? NetworkType.TDSCDMA | bitmap
+        : bitmap;
+
+    let adjustedBitmap = bitmap;
+    if (!networkTypeBitMap.has(adjustedBitmap)) {
+      return Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_WCDMA_GSM;
+    }
+
+    return networkTypeBitMap.get(adjustedBitmap);
+  },
   setPreferredNetworkType(aType, aCallback) {
     if (this.radioState !== Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED) {
       this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE);
@@ -1737,9 +2197,10 @@ MobileConnectionProvider.prototype = {
     }
 
     this._preferredNetworkType = aType;
+    let typeMask = this._convertTypeToBitmap(aType);
     this._radioInterface.sendWorkerMessage(
-      "setPreferredNetworkType",
-      { type: aType },
+      "setPreferredNetworkTypeBitmap",
+      { type: typeMask },
       function (aResponse) {
         if (aResponse.errorMsg) {
           aCallback.notifyError(aResponse.errorMsg);
@@ -1757,9 +2218,9 @@ MobileConnectionProvider.prototype = {
       this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE);
       return;
     }
-
+    let self = this;
     this._radioInterface.sendWorkerMessage(
-      "getPreferredNetworkType",
+      "getAllowedNetworkTypesBitmap",
       null,
       function (aResponse) {
         if (aResponse.errorMsg) {
@@ -1767,7 +2228,9 @@ MobileConnectionProvider.prototype = {
           return false;
         }
 
-        aCallback.notifyGetPreferredNetworkTypeSuccess(aResponse.type);
+        aCallback.notifyGetPreferredNetworkTypeSuccess(
+          self._convertBitmapToType(aResponse.type)
+        );
         return false;
       }
     );
@@ -1800,6 +2263,148 @@ MobileConnectionProvider.prototype = {
         }
 
         aCallback.notifyGetRoamingPreferenceSuccess(aResponse.mode);
+        return false;
+      }
+    );
+  },
+
+  setVoNrEnabled(aEnabled, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "setVoNrEnabled",
+      { enabled: aEnabled },
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return false;
+        }
+
+        aCallback.notifySuccess();
+        return false;
+      }
+    );
+  },
+
+  isVoNrEnabled(aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "isVoNrEnabled",
+      null,
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return false;
+        }
+
+        aCallback.NotifySuccessWithBoolean(aResponse.enabled);
+        return false;
+      }
+    );
+  },
+
+  setNrDualConnectivityState(aMode, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "setNrDualConnectivityState",
+      { mode: aMode },
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return false;
+        }
+
+        aCallback.notifySuccess();
+        return false;
+      }
+    );
+  },
+
+  isNrDualConnectivityEnabled(aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "isNrDualConnectivityEnabled",
+      null,
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return false;
+        }
+
+        aCallback.NotifySuccessWithBoolean(aResponse.enabled);
+        return false;
+      }
+    );
+  },
+
+  startNetworkScan(
+    aScanType,
+    aInterval,
+    aMaxSearchTime,
+    aIncrementalResults,
+    aIncrementalResultsPeriodicity,
+    aMccMncs,
+    aSpecifiers,
+    aCallback
+  ) {
+    let mccMncs = [];
+    if (aMccMncs !== null && aMccMncs !== "") {
+      mccMncs = aMccMncs.split(";");
+    }
+
+    let specifiers = [];
+    if (aSpecifiers && aSpecifiers.length) {
+      for (let i = 0; i < aSpecifiers.length; i++) {
+        let bands = [];
+        if (
+          aSpecifiers[i].bands !== null &&
+          aSpecifiers[i].bands !== undefined &&
+          aSpecifiers[i].bands !== ""
+        ) {
+          bands = aSpecifiers[i].bands.split(";");
+        }
+        let channels = [];
+        if (
+          aSpecifiers[i].channels !== null &&
+          aSpecifiers[i].channels !== undefined &&
+          aSpecifiers[i].channels !== ""
+        ) {
+          channels = aSpecifiers[i].channels.split(";");
+        }
+        let specifier = {
+          radioAccessNetwork: aSpecifiers[i].radioAccessNetwork,
+          geranBands: [],
+          utranBands: [],
+          eutranBands: [],
+          ngranBands: [],
+          channels,
+        };
+        if (aSpecifiers[i].radioAccessNetwork === 1) {
+          specifier.geranBands = bands;
+        } else if (aSpecifiers[i].radioAccessNetwork === 2) {
+          specifier.utranBands = bands;
+        } else if (aSpecifiers[i].radioAccessNetwork === 3) {
+          specifier.eutranBands = bands;
+        } else if (aSpecifiers[i].radioAccessNetwork === 4) {
+          specifier.ngranBands = bands;
+        }
+        specifiers.push(specifier);
+      }
+    }
+    let options = {
+      type: aScanType,
+      interval: aInterval,
+      maxSearchTime: aMaxSearchTime,
+      incrementalResults: aIncrementalResults,
+      incrementalResultsPeriodicity: aIncrementalResultsPeriodicity,
+      mccMncs,
+      specifiers,
+    };
+    this._radioInterface.sendWorkerMessage(
+      "startNetworkScan",
+      { options },
+      function (aResponse) {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return false;
+        }
+
+        aCallback.notifySuccess();
         return false;
       }
     );
@@ -2315,9 +2920,19 @@ MobileConnectionProvider.prototype = {
     }
   },
 
-  setRadioEnabled(aEnabled, aCallback) {
+  setRadioEnabled(
+    aEnabled,
+    forEmergencyCall,
+    preferredForEmergencyCall,
+    aCallback
+  ) {
     if (DEBUG) {
-      this._debug("setRadioEnabled: " + aEnabled);
+      this._debug(
+        "setRadioEnabled: " +
+          aEnabled +
+          ", forEmergencyCall: " +
+          forEmergencyCall
+      );
     }
 
     // Before sending a equest to |ril_worker.js|, we should check radioState.
@@ -2336,6 +2951,8 @@ MobileConnectionProvider.prototype = {
       msgData: aEnabled
         ? RIL.GECKO_RADIOSTATE_ENABLED
         : RIL.GECKO_RADIOSTATE_DISABLED,
+      forEmergencyCall,
+      preferredForEmergencyCall,
     };
     this.updateRadioState(message, aCallback);
   },
@@ -2920,6 +3537,8 @@ MobileConnectionService.prototype = {
     let message = {
       msgType: "HardwareRadioState",
       msgData: aRadioState,
+      forEmergencyCall: false,
+      preferredForEmergencyCall: false,
     };
     this.getItemByServiceId(aClientId).updateRadioState(message);
   },
@@ -3290,6 +3909,24 @@ MobileConnectionService.prototype = {
     }
 
     provider.deliverListenerEvent("notifyModemRestart", [aReason]);
+  },
+
+  notifyScanResultReceived(aClientId, aScanResults) {
+    if (DEBUG) {
+      debug(
+        "notifyScanResultReceived: clientId=" +
+          aClientId +
+          ", aScanResults = " +
+          JSON.stringify(aScanResults)
+      );
+    }
+
+    let provider = this.getItemByServiceId(aClientId);
+
+    provider.deliverListenerEvent("notifyScanResultReceived", [
+      aScanResults.length,
+      aScanResults,
+    ]);
   },
 
   /**

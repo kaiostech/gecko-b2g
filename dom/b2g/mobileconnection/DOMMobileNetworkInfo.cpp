@@ -22,12 +22,14 @@ DOMMobileNetworkInfo::DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow)
     : mWindow(aWindow) {}
 
 DOMMobileNetworkInfo::DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow,
+                                           const nsAString& aRat,
                                            const nsAString& aShortName,
                                            const nsAString& aLongName,
                                            const nsAString& aMcc,
                                            const nsAString& aMnc,
                                            const nsAString& aState)
     : mWindow(aWindow),
+      mRat(aRat),
       mShortName(aShortName),
       mLongName(aLongName),
       mMcc(aMcc),
@@ -39,6 +41,7 @@ void DOMMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
     return;
   }
 
+  aInfo->GetRat(mRat);
   aInfo->GetShortName(mShortName);
   aInfo->GetLongName(mLongName);
   aInfo->GetMcc(mMcc);

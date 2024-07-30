@@ -84,6 +84,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
 #  ifdef ENABLE_RSU
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRSU)
 #  endif
+#ifdef B2G_ESIM
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mEUiccManager)
+#endif
 #endif
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
@@ -169,6 +172,12 @@ void B2G::MainThreadShutdown() {
   if (obs) {
     obs->RemoveObserver(this, "b2g-disk-storage-state");
   }
+#ifdef B2G_ESIM
+  if (mEUiccManager) {
+    mEUiccManager->Shutdown();
+    mEUiccManager = nullptr;
+  }
+#endif
 }
 
 JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
@@ -849,6 +858,28 @@ bool B2G::HasRSUSupport(JSContext* /* unused */, JSObject* aGlobal) {
   }
 }
 #  endif
+#ifdef B2G_ESIM
+EUiccManager* B2G::GetEUiccManager(ErrorResult& aRv) {
+  if (!mEUiccManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mEUiccManager = EUiccManager::Create(GetParentObject(), aRv);
+  }
+  return mEUiccManager;
+}
+
+/* static */
+bool B2G::HasEUiccSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  if (NS_IsMainThread()) {
+    return innerWindow ? CheckPermission("euicc"_ns, innerWindow) : false;
+  } else {
+    return CheckPermissionOnWorkerThread("euicc"_ns);
+  }
+}
+#endif
 #endif
 
 /* static */

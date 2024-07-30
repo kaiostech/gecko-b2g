@@ -77,4 +77,10 @@ interface nsIMobileConnectionInfo : nsISupports
   */
 
   readonly attribute long reasonDataDenied;
+
+  /**
+   * Indicates whether device should show 5G in LTE.
+   *
+   */
+  readonly attribute bool isNSA5GAvailable;
 };

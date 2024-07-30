@@ -25,6 +25,7 @@ EXPORTS.mozilla.dom += [
     "MobileDeviceIdentities.h",
     "MobileNetworkInfo.h",
     "MobileSignalStrength.h",
+    "nsGeckoRadioAccessSpecifier.h",
 ]
 
 EXPORTS.mozilla.dom.mobileconnection += [
@@ -38,6 +39,7 @@ EXPORTS.mozilla.dom.mobileconnection += [
 
 XPIDL_SOURCES += [
     "interfaces/nsICellInfo.idl",
+    "interfaces/nsIGeckoRadioAccessSpecifier.idl",
     "interfaces/nsIImsRegService.idl",
     "interfaces/nsIMobileCallForwardingOptions.idl",
     "interfaces/nsIMobileCellInfo.idl",
@@ -72,6 +74,7 @@ UNIFIED_SOURCES += [
     "MobileDeviceIdentities.cpp",
     "MobileNetworkInfo.cpp",
     "MobileSignalStrength.cpp",
+    "nsGeckoRadioAccessSpecifier.cpp",
 ]
 
 SOURCES += [

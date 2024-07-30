@@ -17,6 +17,7 @@
 #include "mozilla/dom/MobileSignalStrength.h"
 #include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/dom/nsGeckoRadioAccessSpecifier.h"
 
 using mozilla::AutoJSContext;
 using mozilla::dom::MobileCellInfo;
@@ -25,6 +26,7 @@ using mozilla::dom::MobileDeviceIdentities;
 using mozilla::dom::MobileNetworkInfo;
 using mozilla::dom::MobileSignalStrength;
 using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
+using mozilla::dom::GeckoRadioAccessSpecifier;
 
 typedef nsIMobileCellInfo* nsMobileCellInfo;
 typedef nsIMobileConnectionInfo* nsMobileConnectionInfo;
@@ -32,6 +34,7 @@ typedef nsIMobileNetworkInfo* nsMobileNetworkInfo;
 typedef nsIMobileCallForwardingOptions* nsMobileCallForwardingOptions;
 typedef nsIMobileDeviceIdentities* nsMobileDeviceIdentities;
 typedef nsIMobileSignalStrength* nsMobileSignalStrength;
+typedef nsIGeckoRadioAccessSpecifier* nsGeckoRadioAccessSpecifier;
 
 namespace IPC {
 template <>
@@ -128,6 +131,9 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
     }
 
     nsString pString;
+    aParam->GetRat(pString);
+    WriteParam(aWriter, pString);
+
     aParam->GetShortName(pString);
     WriteParam(aWriter, pString);
 
@@ -160,6 +166,7 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
       return true;
     }
 
+    nsString rat;
     nsString shortName;
     nsString longName;
     nsString mcc;
@@ -167,13 +174,13 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
     nsString state;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aReader, &shortName) && ReadParam(aReader, &longName) &&
-          ReadParam(aReader, &mcc) && ReadParam(aReader, &mnc) &&
-          ReadParam(aReader, &state))) {
+    if (!(ReadParam(aReader, &rat) && ReadParam(aReader, &shortName) &&
+          ReadParam(aReader, &longName) && ReadParam(aReader, &mcc) &&
+          ReadParam(aReader, &mnc) && ReadParam(aReader, &state))) {
       return false;
     }
 
-    *aResult = new MobileNetworkInfo(shortName, longName, mcc, mnc, state);
+    *aResult = new MobileNetworkInfo(rat, shortName, longName, mcc, mnc, state);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
 
@@ -232,6 +239,20 @@ struct ParamTraits<nsIMobileCellInfo*> {
     aParam->GetCdmaSystemIsInPRL(&pBool);
     WriteParam(aWriter, pBool);
 
+    aParam->GetTac(&pLong);
+    WriteParam(aWriter, pLong);
+
+    aParam->GetCi(&pLongLong);
+    WriteParam(aWriter, pLongLong);
+
+    aParam->GetPci(&pLong);
+    WriteParam(aWriter, pLong);
+
+    aParam->GetArfcns(&pLong);
+    WriteParam(aWriter, pLong);
+
+    aParam->GetBands(&pLongLong);
+    WriteParam(aWriter, pLongLong);
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
@@ -259,6 +280,11 @@ struct ParamTraits<nsIMobileCellInfo*> {
     int16_t cdmaRoamingIndicator;
     int16_t cdmaDefaultRoamingIndicator;
     bool cdmaSystemIsInPRL;
+    int32_t tac;
+    int64_t ci;
+    int32_t pci;
+    int32_t arfcns;
+    int64_t bands;
 
     // It's not important to us where it fails, but rather if it fails
     if (!(ReadParam(aReader, &gsmLac) && ReadParam(aReader, &gsmCellId) &&
@@ -268,14 +294,20 @@ struct ParamTraits<nsIMobileCellInfo*> {
           ReadParam(aReader, &cdmaNetworkId) &&
           ReadParam(aReader, &cdmaRoamingIndicator) &&
           ReadParam(aReader, &cdmaDefaultRoamingIndicator) &&
-          ReadParam(aReader, &cdmaSystemIsInPRL))) {
+          ReadParam(aReader, &cdmaSystemIsInPRL) &&
+          ReadParam(aReader, &tac) &&
+          ReadParam(aReader, &ci) &&
+          ReadParam(aReader, &pci) &&
+          ReadParam(aReader, &arfcns) &&
+          ReadParam(aReader, &bands))) {
       return false;
     }
 
     *aResult =
         new MobileCellInfo(gsmLac, gsmCellId, cdmaBsId, cdmaBsLat, cdmaBsLong,
                            cdmaSystemId, cdmaNetworkId, cdmaRoamingIndicator,
-                           cdmaDefaultRoamingIndicator, cdmaSystemIsInPRL);
+                           cdmaDefaultRoamingIndicator, cdmaSystemIsInPRL,
+                           tac, pci, ci, arfcns, bands);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
 
@@ -333,6 +365,9 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
     aParam->GetReasonDataDenied(&pLong);
     WriteParam(aWriter, pLong);
 
+    aParam->GetIsNSA5GAvailable(&pBool);
+    WriteParam(aWriter, pBool);
+
     // We release the ref here given that ipdl won't handle reference counting.
     aParam->Release();
   }
@@ -359,19 +394,21 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
     nsIMobileNetworkInfo* networkInfo = nullptr;
     nsIMobileCellInfo* cellInfo = nullptr;
     int32_t reasonDataDenied;
+    bool isNSA5GAvailable;
 
     // It's not important to us where it fails, but rather if it fails
     if (!(ReadParam(aReader, &state) && ReadParam(aReader, &connected) &&
           ReadParam(aReader, &emergencyOnly) && ReadParam(aReader, &roaming) &&
           ReadParam(aReader, &type) && ReadParam(aReader, &networkInfo) &&
           ReadParam(aReader, &cellInfo) &&
-          ReadParam(aReader, &reasonDataDenied))) {
+          ReadParam(aReader, &reasonDataDenied) &&
+          ReadParam(aReader, &isNSA5GAvailable))) {
       return false;
     }
 
     *aResult =
         new MobileConnectionInfo(state, connected, emergencyOnly, roaming,
-                                 networkInfo, type, cellInfo, reasonDataDenied);
+                                 networkInfo, type, cellInfo, reasonDataDenied, isNSA5GAvailable);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
     // We already clone the data into MobileConnectionInfo, so release the ref
@@ -446,6 +483,74 @@ struct ParamTraits<nsIMobileDeviceIdentities*> {
     }
 
     *aResult = new MobileDeviceIdentities(imei, imeisv, esn, meid);
+
+    // We release this ref after receiver finishes processing.
+    NS_ADDREF(*aResult);
+
+    return true;
+  }
+};
+
+/**
+ * nsIGeckoRadioAccessSpecifier Serialize/De-serialize.
+ */
+template <>
+struct ParamTraits<nsIGeckoRadioAccessSpecifier*> {
+  typedef nsIGeckoRadioAccessSpecifier* paramType;
+
+  // Function to serialize a GeckoRadioAccessSpecifier.
+  static void Write(MessageWriter* aWriter, const paramType& aParam) {
+    bool isNull = !aParam;
+    WriteParam(aWriter, isNull);
+
+    // If it is a null object, then we are done.
+    if (isNull) {
+      return;
+    }
+
+    AutoJSContext cx;
+    nsString pString;
+    int32_t pLong;
+    JS::Rooted<JS::Value> pJsval(cx);
+
+    aParam->GetRadioAccessNetwork(&pLong);
+    WriteParam(aWriter, pLong);
+
+    aParam->GetBands(pString);
+    WriteParam(aWriter, pString);
+
+    aParam->GetChannels(pString);
+    WriteParam(aWriter, pString);
+
+    // We release the ref here given that ipdl won't handle reference counting.
+    aParam->Release();
+  }
+
+  // Function to de-serialize a nsIGeckoRadioAccessSpecifier.
+  static bool Read(MessageReader* aReader, paramType* aResult) {
+    // Check if is the null pointer we have transfered.
+    bool isNull;
+    if (!ReadParam(aReader, &isNull)) {
+      return false;
+    }
+
+    if (isNull) {
+      *aResult = nullptr;
+      return true;
+    }
+
+    AutoJSContext cx;
+    int32_t radioAccessNetwork;
+    nsString bands;
+    nsString channels;
+
+    // It's not important to us where it fails, but rather if it fails
+    if (!(ReadParam(aReader, &radioAccessNetwork) && ReadParam(aReader, &bands) &&
+          ReadParam(aReader, &channels))) {
+      return false;
+    }
+
+    *aResult = new GeckoRadioAccessSpecifier(radioAccessNetwork, bands, channels);
 
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);

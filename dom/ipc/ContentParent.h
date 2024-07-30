@@ -1010,7 +1010,13 @@ class ContentParent final : public PContentParent,
   bool DeallocPRSUParent(PRSUParent*);
 #endif
 
-  PBenchmarkStorageParent* AllocPBenchmarkStorageParent();
+#ifdef B2G_ESIM
+  PEUiccParent* AllocPEUiccParent();
+
+  bool DeallocPEUiccParent(PEUiccParent*);
+#endif
+
+PBenchmarkStorageParent* AllocPBenchmarkStorageParent();
 
   bool DeallocPBenchmarkStorageParent(PBenchmarkStorageParent* aActor);
 

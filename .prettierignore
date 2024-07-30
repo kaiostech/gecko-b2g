@@ -25,6 +25,9 @@ b2g/common.configure
 b2g/components/MarionetteController.sys.mjs
 b2g/locales/en-US/b2g-l10n.js
 dom/b2g/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
+koost/koost.js
+dom/b2g/mobilemessage/gonk/MmsPduHelper.jsm
+dom/system/gonk/radio/simIOHelper.js
 
 # Ignore build files which are used for generating toolchains. Whitespace changes
 # here would trigger new toolchains.

@@ -10,6 +10,7 @@
 #include "nsIIccService.h"
 #include "nsIMobileConnectionInfo.h"
 #include "nsIMobileConnectionService.h"
+#include "nsIMobileNetworkInfo.h"
 #include "nsITelephonyCallInfo.h"
 #include "nsITelephonyService.h"
 #include "nsServiceManagerUtils.h"
@@ -147,6 +148,9 @@ NS_IMETHODIMP
 MobileConnectionListener::NotifyModemRestart(const nsAString& aReason) {
   return NS_OK;
 }
+
+NS_IMETHODIMP
+MobileConnectionListener::NotifyScanResultReceived(uint32_t aCount, nsIMobileNetworkInfo** aNetworks) { return NS_OK; }
 
 bool MobileConnectionListener::Listen(bool aStart) {
   nsCOMPtr<nsIMobileConnectionService> service =

@@ -56,6 +56,9 @@
 #  ifdef ENABLE_RSU
 #    include "mozilla/dom/RemoteSimUnlock.h"
 #  endif
+#ifdef B2G_ESIM
+#  include "mozilla/dom/EUiccManager.h"
+#endif
 #endif
 
 #include "mozilla/dom/usb/UsbManager.h"
@@ -184,6 +187,10 @@ class B2G final : public DOMEventTargetHelper,
   RemoteSimUnlock* GetRsu(ErrorResult& aRv);
   static bool HasRSUSupport(JSContext* /* unused */, JSObject* aGlobal);
 #  endif
+#ifdef B2G_ESIM
+  EUiccManager* GetEUiccManager(ErrorResult& aRv);
+  static bool HasEUiccSupport(JSContext* /* unused */, JSObject* aGlobal);
+#endif
 #endif
 
   UsbManager* GetUsbManager(ErrorResult& aRv);
@@ -282,6 +289,9 @@ class B2G final : public DOMEventTargetHelper,
 #  ifdef ENABLE_RSU
   RefPtr<RemoteSimUnlock> mRSU;
 #  endif
+#ifdef B2G_ESIM
+  RefPtr<EUiccManager> mEUiccManager;
+#endif
 #endif
   RefPtr<UsbManager> mUsbManager;
   RefPtr<PowerSupplyManager> mPowerSupplyManager;

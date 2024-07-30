@@ -267,6 +267,12 @@ class ContentChild final : public PContentChild,
   bool DeallocPRSUChild(PRSUChild*);
 #endif
 
+#ifdef B2G_ESIM
+  PEUiccChild* AllocPEUiccChild();
+
+  bool DeallocPEUiccChild(PEUiccChild*);
+#endif
+
   PBenchmarkStorageChild* AllocPBenchmarkStorageChild();
 
   bool DeallocPBenchmarkStorageChild(PBenchmarkStorageChild* aActor);

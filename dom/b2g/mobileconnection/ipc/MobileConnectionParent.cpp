@@ -75,6 +75,26 @@ MobileConnectionParent::RecvPMobileConnectionRequestConstructor(
       return actor->DoRequest(aRequest.get_GetRoamingPreferenceRequest())
                  ? IPC_OK()
                  : IPC_FAIL_NO_REASON(this);
+    case MobileConnectionRequest::TSetVoNrEnabledRequest:
+      return actor->DoRequest(aRequest.get_SetVoNrEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
+    case MobileConnectionRequest::TIsVoNrEnabledRequest:
+      return actor->DoRequest(aRequest.get_IsVoNrEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
+    case MobileConnectionRequest::TSetNrDualConnectivityStateRequest:
+      return actor->DoRequest(aRequest.get_SetNrDualConnectivityStateRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
+    case MobileConnectionRequest::TIsNrDualConnectivityEnabledRequest:
+      return actor->DoRequest(aRequest.get_IsNrDualConnectivityEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
+    case MobileConnectionRequest::TStartNetworkScanRequest:
+      return actor->DoRequest(aRequest.get_StartNetworkScanRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case MobileConnectionRequest::TSetVoicePrivacyModeRequest:
       return actor->DoRequest(aRequest.get_SetVoicePrivacyModeRequest())
                  ? IPC_OK()
@@ -392,6 +412,20 @@ MobileConnectionParent::NotifyModemRestart(const nsAString& aReason) {
                                                        : NS_ERROR_FAILURE;
 }
 
+NS_IMETHODIMP
+MobileConnectionParent::NotifyScanResultReceived(uint32_t aCount, nsIMobileNetworkInfo** aNetworks) {
+  NS_ENSURE_TRUE(mLive, NS_ERROR_FAILURE);
+  nsTArray<nsIMobileNetworkInfo*> networks;
+  for (uint32_t i = 0; i < aCount; i++) {
+    nsCOMPtr<nsIMobileNetworkInfo> network = aNetworks[i];
+    // We release the ref after serializing process is finished in
+    // MobileConnectionIPCSerializer.
+    networks.AppendElement(network.forget().take());
+  }
+  return SendNotifyScanResultReceived(networks) ? NS_OK
+                                                : NS_ERROR_FAILURE;
+}
+
 /******************************************************************************
  * PMobileConnectionRequestParent
  ******************************************************************************/
@@ -453,6 +487,55 @@ bool MobileConnectionRequestParent::DoRequest(
   NS_ENSURE_TRUE(mMobileConnection, false);
 
   return NS_SUCCEEDED(mMobileConnection->GetRoamingPreference(this));
+}
+
+bool MobileConnectionRequestParent::DoRequest(
+    const SetVoNrEnabledRequest& aRequest) {
+  NS_ENSURE_TRUE(mMobileConnection, false);
+
+  return NS_SUCCEEDED(
+      mMobileConnection->SetVoNrEnabled(aRequest.enabled(), this));
+}
+
+bool MobileConnectionRequestParent::DoRequest(
+    const IsVoNrEnabledRequest& aRequest) {
+  NS_ENSURE_TRUE(mMobileConnection, false);
+
+  return NS_SUCCEEDED(mMobileConnection->IsVoNrEnabled(this));
+}
+
+bool MobileConnectionRequestParent::DoRequest(
+    const SetNrDualConnectivityStateRequest& aRequest) {
+  NS_ENSURE_TRUE(mMobileConnection, false);
+
+  return NS_SUCCEEDED(
+      mMobileConnection->SetNrDualConnectivityState(aRequest.mode(), this));
+}
+
+bool MobileConnectionRequestParent::DoRequest(
+    const IsNrDualConnectivityEnabledRequest& aRequest) {
+  NS_ENSURE_TRUE(mMobileConnection, false);
+
+  return NS_SUCCEEDED(mMobileConnection->IsNrDualConnectivityEnabled(this));
+}
+
+bool MobileConnectionRequestParent::DoRequest(
+    const StartNetworkScanRequest& aRequest) {
+  NS_ENSURE_TRUE(mMobileConnection, false);
+  uint32_t count = aRequest.specifiers().Length();
+  nsTArray<RefPtr<nsIGeckoRadioAccessSpecifier>> nsSpecifiers;
+  for (uint32_t i = 0; i < count; i++) {
+    // Use dont_AddRef here because these instances are already AddRef-ed in
+    // MobileConnectionIPCSerializer.h
+    RefPtr<nsIGeckoRadioAccessSpecifier> item =
+        dont_AddRef(aRequest.specifiers()[i]);
+    nsSpecifiers.AppendElement(item);
+  }
+  return NS_SUCCEEDED(
+      mMobileConnection->StartNetworkScan(aRequest.scanType(), aRequest.interval(),
+                                          aRequest.maxSearchTime(), aRequest.incrementalResults(),
+                                          aRequest.incrementalResultsPeriodicity(), aRequest.mccMncs(),
+                                          nsSpecifiers, this));
 }
 
 bool MobileConnectionRequestParent::DoRequest(
@@ -554,7 +637,8 @@ bool MobileConnectionRequestParent::DoRequest(
   NS_ENSURE_TRUE(mMobileConnection, false);
 
   return NS_SUCCEEDED(
-      mMobileConnection->SetRadioEnabled(aRequest.enabled(), this));
+      mMobileConnection->SetRadioEnabled(aRequest.enabled(), aRequest.forEmergencyCall(),
+                                         aRequest.preferredForEmergencyCall(), this));
 }
 
 bool MobileConnectionRequestParent::DoRequest(

@@ -1521,6 +1521,23 @@ if test -d "$_topsrcdir/koost" ; then
 fi
 
 dnl ========================================================
+dnl Enable Support for Kaios ESIM
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(esim,
+[  --enable-esim   Enable esim modules],
+    B2G_ESIM=1,
+    B2G_ESIM= )
+if test -n "$B2G_ESIM" && \
+   test -d "$_topsrcdir/koost"; then
+    B2G_ESIM=1
+    AC_DEFINE(B2G_ESIM)
+else
+    B2G_ESIM=
+fi
+AC_SUBST(B2G_ESIM)
+
+
+dnl ========================================================
 dnl = Enable Radio FM for B2G (Gonk usually)
 dnl ========================================================
 MOZ_ARG_ENABLE_BOOL(b2g-fm,

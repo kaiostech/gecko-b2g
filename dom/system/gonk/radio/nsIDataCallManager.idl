@@ -4,6 +4,10 @@
 
 #include "nsISupports.idl"
 #include "nsINetworkInterface.idl"
+#include "nsIDataCallInterfaceService.idl"
+
+interface nsISliceInfo;
+interface nsITrafficDescriptor;
 
 [scriptable, uuid(b8bcd6aa-5b06-4362-a68c-317878429e51)]
 interface nsIRilNetworkInfo : nsINetworkInfo
@@ -49,8 +53,8 @@ interface nsIDataCallHandler : nsISupports
    *        nsINetworkInfo.NETWORK_TYPE_MOBILE_* values.
    * @error For some case api would through an error.
    */
-  void setupDataCallByType(in long networkType);
-  void deactivateDataCallByType(in long networkType);
+  void setupDataCallByType(in long networkType, [optional] in long dnn);
+  void deactivateDataCallByType(in long networkType, [optional] in long dnn);
   long getDataCallStateByType(in long networkType);
 
   /**
@@ -89,6 +93,16 @@ interface nsIDataCallHandler : nsISupports
                       in AString bearerProto,
                       in long pcoId,
                       in Array<uint8_t> contents);
+
+  /**
+   * Update SlicingConfig.
+   *
+   * @param sliceInfos
+   *        array of sliceinfo.
+   * @param sliceInfos
+   *        array of TrafficDescriptors.
+   */
+  void updateSlicingConfig(in Array<nsISliceInfo> sliceInfos);
 };
 
 [scriptable, uuid(00333a9e-e80b-44be-8da3-dffb92999d47)]

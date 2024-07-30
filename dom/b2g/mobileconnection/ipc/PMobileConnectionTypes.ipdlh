@@ -10,6 +10,7 @@ using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
 using nsMobileCallForwardingOptions from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using nsMobileDeviceIdentities from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using nsMobileSignalStrength from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
+using nsGeckoRadioAccessSpecifier from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 
 namespace mozilla {
 namespace dom {

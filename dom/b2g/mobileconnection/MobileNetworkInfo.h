@@ -17,9 +17,9 @@ class MobileNetworkInfo final : public nsIMobileNetworkInfo {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILENETWORKINFO
 
-  MobileNetworkInfo(const nsAString& aShortName, const nsAString& aLongName,
-                    const nsAString& aMcc, const nsAString& aMnc,
-                    const nsAString& aState);
+  MobileNetworkInfo(const nsAString& aRat, const nsAString& aShortName,
+                    const nsAString& aLongName, const nsAString& aMcc,
+                    const nsAString& aMnc, const nsAString& aState);
 
   explicit MobileNetworkInfo();
 
@@ -29,6 +29,7 @@ class MobileNetworkInfo final : public nsIMobileNetworkInfo {
   ~MobileNetworkInfo() {}
 
  private:
+  nsString mRat;
   nsString mShortName;
   nsString mLongName;
   nsString mMcc;

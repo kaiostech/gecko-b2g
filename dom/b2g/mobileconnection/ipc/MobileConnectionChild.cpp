@@ -233,6 +233,64 @@ MobileConnectionChild::GetRoamingPreference(
 }
 
 NS_IMETHODIMP
+MobileConnectionChild::SetVoNrEnabled(
+    bool aEnabled, nsIMobileConnectionCallback* aCallback) {
+  return SendRequest(SetVoNrEnabledRequest(aEnabled), aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+MobileConnectionChild::IsVoNrEnabled(
+    nsIMobileConnectionCallback* aCallback) {
+  return SendRequest(IsVoNrEnabledRequest(), aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+MobileConnectionChild::SetNrDualConnectivityState(
+    int32_t aMode, nsIMobileConnectionCallback* aCallback) {
+  return SendRequest(SetNrDualConnectivityStateRequest(aMode), aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+MobileConnectionChild::IsNrDualConnectivityEnabled(
+    nsIMobileConnectionCallback* aCallback) {
+  return SendRequest(IsNrDualConnectivityEnabledRequest(), aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+MobileConnectionChild::StartNetworkScan(
+    int32_t aScanType, int32_t aInterval, int32_t aMaxSearchTime, bool aIncrementalResults,
+    int32_t aIncrementalResultsPeriodicity, const nsAString& aMccMncs,
+    const nsTArray<RefPtr<nsIGeckoRadioAccessSpecifier>>& aSpecifiers,
+    nsIMobileConnectionCallback* aCallback) {
+  StartNetworkScanRequest data;
+  data.scanType() = aScanType;
+  data.interval() = aInterval;
+  data.maxSearchTime() = aMaxSearchTime;
+  data.incrementalResults() = aIncrementalResults;
+  data.incrementalResultsPeriodicity() = aIncrementalResultsPeriodicity;
+  data.mccMncs() = aMccMncs;
+
+  uint32_t count = aSpecifiers.Length();
+  nsTArray<nsIGeckoRadioAccessSpecifier*> nsSpecifiers;
+  for (uint32_t i = 0; i < count; i++) {
+    nsCOMPtr<nsIGeckoRadioAccessSpecifier> item = aSpecifiers[i].get();
+    nsSpecifiers.AppendElement(item.forget().take());
+  }
+  data.specifiers().AppendElements(const_cast<nsIGeckoRadioAccessSpecifier**>(nsSpecifiers.Elements()),count);
+  return SendRequest(data, aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
 MobileConnectionChild::SetVoicePrivacyMode(
     bool aEnabled, nsIMobileConnectionCallback* aCallback) {
   return SendRequest(SetVoicePrivacyModeRequest(aEnabled), aCallback)
@@ -346,8 +404,10 @@ MobileConnectionChild::ExitEmergencyCbMode(
 
 NS_IMETHODIMP
 MobileConnectionChild::SetRadioEnabled(bool aEnabled,
+                                       bool aForEmergencyCall,
+                                       bool aPreferredForEmergencyCall,
                                        nsIMobileConnectionCallback* aCallback) {
-  return SendRequest(SetRadioEnabledRequest(aEnabled), aCallback)
+  return SendRequest(SetRadioEnabledRequest(aEnabled, aForEmergencyCall, aPreferredForEmergencyCall), aCallback)
              ? NS_OK
              : NS_ERROR_FAILURE;
 }
@@ -541,6 +601,23 @@ mozilla::ipc::IPCResult MobileConnectionChild::RecvNotifyModemRestart(
     const nsString& aReason) {
   for (int32_t i = 0; i < mListeners.Count(); i++) {
     mListeners[i]->NotifyModemRestart(aReason);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult MobileConnectionChild::RecvNotifyScanResultReceived(
+    nsTArray<nsIMobileNetworkInfo*>&& aScanResults) {
+  uint32_t length = aScanResults.Length();
+  nsTArray<nsCOMPtr<nsIMobileNetworkInfo>> results;
+  for (uint32_t i = 0; i < length; ++i) {
+    nsCOMPtr<nsIMobileNetworkInfo> info = dont_AddRef(aScanResults[i]);
+    results.AppendElement(info);
+  }
+
+  for (int32_t i = 0; i < mListeners.Count(); i++) {
+    mListeners[i]->NotifyScanResultReceived(
+      length, const_cast<nsIMobileNetworkInfo**>(aScanResults.Elements()));
   }
 
   return IPC_OK();

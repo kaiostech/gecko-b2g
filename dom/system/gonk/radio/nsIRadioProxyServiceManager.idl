@@ -1,0 +1,182 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIRilIndicationResult.idl"
+#include "nsIRilResponseResult.idl"
+#include "nsIDataCallInterfaceService.idl"
+#include "nsIRadioTypes.idl"
+
+interface nsICarrierRestrictionsWithPriority;
+interface nsIPhonebookRecordInfo;
+interface nsIRilIndicationResult;
+interface nsIRilResponseResult;
+interface nsINetworkScanRequest;
+interface nsIRadioAccessSpecifier;
+interface nsICarrierRestrictionsWithPriority;
+interface nsIPhonebookRecordInfo;
+
+[scriptable, uuid(4f616d21-af2d-449c-aa78-90010aa08d63)]
+interface nsIRadioProxyServiceManager : nsISupports
+{
+  const uint8_t RADIO_DATA = 0;
+  const uint8_t RADIO_VOICE = 1;
+  const uint8_t RADIO_MESSAGE = 2;
+  const uint8_t RADIO_MODEM = 3;
+  const uint8_t RADIO_NETWORK = 6;
+  //voice module
+  void setVoNrEnabled(in long token, in boolean enable);
+  void isVoNrEnabled(in long token);
+  void acceptCall(in long serial);
+  void getClir(in long serial);
+  void setClir(in long serial, in long clirMode);
+  void sendDtmf(in long serial, in AString dtmfChar);
+  void startDtmf(in long serial, in AString dtmfChar);
+  void stopDtmf(in long serial);
+  void rejectCall(in long serial);
+  void sendUssd(in long serial, in AString ussd);
+  void cancelPendingUssd(in long serial);
+  void getCallForwardStatus(in long serial, in long cfReason, in long serviceClass
+                            , in AString number, in long toaNumber);
+  void setCallForwardStatus(in long serial, in long action, in long cfReason
+                            , in long serviceClass, in AString number, in long toaNumber, in long timeSeconds);
+  void getCallWaiting(in long serial, in long serviceClass);
+  void setCallWaiting(in long serial, in boolean enable, in long serviceClass);
+  void separateConnection(in long serial, in long gsmIndex);
+  void getClip(in long serial);
+  void explicitCallTransfer(in long serial);
+  void setMute(in long serial, in boolean enableMute);
+  void getMute(in long serial);
+  void requestDial(in long serial, in AString address, in long clirMode, in long uusType, in long uusDcs
+                   , in AString uusData);
+  void getCurrentCalls(in long serial);
+  void hangupConnection(in long serial, in long callIndex);
+  void hangupWaitingOrBackground(in long serial);
+  void hangupForegroundResumeBackground(in long serial);
+  void switchWaitingOrHoldingAndActive(in long serial);
+  void conference(in long serial);
+  void getLastCallFailCause(in long serial);
+  void setTTYMode(in long serial, in long ttyMode);
+  void queryTTYMode(in long serial);
+  void exitEmergencyCallbackMode(in long serial);
+  void getPreferredVoicePrivacy(in long serial);
+  void setPreferredVoicePrivacy(in long serial, in boolean enable);
+  void emergencyDial(in long serial, in AString address, in unsigned long clirMode, in unsigned long uusType,
+                     in unsigned long uusDcs, in AString uusData, in unsigned long categories, in Array<AString> urns,
+                     in uint8_t routMode, in boolean hasKnownUserIntentEmergency, in boolean isTesting);
+  void handleStkCallSetupRequestFromSim(in long serial, in boolean accept);
+  //messaging module
+  void getSmscAddress(in long serial);
+  void reportSmsMemoryStatus(in long serial, in boolean available);
+  void setGsmBroadcastActivation(in long serial, in boolean activate);
+  void setGsmBroadcastConfig(in long serial, in Array<long> ranges);
+  void sendSMS(in long serial, in AString smsc, in AString pdu);
+  void acknowledgeLastIncomingGsmSms(in long serial, in boolean success, in long cause);
+  void sendCdmaSmsExpectMore(in long serial, in nsICdmaSmsMessage aCdmaMessage);
+  //modem module
+  void setRadioPower(in long serial, in boolean enabled, in boolean forEmergencyCall, in boolean preferredForEmergencyCall);
+  void getRadioCapability(in long serial);
+  void enableModem(in long serial, in boolean on);
+  void getModemStackStatus(in long serial);
+  void getBasebandVersion(in long serial);
+  void getDeviceIdentity(in long serial);
+  //network module
+  void setBarringPassword(in long serial, in AString facility, in AString oldPwd, in AString newPwd);
+  //data module
+  void allocatePduSessionId(in long serial);
+  void releasePduSessionId(in long serial, in long id);
+  void startHandover(in long serial, in long callId);
+  void cancelHandover(in long serial, in long callId);
+  void getDataCallList(in long serial);
+  void setDataAllowed(in long serial, in boolean allowed);
+  void deactivateDataCall(in long serial, in long cid, in long reason);
+  void setInitialAttachApn(in long serial, in nsIDataProfile profile, in boolean isRoaming);
+  void setDataProfile(in long serial, in Array<nsIDataProfile> profileList, in boolean isRoaming);
+  void startNattKeepalive(in long serial, in long type, in AString sourceAddress, in long sourcePort
+                      , in AString destinationAddress, in long destinationPort
+                      , in long maxKeepaliveIntervalMillis, in long cid);
+  void setupDataCall(in long serial, in long radioTechnology, in long accessNetworkType, in nsIDataProfile profile
+                       , in boolean modemConfig, in boolean allowRoaming, in boolean isRoaming, in long reason
+                       , in Array<nsILinkAddress> addresses, in Array<AString> dnses, [optional] in long pduSessionId
+                       , [optional] in nsISliceInfo sliceInfo, [optional] in nsITrafficDescriptor trafficDescriptor
+                       , [optional] in boolean matchAllRuleAllowed);
+  void stopNattKeepalive(in long serial, in long sessionHandle);
+  void getSlicingConfig(in long serial);
+  // others
+  void onBinderDied(in uint8_t serviceType);
+
+  void getVoiceRegistrationState(in long serial);
+  void getDataRegistrationState(in long serial);
+  void getOperator(in long serial);
+  void getNetworkSelectionMode(in long serial);
+  void getSignalStrength(in long serial);
+  void getVoiceRadioTechnology(in long serial);
+  void getIccCardStatus(in long serial);
+  void setCellInfoListRate(in long serial, [optional] in long rateInMillis);
+  void setUiccSubscription(in long serial, in long slotId, in long appIndex, in long subId
+                           , in long subStatus);
+  void setPreferredNetworkType(in long serial, in long networkType);
+  void getPreferredNetworkType(in long serial);
+  void setNetworkSelectionModeAutomatic(in long serial);
+  void setNetworkSelectionModeManual(in long serial, in AString operatorNumeric, [optional] in long ran);
+  void getAvailableNetworks(in long serial);
+  void getCellInfoList(in long serial);
+  void getIMSI(in long serial, in AString aid);
+  void iccIOForApp(in long serial, in long command, in long fileId
+                   , in AString path, in long p1, in long p2, in long p3
+                   , in AString data, in AString pin2, in AString aid);
+  void getNeighboringCids(in long serial);
+  void supplyIccPinForApp(in long serial, in AString pin, in AString aid);
+  void supplyIccPin2ForApp(in long serial, in AString pin, in AString aid);
+  void supplyIccPukForApp(in long serial, in AString puk, in AString newPin, in AString aid);
+  void supplyIccPuk2ForApp(in long serial, in AString puk, in AString newPin, in AString aid);
+  void setFacilityLockForApp (in long serial, in AString facility, in boolean lockState
+                              , in AString password, in long serviceClass, in AString aid);
+  void getFacilityLockForApp (in long serial, in AString facility
+                              , in AString password, in long serviceClass, in AString aid);
+  void changeIccPinForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
+  void changeIccPin2ForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
+  void reportStkServiceIsRunning(in long serial);
+  void requestIccSimAuthentication(in long serial, in long authContext, in AString data, in AString aid);
+  void setSuppServiceNotifications(in long serial, in boolean enable);
+  void sendTerminalResponseToSim(in long serial, in AString contents);
+  void sendEnvelope(in long serial, in AString contents);
+  void setUnsolResponseFilter(in long serial, in long filter);
+  void setIndicationFilter(in long serial, in long filter);
+  void setSimCardPower(in long serial, in long cardPowerState);
+  void startNetworkScan(in long serial, in nsINetworkScanRequest request);
+  void stopNetworkScan(in long serial);
+  void setLinkCapacityReportingCriteria(in long serial, in long hysteresisMs, in long hysteresisDlKbps
+                                          , in long hysteresisUlKbps
+                                          , in Array<long> thresholdsDownlinkKbps
+                                          , in Array<long> thresholdsUplinkKbps, in long accessNetwork);
+  void setSystemSelectionChannels(in long serial, in boolean specifyChannels, in Array<nsIRadioAccessSpecifier> specifiers);
+  void getPreferredNetworkTypeBitmap(in long serial);
+  void setPreferredNetworkTypeBitmap(in long serial, in unsigned long networkTypeBitmap);
+  void setAllowedCarriers(in long serial, in nsICarrierRestrictionsWithPriority carriers,
+                          in unsigned long multiSimPolicy);
+  void getAllowedCarriers(in long serial);
+  void setSignalStrengthReportingCriteria(in long serial, in unsigned long mrType, in boolean isEnabled, in long hysteresisMs, in long hysteresisDb,
+                                          in Array<long> thresholdsDbm, in long accessNetwork);
+  void enableUiccApplications(in long serial, in boolean enable);
+  void areUiccApplicationsEnabled(in long serial);
+  void getBarringInfo(in long serial);
+  void setCarrierInfoForImsiEncryption(in long serial, in AString mcc, in AString mnc, in Array<long> carrierKey
+                                    , in AString keyIdentifier, in long expirationTime,
+                                    in uint8_t publicKeyType);
+  void setNrDualConnectivityState(in long serial, in long nrDualConnectivityState);
+  void isNrDualConnectivityEnabled(in long serial);
+  void getSimPhonebookCapacity(in long serial);
+  void getSystemSelectionChannels(in long serial);
+  void getAllowedNetworkTypesBitmap(in long serial);
+  void setAllowedNetworkTypesBitmap(in long serial, in long networkTypeBitmask);
+  void updateSimPhonebookRecords(in long serial, in nsIPhonebookRecordInfo aRecordInfo);
+  void supplySimDepersonalization(in long serial, in long persoType, in AString controlKey);
+  void getCdmaSubscription(in long serial);
+  void getImsiForApp(in long serial, in AString aid);
+  void getSimPhonebookRecords(in long serial);
+  void iccCloseLogicalChannel(in long serial, in long channelId);
+  void iccOpenLogicalChannel(in long serial, in AString aid, in long p2);
+  void sendEnvelopeWithStatus(in long serial, in AString contents);
+};

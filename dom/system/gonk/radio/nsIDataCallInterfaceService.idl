@@ -4,7 +4,169 @@
 
 #include "nsISupports.idl"
 
-[scriptable, uuid(6b66446a-7000-438f-8e1b-b56b4cbf4fa9)]
+[scriptable, uuid(bd671966-7e15-4938-9f91-351c035a0ece)]
+interface nsIQosBandwidth: nsISupports
+{
+    readonly attribute long maxBitrateKbps;
+    readonly attribute long guaranteedBitrateKbps;
+};
+
+[scriptable, uuid(cdf5f7b8-1423-421f-a9b3-3ffab099ee5f)]
+interface nsIEpsQos: nsISupports
+{
+  readonly attribute long qci;
+  readonly attribute nsIQosBandwidth downlink;
+  readonly attribute nsIQosBandwidth uplink;
+};
+
+[scriptable, uuid(7612f645-ec30-4cbf-9121-11e657d1291b)]
+interface nsINrQos: nsISupports
+{
+  readonly attribute long fiveQi;
+  readonly attribute nsIQosBandwidth downlink;
+  readonly attribute nsIQosBandwidth uplink;
+  readonly attribute long qfi;
+  readonly attribute long averagingWindowMs;
+};
+
+[scriptable, uuid(5164d9e3-5116-4b3a-8a4d-6133bfe0de25)]
+interface nsIQos: nsISupports
+{
+  const long QOS_TYPE_NOINIT = 0;
+  const long QOS_TYPE_EPS = 1;
+  const long QOS_TYPE_NR = 2;
+  readonly attribute long type;
+  readonly attribute nsIEpsQos eps;
+  readonly attribute nsINrQos nr;
+
+};
+
+[scriptable, uuid(ddcb2eb2-abf2-4e67-ba45-72aedbb78987)]
+interface nsIPortRange: nsISupports
+{
+  readonly attribute long start;
+  readonly attribute long end;
+};
+
+[scriptable, uuid(d0a7ae15-8367-41e1-903c-6db0ba1b89c1)]
+interface nsIQosFilter: nsISupports
+{
+  const long QOS_PROTOCOL_UNSPECIFIED = -1;
+  const long QOS_PROTOCOL_TCP = 6;
+  const long QOS_PROTOCOL_UDP = 17;
+  const long QOS_PROTOCOL_ESP = 50;
+  const long QOS_PROTOCOL_AH = 51;
+
+  const long QOS_FILTER_DIRECTION_DOWNLINK = 0;
+  const long QOS_FILTER_DIRECTION_UPLINK = 1;
+  const long QOS_FILTER_DIRECTION_BIDIRECTIONAL = 2;
+
+  // QOS_FILTER_DIRECTION_*
+  readonly attribute long direction;
+  readonly attribute long precedence;
+  readonly attribute Array<AString> localAddresses;
+  readonly attribute Array<AString> remoteAddresses;
+
+  readonly attribute nsIPortRange localPort;
+  readonly attribute nsIPortRange remotePort;
+
+  // QOS_PROTOCOL_*
+  readonly attribute long protocol;
+  readonly attribute long tos;
+  readonly attribute long flowLabel;
+  readonly attribute long spi;
+};
+
+[scriptable, uuid(091e4aff-a3bd-4bba-9953-8772c4d0a56e)]
+interface nsIQosSession: nsISupports
+{
+    readonly attribute long qosSessionId;
+    readonly attribute nsIQos qos;
+    readonly attribute Array<nsIQosFilter> qosFilters;
+};
+
+[scriptable, uuid(68dc3b5b-a212-4a63-80ca-f1bc94bd1de9)]
+interface nsILinkAddress : nsISupports
+{
+    //The IP address with optional "/"
+    readonly attribute AString address;
+    //The properties of the link address in bitfield format
+    readonly attribute long properties;
+    /**
+     * The time, as reported by SystemClock.elapsedRealtime(), when this link address will be or
+     * was deprecated. -1 indicates this information is not available. At the time existing
+     * connections can still use this address until it expires, but new connections should use the
+     * new address. LONG_MAX(0x7FFFFFFFFFFFFFFF) indicates this link address will never be
+     * deprecated.
+     */
+    readonly attribute unsigned long long deprecationTime;
+    /**
+     * The time, as reported by SystemClock.elapsedRealtime(), when this link address will expire
+     * and be removed from the interface. -1 indicates this information is not available.
+     * LONG_MAX(0x7FFFFFFFFFFFFFFF) indicates this link address will never expire.
+     */
+    readonly attribute unsigned long long expirationTime;
+};
+
+[scriptable, uuid(a89be8bf-36e2-4e30-94b7-0167cba32c4a)]
+interface nsISliceInfo : nsISupports
+{
+    /**
+     * The type of service provided by the slice.
+     *
+     * see: 3GPP TS 24.501 Section 9.11.2.8.
+     */
+    readonly attribute long sst;
+
+    /**
+     * Slice differentiator is the identifier of a slice that has
+     * SliceServiceType as SST. A value of -1 indicates that there is
+     * no corresponding SliceInfo of the HPLMN.
+     *
+     * see: 3GPP TS 24.501 Section 9.11.2.8.
+     */
+    readonly attribute long sliceDifferentiator;
+
+    /**
+     * This SST corresponds to a SliceInfo (S-NSSAI) of the HPLMN; the SST is
+     * mapped to this value.
+     *
+     * see: 3GPP TS 24.501 Section 9.11.2.8.
+     */
+    readonly attribute long mappedHplmnSst;
+
+    /**
+     * Present only if both sliceDifferentiator and mappedHplmnSst are also
+     * present. This SD corresponds to a SliceInfo (S-NSSAI) of the HPLMN;
+     * sliceDifferentiator is mapped to this value. A value of -1 indicates that
+     * there is no corresponding SliceInfo of the HPLMN.
+     *
+     * see: 3GPP TS 24.501 Section 9.11.2.8.
+     */
+    readonly attribute long mappedHplmnSD;
+
+    /**
+     * Field to indicate the current status of the slice.
+     */
+    readonly attribute long status;
+};
+
+[scriptable, uuid(13618aa5-4b21-40a1-99ae-51d655e6120f)]
+interface nsITrafficDescriptor : nsISupports
+{
+    /**
+     * DNN stands for Data Network Name and represents an APN as defined in
+     * 3GPP TS 23.003.
+     */
+    readonly attribute AString dnn;
+
+    /**
+     * Indicates the OsId + OsAppId (used as category in Android).
+     */
+    readonly attribute Array<long> osAppId;
+};
+
+[scriptable, uuid(6b66446a-7000-438f-8e1b-b56b4cbf4fa0)]
 interface nsIDataCall : nsISupports
 {
   /**
@@ -17,7 +179,7 @@ interface nsIDataCall : nsISupports
    * If failCause != nsIDataCallInterface.DATACALL_FAIL_NONE, this field
    * indicates the suggested retry back-off timer. The unit is milliseconds.
    */
-  readonly attribute long suggestedRetryTime;
+  readonly attribute long long suggestedRetryTime;
 
   /**
    * Context ID, uniquely identifies this call.
@@ -66,6 +228,46 @@ interface nsIDataCall : nsISupports
    * MTU received from network, -1 if not set or invalid.
    */
   readonly attribute long mtu;
+
+  /**
+   * MTU IPV4 received from network, -1 if not set or invalid.
+   */
+  readonly attribute long mtuV4;
+
+  /**
+   * MTU IPV6 received from network, -1 if not set or invalid.
+   */
+  readonly attribute long mtuV6;
+
+  /**
+   * Pdu session id for this data call, 0 means no pdu session id was attached.
+   */
+  readonly attribute long pduSessionId;
+
+  /**
+   * Specifies the fallback mode on an IWLAN handover failure.
+   */
+  readonly attribute long handoverFailureMode;
+
+  /**
+   * TrafficDescriptors the data call must be used, only includes TDs.
+   */
+  readonly attribute Array<nsITrafficDescriptor> trafficDescriptors;
+
+  /**
+   * Slice used for this data call, valid only when AccessNetwork:NGRAN.
+   */
+  readonly attribute nsISliceInfo sliceInfo;
+
+  /**
+   * Default bearer QoS. Applicable to LTE and NR.
+   */
+  readonly attribute nsIQos defaultQos;
+
+  /**
+   * Active QOS sessions of the dedicated bearers.
+   */
+  readonly attribute Array<nsIQosSession> qosSessions;
 };
 
 [scriptable, uuid(e119c54b-9354-4ad6-a1ee-18608bde9320)]
@@ -89,6 +291,11 @@ interface nsIDataCallCallback : nsISupports
   void notifySetupDataCallSuccess(in nsIDataCall dataCall);
 
   /**
+   * Called when getSlicingConfig() returns succesfully.
+   */
+  void notifyGetSlicingConfigSuccess(in Array<nsISliceInfo> sliceInfos);
+
+  /**
    * Called when getDataCallList() returns succesfully.
    */
   void notifyGetDataCallListSuccess(in uint32_t count,
@@ -105,20 +312,29 @@ interface nsIDataCallCallback : nsISupports
   void notifyError(in AString errorMsg);
 };
 
-[scriptable, uuid(af86a738-0136-4f7d-8ada-e95eecfd2be9)]
+[scriptable, uuid(af86a738-0136-4f7d-8ada-e95eecfd2be0)]
 interface nsIDataProfile : nsISupports
 {
     const long  TYPE_COMMON = 0;
     const long  TYPE_3GPP = 1;
     const long  TYPE_3GPP2 = 2;
 
+    //const for PdpProtocolType in radio1.4
+    const long UNKNOWN = -1;
+    const long IP = 0;
+    const long IPV6 = 1;
+    const long IPV4V6 = 2;
+    const long PPP = 3;
+    const long NON_IP = 4;
+    const long UNSTRUCTURED = 5;
+
     //id of the data profile
     readonly attribute long profileId;
     //the APN to connect to
     readonly attribute AString apn;
     //one of the PDP_type values in TS 27.007 section 10.1.1.
-    //For example, "IP", "IPV6", "IPV4V6", or "PPP".
-    readonly attribute AString protocol;
+    //For example, "IP", "IPV6", "IPV4V6", "PPP", "NON_IP", "UNSTRUCTURED".
+    readonly attribute long protocol;
     //authentication protocol used for this PDP context
     //(None: 0, PAP: 1, CHAP: 2, PAP&CHAP: 3)
     readonly attribute long authType;
@@ -141,12 +357,16 @@ interface nsIDataProfile : nsISupports
     //supported APN types bitmap. See RIL_ApnTypes for the value of each bit.
     readonly attribute long supportedApnTypesBitmap;
     //one of the PDP_type values in TS 27.007 section 10.1.1 used on roaming network.
-    //For example, "IP", "IPV6", "IPV4V6", or "PPP".
-    readonly attribute AString roamingProtocol;
+    //For example, "IP", "IPV6", "IPV4V6", "PPP", "NON_IP", "UNSTRUCTURED".
+    readonly attribute long roamingProtocol;
     //The bearer bitmap. See RIL_RadioAccessFamily for the value of each bit.
     readonly attribute long bearerBitmap;
     //maximum transmission unit (MTU) size in bytes
     readonly attribute long mtu;
+    //maximum transmission unit (MTUV4) size in bytes
+    readonly attribute long mtuV4;
+    //maximum transmission unit (MTUV6) size in bytes
+    readonly attribute long mtuV6;
     //the MVNO type: possible values are "imsi", "gid", "spn"
     readonly attribute AString mvnoType;
     //MVNO match data. For example, SPN: A MOBILE, BEN NL, ...
@@ -155,6 +375,13 @@ interface nsIDataProfile : nsISupports
     readonly attribute AString mvnoMatchData;
     //indicating the data profile was sent to the modem through setDataProfile earlier.
     readonly attribute boolean modemCognitive;
+    //True if this data profile was used to bring up the last
+    //default (i.e internet) data connection successfully.
+    readonly attribute boolean preferred;
+    //If true, modem must persist this data profile and profileId must not be
+    //set to DataProfileId.INVALID. If the same data profile exists, this data profile must
+    //overwrite it.
+    readonly attribute boolean persistent;
 };
 
 [scriptable, uuid(3999d5f7-dfa0-4ad8-98e9-97e08a7ad647)]
@@ -223,12 +450,30 @@ interface nsIDataCallInterface : nsISupports
    *
    * @param radioTechnology
    *        current network radiotechnology.
+   * @param accessNetwork
+   *        The access network to setup the data call.
    * @param profile
    *        profile value.
+   * @param modemCognitive
+   *        Indicates the requested profile has been provided via setDataProfile().
    * @param isRoaming
    *        current network roaming status.
    * @param allowRoaming
    *        current device allow roaming status.
+   * @param reason
+   *        The request reason.
+   * @param addresses
+   *        This parameter must be ignored unless reason is DataRequestReason:HANDOVER.
+   * @param dnses
+   *        This parameter must be ignored unless reason is DataRequestReason:HANDOVER.
+   * @param pduSessionId
+   *        The pdu session id to be used for this data call.
+   * @param sliceInfo
+   *        To be used for the data connection when a handover occurs from EPDG to 5G.
+   * @param trafficDescriptor
+   *        For the data connection needs to be established.
+   * @param matchAllRuleAllowed
+   *        Indicate if using default match-all URSP rule for this request is allowed.
    * @param nsIDataCallCallback
    *        Called when request is finished.
    *
@@ -240,9 +485,18 @@ interface nsIDataCallInterface : nsISupports
    * 'OpNotAllowedDuringVoiceCall', 'RequestNotSupported' or 'GenericFailure'.
    */
   void setupDataCall(in long radioTechnology,
+                     in long accessNetworkType,
                      in jsval profile,
-                     in boolean isRoaming,
+                     in boolean modemConfig,
                      in boolean allowRoaming,
+                     in boolean isRoaming,
+                     in long reason,
+                     in Array<nsILinkAddress> addresses,
+                     in Array<AString> dnses,
+                     in long pduSessionId,
+                     in jsval sliceInfo,
+                     in jsval trafficDescriptor,
+                     in boolean matchAllRuleAllowed,
                      in nsIDataCallCallback callback);
 
   /**
@@ -315,6 +569,10 @@ interface nsIDataCallInterface : nsISupports
    void setInitialAttachApn(in jsval profile,
                             in boolean isRoaming);
 
+  /**
+   * Get slice config.
+   */
+   void getSlicingConfig(in nsIDataCallCallback callback);
 };
 
 [scriptable, uuid(64700406-7429-4743-a6ae-f82e9877fd0d)]

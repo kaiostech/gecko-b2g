@@ -100,6 +100,7 @@ def old_configure_options(*options):
     "--enable-b2g-ril",
     "--enable-b2g-voice-processing",
     "--enable-b2g-zaxis-geolocation",
+    "--enable-esim",
     "--enable-extensions",
     '--enable-rsu',
     "--enable-official-branding",

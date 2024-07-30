@@ -16,6 +16,7 @@
 #include "mozilla/dom/EmergencyCbModeEvent.h"
 #include "mozilla/dom/OtaStatusEvent.h"
 #include "mozilla/dom/ModemRestartEvent.h"
+#include "mozilla/dom/ScanResultEvent.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
@@ -665,6 +666,155 @@ already_AddRefed<DOMRequest> MobileConnection::GetRoamingPreference(
   return request.forget();
 }
 
+already_AddRefed<DOMRequest> MobileConnection::SetVoNrEnabled(
+    bool enabled, ErrorResult& aRv) {
+  if (!mMobileConnection) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<MobileConnectionCallback> requestCallback =
+      new MobileConnectionCallback(GetOwner(), request);
+
+  nsresult rv = mMobileConnection->SetVoNrEnabled(enabled, requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest> MobileConnection::IsVoNrEnabled(
+    ErrorResult& aRv) {
+  if (!mMobileConnection) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<MobileConnectionCallback> requestCallback =
+      new MobileConnectionCallback(GetOwner(), request);
+
+  nsresult rv = mMobileConnection->IsVoNrEnabled(requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest> MobileConnection::SetNrDualConnectivityState(
+    NrDualConnectivityState& aMode, ErrorResult& aRv) {
+  if (!mMobileConnection) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  int32_t mode = static_cast<int32_t>(aMode);
+
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<MobileConnectionCallback> requestCallback =
+      new MobileConnectionCallback(GetOwner(), request);
+
+  nsresult rv = mMobileConnection->SetNrDualConnectivityState(mode, requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest> MobileConnection::IsNrDualConnectivityEnabled(
+    ErrorResult& aRv) {
+  if (!mMobileConnection) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<MobileConnectionCallback> requestCallback =
+      new MobileConnectionCallback(GetOwner(), request);
+
+  nsresult rv = mMobileConnection->IsNrDualConnectivityEnabled(requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest> MobileConnection::StartNetworkScan(
+    const MobileNetworkScan& aOptions, ErrorResult& aRv) {
+  if (!mMobileConnection) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  if (aOptions.mScanType.IsNull()) {
+    nsresult rv = NotifyError(request, MOBILECONN_ERROR_INVALID_PARAMETER);
+    if (NS_FAILED(rv)) {
+      aRv.Throw(rv);
+      return nullptr;
+    }
+    return request.forget();
+  }
+
+  RefPtr<MobileConnectionCallback> requestCallback =
+      new MobileConnectionCallback(GetOwner(), request);
+  uint16_t interval = 0;
+  if (!aOptions.mInterval.IsNull()) {
+    interval = aOptions.mInterval.Value();
+  }
+  uint16_t maxSearchTime = 0;
+  if (!aOptions.mMaxSearchTime.IsNull()) {
+    maxSearchTime = aOptions.mMaxSearchTime.Value();
+  }
+  bool incrementalResults = false;
+  if (!aOptions.mIncrementalResults.IsNull()) {
+    incrementalResults = aOptions.mIncrementalResults.Value();
+  }
+  uint16_t incrementalResultsPeriodicity = 0;
+  if (!aOptions.mIncrementalResultsPeriodicity.IsNull()) {
+    incrementalResultsPeriodicity = aOptions.mIncrementalResultsPeriodicity.Value();
+  }
+  nsAutoString mccMncs;
+  if (aOptions.mMccMncs.IsVoid() || aOptions.mMccMncs.IsEmpty()) {
+    mccMncs.SetIsVoid(true);
+  } else {
+    mccMncs = aOptions.mMccMncs;
+  }
+  nsTArray<RefPtr<nsIGeckoRadioAccessSpecifier>> nsSpecifiers;
+  int32_t count = 0;
+  if (!aOptions.mSpecifiers.IsNull()) {
+    count = aOptions.mSpecifiers.Value().Length();
+    for (uint32_t i = 0; i < count; i++) {
+      RefPtr<nsIGeckoRadioAccessSpecifier> item = new GeckoRadioAccessSpecifier(aOptions.mSpecifiers.Value()[i].mRadioAccessNetwork,
+                                                        aOptions.mSpecifiers.Value()[i].mBands, aOptions.mSpecifiers.Value()[i].mChannels);
+      nsSpecifiers.AppendElement(item);
+    }
+  }
+
+  nsresult rv = mMobileConnection->StartNetworkScan(aOptions.mScanType.Value(),
+                                                    interval,
+                                                    maxSearchTime,
+                                                    incrementalResults,
+                                                    incrementalResultsPeriodicity,
+                                                    mccMncs,
+                                                    nsSpecifiers,
+                                                    requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  return request.forget();
+}
+
 already_AddRefed<DOMRequest> MobileConnection::SetVoicePrivacyMode(
     bool aEnabled, ErrorResult& aRv) {
   if (!mMobileConnection) {
@@ -1004,7 +1154,7 @@ already_AddRefed<DOMRequest> MobileConnection::SetRadioEnabled(
   RefPtr<MobileConnectionCallback> requestCallback =
       new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->SetRadioEnabled(aEnabled, requestCallback);
+  nsresult rv = mMobileConnection->SetRadioEnabled(aEnabled, false, false, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -1204,6 +1354,43 @@ MobileConnection::NotifyModemRestart(const nsAString& aReason) {
   RefPtr<ModemRestartEvent> event =
       ModemRestartEvent::Constructor(this, u"modemrestart"_ns, init);
 
+  return DispatchTrustedEvent(event);
+}
+
+NS_IMETHODIMP
+MobileConnection::NotifyScanResultReceived(uint32_t aCount, nsIMobileNetworkInfo** aNetworks) {
+  if (!CheckPermission("mobileconnection")) {
+    return NS_OK;
+  }
+  ScanResultEventInit init;
+  nsTArray<RefPtr<DOMMobileNetworkInfo>> results;
+  for (uint32_t i = 0; i < aCount; i++) {
+    RefPtr<DOMMobileNetworkInfo> networkInfo =
+        new DOMMobileNetworkInfo(GetOwner());
+    networkInfo->Update(aNetworks[i]);
+    results.AppendElement(networkInfo);
+  }
+  AutoJSAPI jsapi;
+  if (NS_WARN_IF(!jsapi.Init(GetOwner()))) {
+    return NS_ERROR_FAILURE;
+  }
+
+  JSContext* cx = jsapi.cx();
+  JS::Rooted<JS::Value> jsResult(cx);
+
+  if (!ToJSValue(cx, results, &jsResult)) {
+    jsapi.ClearException();
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
+  }
+  JS::Rooted<JSObject*> networkInfoObj(cx, &jsResult.toObject());
+  bool isArray;
+  if (!JS::IsArrayObject(cx, networkInfoObj, &isArray)) {
+    return NS_ERROR_FAILURE;
+  }
+  init.mNetworks = networkInfoObj;
+
+  RefPtr<ScanResultEvent> event =
+      ScanResultEvent::Constructor(this, u"networkscanresult"_ns, init);
   return DispatchTrustedEvent(event);
 }
 

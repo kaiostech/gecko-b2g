@@ -114,6 +114,8 @@ const NETWORK_TYPE_MOBILE_CBS = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_CBS;
 const NETWORK_TYPE_MOBILE_IA = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_IA;
 const NETWORK_TYPE_MOBILE_ECC = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC;
 const NETWORK_TYPE_MOBILE_XCAP = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_XCAP;
+const NETWORK_TYPE_MOBILE_ENTERPRISE =
+  Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ENTERPRISE;
 
 const NETWORK_STATE_UNKNOWN = Ci.nsINetworkInfo.NETWORK_STATE_UNKNOWN;
 const NETWORK_STATE_CONNECTING = Ci.nsINetworkInfo.NETWORK_STATE_CONNECTING;
@@ -124,6 +126,43 @@ const NETWORK_STATE_DISCONNECTED = Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED;
 
 const INT32_MAX = 2147483647;
 const kApnSettingKey = "ril.data.apnSettings.sim";
+
+//The reason of the data request is normal
+const DATA_REQUEST_REASON_NORMAL = 0x01;
+//The reason of the data request is device shutdown
+const DATA_REQUEST_REASON_SHUTDOWN = 0x02; // eslint-disable-line no-unused-vars
+//The reason of the data request is IWLAN data handover to another transport
+const DATA_REQUEST_REASON_HANDOVER = 0x03;
+
+//TrafficDescriptor dnn
+const TD_DNN = [
+  "enterprise",
+  "enterprise2",
+  "enterprise3",
+  "enterprise4",
+  "enterprise5",
+  "cbs",
+  "prioritize_latency",
+  "prioritize_bandwidth",
+];
+
+//TrafficDescriptor osAppId
+const TD_OSAPPID = [
+  [0x45, 0x4e, 0x54, 0x45, 0x52, 0x50, 0x52, 0x49, 0x53, 0x45],
+  [0x45, 0x4e, 0x54, 0x45, 0x52, 0x50, 0x52, 0x49, 0x53, 0x45, 0x32],
+  [0x45, 0x4e, 0x54, 0x45, 0x52, 0x50, 0x52, 0x49, 0x53, 0x45, 0x33],
+  [0x45, 0x4e, 0x54, 0x45, 0x52, 0x50, 0x52, 0x49, 0x53, 0x45, 0x34],
+  [0x45, 0x4e, 0x54, 0x45, 0x52, 0x50, 0x52, 0x49, 0x53, 0x45, 0x35],
+  [0x43, 0x42, 0x53],
+  [
+    0x50, 0x52, 0x49, 0x4f, 0x52, 0x49, 0x54, 0x49, 0x5a, 0x45, 0x5f, 0x4c,
+    0x41, 0x54, 0x45, 0x4e, 0x43, 0x59,
+  ],
+  [
+    0x50, 0x52, 0x49, 0x4f, 0x52, 0x49, 0x54, 0x49, 0x5a, 0x45, 0x5f, 0x42,
+    0x41, 0x4e, 0x44, 0x57, 0x49, 0x44, 0x54, 0x48,
+  ],
+];
 
 //ref RIL.GECKO_RADIO_TECH
 const TCP_BUFFER_SIZES = [
@@ -173,6 +212,145 @@ function updateDebugFlag() {
   DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
 }
 updateDebugFlag();
+
+function LinkAddress(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+LinkAddress.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsILinkAddress]),
+
+  address: null,
+  properties: -1,
+  deprecationTime: -1, //0x7FFFFFFFFFFFFFFF,//This number literal will lose precision at runtime
+  expirationTime: -1, //0x7FFFFFFFFFFFFFFF,//This number literal will lose precision at runtime
+};
+
+function SliceInfo(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+SliceInfo.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsISliceInfo]),
+
+  sst: -1,
+  sliceDifferentiator: -1,
+  mappedHplmnSst: -1,
+  mappedHplmnSD: -1,
+  status: -1,
+};
+
+function TrafficDescriptor(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+TrafficDescriptor.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsITrafficDescriptor]),
+
+  dnn: null,
+  osAppId: [],
+};
+
+function QosBandwidth(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+QosBandwidth.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIQosBandwidth]),
+
+  maxBitrateKbps: -1,
+  guaranteedBitrateKbps: -1,
+};
+
+function EpsQos(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+EpsQos.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIEpsQos]),
+
+  qci: -1,
+  downlink: null,
+  uplink: null,
+};
+
+function NrQos(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+NrQos.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsINrQos]),
+
+  fiveQi: -1,
+  downlink: null,
+  uplink: null,
+  qfi: -1,
+  averagingWindowMs: -1,
+};
+
+function Qos(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+Qos.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIQos]),
+
+  type: -1,
+  eps: null,
+  nr: null,
+};
+
+function PortRange(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+PortRange.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPortRange]),
+
+  start: -1,
+  end: -1,
+};
+
+function QosFilter(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+QosFilter.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIQosFilter]),
+
+  direction: -1,
+  precedence: -1,
+  localAddresses: [],
+  remoteAddresses: [],
+  localPort: null,
+  //remoteAddresses: null,
+  protocol: -1,
+  tos: -1,
+  flowLabel: -1,
+  spi: -1,
+};
+
+function QosSession(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+QosSession.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIQosSession]),
+
+  qosSessionId: -1,
+  qos: null,
+  qosFilters: [],
+};
 
 function DataCallManager() {
   this._connectionHandlers = [];
@@ -243,7 +421,7 @@ DataCallManager.prototype = {
   },
 
   _setDataRegistration(aDataCallInterface, aAttach) {
-    return new Promise(function(aResolve, aReject) {
+    return new Promise(function (aResolve, aReject) {
       let callback = {
         QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallCallback]),
         notifySuccess() {
@@ -659,6 +837,8 @@ function convertToDataCallType(aNetworkType) {
       return "hipri";
     case NETWORK_TYPE_MOBILE_ECC:
       return "Emergency";
+    case NETWORK_TYPE_MOBILE_ENTERPRISE:
+      return "enterprise";
     default:
       return "unknown";
   }
@@ -688,8 +868,43 @@ function convertApnType(aApnType) {
       return NETWORK_TYPE_MOBILE_HIPRI;
     case "Emergency":
       return NETWORK_TYPE_MOBILE_ECC;
+    case "enterprise":
+      return NETWORK_TYPE_MOBILE_ENTERPRISE;
     default:
       return NETWORK_TYPE_UNKNOWN;
+  }
+}
+
+function networkTypeToAccessNetworkType(radioTechnology) {
+  switch (radioTechnology) {
+    case RIL.NETWORK_CREG_TECH_GPRS:
+    case RIL.NETWORK_CREG_TECH_EDGE:
+    case RIL.NETWORK_CREG_TECH_GSM:
+      return RIL.ACCESSNETWORK_GERAN;
+    case RIL.NETWORK_CREG_TECH_UMTS:
+    case RIL.NETWORK_CREG_TECH_HSDPA:
+    case RIL.NETWORK_CREG_TECH_HSUPA:
+    case RIL.NETWORK_CREG_TECH_HSPA:
+    case RIL.NETWORK_CREG_TECH_HSPAP:
+    case RIL.NETWORK_CREG_TECH_TD_SCDMA:
+      return RIL.ACCESSNETWORK_UTRAN;
+    case RIL.NETWORK_CREG_TECH_IS95A:
+    case RIL.NETWORK_CREG_TECH_IS95B:
+    case RIL.NETWORK_CREG_TECH_1XRTT:
+    case RIL.NETWORK_CREG_TECH_EVDO0:
+    case RIL.NETWORK_CREG_TECH_EVDOA:
+    case RIL.NETWORK_CREG_TECH_EVDOB:
+    case RIL.NETWORK_CREG_TECH_EHRPD:
+      return RIL.ACCESSNETWORK_CDMA2000;
+    case RIL.NETWORK_CREG_TECH_LTE:
+    case RIL.NETWORK_CREG_TECH_LTE_CA:
+      return RIL.ACCESSNETWORK_EUTRAN;
+    case RIL.NETWORK_CREG_TECH_IWLAN:
+      return RIL.ACCESSNETWORK_IWLAN;
+    case RIL.NETWORK_CREG_TECH_NR:
+      return RIL.ACCESSNETWORK_NGRAN;
+    default:
+      return RIL.ACCESSNETWORK_UNKNOWN;
   }
 }
 
@@ -719,19 +934,18 @@ function DataCallHandler(aClientId) {
   };
   this._dataCalls = [];
   this._listeners = [];
+  this.sliceInfos = [];
 
   // This map is used to collect all the apn types and its corresponding
   // RILNetworkInterface.
   this.dataNetworkInterfaces = new Map();
 
-  this.dataCallInterface = lazy.dataCallInterfaceService.getDataCallInterface(
-    aClientId
-  );
+  this.dataCallInterface =
+    lazy.dataCallInterfaceService.getDataCallInterface(aClientId);
   this.dataCallInterface.registerListener(this);
 
-  let mobileConnection = lazy.mobileConnectionService.getItemByServiceId(
-    aClientId
-  );
+  let mobileConnection =
+    lazy.mobileConnectionService.getItemByServiceId(aClientId);
   mobileConnection.registerListener(this);
 
   this._dataInfo = {
@@ -742,6 +956,7 @@ function DataCallHandler(aClientId) {
 
   this.needRecoverAfterReset = false;
   this.mobileWhiteList = [];
+  this.getSlicingConfig();
 }
 DataCallHandler.prototype = {
   classID: DATACALLHANDLER_CID,
@@ -757,6 +972,7 @@ DataCallHandler.prototype = {
   dataNetworkInterfaces: null,
   _dataCalls: null,
   _dataInfo: null,
+  sliceInfos: null,
 
   // Active Apn settings.
   _activeApnSettings: null,
@@ -784,7 +1000,7 @@ DataCallHandler.prototype = {
 
   shutdown() {
     // Shutdown all RIL network interfaces
-    this.dataNetworkInterfaces.forEach(function(networkInterface) {
+    this.dataNetworkInterfaces.forEach(function (networkInterface) {
       lazy.networkManager.unregisterNetworkInterface(networkInterface);
       networkInterface.shutdown();
       networkInterface = null;
@@ -840,7 +1056,7 @@ DataCallHandler.prototype = {
     }
 
     // Shutdown all network interfaces and clear data calls.
-    this.dataNetworkInterfaces.forEach(function(networkInterface) {
+    this.dataNetworkInterfaces.forEach(function (networkInterface) {
       lazy.networkManager.unregisterNetworkInterface(networkInterface);
       networkInterface.shutdown();
       networkInterface = null;
@@ -949,7 +1165,7 @@ DataCallHandler.prototype = {
 
   configMeter(aMeterNetworkType) {
     aMeterNetworkType.forEach(
-      function(apnType) {
+      function (apnType) {
         let networkType = convertApnType(apnType);
         let networkInterface = this.dataNetworkInterfaces.get(networkType);
         if (networkInterface) {
@@ -1096,9 +1312,13 @@ DataCallHandler.prototype = {
       roamingProtocol: roamPdpType,
       bearerBitmap: aApnSetting.bearer || 0,
       mtu: aApnSetting.mtu || 0,
+      mtuV4: aApnSetting.mtuV4 || -1,
+      mtuV6: aApnSetting.mtuV6 || -1,
       mvnoType: aApnSetting.mvnoType || "",
       mvnoMatchData: aApnSetting.mvnoMatchData || false,
       modemCognitive: aApnSetting.modemCognitive || true,
+      preferred: aApnSetting.preferred || false,
+      persistent: aApnSetting.persistent || false,
     };
 
     return dataProfile;
@@ -1245,6 +1465,89 @@ DataCallHandler.prototype = {
     lazy.PCOService.updatePcoData(pcoValueList);
   },
 
+  updateSlicingConfig(aSliceInfos) {
+    if (DEBUG) {
+      this.debug("before updateSlicingConfig sliceInfos =" + this.sliceInfos);
+    }
+
+    let updateslices = [];
+    updateslices = aSliceInfos;
+    if (!updateslices.length) {
+      return;
+    }
+    if (!this.sliceInfos.length) {
+      for (let i = 0; i < updateslices.length; i++) {
+        this.sliceInfos.push(updateslices[i]);
+      }
+      return;
+    }
+    for (let sliceInfo of updateslices) {
+      let result = "new";
+      for (let j = 0; j < this.sliceInfos.length; j++) {
+        result = this._compareSliceInfo(sliceInfo, this.sliceInfos[j]);
+        if (result == "identical") {
+          if (DEBUG) {
+            this.debug("No changes in sliceinfo.");
+          }
+          break;
+        }
+        if (result == "changed") {
+          if (DEBUG) {
+            this.debug("Changes in sliceinfo.");
+          }
+          this.sliceInfos[j].mappedHplmnSst = sliceInfo.mappedHplmnSst;
+          this.sliceInfos[j].mappedHplmnSD = sliceInfo.mappedHplmnSD;
+          this.sliceInfos[j].status = sliceInfo.status;
+          break;
+        }
+      }
+      if (result == "new") {
+        if (DEBUG) {
+          this.debug("New sliceinfo.");
+        }
+        this.sliceInfos.push(sliceInfo);
+      }
+    }
+
+    if (DEBUG) {
+      this.debug("after updateSlicingConfig sliceInfos =" + this.sliceInfos);
+    }
+  },
+
+  _compareSliceInfo(updateSlice, currentSlice) {
+    if (
+      updateSlice.sst == currentSlice.sst &&
+      updateSlice.sliceDifferentiator == currentSlice.sliceDifferentiator
+    ) {
+      if (
+        updateSlice.mappedHplmnSst != currentSlice.mappedHplmnSst ||
+        updateSlice.mappedHplmnSD != currentSlice.mappedHplmnSD ||
+        updateSlice.status != currentSlice.status
+      ) {
+        return "changed";
+      }
+      return "identical";
+    }
+    return "new";
+  },
+
+  getSlicingConfig() {
+    this.dataCallInterface.getSlicingConfig({
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallCallback]),
+      notifyGetSlicingConfigSuccess: aSliceInfos => {
+        this.sliceInfos = aSliceInfos;
+        if (DEBUG) {
+          this.debug("getSlicingConfig sliceInfos =" + this.sliceInfos);
+        }
+      },
+      notifyError: aErrorMsg => {
+        if (DEBUG) {
+          this.debug("getSlicingConfig errorMsg : " + aErrorMsg);
+        }
+      },
+    });
+  },
+
   updateRILNetworkInterface() {
     if (DEBUG) {
       this.debug("updateRILNetworkInterface");
@@ -1365,7 +1668,7 @@ DataCallHandler.prototype = {
       return;
     }
 
-    if (dataCallConnected) {
+    if (dataCallConnected && aNetworkInterface.newdnn == -1) {
       if (DEBUG) {
         this.debug(
           "Already connected. dataCallConnected: " + dataCallConnected
@@ -1427,7 +1730,8 @@ DataCallHandler.prototype = {
       aNetworkType === NETWORK_TYPE_MOBILE_CBS ||
       aNetworkType === NETWORK_TYPE_MOBILE_IA ||
       aNetworkType === NETWORK_TYPE_MOBILE_ECC ||
-      aNetworkType === NETWORK_TYPE_MOBILE_XCAP
+      aNetworkType === NETWORK_TYPE_MOBILE_XCAP ||
+      aNetworkType === NETWORK_TYPE_MOBILE_ENTERPRISE
     ) {
       return true;
     }
@@ -1456,7 +1760,7 @@ DataCallHandler.prototype = {
     return networkInterface.info.state;
   },
 
-  setupDataCallByType(aNetworkType) {
+  setupDataCallByType(aNetworkType, dnn) {
     if (DEBUG) {
       this.debug("setupDataCallByType: " + convertToDataCallType(aNetworkType));
     }
@@ -1485,11 +1789,25 @@ DataCallHandler.prototype = {
       );
     }
 
+    networkInterface.newdnn = -1;
+    if (dnn != null && dnn >= 0) {
+      let index = networkInterface.dnns.indexOf(dnn);
+      if (index == -1) {
+        networkInterface.dnns.push(dnn);
+        networkInterface.newdnn = dnn;
+      }
+      if (DEBUG) {
+        this.debug(
+          "dnns: " + networkInterface.dnns + "newdnn:" + networkInterface.newdnn
+        );
+      }
+    }
+
     networkInterface.enable();
     this.onUpdateRILNetworkInterface(networkInterface);
   },
 
-  deactivateDataCallByType(aNetworkType) {
+  deactivateDataCallByType(aNetworkType, dnn) {
     if (DEBUG) {
       this.debug(
         "deactivateDataCallByType: " + convertToDataCallType(aNetworkType)
@@ -1542,7 +1860,7 @@ DataCallHandler.prototype = {
       this.debug("deactivateAllDataCalls: aReason=" + aReason);
     }
     let dataDisconnecting = false;
-    this.dataNetworkInterfaces.forEach(function(networkInterface) {
+    this.dataNetworkInterfaces.forEach(function (networkInterface) {
       if (networkInterface.enabled) {
         if (
           networkInterface.info.state != NETWORK_STATE_UNKNOWN &&
@@ -1661,7 +1979,6 @@ DataCallHandler.prototype = {
   },
 
   // nsIDataCallInterfaceListener
-
   notifyDataCallListChanged(aCount, aDataCallList) {
     let currentDataCalls = this._dataCalls.slice();
     for (let i = 0; i < aDataCallList.length; i++) {
@@ -1743,7 +2060,7 @@ DataCallHandler.prototype = {
     }
 
     this.dataNetworkInterfaces.forEach(
-      function(networkInterface) {
+      function (networkInterface) {
         if (networkInterface.enabled) {
           this.onUpdateRILNetworkInterface(networkInterface);
         }
@@ -1811,7 +2128,7 @@ DataCallHandler.prototype = {
     if (radioOn) {
       if (this.needRecoverAfterReset) {
         return new Promise(
-          function(aResolve, aReject) {
+          function (aResolve, aReject) {
             let callback = {
               QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallCallback]),
               notifySuccess() {
@@ -1855,6 +2172,7 @@ DataCallHandler.prototype = {
     }
     this.needRecoverAfterReset = true;
   },
+  notifyScanResultReceived(scanResults) {},
 };
 
 function DataCall(aClientId, aApnSetting, aDataCallHandler) {
@@ -1864,17 +2182,26 @@ function DataCall(aClientId, aApnSetting, aDataCallHandler) {
 
   this.linkInfo = {
     cid: null,
+    active: null,
+    pdpType: null,
     ifname: null,
     addresses: [],
     dnses: [],
     gateways: [],
     pcscf: [],
     mtu: null,
+    pduSessionId: 0,
+    handoverFailureMode: null,
+    trafficDescriptors: [],
+    sliceInfo: null,
+    defaultQos: null,
+    qosSessions: [],
     tcpbuffersizes: null,
   };
   this.apnSetting = aApnSetting;
   this.state = NETWORK_STATE_UNKNOWN;
   this.requestedNetworkIfaces = [];
+  this.newdnn = -1;
 }
 DataCall.prototype = {
   /**
@@ -1895,6 +2222,8 @@ DataCall.prototype = {
 
   // Array to hold RILNetworkInterfaces that requested this DataCall.
   requestedNetworkIfaces: null,
+
+  newdnn: null,
 
   /**
    * @return "deactivate" if <ifname> changes or one of the aCurrentDataCall
@@ -1941,6 +2270,18 @@ DataCall.prototype = {
     }
 
     if (aCurrentDataCall.mtu != aUpdatedDataCall.mtu) {
+      return "changed";
+    }
+    if (aCurrentDataCall.pdpType != aUpdatedDataCall.pdpType) {
+      return "changed";
+    }
+    if (aCurrentDataCall.pduSessionId != aUpdatedDataCall.pduSessionId) {
+      return "changed";
+    }
+    if (
+      aCurrentDataCall.handoverFailureMode !=
+      aUpdatedDataCall.handoverFailureMode
+    ) {
       return "changed";
     }
 
@@ -2087,6 +2428,11 @@ DataCall.prototype = {
       return;
     }
 
+    if (this.linkInfo.active != aDataCall.active) {
+      //need to update the display of 5G icon in future
+      this.linkInfo.active = aDataCall.active > 0 ? aDataCall.active : 0;
+    }
+    this.linkInfo.pdpType = aDataCall.pdpType;
     this.linkInfo.ifname = aDataCall.ifname;
     this.linkInfo.addresses = aDataCall.addresses
       ? aDataCall.addresses.trim().split(" ")
@@ -2100,7 +2446,19 @@ DataCall.prototype = {
     this.linkInfo.pcscf = aDataCall.pcscf
       ? aDataCall.pcscf.trim().split(" ")
       : [];
-    this.linkInfo.mtu = aDataCall.mtu > 0 ? aDataCall.mtu : 0;
+    let defaultmtu = aDataCall.mtu > 0 ? aDataCall.mtu : 0;
+    let mtuV4 = aDataCall.mtuV4 > 0 ? aDataCall.mtuV4 : defaultmtu;
+    let mtuV6 = aDataCall.mtuV6 > 0 ? aDataCall.mtuV6 : defaultmtu;
+    this.linkInfo.mtu = this.updatemtu(mtuV4, mtuV6);
+
+    this.linkInfo.pduSessionId =
+      aDataCall.pduSessionId > 0 ? aDataCall.pduSessionId : 0;
+    this.linkInfo.handoverFailureMode =
+      aDataCall.handoverFailureMode > 0 ? aDataCall.handoverFailureMode : 0;
+    this.linkInfo.trafficDescriptors = aDataCall.trafficDescriptors;
+    this.linkInfo.sliceInfo = aDataCall.sliceInfo;
+    this.linkInfo.defaultQos = aDataCall.defaultQos;
+    this.linkInfo.qosSessions = aDataCall.qosSessions;
     this.state = this._getGeckoDataCallState(aDataCall);
     this.linkInfo.tcpbuffersizes = this.updateTcpBufferSizes();
 
@@ -2110,6 +2468,22 @@ DataCall.prototype = {
     for (let i = 0; i < this.requestedNetworkIfaces.length; i++) {
       this.requestedNetworkIfaces[i].notifyRILNetworkInterface();
     }
+  },
+
+  updatemtu(mtuV4, mtuV6) {
+    let mtu = 0;
+    if (
+      this.linkInfo.pdpType == Ci.nsIDataCallInterface.DATACALL_PDP_TYPE_IPV4V6
+    ) {
+      mtu = mtuV4 > mtuV6 ? mtuV6 : mtuV4;
+    } else if (
+      this.linkInfo.pdpType == Ci.nsIDataCallInterface.DATACALL_PDP_TYPE_IPV6
+    ) {
+      mtu = mtuV6;
+    } else {
+      mtu = mtuV4;
+    }
+    return mtu;
   },
 
   onDeactivateDataCallResult() {
@@ -2162,8 +2536,17 @@ DataCall.prototype = {
       return;
     }
 
+    let defaultmtu = aUpdatedDataCall.mtu > 0 ? aUpdatedDataCall.mtu : 0;
+    let mtuV4 =
+      aUpdatedDataCall.mtuV4 > 0 ? aUpdatedDataCall.mtuV4 : defaultmtu;
+    let mtuV6 =
+      aUpdatedDataCall.mtuV6 > 0 ? aUpdatedDataCall.mtuV6 : defaultmtu;
+    let linkinfomtu = this.updatemtu(mtuV4, mtuV6);
+
     let newLinkInfo = {
       ifname: aUpdatedDataCall.ifname,
+      active: aUpdatedDataCall.active,
+      pdpType: aUpdatedDataCall.pdpType,
       addresses: aUpdatedDataCall.addresses
         ? aUpdatedDataCall.addresses.trim().split(" ")
         : [],
@@ -2176,7 +2559,17 @@ DataCall.prototype = {
       pcscf: aUpdatedDataCall.pcscf
         ? aUpdatedDataCall.pcscf.trim().split(" ")
         : [],
-      mtu: aUpdatedDataCall.mtu > 0 ? aUpdatedDataCall.mtu : 0,
+      mtu: linkinfomtu,
+      pduSessionId:
+        aUpdatedDataCall.pduSessionId > 0 ? aUpdatedDataCall.pduSessionId : 0,
+      handoverFailureMode:
+        aUpdatedDataCall.handoverFailureMode > 0
+          ? aUpdatedDataCall.handoverFailureMode
+          : 0,
+      trafficDescriptors: aUpdatedDataCall.trafficDescriptors,
+      sliceInfo: aUpdatedDataCall.sliceInfo,
+      defaultQos: aUpdatedDataCall.defaultQos,
+      qosSessions: aUpdatedDataCall.qosSessions,
     };
 
     switch (dataCallState) {
@@ -2207,6 +2600,15 @@ DataCall.prototype = {
           this.linkInfo.dnses = newLinkInfo.dnses.slice();
           this.linkInfo.pcscf = newLinkInfo.pcscf.slice();
           this.linkInfo.mtu = newLinkInfo.mtu;
+          this.linkInfo.active = newLinkInfo.active;
+          this.linkInfo.pdpType = newLinkInfo.pdpType;
+          this.linkInfo.pduSessionId = newLinkInfo.pduSessionId;
+          this.linkInfo.handoverFailureMode = newLinkInfo.handoverFailureMode;
+          this.linkInfo.trafficDescriptors =
+            newLinkInfo.trafficDescriptors.slice();
+          this.linkInfo.sliceInfo = newLinkInfo.sliceInfo;
+          this.linkInfo.defaultQos = newLinkInfo.defaultQos;
+          this.linkInfo.qosSessions = newLinkInfo.qosSessions.slice();
         }
         break;
       case NETWORK_STATE_DISCONNECTED:
@@ -2277,7 +2679,8 @@ DataCall.prototype = {
               );
             }
             // Clean the requestedNetworkIfaces due to current DC can not support this rat.
-            let targetRequestedNetworkIfaces = this.requestedNetworkIfaces.slice();
+            let targetRequestedNetworkIfaces =
+              this.requestedNetworkIfaces.slice();
             for (let networkInterface of targetRequestedNetworkIfaces) {
               this.disconnect(networkInterface);
             }
@@ -2441,12 +2844,20 @@ DataCall.prototype = {
 
   resetLinkInfo() {
     this.linkInfo.cid = null;
+    this.linkInfo.active = null;
+    this.linkInfo.pdpType = null;
     this.linkInfo.ifname = null;
     this.linkInfo.addresses = [];
     this.linkInfo.dnses = [];
     this.linkInfo.gateways = [];
     this.linkInfo.pcscf = [];
     this.linkInfo.mtu = null;
+    this.linkInfo.pduSessionId = null;
+    this.linkInfo.handoverFailureMode = null;
+    this.linkInfo.trafficDescriptors = [];
+    this.linkInfo.sliceInfo = null;
+    this.linkInfo.defaultQos = null;
+    this.linkInfo.qosSessions = [];
     this.linkInfo.tcpbuffersizes = null;
   },
 
@@ -2457,6 +2868,7 @@ DataCall.prototype = {
     // Reset the retry counter.
     this.apnRetryCounter = 0;
     this.state = NETWORK_STATE_DISCONNECTED;
+    this.newdnn = -1;
   },
 
   connect(aNetworkInterface) {
@@ -2519,16 +2931,47 @@ DataCall.prototype = {
 
     let radioTechType = dataInfo.type;
     let radioTechnology = RIL.GECKO_RADIO_TECH.indexOf(radioTechType);
+    let accessNetworkType = networkTypeToAccessNetworkType(radioTechnology);
     let dcInterface = this.dataCallHandler.dataCallInterface;
+    let reason = DATA_REQUEST_REASON_NORMAL; //Need to do in future
+    let addresses = [];
+    let dnses = [];
+    let sliceInfo = null;
+
+    if (reason == DATA_REQUEST_REASON_HANDOVER) {
+      if (this.linkInfo.addresses != null) {
+        for (let i = 0; i < this.linkInfo.addresses.length; i++) {
+          addresses.push(
+            new LinkAddress({ address: this.linkInfo.addresses[i] })
+          );
+        }
+      }
+      dnses = this.linkInfo.dnses;
+      sliceInfo = this.linkInfo.sliceInfo;
+    }
+    let trafficDescriptor = null;
+    trafficDescriptor = this._gettrafficDescriptor();
+    let matchAllRuleAllowed =
+      trafficDescriptor == null || !(trafficDescriptor.dnn == "");
 
     dcInterface.setupDataCall(
       radioTechnology,
+      accessNetworkType,
       this.dataProfile,
-      dataInfo.roaming,
+      this.dataProfile.modemCognitive,
       this.dataCallHandler.dataCallSettings.roamingEnabled,
+      dataInfo.roaming,
+      reason,
+      addresses,
+      dnses,
+      this.linkInfo.pduSessionId,
+      sliceInfo,
+      trafficDescriptor,
+      matchAllRuleAllowed,
       {
         QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallCallback]),
         notifySetupDataCallSuccess: aDataCall => {
+          this.debug("aDataCall is " + JSON.stringify(aDataCall));
           this.onSetupDataCallResult(aDataCall);
         },
         notifyError: aErrorMsg => {
@@ -2537,6 +2980,39 @@ DataCall.prototype = {
       }
     );
     this.state = NETWORK_STATE_CONNECTING;
+  },
+
+  _gettrafficDescriptor() {
+    let trafficDescriptor = null;
+    let dataname = null;
+    if (this.newdnn >= 0) {
+      dataname = TD_DNN[this.newdnn];
+    } else {
+      dataname = this.dataProfile.apn;
+    }
+    if (DEBUG) {
+      this.debug("_gettrafficDescriptor dataname is:" + dataname);
+    }
+    if (this.linkInfo.trafficDescriptors != null) {
+      for (let i = 0; i < this.linkInfo.trafficDescriptors.length; i++) {
+        if (dataname == this.linkInfo.trafficDescriptors[i].dnn) {
+          trafficDescriptor = this.linkInfo.trafficDescriptors[i];
+          break;
+        }
+      }
+    }
+
+    if (this.newdnn >= 0 && trafficDescriptor == null) {
+      trafficDescriptor = new TrafficDescriptor({
+        dnn: dataname,
+        osAppId: TD_OSAPPID[this.newdnn],
+      });
+    }
+
+    if (trafficDescriptor == null) {
+      trafficDescriptor = new TrafficDescriptor({ dnn: this.apnSetting.apn });
+    } //need to do in future
+    return trafficDescriptor;
   },
 
   retry(aSuggestedRetryTime) {
@@ -2917,6 +3393,8 @@ function RILNetworkInterface(aDataCallHandler, aType, aApnSetting, aDataCall) {
   }
 
   this.info = new RILNetworkInfo(aDataCallHandler.clientId, aType, this);
+  this.dnns = [];
+  this.newdnn = -1;
 }
 
 RILNetworkInterface.prototype = {
@@ -2937,6 +3415,9 @@ RILNetworkInterface.prototype = {
 
   // For record how many APP using this apn type.
   activeUsers: 0,
+
+  dnns: [],
+  newdnn: null,
 
   get httpProxyHost() {
     if (this.dataCallsList) {
@@ -3063,6 +3544,9 @@ RILNetworkInterface.prototype = {
     }
 
     if (targetDataCall != null) {
+      if (this.newdnn >= 0) {
+        targetDataCall.newdnn = this.newdnn;
+      }
       targetDataCall.connect(this);
     } else {
       this.debug("connect: There is no DC support this rat. Abort.");
@@ -3114,6 +3598,8 @@ RILNetworkInterface.prototype = {
       }
     }
     this.dataCallsList = null;
+    this.dnns = null;
+    this.newdnn = null;
   },
 };
 

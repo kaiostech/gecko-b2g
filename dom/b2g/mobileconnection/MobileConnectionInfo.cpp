@@ -60,11 +60,13 @@ MobileConnectionInfo::MobileConnectionInfo(nsPIDOMWindowInner* aWindow)
 MobileConnectionInfo::MobileConnectionInfo(
     const nsAString& aState, bool aConnected, bool aEmergencyCallsOnly,
     bool aRoaming, nsIMobileNetworkInfo* aNetworkInfo, const nsAString& aType,
-    nsIMobileCellInfo* aCellInfo, int32_t aReasonDataDenied)
+    nsIMobileCellInfo* aCellInfo, int32_t aReasonDataDenied, bool aIsNSA5GAvailable)
     : mConnected(aConnected),
       mEmergencyCallsOnly(aEmergencyCallsOnly),
       mRoaming(aRoaming),
-      mReasonDataDenied(aReasonDataDenied) {
+      mReasonDataDenied(aReasonDataDenied),
+      mIsNSA5GAvailable(aIsNSA5GAvailable)
+       {
   // The instance created by this way is only used for IPC stuff. It won't be
   // exposed to JS directly, we will clone this instance to the one that is
   // maintained in MobileConnectionChild.
@@ -97,6 +99,8 @@ void MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo) {
 
   // Update mReasonDataDenied
   aInfo->GetReasonDataDenied(&mReasonDataDenied);
+
+  aInfo->GetIsNSA5GAvailable(&mIsNSA5GAvailable);
 
   // Update mState
   nsAutoString state;
@@ -207,5 +211,11 @@ MobileConnectionInfo::GetCell(nsIMobileCellInfo** aInfo) {
 NS_IMETHODIMP MobileConnectionInfo::GetReasonDataDenied(
     int32_t* aReasonDataDenied) {
   *aReasonDataDenied = ReasonDataDenied();
+  return NS_OK;
+}
+
+NS_IMETHODIMP MobileConnectionInfo::GetIsNSA5GAvailable(
+    bool* aIsNSA5GAvailable) {
+  *aIsNSA5GAvailable = IsNSA5GAvailable();
   return NS_OK;
 }

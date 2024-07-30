@@ -99,6 +99,16 @@ class MobileConnectionRequestParent : public PMobileConnectionRequestParent,
 
   bool DoRequest(const GetRoamingPreferenceRequest& aRequest);
 
+  bool DoRequest(const SetVoNrEnabledRequest& aRequest);
+
+  bool DoRequest(const IsVoNrEnabledRequest& aRequest);
+
+  bool DoRequest(const SetNrDualConnectivityStateRequest& aRequest);
+
+  bool DoRequest(const IsNrDualConnectivityEnabledRequest& aRequest);
+
+  bool DoRequest(const StartNetworkScanRequest& aRequest);
+
   bool DoRequest(const SetVoicePrivacyModeRequest& aRequest);
 
   bool DoRequest(const GetVoicePrivacyModeRequest& aRequest);

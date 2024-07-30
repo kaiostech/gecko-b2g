@@ -6,9 +6,14 @@
 #include "nsIRilIndicationResult.idl"
 #include "nsIRilResponseResult.idl"
 #include "nsIDataCallInterfaceService.idl"
+#include "nsIRadioTypes.idl"
 
 interface nsIRilIndicationResult;
 interface nsIRilResponseResult;
+interface nsINetworkScanRequest;
+interface nsIRadioAccessSpecifier;
+interface nsICarrierRestrictionsWithPriority;
+interface nsIPhonebookRecordInfo;
 
 [scriptable, uuid(58e8a1cb-cab7-490d-9301-5c66b36ecf6b)]
 interface nsIRilCallback : nsISupports
@@ -17,12 +22,88 @@ interface nsIRilCallback : nsISupports
   void handleRilIndication(in nsIRilIndicationResult response);
 };
 
-[scriptable, uuid(ed577b37-4bdf-471b-a11e-8b2b0c4b05aa)]
+[scriptable, uuid(26692ca9-f26e-4d59-9e10-1fb1a89885a4)]
 interface nsIRilWorker : nsISupports
 {
+  /**
+   * Public key type from carrier certificate.
+   */
+  const  unsigned long PUBLIC_KEY_TYPE_EPDG = 1;
+  const  unsigned long PUBLIC_KEY_TYPE_WLAN = 2;
+
+  /**
+   * Defining signal strength type.
+   */
+  /**
+   * Received Signal Strength Indication.
+   * Range: -113 dBm and -51 dBm
+   * Used RAN: GERAN, CDMA2000
+   * Reference: 3GPP TS 27.007 section 8.5.
+   */
+  const unsigned long SIGNAL_MRTYPE_RSSI = 1;
+
+  /**
+   * Received Signal Code Power.
+   * Range: -120 dBm to -25 dBm;
+   * Used RAN: UTRAN
+   * Reference: 3GPP TS 25.123, section 9.1.1.1
+   */
+  const unsigned long SIGNAL_MRTYPE_RSCP = 2;
+
+  /**
+   * Reference Signal Received Power.
+   * Range: -140 dBm to -44 dBm;
+   * Used RAN: EUTRAN
+   * Reference: 3GPP TS 36.133 9.1.4
+   */
+  const unsigned long SIGNAL_MRTYPE_RSRP = 3;
+
+  /**
+   * Reference Signal Received Quality
+   * Range: -34 dB to 3 dB;
+   * Used RAN: EUTRAN
+   * Reference: 3GPP TS 36.133 v12.6.0 section 9.1.7
+   */
+  const unsigned long SIGNAL_MRTYPE_RSRQ = 4;
+
+  /**
+   * Reference Signal Signal to Noise Ratio
+   * Range: -20 dB to 30 dB;
+   * Used RAN: EUTRAN
+   * Note: this field is optional; how to support it can be decided by the
+   * corresponding vendor. Though the response code is not enforced,
+   * vendor's implementation must ensure this interface not crashing.
+   */
+  const unsigned long SIGNAL_MRTYPE_RSSNR = 5;
+
+  /**
+   * 5G SS reference signal received power.
+   * Range: -140 dBm to -44 dBm.
+   * Used RAN: NGRAN
+   * Reference: 3GPP TS 38.215.
+   */
+  const unsigned long SIGNAL_MRTYPE_SSRSRP = 6;
+
+  /**
+   * 5G SS reference signal received quality.
+   * Range: -43 dB to 20 dB.
+   * Used RAN: NGRAN
+   * Reference: 3GPP TS 38.215, 3GPP TS 38.133 section 10
+   */
+  const unsigned long SIGNAL_MRTYPE_SSRSRQ = 7;
+
+  /**
+   * 5G SS signal-to-noise and interference ratio.
+   * Range: -23 dB to 40 dB
+   * Used RAN: NGRAN
+   * Reference: 3GPP TS 38.215 section 5.1.*, 3GPP TS 38.133 section 10.1.16.1.
+   */
+  const unsigned long SIGNAL_MRTYPE_SSSINR = 8;
+
+  void supplySimDepersonalization(in long serial, in long persoType, in AString controlKey);
   void sendRilRequest(in jsval message);
   void initRil(in nsIRilCallback callback);
-  void setRadioPower(in long serial, in boolean enabled);
+  void setRadioPower(in long serial, in boolean enabled, in boolean forEmergencyCall, in boolean preferredForEmergencyCall);
   void getDataCallList(in long serial);
   void getVoiceRegistrationState(in long serial);
   void getDataRegistrationState(in long serial);
@@ -36,12 +117,13 @@ interface nsIRilWorker : nsISupports
   void getDeviceIdentity(in long serial);
   void setDataAllowed(in long serial, in boolean allowed);
   void getBasebandVersion(in long serial);
-  void setUiccSubscription(in long serial, in long slotId, in long appIndex, in long subId
-                           , in long subStatus);
+  void setUiccSubscription(in long serial, in long slotId, in long appIndex
+                           , in long subId, in long subStatus);
   void setMute(in long serial, in boolean enableMute);
   void getMute(in long serial);
   void getSmscAddress(in long serial);
-  void requestDial(in long serial, in AString address, in long clirMode, in long uusType, in long uusDcs
+  void requestDial(in long serial, in AString address, in long clirMode
+                   , in long uusType, in long uusDcs
                    , in AString uusData);
   void getCurrentCalls(in long serial);
   void hangupConnection(in long serial, in long callIndex);
@@ -54,12 +136,10 @@ interface nsIRilWorker : nsISupports
   void setPreferredNetworkType(in long serial, in long networkType);
   void getPreferredNetworkType(in long serial);
   void setNetworkSelectionModeAutomatic(in long serial);
-  void setNetworkSelectionModeManual(in long serial, in AString operatorNumeric);
+  void setNetworkSelectionModeManual(in long serial, in AString operatorNumeric, [optional] in long ran);
   void getAvailableNetworks(in long serial);
   void setInitialAttachApn(in long serial, in nsIDataProfile profile, in boolean isRoaming);
   void setDataProfile(in long serial, in Array<nsIDataProfile> profileList, in boolean isRoaming);
-  void setupDataCall(in long serial, in long radioTechnology, in nsIDataProfile profile
-                     , in boolean isRoaming, in boolean allowRoaming);
   void deactivateDataCall(in long serial, in long cid, in long reason);
   void getCellInfoList(in long serial);
   void getIMSI(in long serial, in AString aid);
@@ -77,10 +157,12 @@ interface nsIRilWorker : nsISupports
   void getCallForwardStatus(in long serial, in long cfReason, in long serviceClass
                             , in AString number, in long toaNumber);
   void setCallForwardStatus(in long serial, in long action, in long cfReason
-                            , in long serviceClass, in AString number, in long toaNumber, in long timeSeconds);
+                            , in long serviceClass, in AString number
+                            , in long toaNumber, in long timeSeconds);
   void getCallWaiting(in long serial, in long serviceClass);
   void setCallWaiting(in long serial, in boolean enable, in long serviceClass);
-  void setBarringPassword(in long serial, in AString facility, in AString oldPwd, in AString newPwd);
+  void setBarringPassword(in long serial, in AString facility, in AString oldPwd
+                          , in AString newPwd);
   void separateConnection(in long serial, in long gsmIndex);
   void getClip(in long serial);
   void explicitCallTransfer(in long serial);
@@ -90,23 +172,25 @@ interface nsIRilWorker : nsISupports
   void exitEmergencyCallbackMode(in long serial);
   void supplyIccPinForApp(in long serial, in AString pin, in AString aid);
   void supplyIccPin2ForApp(in long serial, in AString pin, in AString aid);
-  void supplyIccPukForApp(in long serial, in AString puk, in AString newPin, in AString aid);
-  void supplyIccPuk2ForApp(in long serial, in AString puk, in AString newPin, in AString aid);
+  void supplyIccPukForApp(in long serial, in AString puk
+                          , in AString newPin, in AString aid);
+  void supplyIccPuk2ForApp(in long serial, in AString puk
+                           , in AString newPin, in AString aid);
   void setFacilityLockForApp (in long serial, in AString facility, in boolean lockState
                               , in AString password, in long serviceClass, in AString aid);
   void getFacilityLockForApp (in long serial, in AString facility
                               , in AString password, in long serviceClass, in AString aid);
-
-  void changeIccPinForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
-  void changeIccPin2ForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
+  void changeIccPinForApp(in long serial, in AString oldPin
+                          , in AString newPin, in AString aid);
+  void changeIccPin2ForApp(in long serial, in AString oldPin
+                           , in AString newPin, in AString aid);
   void reportStkServiceIsRunning(in long serial);
-
   void setGsmBroadcastActivation(in long serial, in boolean activate);
   void setGsmBroadcastConfig(in long serial, in Array<long> ranges);
-
   void getPreferredVoicePrivacy(in long serial);
   void setPreferredVoicePrivacy(in long serial, in boolean enable);
-  void requestIccSimAuthentication(in long serial, in long authContext, in AString data, in AString aid);
+  void requestIccSimAuthentication(in long serial, in long authContext
+                                   , in AString data, in AString aid);
   void getRadioCapability(in long serial);
   void sendSMS(in long serial, in AString smsc, in AString pdu);
   void acknowledgeLastIncomingGsmSms(in long serial, in boolean success, in long cause);
@@ -114,8 +198,78 @@ interface nsIRilWorker : nsISupports
   void handleStkCallSetupRequestFromSim(in long serial, in boolean accept);
   void sendTerminalResponseToSim(in long serial, in AString contents);
   void sendEnvelope(in long serial, in AString contents);
-  void stopNetworkScan(in long serial);
   void setUnsolResponseFilter(in long serial, in long filter);
+  void setIndicationFilter(in long serial, in long filter);
+  void setSimCardPower(in long serial, in long cardPowerState);
+  void startNetworkScan(in long serial, in nsINetworkScanRequest request);
+  void stopNetworkScan(in long serial);
+  void startNattKeepalive(in long serial, in long type, in AString sourceAddress
+                          , in long sourcePort, in AString destinationAddress
+                          , in long destinationPort, in long maxKeepaliveIntervalMillis
+                          , in long cid);
+  void stopNattKeepalive(in long serial, in long sessionHandle);
+  void setLinkCapacityReportingCriteria(in long serial, in long hysteresisMs
+                                        , in long hysteresisDlKbps
+                                        , in long hysteresisUlKbps
+                                        , in Array<long> thresholdsDownlinkKbps
+                                        , in Array<long> thresholdsUplinkKbps
+                                        , in long accessNetwork);
+  void setupDataCall(in long serial, in long radioTechnology
+                    , in long accessNetworkType, in nsIDataProfile profile
+                    , in boolean modemConfig, in boolean allowRoaming
+                    , in boolean isRoaming, in long reason
+                    , in Array<nsILinkAddress> addresses
+                    , in Array<AString> dnses, [optional] in long pduSessionId
+                    , [optional] in nsISliceInfo sliceInfo
+                    , [optional] in nsITrafficDescriptor trafficDescriptor
+                    , [optional] in boolean matchAllRuleAllowed);
+  void setSystemSelectionChannels(in long serial
+                                  , in boolean specifyChannels
+                                  , in Array<nsIRadioAccessSpecifier> specifiers);
+  void enableModem(in long serial, in boolean on);
+  void getModemStackStatus(in long serial);
+  void getPreferredNetworkTypeBitmap(in long serial);
+  void setPreferredNetworkTypeBitmap(in long serial, in unsigned long networkTypeBitmap);
+  void setAllowedCarriers(in long serial, in nsICarrierRestrictionsWithPriority carriers,
+                          in unsigned long multiSimPolicy);
+  void getAllowedCarriers(in long serial);
+  void setSignalStrengthReportingCriteria(in long serial, in unsigned long mrType, in boolean isEnabled, in long hysteresisMs, in long hysteresisDb,
+                                          in Array<long> thresholdsDbm, in long accessNetwork);
+  void enableUiccApplications(in long serial, in boolean enable);
+  void areUiccApplicationsEnabled(in long serial);
+  void getBarringInfo(in long serial);
+  void sendCdmaSmsExpectMore(in long serial, in nsICdmaSmsMessage aCdmaMessage);
+  void setCarrierInfoForImsiEncryption(in long serial, in AString mcc
+                                       , in AString mnc, in Array<long> carrierKey
+                                       , in AString keyIdentifier, in long expirationTime,
+                                       in uint8_t publicKeyType);
+  void emergencyDial(in long serial, in AString address, in unsigned long clirMode
+                     , in unsigned long uusType, in unsigned long uusDcs
+                     , in AString uusData, in unsigned long categories
+                     , in Array<AString> urns, in uint8_t routMode
+                     , in boolean hasKnownUserIntentEmergency, in boolean isTesting);
+
+  const unsigned long NR_DUAL_CONNECTIVITY_STATE_ENABLED = 1;
+  const unsigned long NR_DUAL_CONNECTIVITY_STATE_DISABLED = 2;
+  const unsigned long NR_DUAL_CONNECTIVITY_STATE_DISABLE_IMMEDIATE = 3;
+  /*
+    @param serial
+    @param state NR_DUAL_CONNECTIVITY_STATE_
+  */
+  void setNrDualConnectivityState(in long serial, in long nrDualConnectivityState);
+  void isNrDualConnectivityEnabled(in long serial);
+  void allocatePduSessionId(in long serial);
+  void releasePduSessionId(in long serial, in long id);
+  void startHandover(in long serial, in long callId);
+  void cancelHandover(in long serial, in long callId);
+  void getSimPhonebookCapacity(in long serial);
+  void getSlicingConfig(in long serial);
+  void getSystemSelectionChannels(in long serial);
+  void getAllowedNetworkTypesBitmap(in long serial);
+  void setAllowedNetworkTypesBitmap(in long serial, in long networkTypeBitmask);
+  void updateSimPhonebookRecords(in long serial, in nsIPhonebookRecordInfo aRecordInfo);
+  void isVoNrEnabled(in long serial);
+  void setVoNrEnabled(in long serial, in bool enabled);
 };
 
 /**

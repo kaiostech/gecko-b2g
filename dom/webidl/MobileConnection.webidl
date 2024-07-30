@@ -4,7 +4,7 @@
 
 enum MobileNetworkSelectionMode {"automatic", "manual"};
 enum MobileRadioState {"enabling", "enabled", "disabling", "disabled"};
-enum MobileNetworkType {"gsm", "wcdma", "cdma", "evdo", "lte", "tdscdma"};
+enum MobileNetworkType {"gsm", "wcdma", "cdma", "evdo", "lte", "tdscdma", "nr"};
 enum MobilePreferredNetworkType {
   "wcdma/gsm",                              //  0
   "gsm",                                    //  1
@@ -28,10 +28,23 @@ enum MobilePreferredNetworkType {
   "tdscdma/wcdma/lte",                      // 19
   "tdscdma/gsm/wcdma/lte",                  // 20
   "tdscdma/gsm/wcdma/cdma/evdo",            // 21
-  "tdscdma/lte/cdma/cdma/evdo/gsm/wcdma"    // 22
+  "tdscdma/lte/cdma/evdo/gsm/wcdma",        // 22
+  "nr",                                     // 23
+  "nr/lte",                                 // 24
+  "nr/lte/cdma/evdo",                       // 25
+  "nr/lte/gsm/wcdma",                       // 26
+  "nr/lte/cdma/evdo/gsm/wcdma",             // 27
+  "nr/lte/wcdma",                           // 28
+  "nr/lte/tdscdma",                         // 29
+  "nr/lte/tdscdma/gsm",                     // 30
+  "nr/lte/tdscdma/wcdma",                   // 31
+  "nr/lte/tdscdma/gsm/wcdma",               // 32
+  "nr/lte/tdscdma/cdma/evdo/gsm/wcdma"      // 33
 };
 
 enum MobileRoamingMode {"home", "affiliated", "any"};
+
+enum NrDualConnectivityState {"ENABLE", "DISABLE", "DISABLE_IMMEDIATE"};
 
 [Pref="dom.mobileconnection.enabled",
 Exposed=Window]
@@ -284,6 +297,110 @@ interface MobileConnection : EventTarget
    */
   [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getRoamingPreference();
+
+  /**
+   * Enable or disable VoNr.
+   *
+   * @param enabled
+   *   Enable(true) or disable(false) VONR.
+   *
+   * @return a DOMRequest.
+   *
+   * If successful, the request's onsuccess will be called.
+   *
+   * Otherwise, the request's onerror will be called, and the request's error
+   * will be either 'RadioNotAvailable', 'RequestNotSupported',
+   * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  DOMRequest setVoNrEnabled(boolean enabled);
+
+  /**
+   * Is VONR enabled
+   *
+   * @return a DOMRequest.
+   *
+   * If successful, the request's onsuccess will be called. And the request's
+   * result will be a boolean to show the current VONR state.
+   *
+   * Otherwise, the request's onerror will be called, and the request's error
+   * will be either 'RadioNotAvailable', 'RequestNotSupported',
+   * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  DOMRequest isVoNrEnabled();
+
+  /**
+   * Enable or disable E-UTRA-NR dual connectivity. If disabled then UE will not connect
+   * to secondary carrier.
+   *
+   * @param state
+   * nrDualConnectivityState expected NR dual connectivity state.
+   *   1. Enable NR dual connectivity {NrDualConnectivityState:ENABLE}
+   *   2. Disable NR dual connectivity {NrDualConnectivityState:DISABLE}
+   *   3. Disable NR dual connectivity and force secondary cell to be released
+   *   {NrDualConnectivityState:DISABLE_IMMEDIATE}
+   *
+   * @return a DOMRequest.
+   *
+   * If successful, the request's onsuccess will be called.
+   *
+   * Otherwise, the request's onerror will be called, and the request's error
+   * will be either 'RadioNotAvailable', 'RequestNotSupported',
+   * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  DOMRequest setNrDualConnectivityState(NrDualConnectivityState state);
+
+  /**
+   * Is E-UTRA-NR Dual Connectivity enabled
+   *
+   * @return a DOMRequest.
+   *
+   * If successful, the request's onsuccess will be called. And the request's
+   * result will be a boolean indicating the current roaming preference.
+   *
+   * Otherwise, the request's onerror will be called, and the request's error
+   * will be either 'RadioNotAvailable', 'RequestNotSupported',
+   * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  DOMRequest isNrDualConnectivityEnabled();
+
+  /**
+   * Starts a network scan
+   *
+   * @param scanType
+   *        ONE_SHOT(0) or PERIODIC(1).
+   * @param interval
+   *        Time interval in seconds between the completion of one scan and the start of a subsequent scan.
+   *        Only valid when 'scanType' is 'SCAN_PERIODIC'. Range {5,300}.
+   * @param maxSearchTime
+   *        Maximum duration of the periodic search (in seconds).
+   *        Only valid when 'scanType' is 'SCAN_PERIODIC'. Range {60,3600}.
+   * @param incrementalResults
+   *        Indicates whether the modem must report incremental results of the network scan
+   *        to the client.
+   * @param incrementalResultsPeriodicity
+   *        Indicates the periodicity with which the modem must report incremental results to  the client (in seconds).
+   *        Range {1,10}.This value must be less than or equal to maxSearchTime. If incremental results are
+   *        not requested, implementations may ignore this value.
+   * @param mccMncs
+   *        Describes the List of PLMN ids (MCC-MNC).Separate each mccmnc with semicolon(;).
+   * @param specifiers
+   *        Networks with bands/channels to scan.
+   *        The max count is 8.
+   *
+   * @return a DOMRequest.
+   *
+   * If successful, the request's onsuccess will be called.
+   *
+   * Otherwise, the request's onerror will be called, and the request's error
+   * will be either 'RadioNotAvailable', 'RequestNotSupported',
+   * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
+   */
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  DOMRequest startNetworkScan(optional MobileNetworkScan options={});
 
   /**
    * Set voice privacy preference.
@@ -611,6 +728,11 @@ interface MobileConnection : EventTarget
    * The 'onmodemrestart' event is notified whenever the modem restarting.
    */
   attribute EventHandler onmodemrestart;
+
+  /**
+   * The 'onnetworkscanresult' event is notified whenever the network scan result received.
+   */
+  attribute EventHandler onnetworkscanresult;
 };
 
 [GenerateConversionToJS]
@@ -775,4 +897,24 @@ dictionary MobileDeviceIds
   DOMString imeisv = "";
   DOMString esn = "";
   DOMString meid = "";
+};
+
+[GenerateConversionToJS]
+dictionary MobileRadioAccessSpecifier
+{
+  unsigned short radioAccessNetwork = 0;
+  DOMString bands = "";
+  DOMString channels = "";
+};
+
+[GenerateConversionToJS]
+dictionary MobileNetworkScan
+{
+  unsigned short? scanType = null;
+  unsigned short? interval = null;
+  unsigned short? maxSearchTime = null;
+  boolean? incrementalResults = null;
+  unsigned short? incrementalResultsPeriodicity = null;
+  DOMString? mccMncs = null;
+  sequence<MobileRadioAccessSpecifier>? specifiers = null;
 };

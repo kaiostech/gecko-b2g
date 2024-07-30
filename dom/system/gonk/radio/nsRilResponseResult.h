@@ -7,37 +7,38 @@
 #ifndef nsRilResponseResult_H
 #define nsRilResponseResult_H
 
-#include "nsISupports.h"
-#include <nsISupportsImpl.h>
-#include "nsTArray.h"
 #include "nsCOMArray.h"
 #include "nsCOMPtr.h"
-
-#include "nsRilResult.h"
 #include "nsIRilResponseResult.h"
+#include "nsISupports.h"
+#include "nsRilResult.h"
+#include "nsTArray.h"
+#include <nsISupportsImpl.h>
 
-class nsRilResponseResult final : public nsRilResult,
-                                  public nsIRilResponseResult {
- public:
+class nsRilResponseResult final
+  : public nsRilResult
+  , public nsIRilResponseResult
+{
+public:
   NS_DECL_THREADSAFE_ISUPPORTS
   // NS_DECL_ISUPPORTS
   NS_DECL_NSIRILRESPONSERESULT
   // For those has no parameter notify.
   nsRilResponseResult(const nsAString& aRilMessageType,
-                      int32_t aRilMessageToken, int32_t aErrorMsg);
+                      int32_t aRilMessageToken,
+                      int32_t aErrorMsg);
 
   // For DeviceIdentity
-  void updateDeviceIdentity(const nsAString& aImei, const nsAString& aImeisv,
-                            const nsAString& aEsn, const nsAString& aMeid);
+  void updateDeviceIdentity(const nsAString& aImei,
+                            const nsAString& aImeisv,
+                            const nsAString& aEsn,
+                            const nsAString& aMeid);
 
   // For VoiceRadioTechnology
   void updateVoiceRadioTechnology(int32_t aRadioTech);
 
   // For updateBasebandVersion
   void updateBasebandVersion(const nsAString& aBasebandVersion);
-
-  // For IccCardStatus
-  void updateIccCardStatus(nsCardStatus* aCardStatus);
 
   // For VoiceRegStatus
   void updateVoiceRegStatus(nsVoiceRegState* aVoiceRegState);
@@ -68,7 +69,7 @@ class nsRilResponseResult final : public nsRilResult,
 
   // For getAvailableNetwork
   void updateAvailableNetworks(
-      nsTArray<RefPtr<nsOperatorInfo>>& aAvailableNetworks);
+    nsTArray<RefPtr<nsOperatorInfo>>& aAvailableNetworks);
 
   // For setupDataCall
   void updateDataCallResponse(nsSetupDataCallResult* aDcResponse);
@@ -90,7 +91,7 @@ class nsRilResponseResult final : public nsRilResult,
 
   // For getCallForwardStatus
   void updateCallForwardStatusList(
-      nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists);
+    nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists);
 
   // For getCallWaiting
   void updateCallWaiting(bool aEnable, int32_t aServiceClass);
@@ -103,7 +104,7 @@ class nsRilResponseResult final : public nsRilResult,
 
   // For getNeighboringCellIds
   void updateNeighboringCells(
-      nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell);
+    nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell);
 
   // For quertTtyMode
   void updateTtyMode(int32_t aTtyMode);
@@ -121,6 +122,40 @@ class nsRilResponseResult final : public nsRilResult,
 
   // For sendSms
   void updateSendSmsResponse(nsSendSmsResult* aSendSmsResult);
+
+  void updateModemStackStatusReponse(bool aModemStackEnabled);
+
+  void updateUiccAppEnabledReponse(bool aEanbled);
+
+  void updateAllowedNetworkTypesBitmask(int32_t aAllowedNetworkTypesBitmask);
+
+  void updateIccCardStatus(nsCardStatus* aCardStatus);
+
+  void updateAllowedCarriers(nsAllowedCarriers* aAllowedCarriers);
+
+  void updateVoNREnabled(bool aVoNREnabled);
+
+  void updateKeppAliveStatus(nsIKeepAliveStatus* aStatus);
+
+  void updateSimDepersonalizationResult(
+    nsISupplySimDepersonalizationResult* aResult);
+
+  void updateNrDualConnectivityEnabled(bool aEanbled);
+
+  void updateUpdatedRecordIndex(int32_t aIndex);
+
+  void updatePhonebookCapacity(nsIPhonebookCapacity* aParm);
+
+  void updateSlicingConfig(nsISlicingConfig* aConfig);
+
+  void updateAllocatedId(int32_t aId);
+
+  void updateRadioAccessSpecifiers(
+    nsTArray<RefPtr<nsIRadioAccessSpecifier>>& aSpecifiers);
+
+  void updateGetBarringInfoResult(nsIGetBarringInfoResult* aInfo);
+
+  void updateSimSlotStatus(nsTArray<RefPtr<nsISimSlotStatus>>& aStatus);
 
   nsString mImei;
   nsString mImeisv;
@@ -152,15 +187,29 @@ class nsRilResponseResult final : public nsRilResult,
   int32_t mServiceClass;
   int32_t mProvisioned;
   nsTArray<RefPtr<nsNeighboringCell>> mNeighboringCell;
+  nsTArray<RefPtr<nsIRadioAccessSpecifier>> mSpecifiers;
   int32_t mTtyMode;
   bool mMuteEnabled;
   int32_t mRemainingRetries;
+  int32_t mUpdatedRecordIndex;
+  int32_t mAllocatedId;
   bool mEnhancedVoicePrivacy;
   RefPtr<nsIRadioCapability> mRadioCapability;
   RefPtr<nsISendSmsResult> mSendSmsResult;
+  bool mModemStackEnabled;
+  bool mUiccAppEnabled;
+  bool mNrDualConnectivityEnabled;
+  int32_t mAllowedNetworkTypesBitmask;
+  RefPtr<nsAllowedCarriers> mAllowedCarriers;
+  bool mVoNrEnabled;
+  RefPtr<nsIKeepAliveStatus> mKeepAliveStatus;
+  RefPtr<nsISupplySimDepersonalizationResult> mSimDepersonalizationResult;
+  RefPtr<nsIPhonebookCapacity> mPhoneBookCapacity;
+  RefPtr<nsISlicingConfig> mSlicingConfig;
+  RefPtr<nsIGetBarringInfoResult> mBarringInfoResult;
+  nsTArray<RefPtr<nsISimSlotStatus>> mSimSlotStatus;
 
- private:
+private:
   ~nsRilResponseResult();
 };
-
-#endif  // nsRilResponseResult_H
+#endif // nsRilResponseResult_H

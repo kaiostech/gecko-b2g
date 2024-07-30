@@ -217,6 +217,7 @@ GonkCellBroadcastConfigHandler.prototype = {
   notifyDeviceIdentitiesChanged: function() {},
   notifySignalStrengthChanged: function() {},
   notifyModemRestart: function(reason) {},
+  notifyScanResultReceived: function(scanResults) {},
 
   /**
    * GonkCellBroadcastConfigHandler methods

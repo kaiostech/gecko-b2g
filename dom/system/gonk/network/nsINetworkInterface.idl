@@ -55,6 +55,7 @@ interface nsINetworkInfo : nsISupports
   const long NETWORK_TYPE_MOBILE_IA    = 11;
   const long NETWORK_TYPE_MOBILE_ECC   = 12;
   const long NETWORK_TYPE_MOBILE_XCAP  = 13;
+  const long NETWORK_TYPE_MOBILE_ENTERPRISE  = 14;
 
   /**
    * Network type. One of the NETWORK_TYPE_* constants.

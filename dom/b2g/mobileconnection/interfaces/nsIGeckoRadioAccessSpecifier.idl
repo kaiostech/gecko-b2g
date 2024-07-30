@@ -1,0 +1,15 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(6d8eee18-b633-4dd4-ab74-be29d524e272)]
+interface nsIGeckoRadioAccessSpecifier : nsISupports
+{
+  readonly attribute long radioAccessNetwork;
+  /* Describes the List of band.Separate each band with semicolon(;).*/
+  readonly attribute AString bands;
+  /* Describes the List of channel.Separate each channel with semicolon(;).*/
+  readonly attribute AString channels;
+};

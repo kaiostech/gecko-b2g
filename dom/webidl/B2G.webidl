@@ -197,6 +197,14 @@ partial interface B2G {
 };
 #endif
 
+#ifdef B2G_ESIM
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Func="B2G::HasEUiccSupport"]
+  readonly attribute EUiccManager? eUiccManager;
+};
+#endif
+
 partial interface B2G {
   /**
    * Request a wake lock for a resource.

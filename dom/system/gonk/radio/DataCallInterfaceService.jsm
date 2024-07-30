@@ -20,7 +20,7 @@ const TOPIC_PREF_CHANGED = "nsPref:changed";
 
 const lazy = {};
 
-XPCOMUtils.defineLazyGetter(lazy, "RIL", function() {
+XPCOMUtils.defineLazyGetter(lazy, "RIL", function () {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
@@ -45,7 +45,6 @@ function updateDebugFlag() {
     false
   );
   DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
-  // DEBUG = true;
 }
 updateDebugFlag();
 
@@ -56,8 +55,14 @@ function DataCall(aAttributes) {
       this[key] = lazy.RIL.RIL_DATACALL_PDP_TYPES.indexOf(aAttributes[key]);
       continue;
     }
-
-    this[key] = aAttributes[key];
+    if (key === "addresses") {
+      this[key] = aAttributes[key][0] ? aAttributes[key][0].address : "";
+      for (let index = 1; index < aAttributes[key].length; index++) {
+        this[key] = this[key] + " " + aAttributes[key][index].address;
+      }
+    } else {
+      this[key] = aAttributes[key];
+    }
   }
 }
 DataCall.prototype = {
@@ -69,11 +74,34 @@ DataCall.prototype = {
   active: -1,
   pdpType: -1,
   ifname: null,
-  addreses: null,
+  addresses: null,
   dnses: null,
   gateways: null,
   pcscf: null,
   mtu: -1,
+  mtuV4: -1,
+  mtuV6: -1,
+  pduSessionId: 0,
+  handoverFailureMode: 0,
+  trafficDescriptors: [],
+  sliceInfo: null,
+  defaultQos: null,
+  qosSessions: [],
+};
+
+function SliceInfo(aAttributes) {
+  for (let key in aAttributes) {
+    this[key] = aAttributes[key];
+  }
+}
+SliceInfo.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsISliceInfo]),
+
+  sst: -1,
+  sliceDifferentiator: -1,
+  mappedHplmnSst: -1,
+  mappedHplmnSD: -1,
+  status: -1,
 };
 
 function DataCallInterfaceService() {
@@ -163,18 +191,36 @@ DataCallInterface.prototype = {
 
   setupDataCall(
     aRadioTechnology,
+    aAccessNetworkType,
     aProfile,
-    aIsRoaming,
+    aModemConfig,
     aAllowRoaming,
+    aIsRoaming,
+    aReason,
+    aAddresses,
+    aDnses,
+    aPduSessionId,
+    aSliceInfo,
+    aTrafficDescriptor,
+    aMatchAllRuleAllowed,
     aCallback
   ) {
     this._radioInterface.sendWorkerMessage(
       "setupDataCall",
       {
         radioTechnology: aRadioTechnology,
+        accessNetworkType: aAccessNetworkType,
         profile: aProfile,
-        isRoaming: aIsRoaming,
+        modemConfig: aModemConfig,
         allowRoaming: aAllowRoaming,
+        isRoaming: aIsRoaming,
+        reason: aReason,
+        addresses: aAddresses,
+        dnses: aDnses,
+        pduSessionId: aPduSessionId,
+        sliceInfo: aSliceInfo,
+        trafficDescriptor: aTrafficDescriptor,
+        matchAllRuleAllowed: aMatchAllRuleAllowed,
       },
       aResponse => {
         if (aResponse.errorMsg) {
@@ -249,6 +295,30 @@ DataCallInterface.prototype = {
           if (DEBUG) {
             this.debug("setInitialAttachApn errorMsg : " + aResponse.errorMsg);
           }
+        }
+      }
+    );
+  },
+
+  getSlicingConfig(aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "getSlicingConfig",
+      {},
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+        } else {
+          let sliceInfos = [];
+          for (let i = 0; i < aResponse.slicingConfig.sliceInfo.length; i++) {
+            sliceInfos.push(
+              new SliceInfo(aResponse.slicingConfig.sliceInfo[i])
+            );
+          }
+          this.debug(
+            "notifygetSlicingConfigSuccess with sliceInfos :" +
+              JSON.stringify(sliceInfos)
+          );
+          aCallback.notifyGetSlicingConfigSuccess(sliceInfos);
         }
       }
     );

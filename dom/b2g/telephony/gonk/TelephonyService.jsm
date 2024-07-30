@@ -494,6 +494,7 @@ MobileConnectionListener.prototype = {
   notifyDeviceIdentitiesChanged() {},
   notifySignalStrengthChanged() {},
   notifyModemRestart(_reason) {},
+  notifyScanResultReceived(scanResults) {},
 };
 
 function VideoCallProvider(aClientId, aCallIndex) {
@@ -1247,7 +1248,7 @@ TelephonyService.prototype = {
         connection.registerListener(listener);
 
         // Turn on radio.
-        connection.setRadioEnabled(true, {
+        connection.setRadioEnabled(true, true, true, {
           QueryInterface: ChromeUtils.generateQI([
             Ci.nsIMobileConnectionCallback,
           ]),

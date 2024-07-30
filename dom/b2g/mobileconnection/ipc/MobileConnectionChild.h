@@ -96,6 +96,9 @@ class MobileConnectionChild final : public PMobileConnectionChild,
 
   mozilla::ipc::IPCResult RecvNotifyModemRestart(const nsString& aReason);
 
+  mozilla::ipc::IPCResult RecvNotifyScanResultReceived(
+      nsTArray<nsIMobileNetworkInfo*>&& aScanResults);
+
   mozilla::ipc::IPCResult RecvNotifyDeviceIdentitiesChanged(
       nsIMobileDeviceIdentities* const& aDeviceIdentities);
 

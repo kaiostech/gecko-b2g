@@ -5,7 +5,6 @@
 #include "nsISupports.idl"
 #include "nsIRilResult.idl"
 
-// All const define in nsIRilResult.idl
 interface nsISignalStrength;
 interface nsICellIdentityGsm;
 interface nsICellIdentityWcdma;
@@ -14,18 +13,23 @@ interface nsICellIdentityLte;
 interface nsICellIdentityTdScdma;
 interface nsISetupDataCallResult;
 interface nsIRadioCapability;
+interface nsIKeepAliveStatus;
+interface nsISupplySimDepersonalizationResult;
+interface nsISlicingConfig;
+interface nsIRadioAccessSpecifier;
+interface nsIGetBarringInfoResult;
+interface nsIAllowedCarriers;
+interface nsISimSlotStatus;
 
 /**
  * XPCOM component that provides the hidl response information.
  */
-[scriptable, uuid(cd5bffb0-bb14-4ea1-8c31-918ea0fcf300)]
+[scriptable, uuid(e90187db-a2d1-4302-b47c-f6d9fdaf2d21)]
 interface nsIRilResponseResult : nsISupports
 {
   /**
    * Message for RilResponseResult.
    */
-
-  /*align with android.hardward.radio@1.0:types*/
 
   //RadioConst
   const long CDMA_ALPHA_INFO_BUFFER_LENGTH = 64;
@@ -104,11 +108,13 @@ interface nsIRilResponseResult : nsISupports
   /*TODO: fill all error*/
   const long RADIO_ERROR_ABORTED = 65;
   const long RADIO_ERROR_INVALID_RESPONSE = 66;
-
-  // Parameter
+  const long RADIO_ERROR_SIMULTANEOUS_SMS_AND_CALL_NOT_ALLOWED = 67;
+  const long RADIO_ERROR_ACCESS_BARRED = 68;
+  const long RADIO_ERROR_BLOCKED_DUE_TO_CALL = 69;
+  const long RADIO_ERROR_RF_HARDWARE_ISSUE = 70;
+  const long RADIO_ERROR_NO_RF_CALIBRATION_INFO = 71;
 
   readonly attribute AString rilMessageType;
-
   readonly attribute long rilMessageToken;
 
   // RADIO_ERROR_*
@@ -146,12 +152,13 @@ interface nsIRilResponseResult : nsISupports
 
   // CardState
   const uint32_t CARD_STATE_UNINITIALIZED = 4294967294; // UINT32_MAX - 1
-  const uint32_t CARD_STATE_UNDETECTED = 4294967295;    // UINT32_MAX
+  const uint32_t CARD_STATE_UNDETECTED = 4294967295; // UINT32_MAX
   const uint32_t CARD_STATE_ABSENT = 0;
   const uint32_t CARD_STATE_PRESENT = 1;
   const uint32_t CARD_STATE_ERROR = 2;
-  const uint32_t CARD_STATE_RESTRICTED = 3;  // card is present but not usable due to carrier
-                                             // restrictions
+  const uint32_t CARD_STATE_RESTRICTED = 3; // card is present but not
+                                            // usable due to carrier
+                                            // restrictions
 
   // PinState
   const long CARD_PIN_STATE_UNKNOWN = 0;
@@ -206,28 +213,36 @@ interface nsIRilResponseResult : nsISupports
   const long CARD_PERSOSUBSTATE_RUIM_CORPORATE_PUK = 22;
   const long CARD_PERSOSUBSTATE_RUIM_SERVICE_PROVIDER_PUK = 23;
   const long CARD_PERSOSUBSTATE_RUIM_RUIM_PUK = 24;
+  const long CARD_PERSOSUBSTATE_SIM_SPN = 25;
+  const long CARD_PERSOSUBSTATE_SIM_SPN_PUK = 26;
+  const long CARD_PERSOSUBSTATE_SIM_SP_EHPLMN = 27;
+  const long CARD_PERSOSUBSTATE_SIM_SP_EHPLMN_PUK = 28;
+  const long CARD_PERSOSUBSTATE_SIM_ICCID = 29;
+  const long CARD_PERSOSUBSTATE_SIM_ICCID_PUK = 30;
+  const long CARD_PERSOSUBSTATE_SIM_IMPI = 31;
+  const long CARD_PERSOSUBSTATE_SIM_IMPI_PUK = 32;
+  const long CARD_PERSOSUBSTATE_SIM_NS_SP = 33;
+  const long CARD_PERSOSUBSTATE_SIM_NS_SP_PUK = 34;
 
-  //void getIccCardStatusResponse(out nsICardStatus cardStatus);
   readonly attribute nsICardStatus cardStatus;
 
-
   // Radio reg state.
-  const long RADIO_REG_STATE_NOT_REG_MT_NOT_SEARCHING_OP = 0;      // Not registered, MT is not currently searching
-                                                                   // a new operator to register
-  const long RADIO_REG_STATE_REG_HOME = 1;                         // Registered, home network
-  const long RADIO_REG_STATE_NOT_REG_MT_SEARCHING_OP = 2;          // Not registered, but MT is currently searching
-                                                                   // a new operator to register
-  const long RADIO_REG_STATE_REG_DENIED = 3;                       // Registration denied
-  const long RADIO_REG_STATE_UNKNOWN = 4;                          // Unknown
-  const long RADIO_REG_STATE_REG_ROAMING = 5;                      // Registered, roaming
-  const long RADIO_REG_STATE_NOT_REG_MT_NOT_SEARCHING_OP_EM = 10;  // Same as NOT_REG_MT_NOT_SEARCHING_OP but indicates that
-                                                                   // emergency calls are enabled.
-  const long RADIO_REG_STATE_NOT_REG_MT_SEARCHING_OP_EM = 12;      // Same as NOT_REG_MT_SEARCHING_OP but indicates that
-                                                                   // emergency calls are enabled.
-  const long RADIO_REG_STATE_REG_DENIED_EM = 13;                   // Same as REG_DENIED but indicates that
-                                                                   // emergency calls are enabled.
-  const long RADIO_REG_STATE_UNKNOWN_EM = 14;                      // Same as UNKNOWN but indicates that
-                                                                   // emergency calls are enabled.
+  const long RADIO_REG_STATE_NOT_REG_MT_NOT_SEARCHING_OP = 0;     // Not registered, MT is not currently searching
+                                                                  // a new operator to register
+  const long RADIO_REG_STATE_REG_HOME = 1;                        // Registered, home network
+  const long RADIO_REG_STATE_NOT_REG_MT_SEARCHING_OP = 2;         // Not registered, but MT is currently searching
+                                                                  // a new operator to register
+  const long RADIO_REG_STATE_REG_DENIED = 3;                      // Registration denied
+  const long RADIO_REG_STATE_UNKNOWN = 4;                         // Unknown
+  const long RADIO_REG_STATE_REG_ROAMING = 5;                     // Registered, roaming
+  const long RADIO_REG_STATE_NOT_REG_MT_NOT_SEARCHING_OP_EM = 10; // Same as NOT_REG_MT_NOT_SEARCHING_OP but indicates that
+                                                                  // emergency calls are enabled.
+  const long RADIO_REG_STATE_NOT_REG_MT_SEARCHING_OP_EM = 12;     // Same as NOT_REG_MT_SEARCHING_OP but indicates that
+                                                                  // emergency calls are enabled.
+  const long RADIO_REG_STATE_REG_DENIED_EM = 13;                  // Same as REG_DENIED but indicates that
+                                                                  // emergency calls are enabled.
+  const long RADIO_REG_STATE_UNKNOWN_EM = 14;                     // Same as UNKNOWN but indicates that
+                                                                  // emergency calls are enabled.
 
   // getVoiceRegistrationStateResponse
   readonly attribute nsIVoiceRegState voiceRegStatus;
@@ -250,7 +265,6 @@ interface nsIRilResponseResult : nsISupports
    */
   readonly attribute AString smsc;
 
-
   // UusType type.
   const long CALL_UUSTYPE_TYPE1_IMPLICIT =     0;
   const long CALL_UUSTYPE_TYPE1_REQUIRED =     1;
@@ -260,28 +274,27 @@ interface nsIRilResponseResult : nsISupports
   const long CALL_UUSTYPE_TYPE3_REQUIRED =     5;
   const long CALL_UUSTYPE_TYPE3_NOT_REQUIRED = 6;
 
-
   // UusDcs type.
-  const long CALL_UUSDCS_USP =      0;
-  const long CALL_UUSDCS_OSIHLP =   1;
-  const long CALL_UUSDCS_X244 =     2;
-  const long CALL_UUSDCS_RMCF =     3;
-  const long CALL_UUSDCS_IA5C =     4;
+  const long CALL_UUSDCS_USP =    0;
+  const long CALL_UUSDCS_OSIHLP = 1;
+  const long CALL_UUSDCS_X244 =   2;
+  const long CALL_UUSDCS_RMCF =   3;
+  const long CALL_UUSDCS_IA5C =   4;
 
   // CallPresentation
-  const long CALL_PRESENTATION_ALLOWED =     0;
-  const long CALL_PRESENTATION_RESTRICTED =  1;
-  const long CALL_PRESENTATION_UNKNOWN =     2;
-  const long CALL_PRESENTATION_PAYPHONE =    3;
+  const long CALL_PRESENTATION_ALLOWED =    0;
+  const long CALL_PRESENTATION_RESTRICTED = 1;
+  const long CALL_PRESENTATION_UNKNOWN =    2;
+  const long CALL_PRESENTATION_PAYPHONE =   3;
 
   // CallState
   const long CALL_STATE_UNKNOWN = -1;
-  const long CALL_STATE_ACTIVE =     0;
-  const long CALL_STATE_HOLDING =    1;
-  const long CALL_STATE_DIALING =    2;
-  const long CALL_STATE_ALERTING =   3;
-  const long CALL_STATE_INCOMING =   4;
-  const long CALL_STATE_WAITING =    5;
+  const long CALL_STATE_ACTIVE =   0;
+  const long CALL_STATE_HOLDING =  1;
+  const long CALL_STATE_DIALING =  2;
+  const long CALL_STATE_ALERTING = 3;
+  const long CALL_STATE_INCOMING = 4;
+  const long CALL_STATE_WAITING =  5;
 
   // getCurrentCalls
   void getCurrentCalls([optional] out unsigned long count,
@@ -318,9 +331,9 @@ interface nsIRilResponseResult : nsISupports
   const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_LTE = 17;              // TD-SCDMA,GSM and LTE
   const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA = 18;            // TD-SCDMA, GSM/WCDMA
   const long PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA_LTE = 19;            // TD-SCDMA, WCDMA and LTE
-  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_LTE = 20;               // TD-SCDMA, GSM/WCDMA and LTE
-  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_CDMA_EVDO_AUTO = 21;    // TD-SCDMA, GSM/WCDMA, CDMA and EvDo
-  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE_CDMA_EVDO_GSM_WCDMA = 22;     // TD-SCDMA, LTE, CDMA, EvDo GSM/WCDMA
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_LTE = 20;        // TD-SCDMA, GSM/WCDMA and LTE
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_CDMA_EVDO_AUTO = 21; // TD-SCDMA, GSM/WCDMA, CDMA and EvDo
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE_CDMA_EVDO_GSM_WCDMA = 22;  // TD-SCDMA, LTE, CDMA, EvDo GSM/WCDMA
 
   // getPreferredNetworkTypeResponse
   readonly attribute long type;
@@ -354,9 +367,7 @@ interface nsIRilResponseResult : nsISupports
 
   // getCLIR
   readonly attribute long n;
-
   readonly attribute long m;
-
 
   // CallForward status
   const long CALL_FORWARD_STATE_DISABLE = 0;
@@ -409,29 +420,49 @@ interface nsIRilResponseResult : nsISupports
   // sendSms
   readonly attribute nsISendSmsResult sms;
 
-/*
-  //void supplyIccPinForAppResponse(out long remainingRetries);
+  readonly attribute boolean uiccAppEnabled;
 
-  readonly attribute AString opLongName;
+  readonly attribute nsIKeepAliveStatus keepAliveStatus;
 
-  readonly attribute AString opShortName;
+  readonly attribute nsISupplySimDepersonalizationResult simDepersonalizationResult;
 
-  readonly attribute AString opNumeric;
+  readonly attribute boolean nrDualConnectivityEnabled;
 
-  readonly attribute long facilityLockResponse;
+  //updatedRecordIndex The index of the updated or inserted record in the phonebook and
+  //the minimum value is 1
+  readonly attribute long updatedRecordIndex;
 
-  readonly attribute long facilityLockRetry;
+  //allocatePduSessionIdResponse
+  readonly attribute long allocatedId;
 
-  readonly attribute long smsSimIndex;
+  readonly attribute nsIPhonebookCapacity phonebookCapacity;
 
-  // each element return one BAND_MODE_*
-  void getAvaileBandModes([array, size_is(count)] in long bandModes,
-                          [retval] out unsigned long count);
+  readonly attribute nsISlicingConfig slicingConfig;
 
-  readonly attribute AString envelopCommandresponse;
+  //getSystemSelectionChannelsResponse
+  readonly attribute Array<nsIRadioAccessSpecifier>  specifiers;
 
-  // CDMA_ROAMING_TYPE_
-  readonly attribute long cdmaRoamingType;
-*/
+  readonly attribute nsIGetBarringInfoResult barringInfoResults;
 
+  // For getModemStackStatus
+  readonly attribute boolean modemStackEnabled;
+
+ /**
+  * For getPreferredNetworkTypeBitmap
+  * Bitmask of allowed network types .
+  */
+  readonly attribute long allowedNetworkTypesBitmask;
+
+  /**
+   * List of allowed carriers.
+   * The character '?' is used as wildcard character to match any value.
+   */
+  readonly attribute nsIAllowedCarriers allowedCarriers;
+
+  /**
+  *  VoNR enabled
+  */
+  readonly attribute boolean voNREnabled;
+
+  readonly attribute Array<nsISimSlotStatus> simSlotStatus;
 };

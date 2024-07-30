@@ -102,11 +102,17 @@ if [ "$TARGET_BUILD_VARIANT" != "user" ] ; then
   ac_add_options --enable-profiling
 fi
 
+ac_add_options --enable-b2g-ims
+
+#Enable esim feature
+if [ "$ENABLE_ESIM" = "true" ]; then
+  ac_add_options --enable-esim
+fi
+
 # Disable these modules for aosp 11 build.
 # Follow up bug 134834, 134835, 134836, 134837
 if [ "$PLATFORM_VERSION" != "30" ]; then
 ac_add_options --enable-b2g-camera
-ac_add_options --enable-b2g-ims
 ac_add_options --enable-b2g-fm
 ac_add_options --enable-b2g-mediadrm
 fi

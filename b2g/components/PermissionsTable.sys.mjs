@@ -207,6 +207,11 @@ export const PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  euicc: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   "feature-detection": {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,

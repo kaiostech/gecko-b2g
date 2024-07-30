@@ -8,8 +8,8 @@
 #define GONK_MOBILECONNECTION_SERVICE_CONTRACTID \
         "@mozilla.org/mobileconnection/gonkmobileconnectionservice;1"
 %}
-
-[scriptable, uuid(a53df67c-0386-4d6c-b945-84187e22b5c1)]
+interface nsIMobileNetworkInfo;
+[scriptable, uuid(a0c2ac91-f342-4128-af75-33db30ec0822)]
 interface nsIGonkMobileConnectionService : nsIMobileConnectionService
 {
   void notifyNetworkInfoChanged(in unsigned long clientId, in jsval networkInfo);
@@ -285,4 +285,15 @@ interface nsIGonkMobileConnectionService : nsIMobileConnectionService
    */
   void notifyModemRestart(in unsigned long aClientId,
                           in AString aReason);
+
+  /**
+   * Notify scanResult received
+   *
+   * @param aClientId
+   *        The Id of radioInterface
+   * @param aNetworks
+   *        The operator info extract from scan results
+   */
+  void notifyScanResultReceived(in unsigned long aClientId,
+                                in Array<nsIMobileNetworkInfo> aNetworks);
 };

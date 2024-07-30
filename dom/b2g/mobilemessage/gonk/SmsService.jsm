@@ -1889,6 +1889,7 @@ SmsSendingScheduler.prototype = {
   notifyDeviceIdentitiesChanged() {},
   notifySignalStrengthChanged() {},
   notifyModemRestart(reason) {},
+  notifyScanResultReceived(scanResults) {},
 
   /**
    * nsIImsRegListener implementation.

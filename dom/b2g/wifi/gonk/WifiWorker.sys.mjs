@@ -4183,7 +4183,10 @@ WifiWorker.prototype = {
   fillWifiTetheringConfiguration(aConfig) {
     let config = {};
     let check = function (field, _default) {
-      config[field] = field in aConfig ? aConfig[field] : _default;
+      config[field] =
+        field in aConfig && aConfig[field] !== "null"
+          ? aConfig[field]
+          : _default;
     };
 
     // Replace IPs since webidl provide simple naming without wifi prefix.

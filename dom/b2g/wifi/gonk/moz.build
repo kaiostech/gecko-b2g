@@ -42,7 +42,6 @@ EXPORTS += [
 
 UNIFIED_SOURCES = [
     "hal/AnqpElement.cpp",
-    "hal/hidl/SoftapManager.cpp",
     "hal/PasspointHandler.cpp",
     "hal/ScanEventService.cpp",
     "hal/SoftapEventService.cpp",
@@ -59,12 +58,14 @@ UNIFIED_SOURCES = [
 
 if CONFIG["ANDROID_VERSION"] >= "33":
     UNIFIED_SOURCES += [
+        "hal/aidl/SoftapManager.cpp",
         "hal/aidl/SupplicantCallback.cpp",
         "hal/aidl/SupplicantStaManager.cpp",
         "hal/aidl/SupplicantStaNetwork.cpp",
     ]
 else:
     UNIFIED_SOURCES += [
+        "hal/hidl/SoftapManager.cpp",
         "hal/hidl/SupplicantCallback.cpp",
         "hal/hidl/SupplicantStaManager.cpp",
         "hal/hidl/SupplicantStaNetwork.cpp",

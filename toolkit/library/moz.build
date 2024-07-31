@@ -261,6 +261,7 @@ def Libxul(name, output_category=None):
                 "android.hardware.sensors@2.1",
                 "android.hardware.vibrator-V2-cpp",
                 "android.hardware.wifi@1.5",
+                "android.hardware.wifi.hostapd-V1-cpp",
                 "android.hidl.safe_union@1.0",
                 "audiopolicy-aidl-cpp",
                 "libbinder_ndk",

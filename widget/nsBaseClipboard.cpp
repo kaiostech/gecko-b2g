@@ -19,6 +19,7 @@
 #include "nsContentUtils.h"
 #include "nsFocusManager.h"
 #include "nsIClipboardOwner.h"
+#include "nsIPermissionManager.h"
 #include "nsIPromptService.h"
 #include "nsError.h"
 #include "nsXPCOM.h"
@@ -504,12 +505,32 @@ NS_IMETHODIMP nsBaseClipboard::AsyncGetData(
     return NS_ERROR_FAILURE;
   }
 
+  // We also want to disable security check for clipboard read if the
+  // content has "input" permission.
+  auto hasInputPermission = [&]() {
+    nsCOMPtr<nsIPermissionManager> permMgr =
+        mozilla::services::GetPermissionManager();
+    if (NS_WARN_IF(!permMgr)) {
+      return false;
+    }
+
+    uint32_t permission = nsIPermissionManager::DENY_ACTION;
+    nsresult rv = permMgr->TestPermissionFromPrincipal(aRequestingPrincipal,
+                                                       "input"_ns, &permission);
+    if (NS_FAILED(rv) || permission != nsIPermissionManager::ALLOW_ACTION) {
+      return false;
+    }
+
+    return true;
+  };
+
   // We want to disable security check for automated tests that have the pref
   // set to true, or extension that have clipboard read permission.
   if (mozilla::StaticPrefs::
           dom_events_testing_asyncClipboard_DoNotUseDirectly() ||
       nsContentUtils::PrincipalHasPermission(*aRequestingPrincipal,
-                                             nsGkAtoms::clipboardRead)) {
+                                             nsGkAtoms::clipboardRead) ||
+      hasInputPermission()) {
     AsyncGetDataInternal(aFlavorList, aWhichClipboard, aCallback);
     return NS_OK;
   }

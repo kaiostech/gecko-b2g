@@ -2357,8 +2357,7 @@ RadioNetworkResponse::getAllowedNetworkTypesBitmapResponse(
     rspInfo.serial,
     parent_network.convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
-    result->updateAllowedNetworkTypesBitmask(
-      parent_network.convertHalNetworkTypeBitMask(networkTypeBitmap));
+    result->updateAllowedNetworkTypesBitmask(networkTypeBitmap);
   }
   parent_network.mRIL->sendRilResponseResult(result);
   return ndk::ScopedAStatus::ok();

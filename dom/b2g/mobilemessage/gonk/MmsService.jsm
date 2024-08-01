@@ -557,7 +557,8 @@ MmsConnection.prototype = {
             state: Ci.nsINetworkInfo.NETWORK_STATE_CONNECTING,
           };
           this.radioInterface.setupDataCallByType(
-            Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_MMS
+            Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_MMS,
+            -1
           );
         } catch (e) {
           errorStatus = _HTTP_STATUS_ACQUIRE_TIMEOUT;

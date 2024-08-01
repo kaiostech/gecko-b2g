@@ -59,7 +59,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIMobileConnectionService"
 );
 
-XPCOMUtils.defineLazyGetter(lazy, "gRil", function() {
+XPCOMUtils.defineLazyGetter(lazy, "gRil", function () {
   try {
     return Cc["@mozilla.org/ril;1"].getService(Ci.nsIRadioInterfaceLayer);
   } catch (e) {}
@@ -140,7 +140,7 @@ export function TetheringService() {
   ];
 
   messages.forEach(
-    function(msgName) {
+    function (msgName) {
       lazy.ppmm.addMessageListener(msgName, this);
     }.bind(this)
   );
@@ -169,7 +169,7 @@ export function TetheringService() {
   lazy.gNetworkService.createNetwork(
     default_3G_interface_name(),
     Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN,
-    function() {
+    function () {
       debug(
         "Create a default Network interface: " + default_3G_interface_name()
       );
@@ -497,7 +497,7 @@ TetheringService.prototype = {
 
       try {
         this.dunConnectTimer.cancel();
-        ril.setupDataCallByType(Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN);
+        ril.setupDataCallByType(Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN, -1);
         this.dunRetryTimes = 0;
         this.dunConnectTimer.initWithCallback(
           this.onDunConnectTimerTimeout.bind(this),
@@ -591,7 +591,7 @@ TetheringService.prototype = {
 
   fillUSBTetheringConfiguration(aConfig) {
     let config = {};
-    let check = function(field, _default) {
+    let check = function (field, _default) {
       config[field] = field in aConfig ? aConfig[field] : _default;
     };
 
@@ -1108,7 +1108,7 @@ TetheringService.prototype = {
           debug("DUN data call connected, process updateUpStream.");
         }
 
-        let callback = function() {
+        let callback = function () {
           // Update external aNetworkInfo interface.
           debug("Update upstream interface to " + aNetworkInfo.name);
           if (wifiTetheringEnabled) {
@@ -1432,7 +1432,7 @@ TetheringService.prototype = {
   _domManagers: [],
 
   _fireEvent(message, data) {
-    this._domManagers.forEach(function(manager) {
+    this._domManagers.forEach(function (manager) {
       manager.sendAsyncMessage("TetheringService:" + message, data);
     });
   },

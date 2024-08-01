@@ -106,3 +106,112 @@
     background-image: url("resource://gre-resources/accessiblecaret-tilt-right.svg");
   }
 }
+
+/*
+ * The following CSS styles are b2g specefic and override the above styling.
+ * They are copied from content.css and updated per MozBug#1824886.
+ */
+
+:host {
+  --caret-width: 14px;
+  --caret-height: 14px;
+  --caret-bar-width: 2px;
+  --caret-color: #0073e6;
+
+  transition: unset; /* remove animation */
+}
+
+#bar {
+  margin-left: -0.5px;
+  background-color: var(--caret-color);
+}
+
+:host(.left) #bar {
+  margin-left: calc(var(--caret-bar-width) * -1 + 0.5px);
+}
+
+#image,
+#text-overlay {
+  width: var(--caret-width);
+  height: 100%;
+  padding: 0 var(--caret-width);
+}
+
+#image {
+  padding-bottom: var(--caret-height);
+}
+
+:host(.normal) #image,
+:host(.left) #image,
+:host(.right) #image {
+  background-image: none;
+}
+
+:host(.normal) :is(#text-overlay, #image),
+:host(.right) :is(#text-overlay, #image) {
+  margin-left: calc(var(--caret-width) * -1 - 0.5px);
+}
+
+:host(.left) :is(#text-overlay, #image) {
+  margin-left: calc(var(--caret-width) * -2 + 0.5px);
+}
+
+:host(.none) {
+  display: block;
+  visibility: hidden;
+}
+
+@media (min-resolution: 1.5dppx) {
+  :host(.normal) #image,
+  :host(.left) #image,
+  :host(.right) #image {
+    background-image: none;
+  }
+}
+
+@media (min-resolution: 2dppx) {
+  :host(.normal) #image,
+  :host(.left) #image,
+  :host(.right) #image {
+    background-image: none;
+  }
+}
+
+@media (min-resolution: 2.25dppx) {
+  :host(.normal) #image,
+  :host(.left) #image,
+  :host(.right) #image {
+    background-image: none;
+  }
+}
+
+:host(.normal) #image:after,
+:host(.left) #image:after,
+:host(.right) #image:after {
+  content: "";
+  display: block;
+
+  width: var(--caret-width);
+  height: var(--caret-height);
+
+  position: relative;
+  top: 0;
+
+  background-color: var(--caret-color);
+  border-color: var(--caret-color);
+  border-width: 1px;
+
+  transition-duration: 250ms;
+  transition-property: width, height;
+}
+
+:host(.normal) #image:after,
+:host(.right) #image:after {
+  border-radius: 4% 50% 50% 50%;
+  left: 0;
+}
+
+:host(.left) #image:after {
+  border-radius: 50% 4% 50% 50%;
+  right: 0;
+}

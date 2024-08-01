@@ -368,6 +368,7 @@
 #endif
 @RESPATH@/contentaccessible/TopLevelVideoDocument.css
 @RESPATH@/contentaccessible/TopLevelImageDocument.css
+@RESPATH@/contentaccessible/accessiblecaret.css
 
 ; svg
 @RESPATH@/res/svg.css

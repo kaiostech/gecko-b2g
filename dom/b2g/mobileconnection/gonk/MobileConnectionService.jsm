@@ -2294,7 +2294,7 @@ MobileConnectionProvider.prototype = {
           return false;
         }
 
-        aCallback.NotifySuccessWithBoolean(aResponse.enabled);
+        aCallback.notifySuccessWithBoolean(aResponse.enabled);
         return false;
       }
     );
@@ -2326,7 +2326,7 @@ MobileConnectionProvider.prototype = {
           return false;
         }
 
-        aCallback.NotifySuccessWithBoolean(aResponse.enabled);
+        aCallback.notifySuccessWithBoolean(aResponse.enabled);
         return false;
       }
     );

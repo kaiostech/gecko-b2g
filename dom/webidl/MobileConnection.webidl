@@ -20,26 +20,26 @@ enum MobilePreferredNetworkType {
   "lte",                                    // 11
   "lte/wcdma",                              // 12
   "tdscdma",                                // 13
-  "tdscdma/wcdma",                          // 14
-  "tdscdma/lte",                            // 15
+  "wcdma/tdscdma",                          // 14
+  "lte/tdscdma",                            // 15
   "tdscdma/gsm",                            // 16
-  "tdscdma/gsm/lte",                        // 17
-  "tdscdma/gsm/wcdma",                      // 18
-  "tdscdma/wcdma/lte",                      // 19
-  "tdscdma/gsm/wcdma/lte",                  // 20
-  "tdscdma/gsm/wcdma/cdma/evdo",            // 21
-  "tdscdma/lte/cdma/evdo/gsm/wcdma",        // 22
+  "lte/tdscdma/gsm",                        // 17
+  "wcdma/tdscdma/gsm",                      // 18
+  "lte/wcdma/tdscdma",                      // 19
+  "lte/wcdma/tdscdma/gsm",                  // 20
+  "wcdma/tdscdma/gsm/cdma/evdo",            // 21
+  "lte/wcdma/tdscdma/gsm/cdma/evdo",        // 22
   "nr",                                     // 23
   "nr/lte",                                 // 24
   "nr/lte/cdma/evdo",                       // 25
-  "nr/lte/gsm/wcdma",                       // 26
-  "nr/lte/cdma/evdo/gsm/wcdma",             // 27
+  "nr/lte/wcdma/gsm",                       // 26
+  "nr/lte/wcdma/gsm/cdma/evdo",             // 27
   "nr/lte/wcdma",                           // 28
   "nr/lte/tdscdma",                         // 29
   "nr/lte/tdscdma/gsm",                     // 30
-  "nr/lte/tdscdma/wcdma",                   // 31
-  "nr/lte/tdscdma/gsm/wcdma",               // 32
-  "nr/lte/tdscdma/cdma/evdo/gsm/wcdma"      // 33
+  "nr/lte/wcdma/tdscdma",                   // 31
+  "nr/lte/wcdma/tdscdma/gsm",               // 32
+  "nr/lte/wcdma/tdscdma/gsm/cdma/evdo"      // 33
 };
 
 enum MobileRoamingMode {"home", "affiliated", "any"};

@@ -104,6 +104,8 @@ static PRE_INIT_PING_REGISTRATION: OnceCell<Mutex<Vec<metrics::PingType>>> = Onc
 static INIT_HANDLES: Lazy<Arc<Mutex<Vec<std::thread::JoinHandle<()>>>>> =
     Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
 
+static GLEAN_METRIC_DISABLE: bool = true;
+
 /// Configuration for Glean
 #[derive(Debug, Clone)]
 pub struct InternalConfiguration {
@@ -149,12 +151,18 @@ pub struct PingRateLimit {
 
 /// Launches a new task on the global dispatch queue with a reference to the Glean singleton.
 fn launch_with_glean(callback: impl FnOnce(&Glean) + Send + 'static) {
+    if GLEAN_METRIC_DISABLE == true {
+        return;
+    }
     dispatcher::launch(|| core::with_glean(callback));
 }
 
 /// Launches a new task on the global dispatch queue with a mutable reference to the
 /// Glean singleton.
 fn launch_with_glean_mut(callback: impl FnOnce(&mut Glean) + Send + 'static) {
+    if GLEAN_METRIC_DISABLE == true {
+        return;
+    }
     dispatcher::launch(|| core::with_glean_mut(callback));
 }
 

@@ -1857,9 +1857,8 @@ this.VideoControlsImplWidget = class {
       },
 
       keyboardVolumeDecrease() {
-        const controlOverride = this.prefs[
-          "media.videocontrols.volume-control-override"
-        ];
+        const controlOverride =
+          this.prefs["media.videocontrols.volume-control-override"];
         if (controlOverride) {
           this.window.dispatchEvent(
             new this.window.CustomEvent("audiovolumecontroloverride", {
@@ -1876,9 +1875,8 @@ this.VideoControlsImplWidget = class {
       },
 
       keyboardVolumeIncrease() {
-        const controlOverride = this.prefs[
-          "media.videocontrols.volume-control-override"
-        ];
+        const controlOverride =
+          this.prefs["media.videocontrols.volume-control-override"];
         if (controlOverride) {
           this.window.dispatchEvent(
             new this.window.CustomEvent("audiovolumecontroloverride", {
@@ -1962,12 +1960,10 @@ this.VideoControlsImplWidget = class {
         // However, the native adjustment is too small, so we override it.
         try {
           const target = event.originalTarget;
-          const allTabbable = this.prefs[
-            "media.videocontrols.keyboard-tab-to-all-controls"
-          ];
-          const enterToTogglePause = this.prefs[
-            "media.videocontrols.keyboard-enter-to-toggle-pause"
-          ];
+          const allTabbable =
+            this.prefs["media.videocontrols.keyboard-tab-to-all-controls"];
+          const enterToTogglePause =
+            this.prefs["media.videocontrols.keyboard-enter-to-toggle-pause"];
           switch (keystroke) {
             case "Enter":
               if (!enterToTogglePause) {
@@ -2608,7 +2604,7 @@ this.VideoControlsImplWidget = class {
         }
 
         // TODO: Switch to touch controls on touch-based desktops (bug 1447547)
-        this.isTouchControls = isMobile;
+        this.isTouchControls = isMobile && !this.window.navigator.b2g;
         if (this.isTouchControls) {
           this.controlsContainer.classList.add("touch");
         }

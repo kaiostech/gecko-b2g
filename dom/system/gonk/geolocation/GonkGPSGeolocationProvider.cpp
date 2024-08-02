@@ -416,17 +416,11 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
   MOZ_ASSERT(NS_IsMainThread());
 
   // Initialize GNSS HALs
-  nsresult rv = NS_NewNamedThread("GPS Init", getter_AddRefs(mInitThread));
-  if (NS_SUCCEEDED(rv)) {
-    RefPtr<GonkGPSGeolocationProvider> self = this;
-    nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-        "GonkGPSGeolocationProvider::GonkGPSGeolocationProvider",
-        [self]() { self->Init(); });
-    mInitThread->Dispatch(r, NS_DISPATCH_NORMAL);
-  } else {
-    ERR("Failed to create GPS Init thread!");
-    mInitThread = nullptr;
-  }
+  RefPtr<GonkGPSGeolocationProvider> self = this;
+  nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+      "GonkGPSGeolocationProvider::GonkGPSGeolocationProvider",
+      [self]() { self->Init(); });
+  NS_DispatchToMainThread(r);
 
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
@@ -600,7 +594,7 @@ GonkGPSGeolocationProvider::Shutdown() {
   nsCOMPtr<nsIRunnable> r =
       NS_NewRunnableFunction("GonkGPSGeolocationProvider::Shutdown",
                              [self]() { self->ShutdownGPS(); });
-  mInitThread->Dispatch(r, NS_DISPATCH_NORMAL);
+  NS_DispatchToMainThread(r);
 
   return NS_OK;
 }

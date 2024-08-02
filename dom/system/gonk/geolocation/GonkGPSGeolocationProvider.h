@@ -39,8 +39,6 @@
 #  include "nsITelephonyService.h"
 #endif
 
-class nsIThread;
-
 #define GONK_GPS_GEOLOCATION_PROVIDER_CID            \
   {                                                  \
     0x48525ec5, 0x5a7f, 0x490a, {                    \
@@ -204,7 +202,6 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   bool mSupportsMSA;
 
   nsCOMPtr<nsIGeolocationUpdate> mLocationCallback;
-  nsCOMPtr<nsIThread> mInitThread;
   nsCOMPtr<nsIDOMGeoPosition> mLastGPSPosition;
   nsCOMPtr<nsIGeolocationProvider> mNetworkLocationProvider;
 

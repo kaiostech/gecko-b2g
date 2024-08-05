@@ -166,7 +166,7 @@ void GonkOffloadPlayer::InitInternal() {
     sp<IGraphicBufferProducer> producer;
     sp<IGonkGraphicBufferConsumer> consumer;
     GonkBufferQueue::createBufferQueue(&producer, &consumer);
-    mNativeWindow = new GonkNativeWindow(consumer);
+    mNativeWindow = new GonkNativeWindow(consumer, GRALLOC_USAGE_HW_TEXTURE);
     mNativeWindow->setNewFrameCallback(this);
     static_cast<GonkBufferQueueProducer*>(producer.get())
         ->setSynchronousMode(false);

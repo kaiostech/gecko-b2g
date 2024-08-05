@@ -159,7 +159,7 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
       (capability & MediaCodecProxy::kCanExposeGraphicBuffer)) {
     sp<IGonkGraphicBufferConsumer> consumer;
     GonkBufferQueue::createBufferQueue(&mGraphicBufferProducer, &consumer);
-    mNativeWindow = new GonkNativeWindow(consumer);
+    mNativeWindow = new GonkNativeWindow(consumer, GRALLOC_USAGE_HW_TEXTURE);
   }
   mDecoder->AsyncAllocateVideoMediaCodec()
       ->Then(

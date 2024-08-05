@@ -59,8 +59,6 @@ class GonkNativeWindow : public GonkConsumerBase {
   // access at the same time.
   // controlledByApp tells whether this consumer is controlled by the
   // application.
-  explicit GonkNativeWindow(const sp<IGonkGraphicBufferConsumer>& consumer,
-                            int bufferCount = DEFAULT_MAX_BUFFERS);
   GonkNativeWindow(const sp<IGonkGraphicBufferConsumer>& consumer,
                    uint32_t consumerUsage,
                    int bufferCount = DEFAULT_MAX_BUFFERS,
@@ -124,7 +122,7 @@ class GonkNativeWindow : public GonkConsumerBase {
   virtual void onFrameAvailable(const ::android::BufferItem& item);
 
  private:
-  GonkNativeWindowNewFrameCallback* mNewFrameCallback;
+  GonkNativeWindowNewFrameCallback* mNewFrameCallback = nullptr;
 };
 
 }  // namespace android

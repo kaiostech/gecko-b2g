@@ -59,7 +59,8 @@ class GonkMediaCodec::CodecNativeWindow final : public GonkNativeWindow {
  public:
   CodecNativeWindow(const sp<IGonkGraphicBufferConsumer>& aConsumer,
                     const sp<AMessage>& aReleaseOutput, int aMaxAcquiredCount)
-      : GonkNativeWindow(aConsumer, aMaxAcquiredCount),
+      : GonkNativeWindow(aConsumer, GRALLOC_USAGE_HW_TEXTURE,
+                         aMaxAcquiredCount),
         mReleaseOutput(aReleaseOutput),
         mMaxAcquiredCount(aMaxAcquiredCount) {}
 

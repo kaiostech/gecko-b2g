@@ -366,7 +366,6 @@ status_t GonkBufferQueueProducer::dequeueBuffer(
 
   if (returnFlags & BUFFER_NEEDS_REALLOCATION) {
     RefPtr<ImageBridgeChild> allocator = ImageBridgeChild::GetSingleton().get();
-    usage |= GraphicBuffer::USAGE_HW_TEXTURE;
     GrallocTextureData* texData =
         GrallocTextureData::Create(IntSize(width, height), format,
                                    gfx::BackendType::NONE, usage, allocator);

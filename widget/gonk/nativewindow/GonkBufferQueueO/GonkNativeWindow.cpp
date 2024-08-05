@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #define LOG_TAG "GonkNativeWindow"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #include <utils/Log.h>
@@ -28,17 +28,6 @@ using namespace mozilla;
 using namespace mozilla::layers;
 
 namespace android {
-
-GonkNativeWindow::GonkNativeWindow(
-    const sp<IGonkGraphicBufferConsumer>& consumer, int bufferCount)
-    : GonkConsumerBase(consumer, false), mNewFrameCallback(nullptr) {
-  if (bufferCount != DEFAULT_MAX_BUFFERS) {
-    status_t err = mConsumer->setMaxAcquiredBufferCount(bufferCount);
-    LOG_ALWAYS_FATAL_IF(err != OK,
-                        "Failed to set max acquired buffer count to %d",
-                        bufferCount);
-  }
-}
 
 GonkNativeWindow::GonkNativeWindow(
     const sp<IGonkGraphicBufferConsumer>& consumer, uint32_t consumerUsage,

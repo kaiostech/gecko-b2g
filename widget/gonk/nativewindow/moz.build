@@ -23,7 +23,6 @@ if CONFIG["ANDROID_VERSION"] >= "29":
         "GonkBufferQueueO/GonkBufferSlot.h",
         "GonkBufferQueueO/GonkConsumerBase.h",
         "GonkBufferQueueO/GonkNativeWindow.h",
-        "GonkBufferQueueO/GonkNativeWindowClient.h",
         "GonkBufferQueueO/IGonkGraphicBufferConsumer.h",
     ]
 else:
@@ -40,7 +39,6 @@ if CONFIG["MOZ_B2G_CAMERA"] or CONFIG["MOZ_OMX_DECODER"] or CONFIG["MOZ_WEBRTC"]
             "GonkBufferQueueO/GonkBufferSlot.cpp",
             "GonkBufferQueueO/GonkConsumerBase.cpp",
             "GonkBufferQueueO/GonkNativeWindow.cpp",
-            "GonkBufferQueueO/GonkNativeWindowClient.cpp",
             "GonkBufferQueueO/IGonkGraphicBufferConsumer.cpp",
         ]
     else:

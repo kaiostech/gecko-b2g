@@ -305,7 +305,7 @@ class IGonkGraphicBufferConsumer : public IInterface {
   // enumerated in gralloc.h, e.g. GRALLOC_USAGE_HW_RENDER; the default is 0.
   //
   // Return of a value other than NO_ERROR means an unknown error has occurred.
-  virtual status_t setConsumerUsageBits(uint32_t usage) = 0;
+  virtual status_t setConsumerUsageBits(uint64_t usage) = 0;
 
   // setTransformHint bakes in rotation to buffers so overlays can be used.
   // The values are enumerated in window.h, e.g.

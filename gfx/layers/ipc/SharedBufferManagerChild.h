@@ -25,12 +25,12 @@ class SynchronousTask;
 struct GrallocParam {
   gfx::IntSize size;
   uint32_t format;
-  uint32_t usage;
+  uint64_t usage;
   mozilla::layers::MaybeMagicGrallocBufferHandle* buffer;
 
   GrallocParam(const gfx::IntSize& aSize,
                const uint32_t& aFormat,
-               const uint32_t& aUsage,
+               const uint64_t& aUsage,
                mozilla::layers::MaybeMagicGrallocBufferHandle* aBuffer)
     : size(aSize)
     , format(aFormat)
@@ -93,7 +93,7 @@ public:
    * Allocate GrallocBuffer remotely.
   */
   bool
-  AllocGrallocBuffer(const gfx::IntSize&, const uint32_t&, const uint32_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
+  AllocGrallocBuffer(const gfx::IntSize&, const uint32_t&, const uint64_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
 
   /**
    * Deallocate a remotely allocated gralloc buffer.
@@ -151,7 +151,7 @@ protected:
   bool
   AllocGrallocBufferNow(const gfx::IntSize& aSize,
                         const uint32_t& aFormat,
-                        const uint32_t& aUsage,
+                        const uint64_t& aUsage,
                         mozilla::layers::MaybeMagicGrallocBufferHandle* aBuffer);
 
   // Dispatched function

@@ -57,7 +57,7 @@ public:
    */
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual ipc::IPCResult RecvAllocateGrallocBuffer(const IntSize&, const uint32_t&, const uint32_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
+  virtual ipc::IPCResult RecvAllocateGrallocBuffer(const IntSize&, const uint32_t&, const uint64_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
   virtual ipc::IPCResult RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle);
 
   /**

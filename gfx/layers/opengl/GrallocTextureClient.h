@@ -70,7 +70,7 @@ class GrallocTextureData : public TextureData {
 
   static GrallocTextureData* Create(gfx::IntSize aSize, AndroidFormat aFormat,
                                     gfx::BackendType aMoz2DBackend,
-                                    uint32_t aUsage,
+                                    uint64_t aUsage,
                                     LayersIPCChannel* aAllocator);
 
   TextureData* CreateSimilar(

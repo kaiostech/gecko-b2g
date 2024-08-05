@@ -30,11 +30,12 @@ using namespace mozilla::layers;
 namespace android {
 
 GonkNativeWindow::GonkNativeWindow(
-    const sp<IGonkGraphicBufferConsumer>& consumer, uint32_t consumerUsage,
+    const sp<IGonkGraphicBufferConsumer>& consumer, uint64_t consumerUsage,
     int bufferCount, bool controlledByApp)
     : GonkConsumerBase(consumer, controlledByApp) {
   status_t err = mConsumer->setConsumerUsageBits(consumerUsage);
-  LOG_ALWAYS_FATAL_IF(err != OK, "Failed to set consumer usage bits to %#x",
+  LOG_ALWAYS_FATAL_IF(err != OK,
+                      "Failed to set consumer usage bits to %#" PRIx64,
                       consumerUsage);
   if (bufferCount != DEFAULT_MAX_BUFFERS) {
     err = mConsumer->setMaxAcquiredBufferCount(bufferCount);

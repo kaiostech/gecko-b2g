@@ -149,7 +149,7 @@ class GonkBufferQueueCore : public virtual RefBase {
 
   // mConsumerUsageBits contains flags that the consumer wants for
   // GraphicBuffers.
-  uint32_t mConsumerUsageBits;
+  uint64_t mConsumerUsageBits;
 
   // mConnectedApi indicates the producer API that is currently connected
   // to this GonkBufferQueue. It defaults to NO_CONNECTED_API, and gets updated

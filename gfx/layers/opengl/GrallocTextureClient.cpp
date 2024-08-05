@@ -260,7 +260,7 @@ bool GrallocTextureData::UpdateFromSurface(gfx::SourceSurface* aSurface) {
 GrallocTextureData* GrallocTextureData::Create(gfx::IntSize aSize,
                                                AndroidFormat aAndroidFormat,
                                                gfx::BackendType aMoz2dBackend,
-                                               uint32_t aUsage,
+                                               uint64_t aUsage,
                                                LayersIPCChannel* aAllocator) {
   if (!aAllocator || !aAllocator->IPCOpen()) {
     return nullptr;
@@ -323,7 +323,7 @@ GrallocTextureData* GrallocTextureData::CreateForDrawing(
     return nullptr;
   }
 
-  uint32_t usage = android::GraphicBuffer::USAGE_SW_READ_OFTEN |
+  uint64_t usage = android::GraphicBuffer::USAGE_SW_READ_OFTEN |
                    android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
                    android::GraphicBuffer::USAGE_HW_TEXTURE;
   auto data = GrallocTextureData::Create(aSize, GetAndroidFormat(aFormat),
@@ -389,7 +389,7 @@ GrallocTextureData* GrallocTextureData::CreateForGLRendering(
   if (aFormat == gfx::SurfaceFormat::YUV) {
     return nullptr;
   }
-  uint32_t usage = android::GraphicBuffer::USAGE_HW_RENDER |
+  uint64_t usage = android::GraphicBuffer::USAGE_HW_RENDER |
                    android::GraphicBuffer::USAGE_HW_TEXTURE;
   return GrallocTextureData::Create(aSize, GetAndroidFormat(aFormat),
                                     gfx::BackendType::NONE, usage, aAllocator);

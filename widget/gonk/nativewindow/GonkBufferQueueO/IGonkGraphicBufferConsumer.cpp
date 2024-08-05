@@ -392,11 +392,11 @@ class BpGonkGraphicBufferConsumer
     return reply.readInt32();
   }
 
-  virtual status_t setConsumerUsageBits(uint32_t usage) {
+  virtual status_t setConsumerUsageBits(uint64_t usage) {
     Parcel data, reply;
     data.writeInterfaceToken(
         IGonkGraphicBufferConsumer::getInterfaceDescriptor());
-    data.writeInt32(usage);
+    data.writeUint64(usage);
     status_t result = remote()->transact(SET_CONSUMER_USAGE_BITS, data, &reply);
     if (result != NO_ERROR) {
       return result;
@@ -603,7 +603,7 @@ status_t BnGonkGraphicBufferConsumer::onTransact(uint32_t code,
     } break;
     case SET_CONSUMER_USAGE_BITS: {
       CHECK_INTERFACE(IGonkGraphicBufferConsumer, data, reply);
-      uint32_t usage = data.readInt32();
+      uint64_t usage = data.readUint64();
       status_t result = setConsumerUsageBits(usage);
       reply->writeInt32(result);
       return NO_ERROR;

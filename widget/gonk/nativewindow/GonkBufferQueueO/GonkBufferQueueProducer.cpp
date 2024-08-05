@@ -335,7 +335,7 @@ status_t GonkBufferQueueProducer::dequeueBuffer(
     if ((buffer == NULL) || (static_cast<uint32_t>(buffer->width) != width) ||
         (static_cast<uint32_t>(buffer->height) != height) ||
         (buffer->format != format) ||
-        ((static_cast<uint32_t>(buffer->usage) & usage) != usage)) {
+        ((buffer->usage & usage) != usage)) {
       mSlots[found].mAcquireCalled = false;
       mSlots[found].mGraphicBuffer = NULL;
       mSlots[found].mRequestBufferCalled = false;

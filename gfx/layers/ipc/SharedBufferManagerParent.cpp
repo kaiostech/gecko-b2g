@@ -226,7 +226,7 @@ void SharedBufferManagerParent::ActorDestroy(ActorDestroyReason aWhy) {
 }
 
 IPCResult SharedBufferManagerParent::RecvAllocateGrallocBuffer(
-    const IntSize& aSize, const uint32_t& aFormat, const uint32_t& aUsage,
+    const IntSize& aSize, const uint32_t& aFormat, const uint64_t& aUsage,
     mozilla::layers::MaybeMagicGrallocBufferHandle* aHandle) {
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
 
@@ -265,7 +265,7 @@ IPCResult SharedBufferManagerParent::RecvAllocateGrallocBuffer(
   }
 
   android::sp<android::GraphicBuffer> outgoingBuffer =
-      new android::GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
+      new android::GraphicBuffer(aSize.width, aSize.height, aFormat, 1, aUsage);
   if (!outgoingBuffer.get() ||
       outgoingBuffer->initCheck() != android::NO_ERROR) {
     printf_stderr(

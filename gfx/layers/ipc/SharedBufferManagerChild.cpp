@@ -231,7 +231,7 @@ void SharedBufferManagerChild::DeallocGrallocBufferSync(
 }
 
 bool SharedBufferManagerChild::AllocGrallocBuffer(
-    const gfx::IntSize& aSize, const uint32_t& aFormat, const uint32_t& aUsage,
+    const gfx::IntSize& aSize, const uint32_t& aFormat, const uint64_t& aUsage,
     mozilla::layers::MaybeMagicGrallocBufferHandle* aBuffer) {
   if (aSize.width <= 0 || aSize.height <= 0) {
     gfxDebug() << "Asking for gralloc of invalid size " << aSize.width << "x"
@@ -259,7 +259,7 @@ bool SharedBufferManagerChild::AllocGrallocBuffer(
 }
 
 bool SharedBufferManagerChild::AllocGrallocBufferNow(
-    const IntSize& aSize, const uint32_t& aFormat, const uint32_t& aUsage,
+    const IntSize& aSize, const uint32_t& aFormat, const uint64_t& aUsage,
     mozilla::layers::MaybeMagicGrallocBufferHandle* aHandle) {
   // These are protected functions, we can just assert and ask the caller to
   // test

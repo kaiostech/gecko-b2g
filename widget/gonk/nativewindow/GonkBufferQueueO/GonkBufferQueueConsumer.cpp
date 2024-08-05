@@ -513,9 +513,9 @@ status_t GonkBufferQueueConsumer::setDefaultBufferFormat(
   return NO_ERROR;
 }
 
-status_t GonkBufferQueueConsumer::setConsumerUsageBits(uint32_t usage) {
+status_t GonkBufferQueueConsumer::setConsumerUsageBits(uint64_t usage) {
   ATRACE_CALL();
-  ALOGV("setConsumerUsageBits: %#x", usage);
+  ALOGV("setConsumerUsageBits: %#" PRIx64, usage);
   Mutex::Autolock lock(mCore->mMutex);
   mCore->mConsumerUsageBits = usage;
   return NO_ERROR;

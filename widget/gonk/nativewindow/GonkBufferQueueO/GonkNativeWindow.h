@@ -60,7 +60,7 @@ class GonkNativeWindow : public GonkConsumerBase {
   // controlledByApp tells whether this consumer is controlled by the
   // application.
   GonkNativeWindow(const sp<IGonkGraphicBufferConsumer>& consumer,
-                   uint32_t consumerUsage,
+                   uint64_t consumerUsage,
                    int bufferCount = DEFAULT_MAX_BUFFERS,
                    bool controlledByApp = false);
 

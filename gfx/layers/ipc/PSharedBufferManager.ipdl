@@ -20,7 +20,7 @@ namespace layers {
 [NeedsOtherPid]
 sync protocol PSharedBufferManager {
 parent:
-  sync AllocateGrallocBuffer(IntSize size, uint32_t format, uint32_t usage)
+  sync AllocateGrallocBuffer(IntSize size, uint32_t format, uint64_t usage)
    returns (MaybeMagicGrallocBufferHandle handle);
 both:
   async DropGrallocBuffer(MaybeMagicGrallocBufferHandle handle);

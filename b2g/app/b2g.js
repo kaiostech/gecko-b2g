@@ -1305,3 +1305,7 @@ pref("b2g.api-daemon.uds-socket", "/tmp/api-daemon-socket");
 #if ANDROID_VERSION == 34
 pref("layout.frame_rate", 60);
 #endif
+
+#ifdef B2G_ESIM
+pref("device.euicc.slot-config", "psim,esim,psim");
+#endif

@@ -198,12 +198,14 @@ frameworks/av/media/audioaidlconversion/include
 frameworks/av/media/module/foundation/include
 frameworks/av/media/libaudioclient/include
 frameworks/av/media/libaudiofoundation/include
+frameworks/av/media/libavextensions
 frameworks/av/media/liberror/include
 frameworks/av/media/libmedia/aidl
 frameworks/av/media/libmedia/include
 frameworks/av/media/libstagefright/include
 frameworks/av/media/libmediahelper/include
 frameworks/av/media/libmediametrics/include
+frameworks/av/media/module/mpeg2ts/include
 frameworks/av/media/mtp
 frameworks/av/media/utils/include
 frameworks/libs/net/common/native/bpf_syscall_wrappers/include
@@ -363,6 +365,7 @@ out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.0/android.hardwar
 out/soong/.intermediates/system/hardware/interfaces/wifi/keystore/1.0/android.system.wifi.keystore@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen
+out/soong/.intermediates/system/libhidl/transport/memory/1.0/android.hidl.memory@1.0_genc++_headers/gen
 out/soong/.intermediates/system/libhidl/transport/safe_union/1.0/android.hidl.safe_union@1.0_genc++_headers/gen
 out/soong/.intermediates/frameworks/hardware/interfaces/sensorservice/1.0/android.frameworks.sensorservice@1.0_genc++_headers/gen
 out/soong/.intermediates/frameworks/hardware/interfaces/sensorservice/aidl/android.frameworks.sensorservice-V1-ndk-source/gen/include

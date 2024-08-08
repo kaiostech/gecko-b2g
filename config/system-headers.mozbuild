@@ -1685,6 +1685,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "android/hardware/wifi/BnWifiStaIfaceEventCallback.h",
             "cutils/ashmem.h",
             "fmq/EventFlag.h",
+            "stagefright/AVExtensions.h",
             "SurfaceFlingerProperties.h",
         ]
 

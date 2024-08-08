@@ -36,6 +36,7 @@
 #include <binder/IPCThreadState.h>
 #if defined(MOZ_WIDGET_GONK)
 #  include <media/openmax/OMX_Audio.h>
+#  include <media/openmax/OMX_Video.h>
 #endif
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/AudioSource.h>
@@ -56,6 +57,10 @@
 
 #include <cutils/properties.h>
 #include <system/audio.h>
+
+#if ANDROID_VERSION >= 34
+#  include <stagefright/AVExtensions.h>
+#endif
 
 #define RES_720P (720 * 1280)
 namespace android {
@@ -102,7 +107,7 @@ status_t GonkRecorder::WrappedMediaSource::start(MetaData* params) {
 status_t GonkRecorder::WrappedMediaSource::stop() {
   {
     // Ensure the writer thread is not blocked first.
-    MutexAutoLock lock(mMutex);
+    mozilla::MutexAutoLock lock(mMutex);
     mWait = false;
     mCondVar.Notify();
   }
@@ -115,7 +120,7 @@ sp<MetaData> GonkRecorder::WrappedMediaSource::getFormat() {
 
 status_t GonkRecorder::WrappedMediaSource::read(MediaBufferBase** buffer,
                                                 const ReadOptions* options) {
-  MutexAutoLock lock(mMutex);
+  mozilla::MutexAutoLock lock(mMutex);
   while (mWait) {
     mCondVar.Wait();
   }
@@ -154,12 +159,12 @@ status_t GonkRecorder::WrappedMediaSource::read(MediaBufferBase** buffer,
 }
 
 void GonkRecorder::WrappedMediaSource::block() {
-  MutexAutoLock lock(mMutex);
+  mozilla::MutexAutoLock lock(mMutex);
   mWait = true;
 }
 
 status_t GonkRecorder::WrappedMediaSource::resume() {
-  MutexAutoLock lock(mMutex);
+  mozilla::MutexAutoLock lock(mMutex);
   if (!mWait) {
     return UNKNOWN_ERROR;
   }
@@ -859,8 +864,8 @@ sp<MediaSource> GonkRecorder::createAudioSource() {
 #  if ANDROID_VERSION >= 34
   audio_attributes_t attr = AUDIO_ATTRIBUTES_INITIALIZER;
   attr.source = mAudioSource;
-  sp<AudioSource> audioSource = new AudioSource(&attr, AttributionSourceState(),
-                                                mSampleRate, mAudioChannels);
+  sp<AudioSource> audioSource = AVFactory::get()->createAudioSource(
+      &attr, AttributionSourceState(), mSampleRate, mAudioChannels);
 #  elif ANDROID_VERSION >= 30
   audio_attributes_t attr = AUDIO_ATTRIBUTES_INITIALIZER;
   attr.source = mAudioSource;

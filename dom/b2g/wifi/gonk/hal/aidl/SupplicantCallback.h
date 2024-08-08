@@ -65,9 +65,7 @@ class SupplicantStaIfaceCallback
   ::android::binder::Status onDisconnected(
       const ::std::vector<uint8_t>& /*bssid*/, bool /*locallyGenerated*/,
       ::android::hardware::wifi::supplicant::StaIfaceReasonCode /*reasonCode*/)
-      override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      override;
   ::android::binder::Status onDppFailure(
       ::android::hardware::wifi::supplicant::DppFailureCode /*code*/,
       const ::android::String16& /*ssid*/,
@@ -215,6 +213,7 @@ class SupplicantStaIfaceCallback
   void NotifyConnected(const std::string& aSsid, const std::string& aBssid);
   void NotifyDisconnected(const std::string& aBssid, bool aLocallyGenerated,
                           uint32_t aReason);
+  void NotifyAuthenticationFailure(uint32_t aReason, int32_t aErrorCode);
 
   ::android::hardware::wifi::supplicant::StaIfaceCallbackState
       mStateBeforeDisconnect;

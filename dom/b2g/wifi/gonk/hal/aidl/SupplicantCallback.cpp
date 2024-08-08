@@ -19,8 +19,11 @@
 #include "WifiCommon.h"
 #include "SupplicantCallback.h"
 
+#define EVENT_SUPPLICANT_AUTH_FAILURE u"SUPPLICANT_AUTH_FAILURE"_ns
 #define EVENT_SUPPLICANT_STATE_CHANGED u"SUPPLICANT_STATE_CHANGED"_ns
 #define EVENT_SUPPLICANT_NETWORK_CONNECTED u"SUPPLICANT_NETWORK_CONNECTED"_ns
+#define EVENT_SUPPLICANT_NETWORK_DISCONNECTED \
+  u"SUPPLICANT_NETWORK_DISCONNECTED"_ns
 
 /**
  * SupplicantStaIfaceCallback implementation
@@ -57,16 +60,48 @@ SupplicantStaIfaceCallback::SupplicantStaIfaceCallback(
   return ::android::binder::Status::fromStatusT(::android::OK);
 }
 
+::android::binder::Status SupplicantStaIfaceCallback::onDisconnected(
+    const ::std::vector<uint8_t>& bssid, bool locallyGenerated,
+    ::android::hardware::wifi::supplicant::StaIfaceReasonCode reasonCode) {
+  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onDisconnected()");
+  if (mSupplicantManager) {
+    NetworkConfiguration curConfig =
+        mSupplicantManager->GetCurrentConfiguration();
+    if (curConfig.IsValidNetwork()) {
+      if (mStateBeforeDisconnect ==
+              ::android::hardware::wifi::supplicant::StaIfaceCallbackState::
+                  FOURWAY_HANDSHAKE &&
+          curConfig.IsPskNetwork() &&
+          (!locallyGenerated ||
+           reasonCode != ::android::hardware::wifi::supplicant::
+                             StaIfaceReasonCode::IE_IN_4WAY_DIFFERS)) {
+        NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
+                                    nsIWifiEvent::ERROR_CODE_NONE);
+      } else if (mStateBeforeDisconnect ==
+                     ::android::hardware::wifi::supplicant::
+                         StaIfaceCallbackState::ASSOCIATED &&
+                 curConfig.IsEapNetwork()) {
+        NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_EAP_FAILURE,
+                                    nsIWifiEvent::ERROR_CODE_NONE);
+      }
+    }
+  }
+
+  std::string bssidStr = ConvertMacToString(bssid);
+  NotifyDisconnected(bssidStr, locallyGenerated, (uint32_t)reasonCode);
+  return ::android::binder::Status::fromStatusT(::android::OK);
+}
+
 #if ANDROID_VERSION >= 34
 ::android::binder::Status SupplicantStaIfaceCallback::onSupplicantStateChanged(
-  const ::android::hardware::wifi::supplicant::SupplicantStateChangeData& stateChangeData)
-{
+    const ::android::hardware::wifi::supplicant::SupplicantStateChangeData&
+        stateChangeData) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onSupplicantStateChanged()");
   std::string bssidStr = ConvertMacToString(stateChangeData.bssid);
   std::string ssidStr(stateChangeData.ssid.begin(), stateChangeData.ssid.end());
 
-  if (stateChangeData.newState != ::android::hardware::wifi::supplicant::StaIfaceCallbackState::
-                      DISCONNECTED) {
+  if (stateChangeData.newState != ::android::hardware::wifi::supplicant::
+                                      StaIfaceCallbackState::DISCONNECTED) {
     mStateBeforeDisconnect = stateChangeData.newState;
   }
   if (stateChangeData.newState ==
@@ -103,6 +138,29 @@ void SupplicantStaIfaceCallback::NotifyStateChanged(uint32_t aState,
       aState, networkId, NS_ConvertUTF8toUTF16(aBssid.c_str()),
       NS_ConvertUTF8toUTF16(aSsid.c_str()));
   event->updateStateChanged(stateChanged);
+
+  INVOKE_CALLBACK(mCallback, event, iface);
+}
+
+void SupplicantStaIfaceCallback::NotifyDisconnected(const std::string& aBssid,
+                                                    bool aLocallyGenerated,
+                                                    uint32_t aReason) {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event =
+      new nsWifiEvent(EVENT_SUPPLICANT_NETWORK_DISCONNECTED);
+  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
+  event->mLocallyGenerated = aLocallyGenerated;
+  event->mReason = aReason;
+
+  INVOKE_CALLBACK(mCallback, event, iface);
+}
+
+void SupplicantStaIfaceCallback::NotifyAuthenticationFailure(
+    uint32_t aReason, int32_t aErrorCode) {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_AUTH_FAILURE);
+  event->mReason = aReason;
+  event->mErrorCode = aErrorCode;
 
   INVOKE_CALLBACK(mCallback, event, iface);
 }

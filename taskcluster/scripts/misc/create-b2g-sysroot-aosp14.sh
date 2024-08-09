@@ -382,6 +382,17 @@ else
     echo "ESIM is not enabled"
 fi
 
+if [ "$ENABLE_RSU" = "true" ]; then
+    rsync --times --no-relative --copy-links \
+        "${src}/out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/vendor.qti.hardware.radio.uim-V1-ndk.so" \
+        "${dest}/b2g-sysroot/libs/"
+    rsync --times --no-relative --copy-links -r \
+        "${src}/out/soong/.intermediates/vendor/qcom/proprietary/commonsys-intf/telephony/interfaces/aidl/uim/vendor.qti.hardware.radio.uim-V1-ndk-source/gen/include/" \
+        "${dest}/b2g-sysroot/include/"
+else
+    echo "RSU is not enabled"
+fi
+
 lib_c="${src}/out/target/product/${GONK_PRODUCT_NAME}/system/apex/com.android.runtime.release/lib${BINSUFFIX}/bionic/libc.so"
 if test -f ${lib_c}; then
     rsync --times --no-relative --copy-links \

@@ -1734,6 +1734,21 @@ if CONFIG["MOZ_SYSTEM_ZLIB"]:
         "zlib.h",
     ]
 
+if CONFIG["ENABLE_RSU"]:
+    system_headers += [
+        "aidl/vendor/qti/hardware/radio/uim/BnUim.h",
+        "aidl/vendor/qti/hardware/radio/uim/BnUimIndication.h",
+        "aidl/vendor/qti/hardware/radio/uim/BnUimResponse.h",
+        "aidl/vendor/qti/hardware/radio/uim/BpUim.h",
+        "aidl/vendor/qti/hardware/radio/uim/BpUimIndication.h",
+        "aidl/vendor/qti/hardware/radio/uim/BpUimResponse.h",
+        "aidl/vendor/qti/hardware/radio/uim/IUim.h",
+        "aidl/vendor/qti/hardware/radio/uim/IUimIndication.h",
+        "aidl/vendor/qti/hardware/radio/uim/IUimResponse.h",
+    ]
+
+
+
 if CONFIG["MOZ_SYSTEM_LIBEVENT"]:
     system_headers += [
         "event2/event_compat.h",

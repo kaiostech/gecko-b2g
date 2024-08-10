@@ -1143,7 +1143,9 @@ pref("device.dual-lte", false);
 pref("dom.passpoint.supported", false);
 
 // Control wifi during emergency session
-pref("dom.emergency.wifi-control", true);
+// TODO: An app-level solution has been introduced and should be set as the default.
+// Once the solution has been approved, gecko side solution will be removed.
+pref("dom.emergency.wifi-control", false);
 
 // Customize whether tethering could be turned on again after wifi is turned off
 pref("wifi.affect.tethering", false);

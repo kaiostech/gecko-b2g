@@ -3461,7 +3461,7 @@ WifiWorker.prototype = {
 
   // nsITelephonyListener
   callStateChanged(aLength, allInfo) {
-    if (!Services.prefs.getBoolPref("dom.emergency.wifi-control", true)) {
+    if (!Services.prefs.getBoolPref("dom.emergency.wifi-control", false)) {
       return;
     }
 

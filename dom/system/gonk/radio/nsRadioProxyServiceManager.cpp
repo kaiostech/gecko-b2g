@@ -8932,7 +8932,7 @@ SimIndication::stkProactiveCommand(RadioIndicationType type,
 SimIndication::stkSessionEnd(RadioIndicationType type)
 {
   mManager.sendIndAck(type, SERVICE_TYPE::SIM);
-  defaultResponse(type, u"stkSessionEnd"_ns);
+  defaultResponse(type, u"stksessionend"_ns);
   return ::ndk::ScopedAStatus::ok();
 }
 ::ndk::ScopedAStatus

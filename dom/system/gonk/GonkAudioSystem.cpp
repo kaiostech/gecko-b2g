@@ -103,6 +103,14 @@ status_t GonkAudioSystem::setDeviceConnectionState(
   ::android::media::audio::common::AudioPort port;
   port.name = deviceName;
   port.ext = deviceExt;
+
+  if (encodedFormat == AUDIO_FORMAT_DEFAULT && device == AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) {
+    // Fixe me: do not use fixed values here
+    // We should use suitable parameters when calling this function.
+    encodedFormat = AUDIO_FORMAT_SBC;
+    ALOGD("changed to AUDIO_FORMAT_SBC");
+  }
+
   return AudioSystem::setDeviceConnectionState(state, port, encodedFormat);
 #else
   return AudioSystem::setDeviceConnectionState(device, state, deviceAddress,

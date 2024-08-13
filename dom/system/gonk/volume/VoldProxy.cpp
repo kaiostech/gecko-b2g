@@ -111,7 +111,11 @@ android::binder::Status VoldListener::onVolumeCreated(
   nsCString diskid(diskId.c_str());
   nsCString partguid(partGuid.c_str());
 
+#if ANDROID_VERSION <= 33
   if (!id.Equals("emulated")) {
+#else
+  if (!id.Equals("emulated;0")) {
+#endif
     DBG("Create volume: %s\n", volId.c_str());
     nsTArray<RefPtr<VolumeInfo>>& via = VolumeManager::GetVolumeInfoArray();
     via.AppendElement(new VolumeInfo(id, type, diskid, partguid));

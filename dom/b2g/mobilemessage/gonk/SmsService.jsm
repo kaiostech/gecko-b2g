@@ -1939,6 +1939,7 @@ function ImsSmsProvider(aSmsService, aServiceId) {
   // For sim io context.
   this.clientId = "IMS_" + aServiceId; //to fit for radiointerface clientId
   this.simIOContext = new lazy.SIM.Context(this);
+  this._hasInitImsSMSListener = false;
 
   this._imsHandler = lazy.gImsRegService.getHandlerByServiceId(aServiceId);
   if (this._imsHandler) {
@@ -1947,12 +1948,28 @@ function ImsSmsProvider(aSmsService, aServiceId) {
         debug("ImsSmsProvider[" + this._serviceId + "]: Try to setSmsListener");
       }
       this._imsHandler.imsMMTelFeature.setSmsListener(this);
+      this._hasInitImsSMSListener = true;
+    }
+  }
+  if (!this._hasInitImsSMSListener) {
+    let imsReg = lazy.gImsRegService.getHandlerByServiceId(this._serviceId);
+    if (imsReg) {
+      try {
+        imsReg.registerListener(this);
+      } catch (e) {
+        if (DEBUG) {
+          debug("Ims listener has been registered for InitImsSMSListener");
+        }
+      }
     }
   }
 }
 
 ImsSmsProvider.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIImsSmsListener]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIImsSmsListener,
+    Ci.nsIImsRegListener,
+  ]),
 
   _imsToken: 0,
   _serviceId: 0,
@@ -1961,6 +1978,7 @@ ImsSmsProvider.prototype = {
   _pendingOp: null,
   simIOContext: null,
   _lastIncomingMsgs: null,
+  _hasInitImsSMSListener: false,
 
   getNextToken() {
     return this._imsToken++;
@@ -2275,6 +2293,34 @@ ImsSmsProvider.prototype = {
     message.token = aToken;
     this._lastIncomingMsgs.push(message);
     this._notifyNewSmsMessage(message);
+  },
+  /**
+   * nsIImsRegListener implementation.
+   */
+  // Unused nsIImsRegListener methods.
+  notifyEnabledStateChanged(aEnabled) {},
+  notifyPreferredProfileChanged(aProfile) {},
+  notifyRttEnabledStateChanged(aEnabled) {},
+  notifyCapabilityChanged(aCapability, aUnregisteredReason) {
+    if (!this._hasInitImsSMSListener && this._imsHandler.imsMMTelFeature) {
+      if (DEBUG) {
+        debug(
+          "ImsSmsProvider[" + this._serviceId + "]: Try to setSmsListener later"
+        );
+      }
+      this._imsHandler.imsMMTelFeature.setSmsListener(this);
+      this._hasInitImsSMSListener = true;
+      let imsReg = lazy.gImsRegService.getHandlerByServiceId(this._serviceId);
+      if (imsReg) {
+        try {
+          imsReg.unregisterListener(this);
+        } catch (e) {
+          if (DEBUG) {
+            debug("Ims listener unregistered for InitImsSMSListener");
+          }
+        }
+      }
+    }
   },
 };
 

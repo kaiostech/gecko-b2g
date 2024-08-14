@@ -26,6 +26,7 @@ class SupplicantStaIfaceCallback
   explicit SupplicantStaIfaceCallback(
       const std::string& aInterfaceName,
       const android::sp<WifiEventCallback>& aCallback,
+      const android::sp<PasspointEventCallback>& aPasspointCallback,
       const android::sp<SupplicantStaManager> aSupplicantManager);
 
   // ISupplicantStaIfaceCallback
@@ -33,18 +34,14 @@ class SupplicantStaIfaceCallback
       const ::std::vector<uint8_t>& /*bssid*/,
       const ::android::hardware::wifi::supplicant::AnqpData& /*data*/,
       const ::android::hardware::wifi::supplicant::Hs20AnqpData& /*hs20Data*/)
-      override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      override;
   ::android::binder::Status onAssociationRejected(
       const ::android::hardware::wifi::supplicant::
           AssociationRejectionData& /*assocRejectData*/) override {
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
   ::android::binder::Status onAuthenticationTimeout(
-      const ::std::vector<uint8_t>& /*bssid*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      const ::std::vector<uint8_t>& /*bssid*/) override;
   ::android::binder::Status onAuxiliarySupplicantEvent(
       ::android::hardware::wifi::supplicant::
           AuxiliarySupplicantEventCode /*eventCode*/,
@@ -59,9 +56,7 @@ class SupplicantStaIfaceCallback
   }
   ::android::binder::Status onBssidChanged(
       ::android::hardware::wifi::supplicant::BssidChangeReason /*reason*/,
-      const ::std::vector<uint8_t>& /*bssid*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      const ::std::vector<uint8_t>& /*bssid*/) override;
   ::android::binder::Status onDisconnected(
       const ::std::vector<uint8_t>& /*bssid*/, bool /*locallyGenerated*/,
       ::android::hardware::wifi::supplicant::StaIfaceReasonCode /*reasonCode*/)
@@ -95,9 +90,7 @@ class SupplicantStaIfaceCallback
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
   ::android::binder::Status onEapFailure(
-      const ::std::vector<uint8_t>& /*bssid*/, int32_t /*errorCode*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      const ::std::vector<uint8_t>& /*bssid*/, int32_t /*errorCode*/) override;
   ::android::binder::Status onExtRadioWorkStart(int32_t /*id*/) override {
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
@@ -107,37 +100,27 @@ class SupplicantStaIfaceCallback
   ::android::binder::Status onHs20DeauthImminentNotice(
       const ::std::vector<uint8_t>& /*bssid*/, int32_t /*reasonCode*/,
       int32_t /*reAuthDelayInSec*/,
-      const ::android::String16& /*url*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      const ::android::String16& /*url*/) override;
   ::android::binder::Status onHs20IconQueryDone(
       const ::std::vector<uint8_t>& /*bssid*/,
       const ::android::String16& /*fileName*/,
-      const ::std::vector<uint8_t>& /*data*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      const ::std::vector<uint8_t>& /*data*/) override;
   ::android::binder::Status onHs20SubscriptionRemediation(
       const ::std::vector<uint8_t>& /*bssid*/,
       ::android::hardware::wifi::supplicant::OsuMethod /*osuMethod*/,
-      const ::android::String16& /*url*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      const ::android::String16& /*url*/) override;
   ::android::binder::Status
   onHs20TermsAndConditionsAcceptanceRequestedNotification(
       const ::std::vector<uint8_t>& /*bssid*/,
       const ::android::String16& /*url*/) override {
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
-  ::android::binder::Status onNetworkAdded(int32_t /*id*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+  ::android::binder::Status onNetworkAdded(int32_t /*id*/) override;
   ::android::binder::Status onNetworkNotFound(
       const ::std::vector<uint8_t>& /*ssid*/) override {
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
-  ::android::binder::Status onNetworkRemoved(int32_t /*id*/) override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+  ::android::binder::Status onNetworkRemoved(int32_t /*id*/) override;
   ::android::binder::Status onPmkCacheAdded(
       int64_t /*expirationTimeInSec*/,
       const ::std::vector<uint8_t>& /*serializedEntry*/) override {
@@ -152,15 +135,9 @@ class SupplicantStaIfaceCallback
       const ::std::vector<uint8_t>& /*bssid*/,
       ::android::hardware::wifi::supplicant::WpsConfigError /*configError*/,
       ::android::hardware::wifi::supplicant::WpsErrorIndication /*errorInd*/)
-      override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
-  ::android::binder::Status onWpsEventPbcOverlap() override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
-  ::android::binder::Status onWpsEventSuccess() override {
-    return ::android::binder::Status::fromStatusT(::android::OK);
-  }
+      override;
+  ::android::binder::Status onWpsEventPbcOverlap() override;
+  ::android::binder::Status onWpsEventSuccess() override;
   ::android::binder::Status onQosPolicyReset() override {
     return ::android::binder::Status::fromStatusT(::android::OK);
   }
@@ -214,12 +191,24 @@ class SupplicantStaIfaceCallback
   void NotifyDisconnected(const std::string& aBssid, bool aLocallyGenerated,
                           uint32_t aReason);
   void NotifyAuthenticationFailure(uint32_t aReason, int32_t aErrorCode);
+  void NotifyAnqpQueryDone(
+      const std::string& aBssid,
+      const ::android::hardware::wifi::supplicant::AnqpData& aData,
+      const ::android::hardware::wifi::supplicant::Hs20AnqpData& aHs20Data);
+  void NotifyTargetBssid(const std::string& aBssid);
+  void NotifyAssociatedBssid(const std::string& aBssid);
+  void NotifyWpsSuccess();
+  void NotifyWpsFailure(const std::string& aBssid, uint16_t aConfigError,
+                        uint16_t aErrorIndication);
+  void NotifyWpsTimeout();
+  void NotifyWpsOverlap();
 
   ::android::hardware::wifi::supplicant::StaIfaceCallbackState
       mStateBeforeDisconnect;
   std::string mInterfaceName;
   android::sp<WifiEventCallback> mCallback;
   android::sp<SupplicantStaManager> mSupplicantManager;
+  android::sp<PasspointEventCallback> mPasspointCallback;
 };
 
 #endif  // SupplicantCallback_H

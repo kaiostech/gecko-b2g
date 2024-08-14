@@ -388,7 +388,8 @@ Result_t SupplicantStaManager::SetupStaInterface(
 
   // Instantiate supplicant callback
   android::sp<SupplicantStaIfaceCallback> supplicantCallback =
-      new SupplicantStaIfaceCallback(mInterfaceName, mCallback, this);
+      new SupplicantStaIfaceCallback(mInterfaceName, mCallback,
+                                     mPasspointCallback, this);
 
   mSupplicantStaIface->registerCallback(supplicantCallback);
   mSupplicantStaIfaceCallback = supplicantCallback;

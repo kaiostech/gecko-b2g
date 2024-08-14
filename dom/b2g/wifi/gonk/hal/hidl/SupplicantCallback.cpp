@@ -358,8 +358,8 @@ void SupplicantStaIfaceCallback::NotifyAssociatedBssid(
 
 void SupplicantStaIfaceCallback::NotifyAnqpQueryDone(
     const std::string& aBssid,
-    const ISupplicantStaIfaceCallback::AnqpData& data,
-    const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) {
+    const ISupplicantStaIfaceCallback::AnqpData& aData,
+    const ISupplicantStaIfaceCallback::Hs20AnqpData& aHs20Data) {
   if (mPasspointCallback) {
     nsCString iface(mInterfaceName);
     nsString bssid(NS_ConvertUTF8toUTF16(aBssid.c_str()));
@@ -373,25 +373,25 @@ void SupplicantStaIfaceCallback::NotifyAnqpQueryDone(
 
     AnqpResponseMap anqpData;
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPVenueName,
-                         data.venueName);
+                         aData.venueName);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPRoamingConsortium,
-                         data.roamingConsortium);
+                         aData.roamingConsortium);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPIPAddrAvailability,
-                         data.ipAddrTypeAvailability);
+                         aData.ipAddrTypeAvailability);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPNAIRealm,
-                         data.naiRealm);
+                         aData.naiRealm);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQP3GPPNetwork,
-                         data.anqp3gppCellularNetwork);
+                         aData.anqp3gppCellularNetwork);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPDomainName,
-                         data.domainName);
+                         aData.domainName);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSFriendlyName,
-                         hs20Data.operatorFriendlyName);
+                         aHs20Data.operatorFriendlyName);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSWANMetrics,
-                         hs20Data.wanMetrics);
+                         aHs20Data.wanMetrics);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSConnCapability,
-                         hs20Data.connectionCapability);
+                         aHs20Data.connectionCapability);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSOSUProviders,
-                         hs20Data.osuProvidersList);
+                         aHs20Data.osuProvidersList);
 
 #undef ASSIGN_ANQP_IF_EXIST
 

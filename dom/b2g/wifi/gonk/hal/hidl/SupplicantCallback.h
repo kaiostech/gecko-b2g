@@ -221,8 +221,8 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
   void NotifyAssociatedBssid(const std::string& aBssid);
   void NotifyAnqpQueryDone(
       const std::string& aBssid,
-      const ISupplicantStaIfaceCallback::AnqpData& data,
-      const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data);
+      const ISupplicantStaIfaceCallback::AnqpData& aData,
+      const ISupplicantStaIfaceCallback::Hs20AnqpData& aHs20Data);
   void NotifyWpsSuccess();
   void NotifyWpsFailure(const std::string& aBssid, uint16_t aConfigError,
                         uint16_t aErrorIndication);

@@ -31,6 +31,11 @@
 
 #define DEFAULT_XDPI 75.0
 
+#ifdef LOG_TAG
+#  undef LOG_TAG
+#  define LOG_TAG "NativeFramebufferDevice"
+#endif
+
 // ----------------------------------------------------------------------------
 namespace mozilla {
 // ----------------------------------------------------------------------------
@@ -72,7 +77,17 @@ NativeFramebufferDevice::NativeFramebufferDevice(int aExtFbFd)
 
 NativeFramebufferDevice::~NativeFramebufferDevice() { Close(); }
 
+#if ANDROID_VERSION >= 34
+NativeDrmDevice* NativeFramebufferDevice::mDrmDev = nullptr;
+#endif
+
 NativeFramebufferDevice* NativeFramebufferDevice::Create() {
+#if ANDROID_VERSION >= 34
+  mDrmDev = NativeDrmDevice::Create();
+
+  int fb = 0;
+  return new NativeFramebufferDevice(fb);
+#endif
   char propValue[PROPERTY_VALUE_MAX];
 
   // Check for dev node path of external screen's framebuffer;
@@ -102,6 +117,17 @@ NativeFramebufferDevice* NativeFramebufferDevice::Create() {
 }
 
 bool NativeFramebufferDevice::Open() {
+#if ANDROID_VERSION >= 34
+  mDrmDev->Open();
+  mWidth = mDrmDev->mWidth;
+  mHeight = mDrmDev->mHeight;
+  mXdpi = mDrmDev->mXdpi;
+  mSurfaceformat = mDrmDev->mSurfaceformat;
+  ALOGD("mWidth = %d, mHeight = %d, mXdpi = %f, mSurfaceformat = %d", mWidth,
+        mHeight, mXdpi, mSurfaceformat);
+  return true;
+#endif
+
   if (ioctl(mFd, FBIOGET_FSCREENINFO, &mFInfo) == -1) {
     ALOGE("FBIOGET_FSCREENINFO failed");
     Close();
@@ -212,6 +238,12 @@ bool NativeFramebufferDevice::Open() {
   return true;
 }
 
+#if ANDROID_VERSION >= 34
+bool NativeFramebufferDevice::Post(const sp<GraphicBuffer>& buffer) {
+  return mDrmDev->Post(buffer);
+}
+#endif
+
 bool NativeFramebufferDevice::Post(buffer_handle_t buf) {
   android::Mutex::Autolock lock(mMutex);
 
@@ -245,6 +277,9 @@ bool NativeFramebufferDevice::Post(buffer_handle_t buf) {
 }
 
 bool NativeFramebufferDevice::Close() {
+#if ANDROID_VERSION >= 34
+  return mDrmDev->Close();
+#endif
   android::Mutex::Autolock lock(mMutex);
 
   if (mMappedAddr) {
@@ -262,6 +297,10 @@ bool NativeFramebufferDevice::Close() {
 }
 
 void NativeFramebufferDevice::DrawSolidColorFrame() {
+#if ANDROID_VERSION >= 34
+  mDrmDev->DrawSolidColorFrame();
+  return;
+#endif
   if (!mMappedAddr || mFd < 0) {
     return;
   }
@@ -276,6 +315,9 @@ void NativeFramebufferDevice::DrawSolidColorFrame() {
 }
 
 bool NativeFramebufferDevice::EnableScreen(int enabled) {
+#if ANDROID_VERSION >= 34
+  return mDrmDev->EnableScreen(enabled);
+#endif
   int mode = FB_BLANK_UNBLANK;
   bool ret = true;
 

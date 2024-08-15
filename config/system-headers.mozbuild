@@ -1684,9 +1684,12 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             "android/hardware/wifi/BnWifiChipEventCallback.h",
             "android/hardware/wifi/BnWifiStaIfaceEventCallback.h",
             "cutils/ashmem.h",
+            "drm/drm_fourcc.h",
             "fmq/EventFlag.h",
             "stagefright/AVExtensions.h",
             "SurfaceFlingerProperties.h",
+            "xf86drm.h",
+            "xf86drmMode.h",
         ]
 
     if CONFIG["B2G_OEMHOOK"]:

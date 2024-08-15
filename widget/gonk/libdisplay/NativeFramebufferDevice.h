@@ -21,10 +21,15 @@
 #include <linux/fb.h>
 #include <system/window.h>
 #include <utils/Mutex.h>
+#if ANDROID_VERSION >= 34
+#  include "NativeDrmDevice.h"
+#endif
 
 // ----------------------------------------------------------------------------
 namespace mozilla {
 // ----------------------------------------------------------------------------
+
+using android::sp;
 
 class NativeFramebufferDevice {
  public:
@@ -33,6 +38,10 @@ class NativeFramebufferDevice {
   static NativeFramebufferDevice* Create();
 
   bool Open();
+
+#if ANDROID_VERSION >= 34
+  bool Post(const sp<GraphicBuffer>& buffer);
+#endif
 
   bool Post(buffer_handle_t buf);
 
@@ -62,6 +71,9 @@ class NativeFramebufferDevice {
 
   // Locks against both mFd and mIsEnable.
   mutable android::Mutex mMutex;
+#if ANDROID_VERSION >= 34
+  static NativeDrmDevice* mDrmDev;
+#endif
 };
 
 // ----------------------------------------------------------------------------

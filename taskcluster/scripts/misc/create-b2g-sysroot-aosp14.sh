@@ -142,6 +142,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libbinder_ndk.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libcamera_client.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libc++.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libcutils.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libdrm.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libfmq.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libgui.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libhardware_legacy.so
@@ -190,6 +191,7 @@ copy_to_sysroot "${libraries_list}" "libs"
 # Store the system includes in the sysroot
 sed 's/$/\//' > "${includes_list}" << EOF
 external/fmtlib/include
+external/libdrm/include
 frameworks/av/camera/include
 frameworks/av/drm/libmediadrm/interface
 frameworks/av/drm/libmediadrm/include
@@ -413,6 +415,12 @@ fi
 
 rsync ${src}/system/netd/include/mainline/XtBpfProgLocations.h  ${dest}/b2g-sysroot/include/
 rsync ${src}/out/soong/.intermediates/system/vold/libvold_binder/android_${ARCH_FOLDER}_static/libvold_binder.a ${dest}/b2g-sysroot/libs/
+
+#copy libdrm header
+rsync ${src}/external/libdrm/include/drm/drm.h ${dest}/b2g-sysroot/include/
+rsync ${src}/external/libdrm/include/drm/drm_mode.h ${dest}/b2g-sysroot/include/
+rsync ${src}/external/libdrm/xf86drm.h ${dest}/b2g-sysroot/include/
+rsync ${src}/external/libdrm/xf86drmMode.h ${dest}/b2g-sysroot/include/
 
 #update for Surface.h in qssi14
 sed -i 's/..\/..\/QtiExtension\/QtiSurfaceExtension.h/QtiExtension\/QtiSurfaceExtension.h/g' ${dest}/b2g-sysroot/include/gui/Surface.h

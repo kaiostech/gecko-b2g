@@ -288,6 +288,7 @@ def Libxul(name, output_category=None):
                 "android.media.audio.common.types-V2-cpp",
                 "libSurfaceFlingerProp",
             )
+            OS_LIBS += ["drm"]
 
         if CONFIG["B2G_OEMHOOK"]:
             AOSPSharedObjects(

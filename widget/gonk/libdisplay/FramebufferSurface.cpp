@@ -182,7 +182,11 @@ void FramebufferSurface::presentLocked(const int bufferSlot,
         sp<Fence> fenceObj = new Fence(acquireFence->dup());
         fenceObj->waitForever("FramebufferSurface::Post");
       }
+#if ANDROID_VERSION >= 34
+      mDisplayUtils.utils.extFBDevice->Post(buffer);
+#else
       mDisplayUtils.utils.extFBDevice->Post(buffer->handle);
+#endif
     } else {
 #if ANDROID_VERSION >= 33
       nsecs_t expectedPresentTime = systemTime();  // FIXME

@@ -728,6 +728,7 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   // See GetChipsetVersion() in
   // vendor/qcom/proprietary/camx/src/mapperutils/extformatutil/camxformatutilexternal.cpp
   policy->AddPath(rdonly, "/sys/devices/soc0/soc_id");
+  policy->AddPath(rdonly, "/dev/__properties__/u:object_r:timezone_prop:s0");  // For persist.sys.timezone
 #endif
 #endif
 #endif // MOZ_WIDGET_GONK
